@@ -18,17 +18,17 @@ export default function Sidebar() {
 
       {/* Menu Navigasi */}
       <nav className="px-4 py-4 space-y-1">
-        <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:bg-stone-200/50 rounded-xl text-[13px] font-medium transition">
+        <Link href="/karyawan/" className="flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:bg-stone-200/50 rounded-xl text-[13px] font-medium transition">
           <LayoutGrid size={18} /> Beranda
         </Link>
-        <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:bg-stone-200/50 rounded-xl text-[13px] font-medium transition">
+        <Link href="/karyawan/reimbursement" className="flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:bg-stone-200/50 rounded-xl text-[13px] font-medium transition">
           <Plus size={18} /> Ajukan Reimbursement
         </Link>
         {/* Menu Aktif */}
-        <Link href="#" className="flex items-center gap-3 px-3 py-2.5 bg-white text-stone-900 rounded-xl text-[13px] font-bold shadow-sm transition">
+        <Link href="/karyawan/riwayat-pengajuan" className="flex items-center gap-3 px-3 py-2.5 bg-white text-stone-900 rounded-xl text-[13px] font-bold shadow-sm transition">
           <History size={18} /> Riwayat Pengajuan
         </Link>
-        <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:bg-stone-200/50 rounded-xl text-[13px] font-medium transition">
+        <Link href="/karyawan/service-score" className="flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:bg-stone-200/50 rounded-xl text-[13px] font-medium transition">
           <Star size={18} /> Service Score
         </Link>
       </nav>
