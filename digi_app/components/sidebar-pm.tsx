@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Link from 'next/link';
 import { 
   LayoutDashboard, 
   FileCheck, 
@@ -39,21 +40,21 @@ export default function SidebarPM({
         </div>
 
         <nav className="p-4 space-y-1 flex-1">
-          <a href="/pm/beranda" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-black hover:bg-[#E9E5DD] transition">
+          <Link href="/pm/beranda" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-black hover:bg-[#E9E5DD] transition">
             <LayoutDashboard size={18} /> Beranda PM
-          </a>
-          <a href="/pm/approval" className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-black hover:bg-[#E9E5DD] transition">
+          </Link>
+          <Link href="/pm/approval" className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-black hover:bg-[#E9E5DD] transition">
             <div className="flex items-center gap-3">
               <FileCheck size={18} /> Antrian Approval
             </div>
             <span className="bg-green-900 text-white font-bold text-xs px-2 py-0.5 rounded-full">2</span>
-          </a>
-          <a href="/pm/budget" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm bg-white text-black hover:bg-[#E9E5DD] font-medium">
-            <Wallet size={18} /> Budget Proyek
-          </a>
-          <a href="/pm/service-score" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-black hover:bg-[#E9E5DD] transition">
+          </Link>
+          <Link href="/pm/budget" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm bg-white text-black hover:bg-[#E9E5DD] font-medium">
+            <Wallet size={18} className="text-emerald-600" /> Budget Proyek
+          </Link>
+          <Link href="/pm/service-score" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-black hover:bg-[#E9E5DD] transition">
             <BarChart3 size={18} /> Service Score
-          </a>
+          </Link>
         </nav>
       </aside>
     </>

@@ -2,9 +2,16 @@
 
 import React from "react";
 import Link from "next/link";
-// Mengimpor hook untuk mendeteksi rute URL aktif secara otomatis di browser
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Wallet, BookOpen, BarChart3, Settings } from "lucide-react";
+        
+const navItems = [
+  { href: "/keuangan", icon: LayoutDashboard, label: "Beranda Keuangan", badge: null },
+  { href: "/keuangan/pencairan", icon: Wallet, label: "Pencairan", badge: 2 },
+  { href: "/keuangan/jurnal", icon: BookOpen, label: "Jurnal Akuntansi", badge: null },
+  { href: "/keuangan/coa", icon: Settings, label: "Chart of Accounts", badge: null },
+  { href: "/keuangan/laporan", icon: BarChart3, label: "Laporan Keuangan", badge: null },
+];
 
 export default function SidebarKeuangan() {
   const pathname = usePathname();
@@ -58,21 +65,16 @@ export default function SidebarKeuangan() {
           </span>
         </div>
 
-        {/* Garis Pembatas Tipis */}
         <div className="border-b border-stone-200/60 mx-2 mb-6"></div>
 
-        {/* Menu Items Dinamis */}
         <nav className="space-y-1.5">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            // Memeriksa secara instan apakah URL browser saat ini sama dengan href menu
-            const isActive = pathname === item.href;
-
+          {navItems.map(({ href, icon: Icon, label, badge }) => {
+            const isActive = pathname === href;
             return (
               <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center justify-between px-3 rounded-xl text-sm transition-all duration-200 ${
+                key={href}
+                href={href}
+                className={`flex items-center justify-between px-3 rounded-xl text-sm transition ${
                   isActive
                     ? "py-3 font-semibold bg-white text-stone-900 shadow-sm border border-stone-200/30"
                     : "py-2.5 font-medium text-stone-800 hover:bg-stone-200/40"
