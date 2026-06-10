@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { Filter, Download, X, Check } from "lucide-react";
-import Sidebar from "@/components/sidebar-pm";
-import Header from "@/components/header-pm";
+import Sidebar from '@/components/sidebar';
+import Header from '@/components/header';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -354,7 +354,11 @@ export default function AntrianApprovalPage() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#f9f8f4] font-sans text-stone-800">
-      <Sidebar isSidebarOpen={isSidebarOpen} onClose={closeSidebar} />
+      <Sidebar 
+        isSidebarOpen={isSidebarOpen} 
+        onClose={closeSidebar}
+        userRole="Project Manager"
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         <Header onOpenSidebar={openSidebar} />
@@ -362,8 +366,8 @@ export default function AntrianApprovalPage() {
         <main className="flex-1 p-8 overflow-y-auto">
           {/* Judul */}
           <div className="mb-6">
-            <h1 className="text-[24px] font-bold text-stone-900">Antrian Approval</h1>
-            <p className="text-[14px] text-stone-500 mt-1.5">
+            <h1 className="text-2xl font-bold text-stone-900">Antrian Approval</h1>
+            <p className="text-sm text-stone-500 mt-1.5">
               Validasi pengajuan reimbursement dari tim. Pastikan pengajuan sesuai dengan RAB dan pos anggaran.
             </p>
           </div>

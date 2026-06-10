@@ -6,8 +6,8 @@ import {
   List, FileBarChart, Bell, Zap, X
 } from "lucide-react";
 
-import Sidebar from "@/components/sidebar-keuangan";
-import Header from "@/components/header-keuangan";
+import Sidebar from '@/components/sidebar';
+import Header from '@/components/header';
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
@@ -152,12 +152,13 @@ export default function PencairanPage() {
   const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN');
 
   return (
-    <div className="flex h-screen w-full bg-[#f4f2ec] font-sans text-stone-800 overflow-hidden">
+    <div className="flex min-h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
       
       {/* Sidebar */}
       <Sidebar 
         isSidebarOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+        onClose={() => setIsSidebarOpen(false)}
+        userRole="Tim Keuangan"
       />
 
       {/* ================= AREA KONTEN (KANAN) ================= */}
@@ -171,7 +172,7 @@ export default function PencairanPage() {
           
           {/* Bagian Judul & Filter (Lebar Penuh) */}
           <div className="shrink-0 mb-6">
-            <h1 className="text-[22px] font-bold text-stone-900">Antrian Pencairan</h1>
+            <h1 className="text-2xl font-bold text-[#14130F]">Antrian Pencairan</h1>
             <p className="text-[13px] text-stone-500 mt-1.5">
               Pengajuan yang telah divalidasi PM dan siap dicairkan. Jurnal Debit-Kredit akan ter-generate otomatis.
             </p>
