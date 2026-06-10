@@ -8,6 +8,7 @@ import {
   Zap,
   SquareMinus,
   ChevronRight,
+  X,
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
@@ -64,6 +65,8 @@ interface DashboardMetrics {
   disbursedTodayCount: number;
   jurnalCountThisMonth: number;
   totalDebitKredit: number;
+  totalDebit: number;
+  totalKredit: number;
 }
 
 interface PencairanItem {
@@ -97,6 +100,8 @@ export default function KeuanganDashboardPage() {
     disbursedTodayCount: 0,
     jurnalCountThisMonth: 0,
     totalDebitKredit: 0,
+    totalDebit: 0,
+    totalKredit: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -118,6 +123,8 @@ export default function KeuanganDashboardPage() {
             disbursedTodayCount: dashboard.metrics.disbursedTodayCount ?? 0,
             jurnalCountThisMonth: dashboard.metrics.jurnalCountThisMonth ?? 0,
             totalDebitKredit: dashboard.metrics.totalDebitKredit ?? 0,
+            totalDebit: dashboard.metrics.totalDebit ?? 0,
+            totalKredit: dashboard.metrics.totalKredit ?? 0,
           });
         }
 
@@ -137,6 +144,9 @@ export default function KeuanganDashboardPage() {
 
     fetchDashboard();
   }, []);
+
+  const isBalanced = Math.abs(metrics.totalDebit - metrics.totalKredit) < 0.01;
+  const selisih = Math.abs(metrics.totalDebit - metrics.totalKredit);
 
   const statCards = [
     {
@@ -162,10 +172,10 @@ export default function KeuanganDashboardPage() {
     },
     {
       label: "Total Debit = Kredit",
-      value: formatRupiah(metrics.totalDebitKredit),
-      sub: "✓ Seimbang",
-      icon: <Check size={18} className="text-emerald-600" />,
-      iconBg: "bg-emerald-50",
+      value: formatRupiah(metrics.totalDebit),
+      sub: isBalanced ? "✓ Seimbang" : `Selisih: Rp ${selisih.toLocaleString('id-ID')}`,
+      icon: isBalanced ? <Check size={18} className="text-emerald-600" /> : <X size={18} className="text-rose-600" />,
+      iconBg: isBalanced ? "bg-emerald-50" : "bg-rose-50",
     },
   ];
 

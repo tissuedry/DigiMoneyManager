@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { 
   Download, Zap, X
@@ -19,7 +19,7 @@ function formatTanggal(iso: string) {
   return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
 }
 
-export default function PencairanPage() {
+function PencairanContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -590,5 +590,17 @@ export default function PencairanPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function PencairanPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#f6f4f0]">
+        <div className="text-stone-400 font-medium text-xs">Memuat halaman...</div>
+      </div>
+    }>
+      <PencairanContent />
+    </Suspense>
   );
 }

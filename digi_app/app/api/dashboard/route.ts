@@ -182,6 +182,8 @@ export async function GET(req: NextRequest) {
         _sum: { nominal: true },
       });
       const totalDebitKredit = Number(totalJurnalResult._sum.nominal || 0);
+      const totalDebit = totalDebitKredit;
+      const totalKredit = totalDebitKredit;
 
       // ── Recent Journals (8 terbaru, formatted for frontend) ──────
       const recentJournalsRaw = await prisma.jurnalAkuntansi.findMany({
@@ -246,6 +248,8 @@ export async function GET(req: NextRequest) {
         disbursedTodayNominal,
         jurnalCountThisMonth,
         totalDebitKredit,
+        totalDebit,
+        totalKredit,
       };
       dashboardData.recentActivities = recentActivities;
       dashboardData.recentJournals = recentJournals;
