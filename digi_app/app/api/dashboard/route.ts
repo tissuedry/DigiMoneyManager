@@ -134,6 +134,108 @@ export async function GET(req: NextRequest) {
         take: 10,
       });
 
+      // ── Disbursed Today ──────────────────────────────────────────
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const todayApprovals = await prisma.approval.findMany({
+        where: {
+          level: 'KEUANGAN',
+          status: 'APPROVED',
+          timestamp: { gte: startOfToday },
+        },
+        include: {
+          reimbursement: {
+            select: { nominal: true },
+          },
+        },
+      });
+
+      const disbursedTodayCount = todayApprovals.length;
+      const disbursedTodayNominal = todayApprovals.reduce(
+        (sum, a) => sum + Number(a.reimbursement.nominal),
+        0
+      );
+
+      // ── Jurnal Count This Month ──────────────────────────────────
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // Get IDs of reimbursements approved this month by Keuangan
+      const monthApprovals = await prisma.approval.findMany({
+        where: {
+          level: 'KEUANGAN',
+          status: 'APPROVED',
+          timestamp: { gte: startOfMonth },
+        },
+        select: { reimbursementId: true },
+      });
+      const monthReimbursementIds = monthApprovals.map((a) => a.reimbursementId);
+
+      const jurnalCountThisMonth = monthReimbursementIds.length > 0
+        ? await prisma.jurnalAkuntansi.count({
+            where: { reimbursementId: { in: monthReimbursementIds } },
+          })
+        : 0;
+
+      // ── Total Debit = Kredit (balance check) ─────────────────────
+      const totalJurnalResult = await prisma.jurnalAkuntansi.aggregate({
+        _sum: { nominal: true },
+      });
+      const totalDebitKredit = Number(totalJurnalResult._sum.nominal || 0);
+      const totalDebit = totalDebitKredit;
+      const totalKredit = totalDebitKredit;
+
+      // ── Recent Journals (8 terbaru, formatted for frontend) ──────
+      const recentJournalsRaw = await prisma.jurnalAkuntansi.findMany({
+        include: {
+          reimbursement: {
+            include: {
+              user: { select: { nama: true } },
+              posAnggaran: { select: { namaPos: true } },
+            },
+          },
+          akunDebit: { select: { nomorAkun: true, namaAkun: true } },
+          akunKredit: { select: { nomorAkun: true, namaAkun: true } },
+        },
+        orderBy: { id: 'desc' },
+        take: 8,
+      });
+
+      const recentJournals = recentJournalsRaw.map((j) => {
+        // Determine tanggal from OCR data or approval timestamp
+        const ocrData = j.reimbursement.ocrData as any;
+        const tanggal = ocrData?.tanggal || null;
+
+        return {
+          jeId: `JE-${String(j.id).padStart(4, '0')}`,
+          tanggal,
+          keterangan: j.keterangan || `Pencairan reimbursement ${j.reimbursement.user.nama} - ${j.reimbursement.posAnggaran.namaPos}`,
+          debitKode: `${j.akunDebit.nomorAkun}`,
+          debitNama: j.akunDebit.namaAkun,
+          kreditKode: `${j.akunKredit.nomorAkun}`,
+          kreditNama: j.akunKredit.namaAkun,
+          nominal: Number(j.nominal),
+        };
+      });
+
+      // ── Pending Disbursements (formatted list) ───────────────────
+      const pendingDisbursementsRaw = await prisma.reimbursement.findMany({
+        where: { status: 'APPROVED_BY_PM' },
+        include: {
+          user: { select: { nama: true, divisi: true } },
+          proyek: { select: { nama: true } },
+        },
+        orderBy: { id: 'desc' },
+      });
+
+      const pendingDisbursements = pendingDisbursementsRaw.map((r) => ({
+        id: r.id,
+        nominal: Number(r.nominal),
+        status: r.status,
+        user: { nama: r.user.nama, divisi: r.user.divisi },
+        proyek: { nama: r.proyek.nama },
+      }));
+
       dashboardData.metrics = {
         activeProjectsCount,
         totalRABAllocated,
@@ -142,8 +244,16 @@ export async function GET(req: NextRequest) {
         remainingBudgets,
         pendingDisbursementCount,
         pendingDisbursementsNominal,
+        disbursedTodayCount,
+        disbursedTodayNominal,
+        jurnalCountThisMonth,
+        totalDebitKredit,
+        totalDebit,
+        totalKredit,
       };
       dashboardData.recentActivities = recentActivities;
+      dashboardData.recentJournals = recentJournals;
+      dashboardData.pendingDisbursements = pendingDisbursements;
 
     } else if (role === 'Direktur / Manajemen') {
       // 4. Executive Dashboard data

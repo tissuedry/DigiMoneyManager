@@ -8,6 +8,7 @@ import {
   Zap,
   SquareMinus,
   ChevronRight,
+  X,
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
@@ -34,6 +35,16 @@ function formatRupiahFull(amount: number): string {
   return `Rp ${Number(amount).toLocaleString("id-ID")}`;
 }
 
+function formatTanggal(iso: string | null): string {
+  if (!iso) return "-";
+  const parts = iso.split("-");
+  if (parts.length < 3) return iso;
+  const [y, m, d] = parts;
+  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+  const mIdx = parseInt(m) - 1;
+  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+}
+
 function getInitials(name: string) {
   if (!name) return "??";
   const parts = name.trim().split(" ").filter(Boolean);
@@ -41,128 +52,101 @@ function getInitials(name: string) {
   return name.substring(0, 2).toUpperCase();
 }
 
-// ─── Dummy Data ───────────────────────────────────────────────────────────────
-const DUMMY_PENCAIRAN = [
-  {
-    id: "RB-2026-004",
-    nominal: 150000,
-    status: "APPROVED_BY_PM",
-    user: { nama: "Alif Ihsan", divisi: "Gramedia Merdeka" },
-    proyek: { nama: "Renovasi Kantor Cabang Bandung" },
-  },
-  {
-    id: "RB-2026-003",
-    nominal: 450000,
-    status: "APPROVED_BY_PM",
-    user: { nama: "Alif Ihsan", divisi: "SPBU Pertamina 34.121" },
-    proyek: { nama: "Pembangunan Gudang Fase 2" },
-  },
-];
+function getCurrentMonthName(): string {
+  const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  return bulan[new Date().getMonth()];
+}
 
-const DUMMY_JURNAL = [
-  {
-    jeId: "JE-2026-0892",
-    tanggal: "13 Mei 2026",
-    keterangan: "Pencairan reimbursement Alif Ihsan - Material Interior",
-    debitKode: "5-5101",
-    debitNama: "Beban Material Proyek",
-    kreditKode: "1-1102",
-    kreditNama: "Bank BCA - Operasional",
-    nominal: 1875000,
-  },
-  {
-    jeId: "JE-2026-0892",
-    tanggal: "13 Mei 2026",
-    keterangan: "Pencairan reimbursement Ghanif Hadiyana Akbar - Akomodasi training onsite",
-    debitKode: "5-5202",
-    debitNama: "Beban Konsumsi & Akomodasi",
-    kreditKode: "1-1102",
-    kreditNama: "Bank BCA - Operasional",
-    nominal: 1240000,
-  },
-  {
-    jeId: "JE-2026-0892",
-    tanggal: "13 Mei 2026",
-    keterangan: "Pencairan reimbursement Alif Ihsan - Gojek site visit",
-    debitKode: "5-5201",
-    debitNama: "Beban Transportasi Proyek",
-    kreditKode: "1-1102",
-    kreditNama: "Bank BCA - Operasional",
-    nominal: 1875000,
-  },
-  {
-    jeId: "JE-2026-0892",
-    tanggal: "13 Mei 2026",
-    keterangan: "Pencairan reimbursement Damar Muharram - Material Interior",
-    debitKode: "5-5101",
-    debitNama: "Beban Material Proyek",
-    kreditKode: "1-1102",
-    kreditNama: "Bank BCA - Operasional",
-    nominal: 1875000,
-  },
-];
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface DashboardMetrics {
+  pendingDisbursementsNominal: number;
+  pendingDisbursementCount: number;
+  disbursedTodayNominal: number;
+  disbursedTodayCount: number;
+  jurnalCountThisMonth: number;
+  totalDebitKredit: number;
+  totalDebit: number;
+  totalKredit: number;
+}
 
-const DUMMY_METRICS = {
-  pendingDisbursementsNominal: 600000,
-  pendingDisbursementCount: 2,
-  totalCashDisbursed: 0,
-  totalRABAllocated: 1300000,
-  jurnalCount: 4,
-};
+interface PencairanItem {
+  id: number;
+  nominal: number;
+  status: string;
+  user: { nama: string; divisi: string | null };
+  proyek: { nama: string };
+}
+
+interface JurnalItem {
+  jeId: string;
+  tanggal: string | null;
+  keterangan: string;
+  debitKode: string;
+  debitNama: string;
+  kreditKode: string;
+  kreditNama: string;
+  nominal: number;
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function KeuanganDashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [pencairanList, setPencairanList] = useState<any[]>(DUMMY_PENCAIRAN);
-  const [jurnalList, setJurnalList] = useState<any[]>(DUMMY_JURNAL);
-  const [isLoading, setIsLoading] = useState(false);
+  const [pencairanList, setPencairanList] = useState<PencairanItem[]>([]);
+  const [jurnalList, setJurnalList] = useState<JurnalItem[]>([]);
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
+    pendingDisbursementsNominal: 0,
+    pendingDisbursementCount: 0,
+    disbursedTodayNominal: 0,
+    disbursedTodayCount: 0,
+    jurnalCountThisMonth: 0,
+    totalDebitKredit: 0,
+    totalDebit: 0,
+    totalKredit: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAll = async () => {
+    const fetchDashboard = async () => {
       setIsLoading(true);
       try {
-        const [dashRes, reimRes, lapRes] = await Promise.all([
-          fetch("/api/dashboard"),
-          fetch("/api/reimbursements"),
-          fetch("/api/laporan?type=buku-besar"),
-        ]);
+        const res = await fetch("/api/dashboard");
+        if (!res.ok) throw new Error("API not ready");
 
-        if (!dashRes.ok || !reimRes.ok) throw new Error("API not ready");
+        const data = await res.json();
+        const dashboard = data.dashboard;
 
-        const dashData = await dashRes.json();
-        const reimData = await reimRes.json();
-        const lapData = await lapRes.json();
-
-        if (dashData.dashboard) setDashboardData(dashData.dashboard);
-
-        if (reimData.reimbursements) {
-          const pending = reimData.reimbursements.filter(
-            (r: any) => r.status === "APPROVED_BY_PM"
-          );
-          if (pending.length > 0) setPencairanList(pending);
+        if (dashboard?.metrics) {
+          setMetrics({
+            pendingDisbursementsNominal: dashboard.metrics.pendingDisbursementsNominal ?? 0,
+            pendingDisbursementCount: dashboard.metrics.pendingDisbursementCount ?? 0,
+            disbursedTodayNominal: dashboard.metrics.disbursedTodayNominal ?? 0,
+            disbursedTodayCount: dashboard.metrics.disbursedTodayCount ?? 0,
+            jurnalCountThisMonth: dashboard.metrics.jurnalCountThisMonth ?? 0,
+            totalDebitKredit: dashboard.metrics.totalDebitKredit ?? 0,
+            totalDebit: dashboard.metrics.totalDebit ?? 0,
+            totalKredit: dashboard.metrics.totalKredit ?? 0,
+          });
         }
 
-        if (lapData.report) {
-          const entries: any[] = [];
-          lapData.report.forEach((acc: any) => {
-            acc.transaksi?.forEach((t: any) => {
-              entries.push({ ...t, akunNama: acc.nama, akunKode: acc.kode });
-            });
-          });
-          if (entries.length > 0) setJurnalList(entries.slice(0, 8));
+        if (dashboard?.pendingDisbursements) {
+          setPencairanList(dashboard.pendingDisbursements);
+        }
+
+        if (dashboard?.recentJournals) {
+          setJurnalList(dashboard.recentJournals);
         }
       } catch {
-        // Biarkan dummy data tetap tampil jika API belum siap
+        // API belum siap — biarkan state default (0/kosong)
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchAll();
+    fetchDashboard();
   }, []);
 
-  const metrics = DUMMY_METRICS;
+  const isBalanced = Math.abs(metrics.totalDebit - metrics.totalKredit) < 0.01;
+  const selisih = Math.abs(metrics.totalDebit - metrics.totalKredit);
 
   const statCards = [
     {
@@ -174,24 +158,24 @@ export default function KeuanganDashboardPage() {
     },
     {
       label: "Dicairkan Hari ini",
-      value: formatRupiah(metrics.totalCashDisbursed),
-      sub: `${metrics.pendingDisbursementCount} pengajuan`,
+      value: formatRupiah(metrics.disbursedTodayNominal),
+      sub: `${metrics.disbursedTodayCount} pengajuan`,
       icon: <Check size={18} className="text-emerald-600" />,
       iconBg: "bg-emerald-50",
     },
     {
-      label: "Jurnal Generated (Mei)",
-      value: String(metrics.jurnalCount),
+      label: `Jurnal Generated (${getCurrentMonthName()})`,
+      value: String(metrics.jurnalCountThisMonth),
       sub: "otomatis dari sistem",
       icon: <Notebook size={18} className="text-blue-500" />,
       iconBg: "bg-blue-50",
     },
     {
       label: "Total Debit = Kredit",
-      value: formatRupiah(metrics.totalRABAllocated),
-      sub: "✓ Seimbang",
-      icon: <Check size={18} className="text-emerald-600" />,
-      iconBg: "bg-emerald-50",
+      value: formatRupiah(metrics.totalDebit),
+      sub: isBalanced ? "✓ Seimbang" : `Selisih: Rp ${selisih.toLocaleString('id-ID')}`,
+      icon: isBalanced ? <Check size={18} className="text-emerald-600" /> : <X size={18} className="text-rose-600" />,
+      iconBg: isBalanced ? "bg-emerald-50" : "bg-rose-50",
     },
   ];
 
@@ -280,7 +264,7 @@ export default function KeuanganDashboardPage() {
                   Antrian Pencairan
                 </h2>
                 <Link
-                  href="/keuangan/pencairan"
+                  href="/keuangan/pencairan?select=all"
                   className="flex items-center gap-1 text-[12px] font-semibold text-stone-500 hover:text-stone-800 transition"
                 >
                   Proses semua
@@ -289,47 +273,57 @@ export default function KeuanganDashboardPage() {
               </div>
 
               <div className="divide-y divide-stone-100">
-                {pencairanList.map((item: any) => {
-                  const initials = getInitials(item.user?.nama || "");
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-4 px-6 py-4 hover:bg-stone-50 transition"
-                    >
-                      {/* Avatar */}
-                      <div className="w-9 h-9 rounded-full bg-[#e2f1eb] text-[#117a5b] font-bold text-[12px] flex items-center justify-center shrink-0">
-                        {initials}
-                      </div>
+                {isLoading ? (
+                  <div className="px-6 py-8 text-center text-xs text-stone-400 font-medium">
+                    Memuat data antrian...
+                  </div>
+                ) : pencairanList.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-xs text-stone-400 font-medium">
+                    Tidak ada pengajuan yang menunggu pencairan.
+                  </div>
+                ) : (
+                  pencairanList.map((item) => {
+                    const initials = getInitials(item.user?.nama || "");
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-4 px-6 py-4 hover:bg-stone-50 transition"
+                      >
+                        {/* Avatar */}
+                        <div className="w-9 h-9 rounded-full bg-[#e2f1eb] text-[#117a5b] font-bold text-[12px] flex items-center justify-center shrink-0">
+                          {initials}
+                        </div>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold text-stone-900 truncate">
-                          {item.user?.nama}
-                          <span className="text-stone-400 font-normal ml-1 text-[11px]">
-                            · {item.user?.divisi || item.proyek?.nama}
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-bold text-stone-900 truncate">
+                            {item.user?.nama}
+                            <span className="text-stone-400 font-normal ml-1 text-[11px]">
+                              · {item.user?.divisi || item.proyek?.nama}
+                            </span>
+                          </p>
+                          <p className="text-[11px] text-stone-400 mt-0.5 truncate">
+                            RB-{String(item.id).padStart(4, '0')} · {item.proyek?.nama}
+                          </p>
+                        </div>
+
+                        {/* Nominal + Tombol Cairkan */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-[13px] font-bold text-stone-800">
+                            {formatRupiahFull(item.nominal)}
                           </span>
-                        </p>
-                        <p className="text-[11px] text-stone-400 mt-0.5 truncate">
-                          {item.id} · {item.proyek?.nama}
-                        </p>
+                          <Link
+                            href={`/keuangan/pencairan?id=${item.id}`}
+                            className="flex items-center gap-1.5 bg-[#008f5d] hover:bg-[#00754c] transition text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm"
+                          >
+                            <Zap size={12} fill="currentColor" />
+                            Cairkan
+                          </Link>
+                        </div>
                       </div>
-
-                      {/* Nominal + Tombol Cairkan */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-[13px] font-bold text-stone-800">
-                          {formatRupiahFull(item.nominal)}
-                        </span>
-                        <Link
-                          href="/keuangan/pencairan"
-                          className="flex items-center gap-1.5 bg-[#008f5d] hover:bg-[#00754c] transition text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm"
-                        >
-                          <Zap size={12} fill="currentColor" />
-                          Cairkan
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -340,7 +334,7 @@ export default function KeuanganDashboardPage() {
                   Jurnal Terbaru
                 </h2>
                 <Link
-                  href="/keuangan/jurnal"
+                  href="/keuangan/jurnal?tab=Buku Besar"
                   className="flex items-center gap-1 text-[12px] font-semibold text-stone-500 hover:text-stone-800 transition"
                 >
                   Buku Besar
@@ -348,43 +342,41 @@ export default function KeuanganDashboardPage() {
                 </Link>
               </div>
 
-              <div className="divide-y divide-stone-100 overflow-y-auto max-h-[480px]">
-                {jurnalList.map((entry: any, idx: number) => {
-                  // Support both dummy format (flat) and API format (nested)
-                  const jeId = entry.jeId ?? `JE-2026-${String(idx + 892).padStart(4, "0")}`;
-                  const tanggal = entry.tanggal ?? "13 Mei 2026";
-                  const keterangan = entry.keterangan ?? `Pencairan · ${entry.akunNama ?? ""}`;
-                  const debitNama = entry.debitNama ?? entry.akunNama ?? "Beban Material Proyek";
-                  const debitKode = entry.debitKode ?? entry.akunKode ?? "5-5101";
-                  const kreditNama = entry.kreditNama ?? "Bank BCA - Operasional";
-                  const kreditKode = entry.kreditKode ?? "1-1102";
-                  const nominal = entry.nominal
-                    ? Number(entry.nominal)
-                    : Math.abs(parseFloat(entry.debit || entry.kredit || "1875000"));
-
-                  return (
+              <div className="divide-y divide-stone-100 overflow-y-auto max-h-120">
+                {isLoading ? (
+                  <div className="px-6 py-8 text-center text-xs text-stone-400 font-medium">
+                    Memuat data jurnal...
+                  </div>
+                ) : jurnalList.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-xs text-stone-400 font-medium">
+                    Belum ada jurnal akuntansi yang ter-generate.
+                  </div>
+                ) : (
+                  jurnalList.map((entry, idx) => (
                     <div key={idx} className="px-6 py-4 hover:bg-stone-50 transition">
                       {/* JE header row */}
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-[11px] font-mono text-stone-400">
-                          {jeId}
+                          {entry.jeId}
                         </span>
-                        <span className="text-[11px] text-stone-400">{tanggal}</span>
+                        <span className="text-[11px] text-stone-400">
+                          {formatTanggal(entry.tanggal)}
+                        </span>
                       </div>
 
                       {/* Keterangan */}
                       <p className="text-[12px] font-semibold text-stone-800 mb-2 truncate">
-                        {keterangan}
+                        {entry.keterangan}
                       </p>
 
                       {/* Debit line */}
                       <div className="flex justify-between items-center text-[11px]">
                         <span className="text-stone-600">
                           <span className="text-emerald-700 font-bold">Dr</span>{" "}
-                          {debitKode} {debitNama}
+                          {entry.debitKode} {entry.debitNama}
                         </span>
                         <span className="text-stone-700 font-semibold">
-                          Rp {nominal.toLocaleString("id-ID")}
+                          Rp {entry.nominal.toLocaleString("id-ID")}
                         </span>
                       </div>
 
@@ -392,15 +384,15 @@ export default function KeuanganDashboardPage() {
                       <div className="flex justify-between items-center text-[11px] mt-1">
                         <span className="text-[#0277bd]">
                           <span className="font-medium">Cr</span>{" "}
-                          {kreditKode} {kreditNama}
+                          {entry.kreditKode} {entry.kreditNama}
                         </span>
                         <span className="text-stone-700 font-semibold">
-                          Rp {nominal.toLocaleString("id-ID")}
+                          Rp {entry.nominal.toLocaleString("id-ID")}
                         </span>
                       </div>
                     </div>
-                  );
-                })}
+                  ))
+                )}
               </div>
             </div>
 

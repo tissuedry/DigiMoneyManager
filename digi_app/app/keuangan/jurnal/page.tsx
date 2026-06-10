@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
-  Calendar, Filter, Download, ArrowUp, ArrowDown, Check, BookOpen, ChevronDown,
+  Calendar, Filter, Download, ArrowUp, ArrowDown, Check, BookOpen, ChevronDown, X,
 } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
@@ -56,9 +57,20 @@ function periodeLabel(start: string, end: string) {
   return "Pilih Periode";
 }
 
-export default function JurnalAkuntansiPage() {
+function JurnalAkuntansiContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const tabParam = searchParams.get("tab");
+  const initialTab = tabs.includes(tabParam ?? "") ? tabParam! : "Jurnal Umum";
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("Jurnal Umum");
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`, { scroll: false });
+  };
   const [showPeriode, setShowPeriode] = useState(false);
   const [draftStart, setDraftStart] = useState("2026-05-01");
   const [draftEnd, setDraftEnd] = useState("2026-06-30");
@@ -226,10 +238,36 @@ export default function JurnalAkuntansiPage() {
     });
   }, [filteredReport]);
 
+  const parseFormattedNumber = (val: string | null): number => {
+    if (!val) return 0;
+    return parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+  };
+
   // Compute Metrics
   const totalDebit = useMemo(() => {
-    return filteredReport.reduce((sum, item) => sum + Number(item.Nominal), 0);
-  }, [filteredReport]);
+    return journalEntries.reduce((sum, entry) => {
+      return sum + entry.lines.reduce((lineSum, line) => {
+        if (line.debit) {
+          return lineSum + parseFormattedNumber(line.debit);
+        }
+        return lineSum;
+      }, 0);
+    }, 0);
+  }, [journalEntries]);
+
+  const totalKredit = useMemo(() => {
+    return journalEntries.reduce((sum, entry) => {
+      return sum + entry.lines.reduce((lineSum, line) => {
+        if (line.kredit) {
+          return lineSum + parseFormattedNumber(line.kredit);
+        }
+        return lineSum;
+      }, 0);
+    }, 0);
+  }, [journalEntries]);
+
+  const isBalanced = Math.abs(totalDebit - totalKredit) < 0.01;
+  const selisih = Math.abs(totalDebit - totalKredit);
 
   const formatRupiahShort = (value: number): string => {
     if (value >= 1_000_000_000) {
@@ -305,22 +343,37 @@ export default function JurnalAkuntansiPage() {
                 <ArrowDown size={18} className="text-red-500 stroke-[2.5]" />
               </div>
               <p className="text-[11px] text-stone-400 mb-0.5">Rp</p>
-              <p className="text-[28px] font-bold text-stone-900 leading-none">{formatRupiahShort(totalDebit)}</p>
+              <p className="text-[28px] font-bold text-stone-900 leading-none">{formatRupiahShort(totalKredit)}</p>
             </div>
 
             {/* Kartu 4: Saldo */}
             <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-[12px] text-stone-500 font-medium">Status Saldo</span>
-                <div className="w-7 h-7 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center">
-                  <Check size={13} className="text-emerald-600 stroke-[3]" />
-                </div>
+                {isBalanced ? (
+                  <div className="w-7 h-7 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center">
+                    <Check size={13} className="text-emerald-600 stroke-[3]" />
+                  </div>
+                ) : (
+                  <div className="w-7 h-7 bg-rose-50 border border-rose-200 rounded-full flex items-center justify-center">
+                    <X size={13} className="text-rose-600 stroke-[3]" />
+                  </div>
+                )}
               </div>
-              <p className="text-[22px] font-bold text-stone-900 leading-none">Seimbang</p>
-              <p className="text-[11px] text-emerald-600 font-semibold mt-2 flex items-center gap-1">
-                <Check size={10} className="stroke-[3.5]" />
-                Dr = Cr (100% Balanced)
+              <p className={`text-[22px] font-bold leading-none ${isBalanced ? "text-stone-900" : "text-rose-600"}`}>
+                {isBalanced ? "Seimbang" : "Tidak Seimbang"}
               </p>
+              {isBalanced ? (
+                <p className="text-[11px] text-emerald-600 font-semibold mt-2 flex items-center gap-1">
+                  <Check size={10} className="stroke-[3.5]" />
+                  Dr = Cr (Seimbang)
+                </p>
+              ) : (
+                <p className="text-[11px] text-rose-600 font-semibold mt-2 flex items-center gap-1">
+                  <X size={10} className="stroke-[3.5]" />
+                  Selisih: Rp {selisih.toLocaleString('id-ID')}
+                </p>
+              )}
             </div>
           </div>
 
@@ -329,11 +382,11 @@ export default function JurnalAkuntansiPage() {
 
             {/* Baris Tab + Kontrol */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-6 border-b border-stone-200 bg-white rounded-t-xl gap-4 sm:gap-0">
-              <div className="flex overflow-x-auto">
+              <div className="flex overflow-x-auto overflow-y-hidden">
                 {tabs.map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => handleTabChange(tab)}
                     className={`px-4 py-4 text-[13px] font-medium transition border-b-2 -mb-px shrink-0 cursor-pointer ${
                       activeTab === tab
                         ? "border-stone-900 text-stone-900 font-semibold"
@@ -428,7 +481,7 @@ export default function JurnalAkuntansiPage() {
             {/* Tabel Jurnal Umum */}
             {activeTab === "Jurnal Umum" && (
               <div className="overflow-x-auto rounded-b-xl">
-                <table className="w-full min-w-[800px]">
+                <table className="w-full min-w-200">
                   <thead>
                     <tr className="border-b border-stone-200 bg-[#fafaf9]">
                       <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-6 py-3.5 uppercase">
@@ -499,7 +552,7 @@ export default function JurnalAkuntansiPage() {
                             {lineIdx === 0 && (
                               <td
                                 rowSpan={entry.lines.length}
-                                className="px-4 py-3 align-top text-[12px] text-stone-600 max-w-[240px]"
+                                className="px-4 py-3 align-top text-[12px] text-stone-600 max-w-60"
                               >
                                 {entry.keterangan}
                               </td>
@@ -507,7 +560,7 @@ export default function JurnalAkuntansiPage() {
                             <td className="px-4 py-2.5">
                               <div className="flex items-center gap-2 text-[12px] font-mono text-stone-700">
                                 <span
-                                  className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                  className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
                                     line.type === "Dr"
                                       ? "bg-[#d1fae5] text-[#065f46]"
                                       : "bg-[#fee2e2] text-[#991b1b]"
@@ -697,5 +750,17 @@ export default function JurnalAkuntansiPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function JurnalAkuntansiPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#f6f4f0]">
+        <div className="text-stone-400 font-medium text-xs">Memuat halaman...</div>
+      </div>
+    }>
+      <JurnalAkuntansiContent />
+    </Suspense>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { 
-  Filter, Download, LayoutGrid, Wallet, BookOpen, 
-  List, FileBarChart, Bell, Zap, X
+  Download, Zap, X
 } from "lucide-react";
 
 import Sidebar from '@/components/sidebar';
@@ -19,11 +19,30 @@ function formatTanggal(iso: string) {
   return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
 }
 
-export default function PencairanPage() {
+function PencairanContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const idParam = searchParams.get("id");
+  const selectParam = searchParams.get("select");
+
   const [reimbursements, setReimbursements] = useState<any[]>([]);
   const [coaList, setCoaList] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'diteruskan' | 'selesai'>('diteruskan');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(idParam);
+  const [isAllSelected, setIsAllSelected] = useState(selectParam === 'all');
+
+  const handleSelect = (id: string | null, all = false) => {
+    setIsAllSelected(all);
+    setSelectedId(id);
+    if (all) {
+      router.replace(`${pathname}?select=all`, { scroll: false });
+    } else if (id) {
+      router.replace(`${pathname}?id=${id}`, { scroll: false });
+    } else {
+      router.replace(pathname, { scroll: false });
+    }
+  };
   const [debitAccount, setDebitAccount] = useState("");
   const [creditAccount, setCreditAccount] = useState("");
   const [catatan, setCatatan] = useState("");
@@ -66,7 +85,7 @@ export default function PencairanPage() {
     const matchesSearch = searchQuery 
       ? (item.user?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
          item.proyek?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         item.id.toLowerCase().includes(searchQuery.toLowerCase()))
+         String(item.id).toLowerCase().includes(searchQuery.toLowerCase()))
       : true;
 
     return matchesTab && matchesSearch;
@@ -77,19 +96,18 @@ export default function PencairanPage() {
   const countSelesai = reimbursements.filter(item => item.status === 'APPROVED' || item.status === 'REJECTED').length;
 
   // Selected item
-  const selectedItem = filteredList.find(item => item.id === selectedId) || filteredList[0] || null;
+  const selectedItem = filteredList.find(item => String(item.id) === String(selectedId)) || filteredList[0] || null;
 
   // Update selectedId if selectedItem is not in the filtered list
   useEffect(() => {
-    if (selectedItem && selectedItem.id !== selectedId) {
-      setSelectedId(selectedItem.id);
+    if (selectedItem && String(selectedItem.id) !== String(selectedId)) {
+      setSelectedId(String(selectedItem.id));
     }
   }, [filteredList, selectedItem, selectedId]);
 
   // Set default debit/credit accounts based on posAnggaran
   useEffect(() => {
     if (selectedItem && selectedItem.status === 'APPROVED_BY_PM') {
-      // Default credit to Kas & Bank (10000)
       setCreditAccount("10000");
 
       // Guess debit account based on posAnggaran name
@@ -105,7 +123,7 @@ export default function PencairanPage() {
       }
       setCatatan("");
     }
-  }, [selectedId]);
+  }, [selectedId, selectedItem]);
 
   const handleProcess = async (action: 'APPROVE' | 'REJECT') => {
     if (!selectedItem) return;
@@ -180,7 +198,7 @@ export default function PencairanPage() {
             <div className="flex items-center gap-2 mt-6">
               <div className="flex bg-white rounded-full border border-stone-200/80 p-1 shadow-sm">
                 <button 
-                  onClick={() => { setActiveTab('diteruskan'); setSelectedId(null); }}
+                  onClick={() => { setActiveTab('diteruskan'); handleSelect(null); }}
                   className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${
                     activeTab === 'diteruskan' 
                       ? "bg-stone-100 text-stone-800 shadow-sm" 
@@ -190,7 +208,7 @@ export default function PencairanPage() {
                   Diteruskan ({countDiteruskan})
                 </button>
                 <button 
-                  onClick={() => { setActiveTab('selesai'); setSelectedId(null); }}
+                  onClick={() => { setActiveTab('selesai'); handleSelect(null); }}
                   className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${
                     activeTab === 'selesai' 
                       ? "bg-stone-100 text-stone-800 shadow-sm" 
@@ -223,7 +241,7 @@ export default function PencairanPage() {
               ) : (
                 filteredList.map((item) => {
                   const initials = item.user?.nama ? item.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'KY';
-                  const active = selectedItem?.id === item.id;
+                  const active = isAllSelected || String(selectedItem?.id) === String(item.id);
                   const formattedNominal = `Rp ${Number(item.nominal).toLocaleString('id-ID')}`;
                   
                   // Get project desc
@@ -232,7 +250,7 @@ export default function PencairanPage() {
                   return (
                     <div
                       key={item.id}
-                      onClick={() => setSelectedId(item.id)}
+                      onClick={() => handleSelect(String(item.id))}
                       className={`p-4 rounded-xl border flex flex-col gap-2 transition cursor-pointer ${
                         active
                           ? "bg-[#e2f1eb] border-[#b8e0d0] shadow-sm"
@@ -572,5 +590,17 @@ export default function PencairanPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function PencairanPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#f6f4f0]">
+        <div className="text-stone-400 font-medium text-xs">Memuat halaman...</div>
+      </div>
+    }>
+      <PencairanContent />
+    </Suspense>
   );
 }

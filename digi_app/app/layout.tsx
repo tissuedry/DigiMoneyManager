@@ -1,6 +1,4 @@
 // app/layout.tsx
-import Sidebar from "@/components/sidebar-keuangan";
-import Header from "@/components/header-keuangan";
 import "./globals.css"; 
 
 export default function DashboardLayout({

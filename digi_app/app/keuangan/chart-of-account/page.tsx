@@ -1,16 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus_Jakarta_Sans } from 'next/font/google';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
-
-// Inisialisasi konfigurasi font Plus Jakarta Sans
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-});
 
 export default function ChartOfAccountPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
