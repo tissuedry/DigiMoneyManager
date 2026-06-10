@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus_Jakarta_Sans } from 'next/font/google';
-import SidebarKeuangan from '@/components/sidebar-keuangan';
-import HeaderKeuangan from '@/components/header-keuangan';
+import Sidebar from '@/components/sidebar';
+import Header from '@/components/header';
 
 // Inisialisasi konfigurasi font Plus Jakarta Sans
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -74,19 +74,20 @@ export default function ChartOfAccountPage() {
   };
 
   return (
-    <div className={`flex h-screen w-full bg-[#F6F4EF] overflow-hidden ${plusJakartaSans.className}`}>
+    <div className={`flex min-h-screen w-full bg-[#F6F4EF] overflow-hidden`}>
       
       {/* Sidebar Keuangan Kelompok */}
-      <SidebarKeuangan 
+      <Sidebar 
         isSidebarOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+        onClose={() => setIsSidebarOpen(false)}
+        userRole='Tim Keuangan'
       />
 
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         
         {/* Header Keuangan Kelompok */}
-        <HeaderKeuangan onOpenSidebar={() => setIsSidebarOpen(true)} />
+        <Header />
         
         <div className="w-full h-0 border-b border-[#E6E1D4]"></div>
 

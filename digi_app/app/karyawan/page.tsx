@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Plus, ArrowRight, FileText } from "lucide-react";
-import Sidebar from "@/components/sidebar-karyawan";
-import Header from "@/components/header-karyawan";
+import Sidebar from "@/components/sidebar";
+import Header from "@/components/header";
 
 // Tipe Data
 type Submission = {
@@ -40,9 +40,15 @@ const getStatusBadge = (status: Submission["status"]) => {
 };
 
 export default function BerandaKaryawanPage() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen w-full bg-[#f9f8f4] font-sans text-stone-800">
-      <Sidebar />
+      <Sidebar 
+        isSidebarOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)}
+        userRole='Karyawan'
+      />
 
       {/* Area Konten Kanan */}
       <div className="flex-1 flex flex-col min-w-0">

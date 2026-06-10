@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { Filter, Eye, X } from "lucide-react";
-import Sidebar from "@/components/sidebar-karyawan";
-import Header from "@/components/header-karyawan";
+import Sidebar from '@/components/sidebar';
+import Header from '@/components/header';
 
 // Tipe Data untuk Tabel
 type Submission = {
@@ -96,7 +96,8 @@ export default function RiwayatPengajuanPage() {
     <div className="flex min-h-screen w-full bg-[#f9f8f4] font-sans text-stone-800">
       <Sidebar 
         isSidebarOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+        onClose={() => setIsSidebarOpen(false)}
+        userRole="Karyawan"
       />
 
       {/* Area Konten Kanan */}

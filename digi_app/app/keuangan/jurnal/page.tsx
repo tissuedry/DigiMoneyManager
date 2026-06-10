@@ -4,8 +4,8 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   Calendar, Filter, Download, ArrowUp, ArrowDown, Check, BookOpen, ChevronDown,
 } from "lucide-react";
-import Sidebar from "@/components/sidebar-keuangan";
-import Header from "@/components/header-keuangan";
+import Sidebar from '@/components/sidebar';
+import Header from '@/components/header';
 
 type JournalLine = {
   type: "Dr" | "Cr";
@@ -253,10 +253,11 @@ export default function JurnalAkuntansiPage() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#f4f2ec] font-sans text-stone-800 overflow-hidden">
+    <div className="flex min-h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
       <Sidebar 
         isSidebarOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+        onClose={() => setIsSidebarOpen(false)}
+        userRole="Tim Keuangan"
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0]">
@@ -266,7 +267,7 @@ export default function JurnalAkuntansiPage() {
 
           {/* Judul Halaman */}
           <div className="mb-6">
-            <h1 className="text-[22px] font-bold text-stone-900">Jurnal Akuntansi</h1>
+            <h1 className="text-2xl font-bold text-[#14130F]">Jurnal Akuntansi</h1>
             <p className="text-[13px] text-stone-500 mt-1.5">
               Pencatatan Debit-Kredit otomatis dari setiap transaksi sistem. Sesuai standar PSAK.
             </p>

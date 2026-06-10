@@ -74,7 +74,9 @@ export async function middleware(req: NextRequest) {
   // 1. Exclude public static files, images, login pages, and register page
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/auth') ||
+    pathname === '/api/auth/login' ||
+    pathname === '/api/auth/register' ||
+    pathname === '/api/auth/logout' ||
     pathname === '/login' ||
     pathname === '/register' ||
     pathname === '/api-docs' ||

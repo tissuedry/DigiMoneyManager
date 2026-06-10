@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Sidebar from '@/components/sidebar-karyawan';
-import Header from '@/components/header-karyawan';
+import Sidebar from '@/components/sidebar';
+import Header from '@/components/header';
 import { 
   PlusCircle,  
   Camera, 
@@ -59,7 +59,7 @@ export default function AjukanReimbursement() {
     setProyekId(id);
     const proj = projects.find(p => p.id === id);
     if (proj?.budget?.posAnggaran?.length > 0) {
-      setPosAnggaranId(proj.budget.posAnggaran[0].id);
+      setPosAnggaranId(proj.budget.possAnggaran[0].id);
     } else {
       setPosAnggaranId('');
     }
@@ -167,16 +167,15 @@ export default function AjukanReimbursement() {
   return (
     <div className="min-h-screen bg-background flex text-stone-800 font-sans selection:bg-emerald-100">
       
-      {/* 1. SIDEBAR KARYAWAN */}
       <Sidebar 
         isSidebarOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+        onClose={() => setIsSidebarOpen(false)}
+        userRole='Karyawan'
       />
 
       {/* 2. MAIN AREA CONTAINER */}
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         
-        {/* GLOBAL HEADER BAR */}
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
         {/* CONTAINER CONTENT UTAMA */}
