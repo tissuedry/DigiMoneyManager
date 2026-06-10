@@ -47,7 +47,7 @@ export default function ChartOfAccountPage() {
       const normTipe = getNormalizedTipe(account.tipe);
       const matchesTab = selectedTab === 'Semua' || normTipe === selectedTab;
       const matchesSearch = 
-        account.nomorAkun.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(account.nomorAkun).toLowerCase().includes(searchQuery.toLowerCase()) ||
         account.namaAkun.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesTab && matchesSearch;
     });

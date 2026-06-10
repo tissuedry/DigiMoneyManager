@@ -167,10 +167,17 @@ function JurnalAkuntansiContent() {
       const formattedNominal = Number(item.Nominal).toLocaleString('id-ID');
 
       const entry: JournalEntry = {
+<<<<<<< HEAD
         id: `JE-${String(item.ID).padStart(4, '0')}`,
         tanggal: formatTanggal(item.Tanggal),
         keterangan: item.Keterangan,
         ref: `RB-${String(item.ID).padStart(4, '0')}`,
+=======
+        id: `JE-${String(item.ID).substring(0, 8).toUpperCase()}`,
+        tanggal: formatTanggal(item.Tanggal),
+        keterangan: item.Keterangan,
+        ref: `RB-${String(item.ID).substring(0, 8).toUpperCase()}`,
+>>>>>>> 4079185525073e491714eaab87a78de685f78e10
         lines: [
           { type: "Dr", kode: dbCode, akun: dbName, debit: formattedNominal, kredit: null },
           { type: "Cr", kode: crCode, akun: crName, debit: null, kredit: formattedNominal }

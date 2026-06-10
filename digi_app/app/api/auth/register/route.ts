@@ -11,9 +11,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Nama, email, password, and role are required' }, { status: 400 });
     }
 
+    const trimmedEmail = String(email).trim().toLowerCase();
+
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: trimmedEmail },
     });
 
     if (existingUser) {
@@ -25,7 +27,7 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: {
         nama,
-        email,
+        email: trimmedEmail,
         passwordHash: hashedPassword,
         role,
         divisi: divisi || null,

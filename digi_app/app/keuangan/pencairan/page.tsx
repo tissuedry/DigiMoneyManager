@@ -267,7 +267,11 @@ function PencairanContent() {
                           <div className="mt-0.5">
                             <div className="flex items-center gap-1">
                               <span className="text-[13px] font-bold text-stone-900">{item.user?.nama || 'Karyawan'}</span>
+<<<<<<< HEAD
                               <span className="text-[11px] text-stone-400">· {item.id}</span>
+=======
+                              <span className="text-[11px] text-stone-400">· {String(item.id).substring(0, 8).toUpperCase()}</span>
+>>>>>>> 4079185525073e491714eaab87a78de685f78e10
                             </div>
                             <p className="text-[11px] text-stone-500 mt-0.5">{projectDesc}</p>
                           </div>
@@ -372,7 +376,7 @@ function PencairanContent() {
                       </div>
                       <div className="flex justify-between items-center">
                         <h4 className="text-[13px] font-bold text-stone-800 bg-stone-200/50 px-2 py-0.5 rounded font-mono">
-                          {selectedItem.jurnalAkuntansi?.[0] ? `JE-${selectedItem.jurnalAkuntansi[0].id.substring(0, 8).toUpperCase()}` : 'JE-DRAFT'}
+                          {selectedItem.jurnalAkuntansi?.[0] ? `JE-${String(selectedItem.jurnalAkuntansi[0].id).substring(0, 8).toUpperCase()}` : 'JE-DRAFT'}
                         </h4>
                         <span className="text-[11px] text-stone-400">
                           {selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}

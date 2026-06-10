@@ -11,8 +11,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Email and password are required' }, { status: 400 });
     }
 
+    const trimmedEmail = String(email).trim().toLowerCase();
+
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: trimmedEmail },
     });
 
     if (!user) {

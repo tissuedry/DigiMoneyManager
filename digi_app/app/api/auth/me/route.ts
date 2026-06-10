@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+      const response = NextResponse.json({ message: 'Unauthorized: User not found in database' }, { status: 401 });
+      response.cookies.set('auth_token', '', { maxAge: 0, path: '/' });
+      return response;
     }
 
     const firstUserProyek = user.proyek[0];

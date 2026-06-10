@@ -70,6 +70,24 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
   const dropdownRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
+  // Fetch profile & notifications
+  useEffect(() => {
+    // 1. Get user profile
+    fetch("/api/auth/me")
+      .then((res) => {
+        if (res.ok) return res.json();
+        window.location.href = "/login";
+        throw new Error("Failed to fetch profile");
+      })
+      .then((data) => {
+        if (data.user) setProfile(data.user);
+      })
+      .catch((err) => console.error("Error fetching profile:", err));
+
+    // 2. Fetch notifications
+    fetchNotifications();
+  }, []);
+
   const fetchNotifications = () => {
     fetch("/api/notifications")
       .then((res) => {
@@ -194,14 +212,14 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
         )}
 
         {/* Logo - only shown on karyawan header */}
-        
+
         <div className="w-8 h-8 border border-stone-800 rounded flex items-center justify-center bg-white shadow-sm">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
             <path d="M3 3l18 18M21 3L3 21"></path>
           </svg>
         </div>
-      
+
       </div>
 
       {/* Right side: Notifications & Profile */}
@@ -253,9 +271,8 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                         onClick={() => {
                           if (!item.dibaca) handleMarkOneRead(item.id);
                         }}
-                        className={`flex gap-3.5 p-4 transition-all duration-200 cursor-pointer ${
-                          !item.dibaca ? "bg-[#f5fbf8] hover:bg-[#eaf5ef]" : "bg-transparent hover:bg-stone-50"
-                        }`}
+                        className={`flex gap-3.5 p-4 transition-all duration-200 cursor-pointer ${!item.dibaca ? "bg-[#f5fbf8] hover:bg-[#eaf5ef]" : "bg-transparent hover:bg-stone-50"
+                          }`}
                       >
                         <div className="w-9 h-9 rounded-full bg-[#e2f1eb] text-[#117a5b] flex items-center justify-center shrink-0 shadow-sm border border-emerald-100">
                           <Check size={16} strokeWidth={2.5} />
@@ -270,8 +287,8 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                                     ? "Reimbursement disetujui PM"
                                     : "Reimbursement disetujui Keuangan"
                                   : item.pesan.includes("dicairkan")
-                                  ? "Reimbursement Dicairkan"
-                                  : "Reimbursement Ditolak"
+                                    ? "Reimbursement Dicairkan"
+                                    : "Reimbursement Ditolak"
                                 : "Pemberitahuan Sistem"}
                             </p>
                             <span className="text-[10px] text-stone-400 shrink-0 font-medium">

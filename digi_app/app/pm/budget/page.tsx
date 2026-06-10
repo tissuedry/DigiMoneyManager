@@ -127,7 +127,7 @@ export default function BudgetProyek() {
 
     return {
       dbId: r.id,
-      id: r.id.substring(0, 8).toUpperCase(),
+      id: String(r.id).substring(0, 8).toUpperCase(),
       pemohon: r.user?.nama || 'Karyawan',
       initials,
       merchant: r.ocrData?.merchant || 'N/A',
@@ -327,7 +327,7 @@ export default function BudgetProyek() {
                           <div>
                             <span className="font-bold text-slate-800">{pos.name}</span>
                             <span className="ml-1.5 text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded">
-                              {pos.id.substring(0, 8).toUpperCase()}
+                              {String(pos.id).substring(0, 8).toUpperCase()}
                             </span>
                           </div>
                           <div className="text-slate-500 font-mono">

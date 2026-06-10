@@ -17,10 +17,10 @@ type Submission = {
 
 // Data Dummy (sama seperti riwayat pengajuan)
 const recentSubmissions: Submission[] = [
-  { id: "RB-2026-004", date: "18/05/2026", merchant: "Gramedia Merdeka", project: "Renovasi Kantor Cabang Bandung", amount: "Rp 150.000", status: "Menunggu PM" },
-  { id: "RB-2026-003", date: "19 April 2026", merchant: "SPBU Pertamina 34.121", project: "Pembangunan Gudang Fase 2", amount: "Rp 450.000", status: "Verifikasi Keuangan" },
-  { id: "RB-2026-002", date: "5 April 2026", merchant: "Solaria Resto Bandung", project: "Pembangunan Gudang Fase 2", amount: "Rp 150.000", status: "Dicairkan" },
-  { id: "RB-2026-001", date: "12 Maret 2026", merchant: "Indomaret Bandung", project: "Data Center Bandung Tier-3", amount: "Rp 150.000", status: "Ditolak" },
+  { id: "RB-2026-004", date: "18 Mei 2026", merchant: "Indomaret Bandung", project: "Data Center Bandung Tier-3", amount: "Rp 150.000", status: "Ditolak" },
+  { id: "RB-2026-003", date: "19 April 2026", merchant: "Solaria Resto Bandung", project: "Pembangunan Gudang Fase 2", amount: "Rp 150.000", status: "Dicairkan" },
+  { id: "RB-2026-002", date: "5 April 2026", merchant: "SPBU Pertamina 34.121", project: "Pembangunan Gudang Fase 2", amount: "Rp 450.000", status: "Verifikasi Keuangan" },
+  { id: "RB-2026-001", date: "12 Maret 2026", merchant: "Gramedia Merdeka", project: "Renovasi Kantor Cabang Bandung", amount: "Rp 150.000", status: "Menunggu PM" },
 ];
 
 // Helper warna badge (sama persis dengan riwayat pengajuan)

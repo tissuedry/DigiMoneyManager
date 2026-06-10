@@ -142,6 +142,151 @@ async function main() {
     },
   });
 
+
+  // 7b. Seed Reimbursements and Approvals
+  console.log('Seeding initial reimbursements and approvals...');
+  const posAnggaranList = await prisma.posAnggaran.findMany({
+    where: { budget: { proyekId: project.id } }
+  });
+  const posATK = posAnggaranList.find(p => p.namaPos === 'Perlengkapan & ATK');
+  const posSipil = posAnggaranList.find(p => p.namaPos === 'Bahan Bangunan & Sipil');
+  const posLog = posAnggaranList.find(p => p.namaPos === 'Transportasi & Logistik');
+
+  // RB 1: SUBMITTED (Perlengkapan & ATK)
+  const rb1 = await prisma.reimbursement.create({
+    data: {
+      userId: employee.id,
+      proyekId: project.id,
+      posAnggaranId: posATK.id,
+      nominal: 150000.00,
+      urlStruk: '/bukti_struk.png',
+      ocrData: {
+        tanggal: '2026-05-18',
+        merchant: 'Gramedia Merdeka',
+        keterangan: 'Pembelian kertas A4, log book, dan papan klip untuk kebutuhan administrasi site.',
+      },
+      status: 'SUBMITTED',
+    },
+  });
+
+  // RB 2: SUBMITTED (Transportasi & Logistik)
+  const rb2 = await prisma.reimbursement.create({
+    data: {
+      userId: employee.id,
+      proyekId: project.id,
+      posAnggaranId: posLog.id,
+      nominal: 450000.00,
+      urlStruk: '/bukti_struk.png',
+      ocrData: {
+        tanggal: '2026-05-19',
+        merchant: 'SPBU Pertamina 34.121',
+        keterangan: 'BBM kendaraan operasional pertengahan April.',
+      },
+      status: 'SUBMITTED',
+    },
+  });
+
+  // RB 3: APPROVED_BY_PM (Perlengkapan & ATK)
+  const rb3 = await prisma.reimbursement.create({
+    data: {
+      userId: employee.id,
+      proyekId: project.id,
+      posAnggaranId: posATK.id,
+      nominal: 120000.00,
+      urlStruk: '/bukti_struk.png',
+      ocrData: {
+        tanggal: '2026-05-10',
+        merchant: 'Fotocopy Bandung Jaya',
+        keterangan: 'Fotocopy berkas gambar site layout.',
+      },
+      status: 'APPROVED_BY_PM',
+    },
+  });
+
+  await prisma.approval.create({
+    data: {
+      reimbursementId: rb3.id,
+      approverId: pm.id,
+      level: 'PM',
+      status: 'APPROVED_BY_PM',
+      catatan: 'Disetujui untuk diteruskan.',
+    },
+  });
+
+  // RB 4: APPROVED (Transportasi & Logistik)
+  const rb4 = await prisma.reimbursement.create({
+    data: {
+      userId: employee.id,
+      proyekId: project.id,
+      posAnggaranId: posLog.id,
+      nominal: 350000.00,
+      urlStruk: '/bukti_struk.png',
+      ocrData: {
+        tanggal: '2026-05-05',
+        merchant: 'Gojek Logistik',
+        keterangan: 'Pengiriman sampel material beton.',
+      },
+      status: 'APPROVED',
+    },
+  });
+
+  await prisma.approval.create({
+    data: {
+      reimbursementId: rb4.id,
+      approverId: pm.id,
+      level: 'PM',
+      status: 'APPROVED_BY_PM',
+      catatan: 'Ok, pengiriman beton penting.',
+    },
+  });
+
+  await prisma.approval.create({
+    data: {
+      reimbursementId: rb4.id,
+      approverId: finance.id,
+      level: 'KEUANGAN',
+      status: 'APPROVED',
+      catatan: 'Telah ditransfer ke karyawan.',
+    },
+  });
+
+  await prisma.jurnalAkuntansi.create({
+    data: {
+      reimbursementId: rb4.id,
+      noAkunDebit: 'COA-EXP-LOG',
+      noAkunKredit: 'COA-KAS',
+      nominal: 350000.00,
+      keterangan: 'Pencairan reimbursement Gojek Logistik - Taraka Yumna',
+    },
+  });
+
+  // RB 5: REJECTED (Bahan Bangunan & Sipil)
+  const rb5 = await prisma.reimbursement.create({
+    data: {
+      userId: employee.id,
+      proyekId: project.id,
+      posAnggaranId: posSipil.id,
+      nominal: 1500000.00,
+      urlStruk: '/bukti_struk.png',
+      ocrData: {
+        tanggal: '2026-05-02',
+        merchant: 'Toko Besi Jaya',
+        keterangan: 'Pembelian besi tambahan di luar RAB.',
+      },
+      status: 'REJECTED',
+    },
+  });
+
+  await prisma.approval.create({
+    data: {
+      reimbursementId: rb5.id,
+      approverId: pm.id,
+      level: 'PM',
+      status: 'REJECTED',
+      catatan: 'Ditolak karena tidak ada persetujuan sebelumnya untuk pengeluaran besi tambahan.',
+    },
+  });
+
   // 8. Seed initial Audit log
   await prisma.auditTrail.create({
     data: {
