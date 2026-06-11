@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { 
   Plus, 
   ArrowRight, 
@@ -12,11 +12,14 @@ import {
   Wallet,
   FileCheck,
   ChevronRight,
+  ChevronDown,
   Bell
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
+
+
 
 // Type Definitions matching API responses
 type PosAnggaran = {
@@ -99,6 +102,10 @@ export default function PMDashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [allProjects, setAllProjects] = useState<{ id: number; nama: string }[]>([]);
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -106,7 +113,8 @@ export default function PMDashboardPage() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch("/api/dashboard", { method: "GET" });
+        const url = selectedProjectId ? `/api/dashboard?projectId=${selectedProjectId}` : "/api/dashboard";
+        const response = await fetch(url, { method: "GET" });
         if (!response.ok) {
           const msg = await response.json().catch(() => null);
           throw new Error(msg?.message || "Gagal mengambil data dari server");
@@ -122,6 +130,27 @@ export default function PMDashboardPage() {
     }
 
     fetchDashboardData();
+  }, [selectedProjectId]);
+
+  // Fetch daftar semua proyek untuk dropdown
+  useEffect(() => {
+    fetch("/api/proyek")
+      .then((res) => res.json())
+      .then((d) => {
+        if (d.projects) setAllProjects(d.projects);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Tutup dropdown saat klik di luar
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
+        setIsProjectDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   return (
@@ -149,9 +178,44 @@ export default function PMDashboardPage() {
               </p>
             </div>
             {data?.project && (
-              <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm self-start">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-bold text-stone-800">{data.project.nama}</span>
+              <div className="relative self-start" ref={projectDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsProjectDropdownOpen((v) => !v)}
+                  className="flex items-center gap-2 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition-all"
+                >
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="text-xs font-bold text-stone-800 max-w-[200px] truncate">
+                    {data.project.nama}
+                  </span>
+                  <ChevronDown
+                    size={13}
+                    className={`text-stone-400 transition-transform duration-200 ${isProjectDropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {isProjectDropdownOpen && allProjects.length > 1 && (
+                  <div className="absolute right-0 mt-1.5 w-64 bg-white border border-stone-200 rounded-xl shadow-lg z-50 overflow-hidden py-1">
+                    {allProjects.map((proj) => (
+                      <button
+                        key={proj.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedProjectId(proj.id);
+                          setIsProjectDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-stone-50 flex items-center gap-2 transition ${
+                          proj.id === data.project?.id
+                            ? "text-emerald-700 bg-emerald-50/50"
+                            : "text-stone-700"
+                        }`}
+                      >
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${proj.id === data.project?.id ? "bg-emerald-500" : "bg-stone-200"}`} />
+                        {proj.nama}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -57,12 +57,16 @@ export async function GET(req: NextRequest) {
 
     } else if (role === 'Project Manager') {
       // 2. Project Manager Dashboard data
-      if (!userProyekId) {
+      const { searchParams } = new URL(req.url);
+      const projectIdParam = searchParams.get('projectId');
+      const targetProjectId = projectIdParam || userProyekId;
+
+      if (!targetProjectId) {
         dashboardData.project = null;
         dashboardData.message = 'No project associated with this Project Manager';
       } else {
         const project = await prisma.proyek.findUnique({
-          where: { id: parseInt(userProyekId, 10) },
+          where: { id: parseInt(targetProjectId, 10) },
           include: {
             budget: {
               include: {
@@ -74,7 +78,7 @@ export async function GET(req: NextRequest) {
 
         const pendingApprovalsCount = await prisma.reimbursement.count({
           where: {
-            proyekId: parseInt(userProyekId, 10),
+            proyekId: parseInt(targetProjectId, 10),
             status: 'SUBMITTED', // PM only approves SUBMITTED status
           },
         });
