@@ -339,6 +339,21 @@ export async function GET(req: NextRequest) {
           }
         }
       },
+      '/api/reimbursements/{id}/cancel': {
+        post: {
+          tags: ['Reimbursements'],
+          summary: 'Cancel a pending submission',
+          description: 'Karyawan cancels their own reimbursement while it is still SUBMITTED (waiting for PM). Permanently deletes the reimbursement record.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+          ],
+          responses: {
+            200: { description: 'Reimbursement successfully cancelled and removed' },
+            400: { description: 'Reimbursement is not in SUBMITTED status' },
+            403: { description: 'Forbidden: not the owner of this submission' }
+          }
+        }
+      },
       '/api/ocr': {
         post: {
           tags: ['Receipt OCR'],

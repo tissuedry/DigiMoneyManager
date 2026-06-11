@@ -145,6 +145,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'proyekId, posAnggaranId, and a positive nominal are required' }, { status: 400 });
     }
 
+    // Stamp the actual submission timestamp (date + time), distinct from the
+    // receipt's transaction date (ocrData.tanggal)
+    ocrData = { ...ocrData, submittedAt: new Date().toISOString() };
+
     // Verify project and budget category existence
     const pos = await prisma.posAnggaran.findUnique({
       where: { id: parseInt(posAnggaranId, 10) },

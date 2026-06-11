@@ -1,23 +1,28 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
-import { 
-  PlusCircle,  
-  Camera, 
-  Upload, 
-  Check, 
-  ChevronDown, 
+import {
+  PlusCircle,
+  Camera,
+  Upload,
+  Check,
+  ChevronDown,
   ArrowLeft,
   RefreshCw,
   Loader2
 } from 'lucide-react';
 
-export default function AjukanReimbursement() {
+function AjukanReimbursementContent() {
+  const searchParams = useSearchParams();
+  const resubmitId = searchParams.get('resubmitId');
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentState, setCurrentState] = useState<'upload' | 'ocr' | 'review' | 'success'>('upload');
-  
+  const [currentState, setCurrentState] = useState<'upload' | 'ocr' | 'review' | 'success'>(resubmitId ? 'review' : 'upload');
+  const [isResubmitLoading, setIsResubmitLoading] = useState(!!resubmitId);
+  const [resubmitStrukUrl, setResubmitStrukUrl] = useState<string | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   // Backend dynamic projects and categories
@@ -45,7 +50,8 @@ export default function AjukanReimbursement() {
       .then(data => {
         if (data.projects) {
           setProjects(data.projects);
-          if (data.projects.length > 0) {
+          // When resubmitting, the project/pos selection comes from the original submission instead
+          if (!resubmitId && data.projects.length > 0) {
             const firstProject = data.projects[0];
             setProyekId(String(firstProject.id));
             if (firstProject.budget?.posAnggaran?.length > 0) {
@@ -55,7 +61,35 @@ export default function AjukanReimbursement() {
         }
       })
       .catch(err => console.error('Error loading projects:', err));
-  }, []);
+  }, [resubmitId]);
+
+  useEffect(() => {
+    // Pre-fill the form with the rejected submission's data and jump straight to "Review & kirim"
+    if (!resubmitId) return;
+
+    fetch('/api/reimbursements')
+      .then(res => res.json())
+      .then(data => {
+        const original = data.reimbursements?.find((r: any) => String(r.id) === resubmitId);
+        if (!original || original.status !== 'REJECTED') {
+          setCurrentState('upload');
+          return;
+        }
+
+        setProyekId(String(original.proyekId));
+        setPosAnggaranId(String(original.posAnggaranId));
+        setMerchant(original.ocrData?.merchant || '');
+        setTanggal(original.ocrData?.tanggal || '');
+        setNominal(original.nominal != null ? String(Number(original.nominal)) : '');
+        setKategoriBukti(original.ocrData?.kategoriBukti || 'Struk Pembelian');
+        setKeterangan(original.ocrData?.keterangan || '');
+        setFilePreview(original.strukUrl || '/bukti_struk.png');
+        setResubmitStrukUrl(original.strukUrl || null);
+        setCurrentState('review');
+      })
+      .catch(err => console.error('Error loading original reimbursement:', err))
+      .finally(() => setIsResubmitLoading(false));
+  }, [resubmitId]);
 
   const handleProjectChange = (id: string) => {
     setProyekId(id);
@@ -130,13 +164,19 @@ export default function AjukanReimbursement() {
     
     if (selectedFile) {
       formData.append('file', selectedFile);
+    } else if (resubmitStrukUrl) {
+      // Reuse the original receipt when resubmitting without uploading a new one
+      formData.append('strukUrl', resubmitStrukUrl);
     }
-    
+
     formData.append('ocrData', JSON.stringify({
       merchant,
       tanggal,
       kategoriBukti,
       keterangan,
+      // Soft-link back to the rejected submission this one replaces, so the
+      // riwayat-pengajuan timeline can show the "ditolak -> diajukan ulang" chain
+      ...(resubmitId ? { resubmitFrom: Number(resubmitId) } : {}),
     }));
 
     try {
@@ -170,13 +210,22 @@ export default function AjukanReimbursement() {
     setNominal("");
     setKategoriBukti("Struk Pembelian");
     setKeterangan("");
+    setResubmitStrukUrl(null);
   };
+
+  if (isResubmitLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center text-stone-400 text-xs font-medium">
+        Memuat data pengajuan...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex text-stone-800 font-sans selection:bg-emerald-100">
-      
-      <Sidebar 
-        isSidebarOpen={isSidebarOpen} 
+
+      <Sidebar
+        isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         userRole='Karyawan'
       />
@@ -575,5 +624,17 @@ export default function AjukanReimbursement() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AjukanReimbursement() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center text-stone-400 text-xs font-medium">
+        Memuat halaman...
+      </div>
+    }>
+      <AjukanReimbursementContent />
+    </Suspense>
   );
 }
