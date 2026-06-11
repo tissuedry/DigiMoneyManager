@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Filter, Download, X, Check } from "lucide-react";
+import { Filter, Download, X, Check, ChevronDown, ChevronUp, Briefcase } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 
@@ -40,7 +40,7 @@ function formatTanggal(iso: string) {
   const parts = iso.split("-");
   if (parts.length < 3) return iso;
   const [y, m, d] = parts;
-  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
   const mIdx = parseInt(m) - 1;
   return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
 }
@@ -122,7 +122,8 @@ type Tab = "Menunggu Saya" | "Diteruskan" | "Selesai";
 
 export default function AntrianApprovalPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Menunggu Saya");
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [collapsedProjects, setCollapsedProjects] = useState<Record<string, boolean>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [reimbursements, setReimbursements] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -146,42 +147,6 @@ export default function AntrianApprovalPage() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const handleProcess = async (action: 'APPROVE' | 'REJECT') => {
-    if (!selected) return;
-
-    if (action === 'APPROVE') {
-      if (!confirm("Apakah Anda yakin ingin menyetujui dan meneruskan pengajuan ini ke Tim Keuangan?")) {
-        return;
-      }
-    } else {
-      if (!confirm("Apakah Anda yakin ingin menolak pengajuan ini?")) {
-        return;
-      }
-    }
-
-    try {
-      const res = await fetch(`/api/reimbursements/${selected.dbId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action,
-          catatan
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert(action === 'APPROVE' ? "Pengajuan berhasil disetujui!" : "Pengajuan berhasil ditolak.");
-        setCatatan("");
-        fetchData();
-      } else {
-        alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Terjadi kesalahan sistem saat memproses pengajuan.");
-    }
-  };
 
   // Convert API reimbursements to Submission type
   const mappedSubmissions = reimbursements.map((r: any): Submission => {
@@ -268,16 +233,69 @@ export default function AntrianApprovalPage() {
     return false;
   });
 
+  // Group filtered data by project
+  const groupedProjects = filteredData.reduce((acc, item) => {
+    if (!acc[item.project]) {
+      acc[item.project] = [];
+    }
+    acc[item.project].push(item);
+    return acc;
+  }, {} as Record<string, Submission[]>);
+
+  // Derived selected submission
+  const selected = filteredData.find((item) => item.id === selectedId) || filteredData[0] || null;
+
+  const handleProcess = async (action: 'APPROVE' | 'REJECT') => {
+    if (!selected) return;
+
+    if (action === 'APPROVE') {
+      if (!confirm("Apakah Anda yakin ingin menyetujui dan meneruskan pengajuan ini ke Tim Keuangan?")) {
+        return;
+      }
+    } else {
+      if (!confirm("Apakah Anda yakin ingin menolak pengajuan ini?")) {
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch(`/api/reimbursements/${selected.dbId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          catatan
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(action === 'APPROVE' ? "Pengajuan berhasil disetujui!" : "Pengajuan berhasil ditolak.");
+        setCatatan("");
+        fetchData();
+      } else {
+        alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+    }
+  };
+
+  const toggleProject = (projectName: string) => {
+    setCollapsedProjects((prev) => ({
+      ...prev,
+      [projectName]: !prev[projectName],
+    }));
+  };
+
   // Reset pilihan saat tab berganti
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
-    setSelectedIndex(0);
+    setSelectedId(null);
   };
 
   const openSidebar = () => setIsSidebarOpen(true);
   const closeSidebar = () => setIsSidebarOpen(false);
-
-  const selected = filteredData[selectedIndex] ?? null;
 
   const tabCounts: Record<Tab, number> = {
     "Menunggu Saya": mappedSubmissions.filter((s) => s.status === "Menunggu PM").length,
@@ -338,7 +356,7 @@ export default function AntrianApprovalPage() {
           {/* Layout dua kolom */}
           <div className="flex gap-5 items-start">
             {/* ── Kolom Kiri: Daftar ── */}
-            <div className="w-[340px] flex-shrink-0 flex flex-col gap-2">
+            <div className="w-[340px] flex-shrink-0 flex flex-col gap-3">
               {isLoading ? (
                 <div className="bg-white border border-stone-200 rounded-2xl px-6 py-10 text-center text-stone-400 text-[13px]">
                   Memuat data pengajuan...
@@ -348,52 +366,101 @@ export default function AntrianApprovalPage() {
                   Tidak ada data.
                 </div>
               ) : (
-                filteredData.map((item, idx) => (
-                  <button
-                    key={`${item.id}-${item.pengaju}-${idx}`}
-                    onClick={() => setSelectedIndex(idx)}
-                    className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${
-                      selectedIndex === idx
-                        ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm"
-                        : "bg-white border-stone-200 hover:bg-stone-50"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Avatar inisial */}
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold mt-0.5 ${getAvatarColor(
-                          item.pengajuInitials
-                        )}`}
-                      >
-                        {item.pengajuInitials}
-                      </div>
+                Object.entries(groupedProjects).map(([projectName, items]) => {
+                  const isCollapsed = collapsedProjects[projectName] || false;
+                  const totalProjectAmount = items.reduce((sum, item) => sum + item.amountRaw, 0);
+                  const formattedTotal = `Rp ${totalProjectAmount.toLocaleString('id-ID')}`;
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 mb-0.5">
-                          <p className="text-[12px] font-bold text-stone-800 truncate">
-                            {item.pengaju}{" "}
-                            <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
-                          </p>
-                          <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                            {item.amount}
-                          </p>
+                  return (
+                    <div key={projectName} className="flex flex-col gap-2">
+                      {/* Project Header Card */}
+                      <button
+                        onClick={() => toggleProject(projectName)}
+                        className="w-full flex items-center justify-between px-3.5 py-3.5 bg-white border border-stone-205 rounded-2xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] hover:border-stone-300 hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.08)] transition-all duration-200 text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">
+                            <Briefcase size={13} className="text-amber-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-xs font-bold text-stone-800 truncate max-w-[160px] leading-tight">
+                              {projectName}
+                            </h3>
+                            <span className="text-[10px] text-stone-400 font-medium">
+                              {items.length} Pengajuan
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] text-stone-400 truncate">
-                            {item.merchant} · {item.project}
-                          </p>
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${getStatusBadge(
-                              item.status
-                            )}`}
-                          >
-                            {item.status}
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-lg font-mono">
+                            {formattedTotal}
                           </span>
+                          {isCollapsed ? (
+                            <ChevronDown size={14} className="text-stone-400" />
+                          ) : (
+                            <ChevronUp size={14} className="text-stone-400" />
+                          )}
                         </div>
-                      </div>
+                      </button>
+
+                      {/* Project Items List */}
+                      {!isCollapsed && (
+                        <div className="flex flex-col gap-1.5 pl-2 transition-all duration-200">
+                          {items.map((item) => {
+                            const isSelected = selected && selected.id === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                onClick={() => setSelectedId(item.id)}
+                                className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${
+                                  isSelected
+                                    ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
+                                    : "bg-white border-stone-200 hover:bg-stone-50"
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  {/* Avatar inisial */}
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold mt-0.5 ${getAvatarColor(
+                                      item.pengajuInitials
+                                    )}`}
+                                  >
+                                    {item.pengajuInitials}
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                                      <p className="text-[12px] font-bold text-stone-800 truncate">
+                                        {item.pengaju}{" "}
+                                        <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
+                                      </p>
+                                      <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
+                                        {item.amount}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-[11px] text-stone-400 truncate">
+                                        {item.merchant}
+                                      </p>
+                                      <span
+                                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${getStatusBadge(
+                                          item.status
+                                        )}`}
+                                      >
+                                        {item.status}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </button>
-                ))
+                  );
+                })
               )}
             </div>
 
