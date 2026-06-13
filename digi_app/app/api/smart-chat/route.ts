@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getAIChatContext } from '@/lib/temp-data-repo';
 
 // POST: Process natural language queries (Smart Chat with GROQ & Fallback Mock)
 export async function POST(req: NextRequest) {
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { message } = body;
+    const { message, history } = body;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ message: 'Message is required' }, { status: 400 });
@@ -21,88 +21,76 @@ export async function POST(req: NextRequest) {
     const lowerMessage = message.toLowerCase();
     let mockResponseText = '';
 
-    // --- 1. Gather mock responses (used as fallback or when key is missing) ---
-    // 1.1 Sisa budget query
-    if (lowerMessage.includes('sisa budget') || lowerMessage.includes('sisa anggaran') || lowerMessage.includes('budget proyek')) {
-      const budgets = await prisma.budget.findMany({
-        include: { proyek: { select: { nama: true } } },
-      });
+    // --- 1. Gather context data from Temporary Data Repository (with TTL Cache) ---
+    const context = await getAIChatContext();
 
-      if (budgets.length === 0) {
-        mockResponseText = 'Saat ini belum ada data budget proyek yang dikonfigurasi di sistem.';
+    // --- 2. Process query in mock response mode (used as fallback or when key is missing) ---
+    // 2.1 Project Margin query (Concise 3 highest margins)
+    if (lowerMessage.includes('margin') || lowerMessage.includes('profit') || lowerMessage.includes('untung')) {
+      const sorted = [...context.projectsContext]
+        .filter(p => p.budget)
+        .sort((a, b) => b.margin - a.margin)
+        .slice(0, 3);
+
+      if (sorted.length === 0) {
+        mockResponseText = 'Belum ada data budget proyek untuk menghitung margin.';
       } else {
-        mockResponseText = 'Berikut adalah rincian sisa budget proyek saat ini:\n';
-        budgets.forEach((b) => {
-          const sisa = Number(b.sisaBudget);
-          const total = Number(b.rabTotal);
-          const pct = total > 0 ? ((sisa / total) * 100).toFixed(1) : '0';
-          mockResponseText += `- **Proyek ${b.proyek.nama}**: Sisa budget Rp ${sisa.toLocaleString()} dari total Rp ${total.toLocaleString()} (${pct}% tersisa).\n`;
-        });
+        mockResponseText = '3 proyek dengan margin tertinggi:\n' +
+          sorted.map((p, idx) => `${idx + 1}. **${p.nama}**: ${p.margin}%`).join('\n');
       }
     }
-    // 1.2 Pengeluaran terbesar query
+    // 2.2 Sisa budget query
+    else if (lowerMessage.includes('sisa budget') || lowerMessage.includes('sisa anggaran') || lowerMessage.includes('budget proyek')) {
+      const activeProjects = context.projectsContext.filter(p => p.budget);
+
+      if (activeProjects.length === 0) {
+        mockResponseText = 'Belum ada data budget proyek.';
+      } else {
+        mockResponseText = 'Sisa budget proyek saat ini:\n' +
+          activeProjects.map((p) => {
+            const sisa = p.budget.sisaBudget;
+            const total = p.budget.rabTotal;
+            const pct = total > 0 ? ((sisa / total) * 100).toFixed(1) : '0';
+            return `- **${p.nama}**: Sisa Rp ${sisa.toLocaleString()} / Rp ${total.toLocaleString()} (${pct}% sisa).`;
+          }).join('\n');
+      }
+    }
+    // 2.3 Pengeluaran terbesar query
     else if (lowerMessage.includes('pengeluaran terbesar') || lowerMessage.includes('transaksi terbesar') || lowerMessage.includes('terbesar')) {
-      const largestRb = await prisma.reimbursement.findFirst({
-        where: { status: 'APPROVED' },
-        orderBy: { nominal: 'desc' },
-        include: {
-          user: { select: { nama: true } },
-          proyek: { select: { nama: true } },
-          posAnggaran: { select: { namaPos: true } },
-        },
-      });
-
-      if (!largestRb) {
-        mockResponseText = 'Belum ada pengeluaran/reimbursement yang disetujui di sistem saat ini.';
+      if (!context.largestApproved) {
+        mockResponseText = 'Belum ada pengeluaran disetujui.';
       } else {
-        const nominal = Number(largestRb.nominal);
-        mockResponseText = `Pengeluaran terbesar yang telah dicairkan di sistem adalah pengajuan dari **${largestRb.user.nama}** untuk proyek **${largestRb.proyek.nama}** (Pos Anggaran: ${largestRb.posAnggaran.namaPos}) sebesar **Rp ${nominal.toLocaleString()}**.`;
+        const { nominal, pemohon, proyek, posAnggaran } = context.largestApproved;
+        mockResponseText = `Pengeluaran terbesar yang dicairkan: **Rp ${nominal.toLocaleString()}** oleh **${pemohon}** untuk proyek **${proyek}** (Pos: ${posAnggaran}).`;
       }
     }
-    // 1.3 Pending approvals query
+    // 2.4 Pending approvals query
     else if (lowerMessage.includes('pending') || lowerMessage.includes('menunggu') || lowerMessage.includes('antrian') || lowerMessage.includes('approval')) {
-      const pendingRbs = await prisma.reimbursement.findMany({
-        where: {
-          status: { in: ['SUBMITTED', 'APPROVED_BY_PM'] },
-        },
-        select: {
-          nominal: true,
-          status: true,
-        },
-      });
+      const { count, totalNominal, countPM, countKeuangan } = context.pendingStats;
 
-      if (pendingRbs.length === 0) {
-        mockResponseText = 'Tidak ada pengajuan reimbursement yang sedang menunggu persetujuan saat ini. Semua pengajuan bersih!';
+      if (count === 0) {
+        mockResponseText = 'Tidak ada pengajuan pending.';
       } else {
-        const totalPendingNominal = pendingRbs.reduce((sum, r) => sum + Number(r.nominal), 0);
-        const countPM = pendingRbs.filter(r => r.status === 'SUBMITTED').length;
-        const countKeuangan = pendingRbs.filter(r => r.status === 'APPROVED_BY_PM').length;
-
-        mockResponseText = `Saat ini terdapat **${pendingRbs.length} pengajuan pending** dengan total nominal **Rp ${totalPendingNominal.toLocaleString()}**.\n`;
-        mockResponseText += `- Menunggu validasi Project Manager: ${countPM} pengajuan.\n`;
-        mockResponseText += `- Menunggu pencairan Tim Keuangan: ${countKeuangan} pengajuan.`;
+        mockResponseText = `Terdapat **${count} pengajuan pending** (Total: **Rp ${totalNominal.toLocaleString()}**):\n` +
+          `- Menunggu PM: ${countPM} pengajuan.\n` +
+          `- Menunggu Keuangan: ${countKeuangan} pengajuan.`;
       }
     }
-    // 1.4 Jurnal akuntansi/CoA query
+    // 2.5 Jurnal akuntansi/CoA query
     else if (lowerMessage.includes('jurnal') || lowerMessage.includes('coa') || lowerMessage.includes('chart of accounts') || lowerMessage.includes('akun')) {
-      const journalCount = await prisma.jurnalAkuntansi.count();
-      const coaCount = await prisma.chartOfAccounts.count();
-      const totalDebitResult = await prisma.jurnalAkuntansi.aggregate({
-        _sum: { nominal: true },
-      });
-      const totalDebit = Number(totalDebitResult._sum.nominal || 0);
+      const coaCount = context.coas.length;
+      const journalCount = context.totalJurnal;
 
-      mockResponseText = `Sistem akuntansi mencatat **${coaCount} kode akun (CoA)** aktif.\n`;
-      mockResponseText += `Terdapat **${journalCount} jurnal akuntansi** otomatis yang telah digenerate dengan total nilai nominal **Rp ${totalDebit.toLocaleString()}**. Total Debit dan Kredit tercatat seimbang (balanced).`;
+      mockResponseText = `Sistem mencatat **${coaCount} CoA** aktif dan **${journalCount} jurnal** otomatis.`;
     }
-    // 1.5 Default fallback helper
+    // 2.6 Default fallback helper
     else {
-      mockResponseText = `Halo! Saya asisten pintar Digi Money Manager. Anda dapat menanyakan tentang data keuangan real-time dari database. 
-        Contoh pertanyaan yang dapat Anda ajukan:
-        1. *"Berapa sisa budget proyek saat ini?"*
-        2. *"Apa pengeluaran terbesar yang tercatat?"*
-        3. *"Berapa banyak reimbursement yang pending?"*
-        4. *"Bagaimana status jurnal akuntansi dan CoA?"*`;
+      mockResponseText = `Halo! Saya asisten finansial Anda. Ajukan pertanyaan ringkas seperti:\n` +
+        `- *"Tampilkan 3 proyek dengan margin tertinggi"* (Margin query)\n` +
+        `- *"Berapa sisa budget proyek?"*\n` +
+        `- *"Apa pengeluaran terbesar?"*\n` +
+        `- *"Berapa banyak reimbursement pending?"*\n` +
+        `- *"Bagaimana status CoA dan jurnal?"*`;
     }
 
     // Check if GROQ API KEY is configured
@@ -110,7 +98,7 @@ export async function POST(req: NextRequest) {
     const isMock = !apiKey || apiKey === 'gsk_placeholder_key_here';
 
     if (isMock) {
-      const formattedMockReply = `**[Simulated Assistant]**\n\n${mockResponseText}\n\n*(Catatan: Anda melihat respon simulasi ini karena \`GROQ_API_KEY\` belum dikonfigurasi di file \`.env\` atau masih menggunakan nilai placeholder).*`;
+      const formattedMockReply = `**[Simulated Assistant]**\n\n${mockResponseText}\n\n*(Catatan: Anda melihat respon simulasi ini karena \`GROQ_API_KEY\` belum dikonfigurasi).*`;
       return NextResponse.json({
         reply: formattedMockReply,
         queryMessage: message,
@@ -118,85 +106,35 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // --- 2. Call GROQ API using real database context ---
-    // Fetch context data to supply to GROQ LLM
-    const [projects, totalReimbursements, recentReimbursements, coas, totalJurnal] = await Promise.all([
-      prisma.proyek.findMany({
-        include: {
-          budget: {
-            select: {
-              rabTotal: true,
-              totalPengeluaran: true,
-              totalReimbursement: true,
-              sisaBudget: true,
-            },
-          },
-        },
-      }),
-      prisma.reimbursement.count(),
-      prisma.reimbursement.findMany({
-        take: 10,
-        orderBy: { id: 'desc' },
-        include: {
-          user: { select: { nama: true } },
-          proyek: { select: { nama: true } },
-          posAnggaran: { select: { namaPos: true } },
-        },
-      }),
-      prisma.chartOfAccounts.findMany({
-        select: { nomorAkun: true, namaAkun: true, tipe: true },
-      }),
-      prisma.jurnalAkuntansi.count(),
-    ]);
-
-    // Format Context for LLM consumption
-    const projectsContext = projects.map(p => ({
-      id: p.id,
-      nama: p.nama,
-      status: p.status,
-      budget: p.budget ? {
-        rabTotal: Number(p.budget.rabTotal),
-        totalPengeluaran: Number(p.budget.totalPengeluaran),
-        totalReimbursement: Number(p.budget.totalReimbursement),
-        sisaBudget: Number(p.budget.sisaBudget),
-      } : null
-    }));
-
-    const recentReimbursementsContext = recentReimbursements.map(r => ({
-      id: r.id,
-      pemohon: r.user.nama,
-      proyek: r.proyek.nama,
-      posAnggaran: r.posAnggaran.namaPos,
-      nominal: Number(r.nominal),
-      status: r.status,
-      fraudFlag: r.fraudFlag,
-    }));
-
+    // --- 3. Call GROQ API using temporary cached context ---
     const systemPrompt = `Anda adalah Asisten Pintar Keuangan untuk aplikasi "Digi Money Manager".
-Tugas Anda adalah membantu pengguna (Project Manager, Tim Keuangan, Direktur) menjawab pertanyaan seputar data keuangan real-time dari database proyek.
+Tugas Anda adalah membantu pengguna (Project Manager, Tim Keuangan, Direktur) menjawab pertanyaan seputar data keuangan real-time dari database proyek secara ringkas dan tepat sasaran.
 
-Berikut adalah data real-time dari database aplikasi:
+Berikut adalah data real-time dari database aplikasi (diambil dari repositori data):
 
 --- DATA PROYEK & BUDGET ---
-${JSON.stringify(projectsContext, null, 2)}
+${JSON.stringify(context.projectsContext, null, 2)}
 
 --- RINGKASAN REIMBURSEMENT ---
-- Total Reimbursement di database: ${totalReimbursements}
+- Total Reimbursement di database: ${context.totalReimbursements}
+- Statistik Pending: ${JSON.stringify(context.pendingStats, null, 2)}
+- Pengeluaran Terbesar: ${JSON.stringify(context.largestApproved, null, 2)}
 - 10 Reimbursement Terbaru:
-${JSON.stringify(recentReimbursementsContext, null, 2)}
+${JSON.stringify(context.recentReimbursementsContext, null, 2)}
 
 --- AKUNTANSI (CHART OF ACCOUNTS & JURNAL) ---
-- Total Chart of Accounts (CoA): ${coas.length}
-- Total Jurnal Akuntansi otomatis: ${totalJurnal}
+- Total Chart of Accounts (CoA): ${context.coas.length}
+- Total Jurnal Akuntansi otomatis: ${context.totalJurnal}
 - Daftar Kode Akun (CoA):
-${JSON.stringify(coas, null, 2)}
+${JSON.stringify(context.coas, null, 2)}
 ----------------------------
 
 Aturan menjawab:
 1. Jawablah pertanyaan pengguna dengan sopan, jelas, dan profesional dalam Bahasa Indonesia.
-2. Gunakan data di atas untuk menjawab pertanyaan yang relevan secara akurat (seperti sisa budget, pengeluaran terbesar, status reimbursement terbaru, jumlah CoA, dll.).
-3. Jika pengguna menanyakan data spesifik yang tidak ada di dalam konteks di atas, beri tahu mereka secara jujur bahwa data tersebut tidak tersedia di sistem saat ini.
-4. Gunakan format markdown (seperti tebal, list, kode, atau tabel) agar jawaban mudah dibaca oleh pengguna.`;
+2. Gunakan data di atas untuk menjawab pertanyaan secara akurat (seperti sisa budget, proyek margin tertinggi, pengeluaran terbesar, dll.).
+3. Jika data tidak tersedia di dalam konteks di atas, beri tahu secara jujur bahwa data tersebut tidak tersedia.
+4. Gunakan format markdown (list, tabel, atau tebal) agar mudah dibaca.
+5. Jawablah secara langsung, singkat, dan tepat pada inti data yang diminta. Hindari kalimat pembuka, basa-basi, atau penutup yang panjang lebar (jangan bertele-tele). Langsung sajikan informasi atau data inti yang diminta (misal: "3 proyek dengan margin tertinggi adalah: ...").`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -206,10 +144,21 @@ Aturan menjawab:
       },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
+        messages: (() => {
+          const apiMessages: any[] = [
+            { role: 'system', content: systemPrompt }
+          ];
+          if (Array.isArray(history)) {
+            const limitedHistory = history.slice(-10);
+            limitedHistory.forEach((msg: any) => {
+              if (msg.role === 'user' || msg.role === 'assistant') {
+                apiMessages.push({ role: msg.role, content: msg.content });
+              }
+            });
+          }
+          apiMessages.push({ role: 'user', content: message });
+          return apiMessages;
+        })(),
         temperature: 0.2,
       }),
     });
@@ -217,7 +166,6 @@ Aturan menjawab:
     if (!groqResponse.ok) {
       const errText = await groqResponse.text();
       console.error('GROQ API Error:', errText);
-      // Fallback to mock text if GROQ API fails at runtime
       return NextResponse.json({
         reply: `**[Simulated Assistant (Fallback)]**\n\n${mockResponseText}\n\n*(Catatan: GROQ API mengalami kendala (${groqResponse.status}), kami menampilkan respon fallback).*`,
         queryMessage: message,
