@@ -37,6 +37,10 @@ export default function KelolaProyekPage() {
   const [showAddProject, setShowAddProject] = useState(false);
   const [showAssignMembers, setShowAssignMembers] = useState<Project | null>(null);
   const [showInitBudget, setShowInitBudget] = useState<Project | null>(null);
+  const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Forms state
   const [submitting, setSubmitting] = useState(false);
@@ -48,6 +52,15 @@ export default function KelolaProyekPage() {
     deskripsi: "",
     tanggalMulai: "",
     tanggalSelesai: "",
+    status: "AKTIF",
+  });
+
+  const [editForm, setEditForm] = useState({
+    nama: "",
+    deskripsi: "",
+    tanggalMulai: "",
+    tanggalSelesai: "",
+    status: "AKTIF",
   });
 
   // Assign members state
@@ -97,6 +110,7 @@ export default function KelolaProyekPage() {
           deskripsi: projectForm.deskripsi,
           tanggalMulai: projectForm.tanggalMulai,
           tanggalSelesai: projectForm.tanggalSelesai || undefined,
+          status: projectForm.status,
         }),
       });
 
@@ -107,8 +121,106 @@ export default function KelolaProyekPage() {
       }
 
       setSuccess(`Proyek "${projectForm.nama}" berhasil dibuat!`);
-      setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "" });
+      setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "", status: "AKTIF" });
       setShowAddProject(false);
+      fetchData();
+    } catch {
+      setFormError("Terjadi kesalahan koneksi");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenDetailModal = async (project: Project) => {
+    setShowProjectDetail(project);
+    setEditMode(false);
+    setLoadingDetail(true);
+    setDetailedProjectInfo(null);
+    setFormError("");
+    setSuccess("");
+
+    try {
+      const res = await fetch(`/api/proyek/${project.id}`);
+      const data = await res.json();
+      if (res.ok && data.project) {
+        setDetailedProjectInfo(data.project);
+        setEditForm({
+          nama: data.project.nama,
+          deskripsi: data.project.deskripsi || "",
+          tanggalMulai: data.project.tanggalMulai ? data.project.tanggalMulai.split('T')[0] : "",
+          tanggalSelesai: data.project.tanggalSelesai ? data.project.tanggalSelesai.split('T')[0] : "",
+          status: data.project.status,
+        });
+      } else {
+        setFormError(data.message || "Gagal mengambil detail proyek");
+      }
+    } catch {
+      setFormError("Gagal memuat data detail dari server");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleUpdateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showProjectDetail) return;
+    setFormError("");
+    setSuccess("");
+    setSubmitting(true);
+
+    try {
+      const res = await fetch(`/api/proyek/${showProjectDetail.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nama: editForm.nama,
+          deskripsi: editForm.deskripsi,
+          tanggalMulai: editForm.tanggalMulai,
+          tanggalSelesai: editForm.tanggalSelesai || null,
+          status: editForm.status,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(data.message || "Gagal memperbarui proyek");
+        return;
+      }
+
+      setSuccess(`Proyek "${editForm.nama}" berhasil diperbarui!`);
+      setEditMode(false);
+      fetchData();
+      handleOpenDetailModal(data.project || showProjectDetail);
+    } catch {
+      setFormError("Terjadi kesalahan koneksi");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!showProjectDetail) return;
+    if (!confirm(`Apakah Anda yakin ingin menghapus proyek "${showProjectDetail.nama}"?\n\nPERINGATAN: Tindakan ini tidak dapat dibatalkan dan akan menghapus seluruh anggaran, pos anggaran, serta riwayat reimbursement terkait proyek ini.`)) {
+      return;
+    }
+
+    setFormError("");
+    setSuccess("");
+    setSubmitting(true);
+
+    try {
+      const res = await fetch(`/api/proyek/${showProjectDetail.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(data.message || "Gagal menghapus proyek");
+        return;
+      }
+
+      alert("Proyek berhasil dihapus!");
+      setShowProjectDetail(null);
       fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
@@ -283,14 +395,22 @@ export default function KelolaProyekPage() {
                 const sisa = hasBudget ? parseFloat(project.budget!.sisaBudget) : 0;
                 
                 return (
-                  <div key={project.id} className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition gap-4">
+                  <div
+                    key={project.id}
+                    onClick={() => handleOpenDetailModal(project)}
+                    className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between hover:shadow-md hover:border-stone-300 transition gap-4 cursor-pointer"
+                  >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded">
                           PRJ-{String(project.id).padStart(3, "0")}
                         </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          project.status === "AKTIF" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-stone-100 text-stone-500"
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                          project.status === "PLANNING" ? "bg-blue-50 text-blue-700 border-blue-100" :
+                          project.status === "AKTIF" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                          project.status === "CANCELED" ? "bg-rose-50 text-rose-700 border-rose-100" :
+                          project.status === "DONE" ? "bg-purple-50 text-purple-700 border-purple-100" :
+                          "bg-stone-50 text-stone-500 border-stone-100"
                         }`}>
                           {project.status}
                         </span>
@@ -340,15 +460,15 @@ export default function KelolaProyekPage() {
                       {/* Action buttons */}
                       <div className="flex items-center gap-2 pt-1">
                         <button
-                          onClick={() => openAssignModal(project)}
+                          onClick={(e) => { e.stopPropagation(); handleOpenDetailModal(project); }}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-stone-200 hover:bg-stone-50 text-stone-600 hover:text-stone-850 text-xs font-bold rounded-xl transition cursor-pointer"
                         >
-                          <Users size={13} />
-                          Anggota
+                          <Briefcase size={13} />
+                          Detail Proyek
                         </button>
                         {!hasBudget && (
                           <button
-                            onClick={() => { setShowInitBudget(project); setRabTotal(""); }}
+                            onClick={(e) => { e.stopPropagation(); setShowInitBudget(project); setRabTotal(""); }}
                             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold rounded-xl transition cursor-pointer"
                           >
                             <DollarSign size={13} />
@@ -415,6 +535,20 @@ export default function KelolaProyekPage() {
                         className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] text-stone-850 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition bg-white"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
+                    <select
+                      value={projectForm.status}
+                      onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
+                      className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] text-stone-850 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition bg-white font-medium"
+                    >
+                      <option value="PLANNING">PLANNING</option>
+                      <option value="AKTIF">AKTIF</option>
+                      <option value="CANCELED">CANCELED</option>
+                      <option value="DONE">DONE</option>
+                    </select>
                   </div>
 
                   {formError && (
@@ -657,6 +791,309 @@ export default function KelolaProyekPage() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* DETAIL & EDIT PROYEK MODAL */}
+          {showProjectDetail && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-2xl w-full overflow-hidden animate-scale-up flex flex-col max-h-[90vh]">
+                {/* Modal Header */}
+                <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50 flex-shrink-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded">
+                      PRJ-{String(showProjectDetail.id).padStart(3, "0")}
+                    </span>
+                    <h3 className="font-bold text-[15px] text-stone-900">
+                      {editMode ? "Edit Proyek" : "Detail Proyek"}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowProjectDetail(null);
+                      setEditMode(false);
+                    }}
+                    className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {loadingDetail ? (
+                  <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3 text-stone-400">
+                    <Loader2 size={24} className="animate-spin" />
+                    <span className="text-sm">Memuat detail proyek...</span>
+                  </div>
+                ) : editMode ? (
+                  /* EDIT MODE FORM */
+                  <form onSubmit={handleUpdateProject} className="flex-1 overflow-y-auto p-6 space-y-4">
+                    <div>
+                      <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek *</label>
+                      <input
+                        type="text"
+                        required
+                        value={editForm.nama}
+                        onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+                        className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] text-stone-850 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Deskripsi Proyek</label>
+                      <textarea
+                        rows={3}
+                        value={editForm.deskripsi}
+                        onChange={(e) => setEditForm({ ...editForm, deskripsi: e.target.value })}
+                        className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] text-stone-850 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition bg-white resize-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
+                        <input
+                          type="date"
+                          required
+                          value={editForm.tanggalMulai}
+                          onChange={(e) => setEditForm({ ...editForm, tanggalMulai: e.target.value })}
+                          className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] text-stone-850 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai (Opsional)</label>
+                        <input
+                          type="date"
+                          value={editForm.tanggalSelesai}
+                          onChange={(e) => setEditForm({ ...editForm, tanggalSelesai: e.target.value })}
+                          className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] text-stone-850 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition bg-white"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
+                      <select
+                        value={editForm.status}
+                        onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                        className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] text-stone-850 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition bg-white"
+                      >
+                        <option value="PLANNING">PLANNING</option>
+                        <option value="AKTIF">AKTIF</option>
+                        <option value="CANCELED">CANCELED</option>
+                        <option value="DONE">DONE</option>
+                      </select>
+                    </div>
+
+                    {formError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2">
+                        <X size={14} />
+                        {formError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4 border-t border-stone-100 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setEditMode(false)}
+                        className="flex-1 py-2.5 border border-stone-200 rounded-xl text-[13px] font-semibold text-stone-600 hover:bg-stone-50 transition cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="flex-1 py-2.5 bg-[#2d6a4f] hover:bg-[#1e5038] disabled:opacity-60 text-white text-[13px] font-bold rounded-xl transition cursor-pointer shadow-sm flex items-center justify-center gap-2"
+                      >
+                        {submitting && <Loader2 size={13} className="animate-spin" />}
+                        Simpan Perubahan
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  /* VIEW MODE DETAILS */
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* General Info */}
+                    <div className="space-y-3 text-left">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-stone-900 leading-tight">
+                          {detailedProjectInfo?.nama || showProjectDetail.nama}
+                        </h2>
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded border ${
+                          (detailedProjectInfo?.status || showProjectDetail.status) === "PLANNING" ? "bg-blue-50 text-blue-700 border-blue-100" :
+                          (detailedProjectInfo?.status || showProjectDetail.status) === "AKTIF" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                          (detailedProjectInfo?.status || showProjectDetail.status) === "CANCELED" ? "bg-rose-50 text-rose-700 border-rose-100" :
+                          (detailedProjectInfo?.status || showProjectDetail.status) === "DONE" ? "bg-purple-50 text-purple-700 border-purple-100" :
+                          "bg-stone-50 text-stone-500 border-stone-100"
+                        }`}>
+                          {detailedProjectInfo?.status || showProjectDetail.status}
+                        </span>
+                      </div>
+                      <p className="text-[13px] text-stone-500 leading-relaxed bg-stone-50 p-3.5 rounded-xl border border-stone-100 whitespace-pre-line">
+                        {detailedProjectInfo?.deskripsi || showProjectDetail.deskripsi || "Tidak ada deskripsi."}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-stone-600">
+                        <Calendar size={14} className="text-stone-400" />
+                        <span className="font-semibold">Durasi Proyek:</span>
+                        <span>
+                          {detailedProjectInfo?.tanggalMulai ? new Date(detailedProjectInfo.tanggalMulai).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : ""}
+                          {detailedProjectInfo?.tanggalSelesai ? ` s/d ${new Date(detailedProjectInfo.tanggalSelesai).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}` : " (Belum ditentukan tanggal selesai)"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Financial Summary */}
+                    <div className="border-t border-stone-155 pt-5 space-y-4">
+                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1.5 justify-start">
+                        <DollarSign size={14} />
+                        Ringkasan Finansial & RAB
+                      </h4>
+                      {detailedProjectInfo?.budget ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="bg-stone-50 p-3 rounded-xl border border-stone-100 text-left">
+                              <span className="text-[10px] text-stone-400 block font-bold">BUDGET RAB</span>
+                              <span className="font-mono font-bold text-stone-800 text-sm">
+                                {formatRupiah(detailedProjectInfo?.budget?.rabTotal)}
+                              </span>
+                            </div>
+                            <div className="bg-stone-50 p-3 rounded-xl border border-stone-100 text-left">
+                              <span className="text-[10px] text-stone-400 block font-bold">PENGELUARAN</span>
+                              <span className="font-mono font-bold text-stone-850 text-sm">
+                                {formatRupiah(detailedProjectInfo?.budget?.totalPengeluaran)}
+                              </span>
+                            </div>
+                            <div className="bg-stone-50 p-3 rounded-xl border border-stone-100 text-left">
+                              <span className="text-[10px] text-stone-400 block font-bold">REIMBURSEMENT</span>
+                              <span className="font-mono font-bold text-stone-850 text-sm">
+                                {formatRupiah(detailedProjectInfo?.budget?.totalReimbursement)}
+                              </span>
+                            </div>
+                            <div className="bg-emerald-50/40 p-3 rounded-xl border border-emerald-100/50 text-left">
+                              <span className="text-[10px] text-emerald-800 block font-bold">SISA BUDGET</span>
+                              <span className="font-mono font-bold text-emerald-700 text-sm">
+                                {formatRupiah(detailedProjectInfo?.budget?.sisaBudget)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 text-left">
+                            <span className="text-[11px] text-stone-500 font-bold block">Alokasi per Pos Anggaran</span>
+                            <div className="border border-stone-200 rounded-xl overflow-hidden divide-y divide-stone-100">
+                              {detailedProjectInfo?.budget?.posAnggaran?.map((pos: any) => (
+                                <div key={pos.id} className="flex justify-between items-center px-4 py-2.5 text-xs bg-white hover:bg-stone-50 transition">
+                                  <span className="font-medium text-stone-700">{pos.namaPos || pos.deskripsi}</span>
+                                  <span className="font-mono font-bold text-stone-800">{formatRupiah(pos.nominalAlokasi)}</span>
+                                </div>
+                              ))}
+                              {(!detailedProjectInfo?.budget?.posAnggaran || detailedProjectInfo?.budget?.posAnggaran?.length === 0) && (
+                                <div className="p-3 text-center text-[11px] text-stone-400 italic bg-stone-50/50 font-medium">
+                                  Belum ada pos anggaran terperinci.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-amber-50 border border-amber-100 text-amber-850 p-4 rounded-xl text-xs flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <DollarSign size={16} className="text-amber-700" />
+                            <span>Anggaran RAB proyek ini belum diinisialisasi.</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setShowProjectDetail(null);
+                              setShowInitBudget(showProjectDetail);
+                              setRabTotal("");
+                            }}
+                            className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-lg transition"
+                          >
+                            Set RAB
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Assigned Members */}
+                    <div className="border-t border-stone-155 pt-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1.5 justify-start">
+                          <Users size={14} />
+                          Anggota Tim Proyek
+                        </h4>
+                        <button
+                          onClick={() => {
+                            setShowProjectDetail(null);
+                            openAssignModal(showProjectDetail);
+                          }}
+                          className="text-xs font-bold text-[#2d6a4f] hover:underline"
+                        >
+                          Kelola Anggota
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {detailedProjectInfo?.users?.map((user: any) => (
+                          <div key={user.id} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-100 rounded-xl hover:bg-stone-100/60 transition">
+                            <div className="w-8 h-8 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center font-bold text-xs flex-shrink-0 uppercase">
+                              {user.nama.substring(0, 2)}
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <p className="text-xs font-bold text-stone-850 truncate">{user.nama}</p>
+                              <p className="text-[10px] text-stone-400 font-mono truncate">{user.email}</p>
+                            </div>
+                            <span className={`ml-auto text-[9px] font-bold px-2 py-0.5 rounded ${
+                              user.roleInProyek === 'Project Manager' ? 'bg-amber-100 text-amber-800' : 'bg-stone-200 text-stone-600'
+                            }`}>
+                              {user.roleInProyek || 'Anggota Lapangan'}
+                            </span>
+                          </div>
+                        ))}
+                        {(!detailedProjectInfo?.users || detailedProjectInfo.users.length === 0) && (
+                          <div className="col-span-full py-6 text-center text-xs text-stone-400 italic bg-stone-50/50 border border-stone-100 rounded-xl">
+                            Belum ada anggota tim yang ditugaskan ke proyek ini.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {formError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2">
+                        <X size={14} />
+                        {formError}
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-between gap-3 pt-5 border-t border-stone-155 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleDeleteProject}
+                        disabled={submitting}
+                        className="px-4 py-2.5 border border-red-200 hover:bg-red-50 text-red-600 hover:text-red-700 disabled:opacity-60 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2"
+                      >
+                        <Trash2 size={14} />
+                        Hapus Proyek
+                      </button>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowProjectDetail(null);
+                          }}
+                          className="px-4 py-2.5 border border-stone-200 hover:bg-stone-50 text-stone-600 text-xs font-semibold rounded-xl transition cursor-pointer"
+                        >
+                          Tutup
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditMode(true)}
+                          className="px-4 py-2.5 bg-[#2d6a4f] hover:bg-[#1e5038] text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        >
+                          Edit Proyek
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

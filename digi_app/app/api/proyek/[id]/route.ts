@@ -33,7 +33,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    const mappedUsers = project.users.map((up) => up.user);
+    const mappedUsers = project.users.map((up) => ({
+      ...up.user,
+      roleInProyek: up.role,
+    }));
     const mappedBudget = project.budget ? {
       ...project.budget,
       posAnggaran: project.budget.posAnggaran.map((pos) => ({
@@ -51,6 +54,101 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ project: responseProject });
   } catch (error: any) {
     console.error('Fetch project detail error:', error);
+    return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+  }
+}
+
+// PUT: Update project details
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const role = req.headers.get('x-user-role');
+    const direktorId = req.headers.get('x-user-id');
+    if (role !== 'Direktur / Manajemen') {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const proyekId = parseInt(id, 10);
+
+    const body = await req.json();
+    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status } = body;
+
+    if (!nama || !tanggalMulai || !status) {
+      return NextResponse.json({ message: 'Nama, tanggal mulai, dan status wajib diisi' }, { status: 400 });
+    }
+
+    const updatedProject = await prisma.proyek.update({
+      where: { id: proyekId },
+      data: {
+        nama,
+        deskripsi: deskripsi || null,
+        tanggalMulai: new Date(tanggalMulai),
+        tanggalSelesai: tanggalSelesai ? new Date(tanggalSelesai) : null,
+        status,
+      },
+    });
+
+    if (direktorId) {
+      await prisma.auditTrail.create({
+        data: {
+          userId: parseInt(direktorId, 10),
+          aksi: 'update_project',
+          detail: `Direktur memperbarui proyek: ${nama} (Status: ${status})`,
+        },
+      });
+    }
+
+    return NextResponse.json({ message: 'Proyek berhasil diperbarui', project: updatedProject });
+  } catch (error: any) {
+    console.error('Update project error:', error);
+    return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE: Delete a project
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const role = req.headers.get('x-user-role');
+    const direktorId = req.headers.get('x-user-id');
+    if (role !== 'Direktur / Manajemen') {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const proyekId = parseInt(id, 10);
+
+    // Verify project exists
+    const project = await prisma.proyek.findUnique({ where: { id: proyekId } });
+    if (!project) {
+      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    }
+
+    // Perform deletion in a transaction to handle non-cascading relations safely
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete reimbursements (this will cascade delete approvals and jurnal entries)
+      await tx.reimbursement.deleteMany({
+        where: { proyekId },
+      });
+
+      // 2. Delete project itself (cascades UserProyek, Budget, and PosAnggaran)
+      await tx.proyek.delete({
+        where: { id: proyekId },
+      });
+    });
+
+    if (direktorId) {
+      await prisma.auditTrail.create({
+        data: {
+          userId: parseInt(direktorId, 10),
+          aksi: 'delete_project',
+          detail: `Direktur menghapus proyek: ${project.nama}`,
+        },
+      });
+    }
+
+    return NextResponse.json({ message: 'Proyek berhasil dihapus' });
+  } catch (error: any) {
+    console.error('Delete project error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       data: {
         nama,
         deskripsi: deskripsi || null,
-        status: 'AKTIF',
+        status: body.status || 'AKTIF',
         tanggalMulai: new Date(tanggalMulai),
         tanggalSelesai: tanggalSelesai ? new Date(tanggalSelesai) : null,
       },
