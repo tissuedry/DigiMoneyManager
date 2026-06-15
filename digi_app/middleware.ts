@@ -58,7 +58,7 @@ async function verifyJWT(token: string, secret: string): Promise<any | null> {
     const isValid = await crypto.subtle.verify(
       'HMAC',
       key,
-      sigBuf.buffer, 
+      sigBuf.buffer as ArrayBuffer,
       data
     );
 
