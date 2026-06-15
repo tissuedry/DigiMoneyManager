@@ -1,11 +1,3 @@
-// Polyfill for Edge Runtime compatibility with some dependencies
-if (typeof (globalThis as any).__dirname === 'undefined') {
-  (globalThis as any).__dirname = '';
-}
-if (typeof (globalThis as any).__filename === 'undefined') {
-  (globalThis as any).__filename = '';
-}
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -62,10 +54,11 @@ async function verifyJWT(token: string, secret: string): Promise<any | null> {
 
     const sigBuf = base64UrlToUint8Array(signatureB64);
 
+    // Ganti 'sigBuf as any' menjadi 'sigBuf.buffer' agar aman di Edge Runtime
     const isValid = await crypto.subtle.verify(
       'HMAC',
       key,
-      sigBuf as any,
+      sigBuf.buffer, 
       data
     );
 
@@ -78,6 +71,7 @@ async function verifyJWT(token: string, secret: string): Promise<any | null> {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  
   // 1. Exclude public static files, images, login pages, and register page
   if (
     pathname.startsWith('/_next') ||
@@ -88,17 +82,15 @@ export async function middleware(req: NextRequest) {
     pathname === '/register' ||
     pathname === '/api-docs' ||
     pathname === '/api/openapi.json' ||
-    pathname.includes('.') // static assets e.g. /favicon.ico, /bukti_struk.png
+    pathname.includes('.') 
   ) {
     return NextResponse.next();
   }
-
 
   // 2. Get auth token
   let token = req.cookies.get('auth_token')?.value;
 
   if (!token) {
-    // Check Authorization header for API calls
     const authHeader = req.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
@@ -125,17 +117,20 @@ export async function middleware(req: NextRequest) {
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    // Delete invalid cookie and redirect to login
     const res = NextResponse.redirect(new URL('/login', req.url));
     res.cookies.delete('auth_token');
     return res;
   }
 
-  // 5. Enforce RBAC
-  const role = payload.role; // e.g. "Karyawan", "Project Manager", "Tim Keuangan", "Direktur / Manajemen"
-  const roles = payload.roles || [role];
+  // 5. Enforce RBAC (Amankan ekstraksi roles dari payload)
+  const role = payload.role || '';
+  const roles: string[] = Array.isArray(payload.roles)
+    ? payload.roles
+    : typeof payload.roles === 'string'
+    ? [payload.roles]
+    : [role].filter(Boolean);
 
-  // If visiting the root page with a valid session, redirect to the corresponding dashboard
+  // Jika mengunjungi root page, arahkan ke dashboard masing-masing
   if (pathname === '/') {
     if (roles.includes('Direktur / Manajemen')) {
       return NextResponse.redirect(new URL('/manager', req.url));
@@ -143,17 +138,15 @@ export async function middleware(req: NextRequest) {
     if (roles.includes('Tim Keuangan')) {
       return NextResponse.redirect(new URL('/keuangan', req.url));
     }
-    // Regular members
     if (payload.proyekId === undefined || payload.proyekId === null) {
       return NextResponse.redirect(new URL('/select-project', req.url));
     }
-    if (role === 'Project Manager') {
+    if (role === 'Project Manager' || roles.includes('Project Manager')) {
       return NextResponse.redirect(new URL('/pm', req.url));
     }
     return NextResponse.redirect(new URL('/karyawan', req.url));
   }
 
-  // Redirect Direktur / Tim Keuangan away from select-project page
   if (pathname.startsWith('/select-project')) {
     if (roles.includes('Direktur / Manajemen')) {
       return NextResponse.redirect(new URL('/manager', req.url));
@@ -163,7 +156,6 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Enforce project selection for regular members visiting dashboards
   const isRegularMember = roles.includes('Karyawan') || roles.includes('Project Manager');
   if (isRegularMember && (payload.proyekId === undefined || payload.proyekId === null)) {
     if (pathname.startsWith('/karyawan') || pathname.startsWith('/pm')) {
@@ -171,7 +163,6 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Route protections
   if (pathname.startsWith('/karyawan') && !roles.includes('Karyawan')) {
     return NextResponse.redirect(new URL('/', req.url));
   }
@@ -188,7 +179,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/', req.url));
   }
 
-  // API protections based on roles
   if (pathname.startsWith('/api/manager') && !roles.includes('Direktur / Manajemen')) {
     return new NextResponse(
       JSON.stringify({ message: 'Forbidden: Only Direktur / Manajemen can access manager APIs' }),
@@ -203,19 +193,26 @@ export async function middleware(req: NextRequest) {
     );
   }
 
-  if (pathname.startsWith('/api/proyek/') && (pathname.endsWith('/budget') || pathname.endsWith('/pos')) && !roles.includes('Project Manager') && !roles.includes('Tim Keuangan') && !roles.includes('Direktur / Manajemen')) {
+  if (
+    pathname.startsWith('/api/proyek/') && 
+    (pathname.endsWith('/budget') || pathname.endsWith('/pos')) && 
+    !roles.includes('Project Manager') && 
+    !roles.includes('Tim Keuangan') && 
+    !roles.includes('Direktur / Manajemen')
+  ) {
     return new NextResponse(
       JSON.stringify({ message: 'Forbidden: Only Project Manager, Tim Keuangan, or Direktur / Manajemen can modify budget' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  // Valid session, store parsed payload headers for upstream API handlers
+  // Amankan pengiriman ke headers (pastikan nilai dikonversi ke string dengan aman)
   const requestHeaders = new Headers(req.headers);
-  requestHeaders.set('x-user-id', String(payload.id));
-  requestHeaders.set('x-user-email', String(payload.email));
-  requestHeaders.set('x-user-role', String(payload.role));
-  requestHeaders.set('x-user-roles', (payload.roles || [payload.role]).join(','));
+  requestHeaders.set('x-user-id', payload.id ? String(payload.id) : '');
+  requestHeaders.set('x-user-email', payload.email ? String(payload.email) : '');
+  requestHeaders.set('x-user-role', String(role));
+  requestHeaders.set('x-user-roles', roles.join(',')); // Sekarang dijamin aman karena 'roles' pasti Array
+  
   if (payload.proyekId !== undefined && payload.proyekId !== null) {
     requestHeaders.set('x-user-proyek-id', String(payload.proyekId));
   }
