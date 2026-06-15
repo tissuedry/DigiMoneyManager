@@ -68,7 +68,7 @@ async function verifyJWT(token: string, secret: string): Promise<any | null> {
   }
 }
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   // 1. Exclude public static files, images, login pages, and register page
   if (
@@ -220,5 +220,6 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
+  runtime: 'nodejs',
   matcher: ['/', '/select-project/:path*', '/karyawan/:path*', '/pm/:path*', '/keuangan/:path*', '/manager/:path*', '/api/:path*'],
 };
