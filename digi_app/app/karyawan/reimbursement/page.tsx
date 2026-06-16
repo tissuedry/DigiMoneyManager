@@ -110,11 +110,11 @@ function AjukanReimbursementContent() {
     if (!file) return;
 
     setSelectedFile(file);
-    
+
     // Create object URL for preview
     const previewUrl = URL.createObjectURL(file);
     setFilePreview(previewUrl);
-    
+
     setCurrentState('ocr');
 
     const formData = new FormData();
@@ -134,12 +134,12 @@ function AjukanReimbursementContent() {
         setKeterangan(data.data.keterangan);
         setCurrentState('review');
       } else {
-        alert('OCR failed: ' + (data.message || 'Unknown error'));
+        alert('VLM failed: ' + (data.message || 'Unknown error'));
         setCurrentState('upload');
       }
     } catch (err) {
       console.error(err);
-      alert('Error connecting to OCR API');
+      alert('Error connecting to VLM API');
       setCurrentState('upload');
     }
   };
@@ -157,11 +157,11 @@ function AjukanReimbursementContent() {
     const formData = new FormData();
     formData.append('proyekId', proyekId);
     formData.append('posAnggaranId', posAnggaranId);
-    
+
     // Clean nominal string (e.g. "450.000" -> "450000")
     const cleanNominal = nominal.replace(/\./g, '').replace(/,/g, '.');
     formData.append('nominal', cleanNominal);
-    
+
     if (selectedFile) {
       formData.append('file', selectedFile);
     } else if (resubmitStrukUrl) {
@@ -232,7 +232,7 @@ function AjukanReimbursementContent() {
 
       {/* 2. MAIN AREA CONTAINER */}
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-        
+
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
         {/* CONTAINER CONTENT UTAMA */}
@@ -248,7 +248,7 @@ function AjukanReimbursementContent() {
           {/* 3. COMPONENT STEPPER PROGRESS BAR */}
           <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0 text-xs font-semibold px-2 relative">
-              
+
               <div className="flex items-center gap-3 z-10">
                 <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
                   <Check size={16} className="stroke-3" />
@@ -259,16 +259,14 @@ function AjukanReimbursementContent() {
                 </div>
               </div>
 
-              <div className={`hidden md:block flex-1 h-0.5 mx-4 transition-colors duration-300 ${
-                currentState === 'upload' ? 'bg-stone-200' : 'bg-emerald-600'
-              }`} />
+              <div className={`hidden md:block flex-1 h-0.5 mx-4 transition-colors duration-300 ${currentState === 'upload' ? 'bg-stone-200' : 'bg-emerald-600'
+                }`} />
 
               <div className="flex items-center gap-3 z-10">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 transition-all duration-300 ${
-                  currentState === 'upload' ? 'bg-stone-100 text-stone-400 border border-stone-200' :
-                  currentState === 'ocr' ? 'bg-amber-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]' : 
-                  'bg-emerald-600 text-white'
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 transition-all duration-300 ${currentState === 'upload' ? 'bg-stone-100 text-stone-400 border border-stone-200' :
+                    currentState === 'ocr' ? 'bg-amber-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]' :
+                      'bg-emerald-600 text-white'
+                  }`}>
                   {currentState === 'upload' || currentState === 'ocr' ? '2' : <Check size={16} className="stroke-3" />}
                 </div>
                 <div>
@@ -277,16 +275,14 @@ function AjukanReimbursementContent() {
                 </div>
               </div>
 
-              <div className={`hidden md:block flex-1 h-0.5 mx-4 transition-colors duration-300 ${
-                currentState === 'upload' || currentState === 'ocr' ? 'bg-stone-200' : 'bg-emerald-600'
-              }`} />
+              <div className={`hidden md:block flex-1 h-0.5 mx-4 transition-colors duration-300 ${currentState === 'upload' || currentState === 'ocr' ? 'bg-stone-200' : 'bg-emerald-600'
+                }`} />
 
               <div className="flex items-center gap-3 z-10">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 transition-all duration-300 ${
-                  currentState === 'review' ? 'bg-amber-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]' : 
-                  currentState === 'success' ? 'bg-emerald-600 text-white' : 
-                  'bg-stone-100 text-stone-400 border border-stone-200'
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 transition-all duration-300 ${currentState === 'review' ? 'bg-amber-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]' :
+                    currentState === 'success' ? 'bg-emerald-600 text-white' :
+                      'bg-stone-100 text-stone-400 border border-stone-200'
+                  }`}>
                   {currentState === 'success' ? <Check size={16} className="stroke-3" /> : '3'}
                 </div>
                 <div>
@@ -295,15 +291,13 @@ function AjukanReimbursementContent() {
                 </div>
               </div>
 
-              <div className={`hidden md:block flex-1 h-0.5 mx-4 transition-colors duration-300 ${
-                currentState === 'success' ? 'bg-emerald-600' : 'bg-stone-200'
-              }`} />
+              <div className={`hidden md:block flex-1 h-0.5 mx-4 transition-colors duration-300 ${currentState === 'success' ? 'bg-emerald-600' : 'bg-stone-200'
+                }`} />
 
               <div className="flex items-center gap-3 z-10">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 transition-all duration-300 ${
-                  currentState === 'success' ? 'bg-amber-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]' : 
-                  'bg-stone-100 text-stone-400 border border-stone-200'
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 transition-all duration-300 ${currentState === 'success' ? 'bg-amber-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]' :
+                    'bg-stone-100 text-stone-400 border border-stone-200'
+                  }`}>
                   4
                 </div>
                 <div>
@@ -314,15 +308,15 @@ function AjukanReimbursementContent() {
 
             </div>
           </div>
-          
+
           {/* STATE 1: UPLOAD STRUK */}
           {currentState === 'upload' && (
             <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
                 accept="image/*,application/pdf"
               />
               <div className="md:col-span-6 space-y-4">
@@ -339,7 +333,7 @@ function AjukanReimbursementContent() {
                   </button>
                 </div>
               </div>
-              
+
               <div onClick={triggerFileInput} className="md:col-span-6 border-2 border-dashed border-stone-200 hover:border-emerald-500 bg-stone-50/50 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition group">
                 <div className="w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:text-emerald-600 shadow-sm transition">
                   <Upload size={16} />
@@ -358,9 +352,9 @@ function AjukanReimbursementContent() {
                 <div className="animate-scan" />
                 <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 pointer-events-none z-10 animate-pulse" />
 
-                <img 
-                  src={filePreview} 
-                  alt="Bukti Struk" 
+                <img
+                  src={filePreview}
+                  alt="Bukti Struk"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -370,7 +364,7 @@ function AjukanReimbursementContent() {
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#DDF2E8] text-[#198754] text-[10px] font-bold rounded-md">
                   <RefreshCw size={11} className="animate-spin" /> Model sedang memproses
                 </div>
-                
+
                 <div className="space-y-1">
                   <h2 className="text-xl font-extrabold text-stone-900">Membaca strukmu..</h2>
                   <p className="text-xs text-stone-400">
@@ -386,7 +380,7 @@ function AjukanReimbursementContent() {
                   </div>
                   <div className="flex items-center gap-2.5 text-stone-800">
                     <div className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center"><Check size={10} className="stroke-3" /></div>
-                    <span>Extrak teks (OCR)</span>
+                    <span>Extrak teks (VLM)</span>
                   </div>
                   <div className="flex items-center gap-2.5 text-stone-800">
                     <div className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center animate-pulse"><span className="w-1.5 h-1.5 rounded-full bg-white" /></div>
@@ -417,13 +411,13 @@ function AjukanReimbursementContent() {
                 </div>
 
                 <form className="space-y-4 text-xs font-bold text-stone-700" onSubmit={handleSubmitReimbursement}>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 text-left">
                       <label className="text-stone-500 font-bold">Proyek</label>
                       <div className="relative">
-                        <select 
-                          value={proyekId} 
+                        <select
+                          value={proyekId}
                           onChange={(e) => handleProjectChange(e.target.value)}
                           className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
                         >
@@ -437,7 +431,7 @@ function AjukanReimbursementContent() {
                     <div className="space-y-1.5 text-left">
                       <label className="text-stone-500 font-bold">Pos anggaran</label>
                       <div className="relative">
-                        <select 
+                        <select
                           value={posAnggaranId}
                           onChange={(e) => setPosAnggaranId(e.target.value)}
                           className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
@@ -455,26 +449,26 @@ function AjukanReimbursementContent() {
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center gap-2">
                         <label className="text-stone-500 font-bold">Merchant</label>
-                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari OCR</span>
+                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                       </div>
-                      <input 
-                        type="text" 
-                        value={merchant} 
+                      <input
+                        type="text"
+                        value={merchant}
                         onChange={(e) => setMerchant(e.target.value)}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all" 
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
                       />
                     </div>
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center gap-2">
                         <label className="text-stone-500 font-bold">Tanggal Transaksi</label>
-                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari OCR</span>
+                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                       </div>
                       <div className="relative">
-                        <input 
-                          type="date" 
-                          value={tanggal} 
+                        <input
+                          type="date"
+                          value={tanggal}
                           onChange={(e) => setTanggal(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all [color-scheme:light]" 
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all [color-scheme:light]"
                         />
                       </div>
                     </div>
@@ -484,22 +478,22 @@ function AjukanReimbursementContent() {
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center gap-2">
                         <label className="text-stone-500 font-bold">Nominal (IDR)</label>
-                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari OCR</span>
+                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                       </div>
                       <div className="relative">
                         <span className="absolute left-3.5 top-3.5 font-medium text-stone-400 select-none">Rp</span>
-                        <input 
-                          type="text" 
-                          value={nominal} 
+                        <input
+                          type="text"
+                          value={nominal}
                           onChange={(e) => setNominal(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl pl-9 pr-3 py-3 font-medium text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all" 
+                          className="w-full bg-white border border-stone-200 rounded-xl pl-9 pr-3 py-3 font-medium text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
                         />
                       </div>
                     </div>
                     <div className="space-y-1.5 text-left">
                       <label className="text-stone-500 font-bold">Kategori Bukti</label>
                       <div className="relative">
-                        <select 
+                        <select
                           value={kategoriBukti}
                           onChange={(e) => setKategoriBukti(e.target.value)}
                           className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
@@ -515,11 +509,11 @@ function AjukanReimbursementContent() {
 
                   <div className="space-y-1.5 text-left">
                     <label className="text-stone-500 font-bold">Keterangan</label>
-                    <textarea 
-                      rows={3} 
-                      value={keterangan} 
+                    <textarea
+                      rows={3}
+                      value={keterangan}
                       onChange={(e) => setKeterangan(e.target.value)}
-                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all" 
+                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
                     />
                   </div>
 
@@ -542,30 +536,30 @@ function AjukanReimbursementContent() {
               </div>
 
               {/* Tampilan Ringkasan Bukti Struk Sisi Kanan */}
-{/* Tampilan Ringkasan Bukti Struk Sisi Kanan */}
-<div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm lg:col-span-4 space-y-3">
-  <div>
-    <h3 className="font-extrabold text-sm text-stone-900">Bukti Struk</h3>
-    <p className="text-[10px] text-stone-400 font-medium">Hasil scan. Klik gambar untuk memperbesar.</p>
-  </div>
-  {/* KODE DIUBAH: Ditambahkan fitur klik, hover, dan pointer zoom */}
-  <div 
-    onClick={() => setIsPreviewModalOpen(true)}
-    className="w-full rounded-xl overflow-hidden bg-stone-50 border border-stone-200 aspect-3/4 relative flex items-center justify-center shadow-inner cursor-zoom-in hover:opacity-95 transition-all group"
-  >
-    <img 
-      src={filePreview} 
-      alt="Bukti Struk" 
-      className="w-full h-full object-cover"
-    />
-    {/* Overlay efek hover transparan */}
-    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 flex items-center justify-center transition-all">
-      <span className="bg-stone-900/80 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-all font-medium">
-        Perbesar Gambar
-      </span>
-    </div>
-  </div>
-</div>
+              {/* Tampilan Ringkasan Bukti Struk Sisi Kanan */}
+              <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm lg:col-span-4 space-y-3">
+                <div>
+                  <h3 className="font-extrabold text-sm text-stone-900">Bukti Struk</h3>
+                  <p className="text-[10px] text-stone-400 font-medium">Hasil scan. Klik gambar untuk memperbesar.</p>
+                </div>
+                {/* KODE DIUBAH: Ditambahkan fitur klik, hover, dan pointer zoom */}
+                <div
+                  onClick={() => setIsPreviewModalOpen(true)}
+                  className="w-full rounded-xl overflow-hidden bg-stone-50 border border-stone-200 aspect-3/4 relative flex items-center justify-center shadow-inner cursor-zoom-in hover:opacity-95 transition-all group"
+                >
+                  <img
+                    src={filePreview}
+                    alt="Bukti Struk"
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Overlay efek hover transparan */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 flex items-center justify-center transition-all">
+                    <span className="bg-stone-900/80 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-all font-medium">
+                      Perbesar Gambar
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -597,22 +591,22 @@ function AjukanReimbursementContent() {
         </main>
       </div>
       {isPreviewModalOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
           onClick={() => setIsPreviewModalOpen(false)}
         >
-          <div 
+          <div
             className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white p-1.5 shadow-2xl"
             onClick={(e) => e.stopPropagation()} // Mencegah modal tertutup jika area gambar yang di-klik
           >
-            <img 
-              src={filePreview} 
-              alt="Bukti Struk Full Preview" 
+            <img
+              src={filePreview}
+              alt="Bukti Struk Full Preview"
               className="max-w-full max-h-[82vh] object-contain rounded-xl"
             />
             <div className="flex justify-between items-center px-2 py-2 bg-stone-50 rounded-b-xl border-t border-stone-100">
               <span className="text-[11px] font-semibold text-stone-500">Pratinjau Dokumen Bukti</span>
-              <button 
+              <button
                 type="button"
                 className="px-3 py-1 bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-bold rounded-lg transition"
                 onClick={() => setIsPreviewModalOpen(false)}
