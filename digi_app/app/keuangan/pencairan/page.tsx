@@ -170,7 +170,7 @@ function PencairanContent() {
   const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN');
 
   return (
-    <div className="flex min-h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
+    <div className="flex h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
       
       {/* Sidebar */}
       <Sidebar 
@@ -180,7 +180,7 @@ function PencairanContent() {
       />
 
       {/* ================= AREA KONTEN (KANAN) ================= */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
 
         {/* Header dipindah ke sini, di dalam kolom kanan */}
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />

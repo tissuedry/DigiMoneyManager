@@ -645,14 +645,14 @@ export default function RiwayatPengajuanPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-[#f9f8f4] font-sans text-stone-800">
+    <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         userRole="Karyawan"
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
         <main className="flex-1 p-8 overflow-y-auto">

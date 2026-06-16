@@ -450,7 +450,7 @@ export default function BudgetProyek() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex text-slate-800 font-sans">
+    <div className="h-screen bg-background flex text-slate-800 font-sans overflow-hidden">
 
       <Sidebar
         isSidebarOpen={isSidebarOpen} 
@@ -458,12 +458,12 @@ export default function BudgetProyek() {
         userRole="Project Manager"
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header
           onOpenSidebar={() => setIsSidebarOpen(true)} 
         />
 
-        <main className="p-4 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-8 space-y-6 overflow-y-auto">
           
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
             <div className="space-y-1.5">
@@ -538,16 +538,15 @@ export default function BudgetProyek() {
               </div>
             </div>
 
-            <div className="w-full bg-white border border-slate-200 p-0.5 h-8 rounded-full flex overflow-hidden shadow-inner">
+            <div className="w-full bg-stone-100 h-5 rounded-full overflow-hidden flex shadow-inner">
               <div 
-                className="bg-[#004D34] h-full rounded-l-full transition-all duration-500"
+                className="bg-[#004D34] h-full transition-all duration-500"
                 style={{ width: `${pctMurniPengeluaran}%` }}
               />
               <div 
                 className="bg-[#00A86B] h-full transition-all duration-500"
                 style={{ width: `${pctReimbursement}%` }}
               />
-              <div className="h-full bg-transparent flex-1" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -623,9 +622,9 @@ export default function BudgetProyek() {
                           </div>
                         </div>
                         
-                        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden relative">
+                        <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
                           <div 
-                            className={`h-full rounded-full transition-all duration-500 ${isWarning ? 'bg-amber-500' : 'bg-blue-600'}`} 
+                            className={`h-full transition-all duration-500 ${isWarning ? 'bg-amber-500' : 'bg-blue-600'}`} 
                             style={{ width: `${percentage}%` }}
                           />
                         </div>

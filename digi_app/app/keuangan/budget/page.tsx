@@ -440,10 +440,10 @@ export default function KeuanganBudgetPage() {
   const hasBudget = proyekList.filter((p) => !!p.budget);
 
   return (
-    <div className="flex min-h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
+    <div className="flex h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
       <Sidebar isSidebarOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} userRole="Tim Keuangan" />
 
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Tim Keuangan" />
 
         <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 max-w-[1200px] w-full mx-auto space-y-6">

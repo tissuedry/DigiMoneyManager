@@ -94,7 +94,7 @@ export default function SmartChatPage() {
   };
 
   return (
-    <main className="flex-1 flex flex-col p-6 lg:p-8 overflow-hidden max-w-[1400px] w-full mx-auto">
+    <main className="flex-1 flex flex-col p-6 lg:p-8 overflow-hidden">
       {/* Page Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-stone-900 leading-tight">Smart Chat</h1>

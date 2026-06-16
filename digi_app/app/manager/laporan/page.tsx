@@ -758,7 +758,7 @@ export default function LaporanPage() {
   };
 
   return (
-    <main className="flex-1 p-6 lg:p-8 overflow-y-auto max-w-[1400px] w-full mx-auto space-y-6">
+    <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-stone-900 leading-tight">Laporan</h1>

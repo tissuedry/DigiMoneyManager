@@ -222,7 +222,7 @@ function AjukanReimbursementContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex text-stone-800 font-sans selection:bg-emerald-100">
+    <div className="h-screen bg-background flex text-stone-800 font-sans selection:bg-emerald-100 overflow-hidden">
 
       <Sidebar
         isSidebarOpen={isSidebarOpen}
@@ -231,12 +231,12 @@ function AjukanReimbursementContent() {
       />
 
       {/* 2. MAIN AREA CONTAINER */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
         {/* CONTAINER CONTENT UTAMA */}
-        <main className="p-4 lg:p-8 space-y-6 w-full mx-auto">
+        <main className="flex-1 p-4 lg:p-8 space-y-6 w-full mx-auto overflow-y-auto">
 
           <div className="space-y-1">
             <h1 className="text-[24px] font-bold tracking-tight text-stone-900">Ajukan Reimbursement</h1>

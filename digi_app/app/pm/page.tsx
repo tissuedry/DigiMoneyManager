@@ -157,7 +157,7 @@ export default function PMDashboardPage() {
   }, []);
 
   return (
-    <div className="flex min-h-screen w-full bg-[#f9f8f4] font-sans text-stone-800">
+    <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -165,13 +165,13 @@ export default function PMDashboardPage() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
         <Header
           onOpenSidebar={() => setIsSidebarOpen(true)}
           userRole="Project Manager"
         />
 
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto max-w-7xl w-full mx-auto space-y-6">
+        <main className="flex-1 p-8 overflow-y-auto space-y-6">
           {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
@@ -327,14 +327,13 @@ export default function PMDashboardPage() {
                             </span>
                           </div>
                           
-                          <div className="w-full bg-stone-100 h-6 rounded-full overflow-hidden p-0.5 flex">
+                          <div className="w-full bg-stone-100 h-5 rounded-full overflow-hidden relative">
                             <div
                               style={{ width: `${usedPercentage}%` }}
-                              className="h-full bg-rose-600 rounded-full transition-all duration-500 flex items-center justify-end pr-2 text-[10px] font-extrabold text-white"
+                              className="h-full bg-rose-600 transition-all duration-700 flex items-center justify-end pr-3 text-[10px] font-extrabold text-white"
                             >
                               {usedPercentage > 10 ? `${usedPercentage.toFixed(1)}% Terpakai` : ""}
                             </div>
-                            <div className="h-full bg-transparent flex-1" />
                           </div>
 
                           <div className="flex justify-between items-center text-xs font-medium text-stone-500">
@@ -395,7 +394,7 @@ export default function PMDashboardPage() {
 
                                       <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
                                         <div 
-                                          className={`h-full rounded-full transition-all duration-500 ${isWarning ? 'bg-amber-500' : 'bg-emerald-600'}`} 
+                                          className={`h-full transition-all duration-500 ${isWarning ? 'bg-amber-500' : 'bg-emerald-600'}`} 
                                           style={{ width: `${pct}%` }}
                                         />
                                       </div>

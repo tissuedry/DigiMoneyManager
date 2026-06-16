@@ -341,7 +341,7 @@ export default function ChartOfAccountPage() {
   };
 
   return (
-    <div className={`flex min-h-screen w-full bg-[#F6F4EF] overflow-hidden`}>
+    <div className={`flex h-screen w-full bg-[#F6F4EF] overflow-hidden`}>
       
       {/* Sidebar Keuangan Kelompok */}
       <Sidebar 

@@ -164,7 +164,7 @@ export default function AnggotaPage() {
   });
 
   return (
-    <main className="flex-1 p-6 lg:p-8 overflow-y-auto max-w-[1400px] w-full mx-auto space-y-6">
+    <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
