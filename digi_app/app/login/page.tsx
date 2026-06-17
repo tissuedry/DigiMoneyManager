@@ -116,7 +116,7 @@ export default function LoginPage() {
               <div className="space-y-1">
                 <h4 className="font-bold text-sm text-emerald-100">Foto struk, AI yang isi</h4>
                 <p className="text-xs text-emerald-100/50 leading-relaxed font-medium">
-                  OCR otomatis mengisi nominal, merchant, dan pos anggaran.
+                  VLM otomatis mengisi nominal, merchant, dan pos anggaran.
                 </p>
               </div>
             </div>
