@@ -1,14 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { promises as fs } from 'fs';
-import path from 'path';
-
-// Helper to generate unique filenames
-const generateRandomFilename = (originalName: string) => {
-  const ext = path.extname(originalName) || '.png';
-  const randomStr = Math.random().toString(36).substring(2, 15);
-  return `${Date.now()}-${randomStr}${ext}`;
-};
 
 // Helper to map DB fields to client fields
 const mapReimbursement = (r: any) => {
@@ -129,15 +120,10 @@ export async function POST(req: NextRequest) {
       // Handle file upload
       const file = formData.get('file') as File | null;
       if (file) {
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-        // Ensure upload directory exists
-        await fs.mkdir(uploadDir, { recursive: true });
-        
-        const filename = generateRandomFilename(file.name);
-        const filePath = path.join(uploadDir, filename);
         const buffer = Buffer.from(await file.arrayBuffer());
-        await fs.writeFile(filePath, buffer);
-        strukUrl = `/uploads/${filename}`;
+        const base64Data = buffer.toString('base64');
+        const mimeType = file.type || 'image/jpeg';
+        strukUrl = `data:${mimeType};base64,${base64Data}`;
       } else {
         strukUrl = formData.get('strukUrl') as string || '/uploads/placeholder.png';
       }
