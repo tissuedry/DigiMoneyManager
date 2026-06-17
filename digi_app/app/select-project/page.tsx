@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Briefcase, ChevronRight, LogOut, Loader2, FolderOpen, AlertCircle, Search, X } from 'lucide-react';
+import Image from 'next/image';
 
 type ProjectAssignment = {
   proyekId: number;
@@ -106,11 +107,8 @@ export default function SelectProjectPage() {
       {/* Red: Headbar Navigation */}
       <header className="sticky top-0 z-50 w-full border-b border-stone-200/80 bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 border border-stone-800 rounded flex items-center justify-center bg-white shadow-sm">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <path d="M3 3l18 18M21 3L3 21"></path>
-            </svg>
+          <div className="flex items-center justify-center shrink-0">
+            <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
           </div>
           <div>
             <h1 className="font-extrabold text-sm tracking-tight leading-tight text-stone-900">Digi Money Manager</h1>

@@ -215,13 +215,9 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
           </button>
         )}
 
-        {/* Logo - only shown on karyawan header */}
-
-        <div className="w-8 h-8 border border-stone-800 rounded flex items-center justify-center bg-white shadow-sm">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <path d="M3 3l18 18M21 3L3 21"></path>
-          </svg>
+        <div>
+          <p className="text-[11px] text-stone-400 font-medium">Selamat datang,</p>
+          <p className="font-bold text-stone-800 text-[15px] leading-tight">{profile?.nama || ""}</p>
         </div>
 
       </div>

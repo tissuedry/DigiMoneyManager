@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Loader2
 } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -83,9 +84,8 @@ export default function LoginPage() {
 
         {/* Brand Header */}
         <div className="z-10 flex items-center gap-3">
-          <div className="w-10 h-10 border border-white/30 relative flex items-center justify-center shrink-0 bg-white/5 rounded-xl">
-            <div className="absolute w-full h-px bg-white/30 rotate-45" />
-            <div className="absolute w-full h-px bg-white/30 -rotate-45" />
+          <div className="flex items-center justify-center shrink-0">
+            <Image src="/logo.png" alt="Digi Money Manager" width={40} height={40} className="object-contain" />
           </div>
           <div>
             <h1 className="font-extrabold text-lg tracking-tight leading-tight">Digi Money Manager</h1>
@@ -116,7 +116,7 @@ export default function LoginPage() {
               <div className="space-y-1">
                 <h4 className="font-bold text-sm text-emerald-100">Foto struk, AI yang isi</h4>
                 <p className="text-xs text-emerald-100/50 leading-relaxed font-medium">
-                  OCR otomatis mengisi nominal, merchant, dan pos anggaran.
+                  VLM otomatis mengisi nominal, merchant, dan pos anggaran.
                 </p>
               </div>
             </div>
@@ -159,9 +159,8 @@ export default function LoginPage() {
 
           {/* Brand Header for Mobile View */}
           <div className="flex items-center gap-3 lg:hidden mb-4">
-            <div className="w-9 h-9 border border-stone-300 relative flex items-center justify-center shrink-0 bg-stone-200/40 rounded-xl">
-              <div className="absolute w-full h-px bg-stone-500 rotate-45" />
-              <div className="absolute w-full h-px bg-stone-500 -rotate-45" />
+            <div className="flex items-center justify-center shrink-0">
+              <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
             </div>
             <div>
               <h1 className="font-extrabold text-sm tracking-tight leading-tight text-stone-900">Digi Money Manager</h1>

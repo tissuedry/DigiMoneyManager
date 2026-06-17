@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { X, LayoutDashboard, Plus, History, FileCheck, Wallet, BookOpen, BarChart3, Settings, MessageSquare, TrendingUp, Users, FileText } from "lucide-react";
 
@@ -123,13 +124,13 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
         {/* Logo and close button */}
         <div className={`h-20 flex items-center justify-between px-6 border-b border-stone-200/50 shrink-0`}>
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 border border-stone-800 rounded flex items-center justify-center ${styles.logoBg} shadow-sm`}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <path d="M3 3l18 18M21 3L3 21"></path>
-              </svg>
+            <div className="flex items-center justify-center">
+              <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
             </div>
-            <span className={`font-bold text-stone-800 text-[14px]`}>Digi Money Manager</span>
+            <div>
+              <p className="font-bold text-stone-800 text-[14px] leading-tight">Digi Money Manager</p>
+              <p className="text-[10px] text-[#008f5d] font-bold">Sistem Keuangan Proyek</p>
+            </div>
           </div>
 
           {onClose && (
