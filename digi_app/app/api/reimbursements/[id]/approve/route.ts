@@ -59,68 +59,70 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (isPM) {
       if (reimbursement.status !== 'SUBMITTED') {
-        return NextResponse.json({ message: 'Reimbursement is not pending PM approval' }, { status: 400 });
-      }
-
-      const nextStatus = action === 'APPROVE' ? 'APPROVED_BY_PM' : 'REJECTED';
-      const actionText = action === 'APPROVE' ? 'menyetujui' : 'menolak';
-
-      const updated = await prisma.$transaction(async (tx) => {
-        // Create approval record
-        await tx.approval.create({
-          data: {
-            reimbursementId: parseInt(id, 10),
-            approverId: parseInt(userId, 10),
-            level: 'PM',
-            status: nextStatus,
-            catatan: catatan || null,
-          },
-        });
-
-        // Update reimbursement status
-        const rb = await tx.reimbursement.update({
-          where: { id: parseInt(id, 10) },
-          data: { status: nextStatus },
-        });
-
-        // Audit Trail
-        await tx.auditTrail.create({
-          data: {
-            userId: parseInt(userId, 10),
-            aksi: action === 'APPROVE' ? 'approve_pm' : 'reject_pm',
-            detail: `PM ${actionText} pengajuan reimbursement Rp ${nominal.toLocaleString()} oleh ${reimbursement.user.nama}`,
-          },
-        });
-
-        // Notify Karyawan of status change
-        await tx.notification.create({
-          data: {
-            userId: reimbursement.userId,
-            tipe: 'status_update',
-            pesan: `Pengajuan reimbursement Anda senilai Rp ${nominal.toLocaleString()} telah ${action === 'APPROVE' ? 'disetujui oleh PM' : 'ditolak oleh PM'}.`,
-          },
-        });
-
-        // If approved by PM, notify Tim Keuangan
-        if (action === 'APPROVE') {
-          const keuanganUsers = await tx.user.findMany({
-            where: { role: 'Tim Keuangan' },
-          });
-          for (const finance of keuanganUsers) {
-            await tx.notification.create({
-              data: {
-                userId: finance.id,
-                tipe: 'approval_request',
-                pesan: `Pengajuan reimbursement ${reimbursement.user.nama} (Proyek: ${reimbursement.proyek.nama}) disetujui PM, menunggu pencairan Keuangan.`,
-              },
-            });
-          }
+        if (role !== 'Tim Keuangan') {
+          return NextResponse.json({ message: 'Reimbursement is not pending PM approval' }, { status: 400 });
         }
+      } else {
+        const nextStatus = action === 'APPROVE' ? 'APPROVED_BY_PM' : 'REJECTED';
+        const actionText = action === 'APPROVE' ? 'menyetujui' : 'menolak';
 
-        return rb;
-      });
+        const updated = await prisma.$transaction(async (tx) => {
+          // Create approval record
+          await tx.approval.create({
+            data: {
+              reimbursementId: parseInt(id, 10),
+              approverId: parseInt(userId, 10),
+              level: 'PM',
+              status: nextStatus,
+              catatan: catatan || null,
+            },
+          });
 
-      return NextResponse.json({ message: `PM successfully processed approval: ${nextStatus}`, reimbursement: mapReimbursement(updated) });
+          // Update reimbursement status
+          const rb = await tx.reimbursement.update({
+            where: { id: parseInt(id, 10) },
+            data: { status: nextStatus },
+          });
+
+          // Audit Trail
+          await tx.auditTrail.create({
+            data: {
+              userId: parseInt(userId, 10),
+              aksi: action === 'APPROVE' ? 'approve_pm' : 'reject_pm',
+              detail: `PM ${actionText} pengajuan reimbursement Rp ${nominal.toLocaleString()} oleh ${reimbursement.user.nama}`,
+            },
+          });
+
+          // Notify Karyawan of status change
+          await tx.notification.create({
+            data: {
+              userId: reimbursement.userId,
+              tipe: 'status_update',
+              pesan: `Pengajuan reimbursement Anda senilai Rp ${nominal.toLocaleString()} telah ${action === 'APPROVE' ? 'disetujui oleh PM' : 'ditolak oleh PM'}.`,
+            },
+          });
+
+          // If approved by PM, notify Tim Keuangan
+          if (action === 'APPROVE') {
+            const keuanganUsers = await tx.user.findMany({
+              where: { role: 'Tim Keuangan' },
+            });
+            for (const finance of keuanganUsers) {
+              await tx.notification.create({
+                data: {
+                  userId: finance.id,
+                  tipe: 'approval_request',
+                  pesan: `Pengajuan reimbursement ${reimbursement.user.nama} (Proyek: ${reimbursement.proyek.nama}) disetujui PM, menunggu pencairan Keuangan.`,
+                },
+              });
+            }
+          }
+
+          return rb;
+        });
+
+        return NextResponse.json({ message: `PM successfully processed approval: ${nextStatus}`, reimbursement: mapReimbursement(updated) });
+      }
     }
 
     // 3. Handle Tim Keuangan level approval (Final Disbursement)

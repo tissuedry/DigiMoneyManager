@@ -431,7 +431,7 @@ export default function KeuanganBudgetPage() {
 
   const handleSuccess = () => {
     setSelectedProyek(null);
-    setSuccessMsg("Budget berhasil disimpan! PM sekarang dapat menambahkan pos anggaran.");
+    setSuccessMsg("Pembaruan Budget berhasil disimpan!");
     fetchProyek();
     setTimeout(() => setSuccessMsg(""), 4000);
   };
@@ -446,7 +446,7 @@ export default function KeuanganBudgetPage() {
       <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Tim Keuangan" />
 
-        <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 max-w-[1200px] w-full mx-auto space-y-6">
+        <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 w-full mx-auto space-y-6">
           {/* Page Header */}
           <div>
             <h1 className="text-2xl font-bold text-stone-900">Manajemen Budget Proyek</h1>

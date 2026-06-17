@@ -186,7 +186,7 @@ function PencairanContent() {
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
         {/* Halaman Utama */}
-        <main className="flex-1 overflow-hidden flex flex-col px-8 pb-8 pt-2">
+        <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-8 py-6">
           
           {/* Bagian Judul & Filter (Lebar Penuh) */}
           <div className="shrink-0 mb-6">

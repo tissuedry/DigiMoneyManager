@@ -358,7 +358,7 @@ export default function ChartOfAccountPage() {
         
         <div className="w-full h-0 border-b border-[#E6E1D4]"></div>
 
-        <main className="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
+        <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 flex flex-col gap-6">
           
           {/* Title Section */}
           <div className="flex flex-col gap-2">

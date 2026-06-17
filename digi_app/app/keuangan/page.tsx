@@ -196,7 +196,7 @@ export default function KeuanganDashboardPage() {
           userRole="Tim Keuangan"
         />
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8 w-full mx-auto">
+        <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 w-full mx-auto">
 
           {/* ── Page Header ── */}
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
