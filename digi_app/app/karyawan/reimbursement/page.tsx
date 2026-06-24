@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import {
@@ -44,18 +45,26 @@ function AjukanReimbursementContent() {
   const [filePreview, setFilePreview] = useState('/bukti_struk.png');
 
   useEffect(() => {
-    // Load projects to select
-    fetch('/api/proyek?role=Karyawan')
-      .then(res => res.json())
-      .then(data => {
+    // Load projects and session data to select the default active project
+    Promise.all([
+      fetch('/api/auth/me').then(res => res.ok ? res.json() : null),
+      fetch('/api/proyek?role=Karyawan').then(res => res.json())
+    ])
+      .then(([meData, data]) => {
         if (data.projects) {
           setProjects(data.projects);
           // When resubmitting, the project/pos selection comes from the original submission instead
           if (!resubmitId && data.projects.length > 0) {
-            const firstProject = data.projects[0];
-            setProyekId(String(firstProject.id));
-            if (firstProject.budget?.posAnggaran?.length > 0) {
-              setPosAnggaranId(String(firstProject.budget.posAnggaran[0].id));
+            const sessionProyekId = meData?.user?.proyekId;
+            const hasSessionProyek = sessionProyekId && data.projects.some((p: any) => p.id === sessionProyekId);
+            
+            const selectedProj = hasSessionProyek 
+              ? data.projects.find((p: any) => p.id === sessionProyekId)
+              : data.projects[0];
+
+            setProyekId(String(selectedProj.id));
+            if (selectedProj.budget?.posAnggaran?.length > 0) {
+              setPosAnggaranId(String(selectedProj.budget.posAnggaran[0].id));
             }
           }
         }
@@ -165,7 +174,6 @@ function AjukanReimbursementContent() {
     if (selectedFile) {
       formData.append('file', selectedFile);
     } else if (resubmitStrukUrl) {
-      // Reuse the original receipt when resubmitting without uploading a new one
       formData.append('strukUrl', resubmitStrukUrl);
     }
 
@@ -174,8 +182,6 @@ function AjukanReimbursementContent() {
       tanggal,
       kategoriBukti,
       keterangan,
-      // Soft-link back to the rejected submission this one replaces, so the
-      // riwayat-pengajuan timeline can show the "ditolak -> diajukan ulang" chain
       ...(resubmitId ? { resubmitFrom: Number(resubmitId) } : {}),
     }));
 
@@ -187,7 +193,6 @@ function AjukanReimbursementContent() {
 
       const data = await res.json();
       if (res.ok) {
-        // format nominal for success page
         setNominal(parseFloat(cleanNominal).toLocaleString('id-ID'));
         setCurrentState('success');
       } else {
@@ -578,9 +583,11 @@ function AjukanReimbursementContent() {
               </div>
 
               <div className="flex items-center justify-center gap-3 pt-2">
-                <button onClick={handleResetForm} className="px-4 py-2.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-xs font-bold rounded-xl transition shadow-sm">
-                  Kembali ke dashboard
-                </button>
+                <Link href="/karyawan">
+                  <button onClick={handleResetForm} className="px-4 py-2.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-xs font-bold rounded-xl transition shadow-sm">
+                      Kembali ke dashboard
+                  </button>
+                </Link>
                 <button onClick={handleResetForm} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#008F5D] hover:bg-[#007A4F] text-white text-xs font-bold rounded-xl transition shadow-sm">
                   <PlusCircle size={14} /> Ajukan lagi
                 </button>

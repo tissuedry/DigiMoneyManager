@@ -132,17 +132,32 @@ export default function PMDashboardPage() {
     fetchDashboardData();
   }, [selectedProjectId]);
 
-  // Fetch daftar semua proyek untuk dropdown dan pilih yang pertama secara default
+  // Fetch data proyek dan data user session, lalu pilih proyek yang sedang aktif
   useEffect(() => {
-    fetch("/api/proyek?role=Project+Manager")
-      .then((res) => res.json())
-      .then((d) => {
-        if (d.projects && d.projects.length > 0) {
-          setAllProjects(d.projects);
-          setSelectedProjectId(d.projects[0].id);
+    async function initProject() {
+      try {
+        const [meRes, proyekRes] = await Promise.all([
+          fetch("/api/auth/me").then((res) => (res.ok ? res.json() : null)),
+          fetch("/api/proyek?role=Project+Manager").then((res) => res.json()),
+        ]);
+
+        if (proyekRes && proyekRes.projects && proyekRes.projects.length > 0) {
+          setAllProjects(proyekRes.projects);
+          
+          const sessionProyekId = meRes?.user?.proyekId;
+          const hasSessionProyek = sessionProyekId && proyekRes.projects.some((p: any) => p.id === sessionProyekId);
+          
+          if (hasSessionProyek) {
+            setSelectedProjectId(sessionProyekId);
+          } else {
+            setSelectedProjectId(proyekRes.projects[0].id);
+          }
         }
-      })
-      .catch(() => {});
+      } catch (err) {
+        console.error("Initialization error:", err);
+      }
+    }
+    initProject();
   }, []);
 
   // Tutup dropdown saat klik di luar
@@ -203,9 +218,24 @@ export default function PMDashboardPage() {
                       <button
                         key={proj.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedProjectId(proj.id);
+                        onClick={async () => {
                           setIsProjectDropdownOpen(false);
+                          try {
+                            const res = await fetch("/api/auth/select-project", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ proyekId: proj.id }),
+                            });
+                            if (res.ok) {
+                              setSelectedProjectId(proj.id);
+                            } else {
+                              console.error("Gagal memperbarui session proyek");
+                              setSelectedProjectId(proj.id);
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            setSelectedProjectId(proj.id);
+                          }
                         }}
                         className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-stone-50 flex items-center gap-2 transition ${
                           proj.id === data.project?.id
