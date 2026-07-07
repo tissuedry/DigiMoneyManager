@@ -40,15 +40,31 @@ export default function BudgetProyek() {
 
   const fetchDashboardData = () => {
     Promise.all([
+      fetch('/api/auth/me').then(res => res.ok ? res.json() : null),
       fetch('/api/proyek?role=Project+Manager').then(res => res.json()),
       fetch('/api/reimbursements?role=Project+Manager').then(res => res.json())
     ])
-    .then(([projectsData, reimbursementsData]) => {
+    .then(([meData, projectsData, reimbursementsData]) => {
+      let loadedProjects = [];
       if (projectsData.projects) {
         setProjects(projectsData.projects);
+        loadedProjects = projectsData.projects;
       }
       if (reimbursementsData.reimbursements) {
         setReimbursements(reimbursementsData.reimbursements);
+      }
+
+      // Tentukan index proyek yang aktif berdasarkan session
+      const sessionProyekId = meData?.user?.proyekId;
+      if (sessionProyekId && loadedProjects.length > 0) {
+        const foundIndex = loadedProjects.findIndex((p: any) => p.id === sessionProyekId);
+        if (foundIndex !== -1) {
+          setSelectedProjectIndex(foundIndex);
+        } else {
+          setSelectedProjectIndex(0);
+        }
+      } else {
+        setSelectedProjectIndex(0);
       }
     })
     .catch(err => console.error('Error fetching dashboard data:', err))
@@ -496,7 +512,28 @@ export default function BudgetProyek() {
                       <button
                         key={proj.id}
                         type="button"
-                        onClick={() => { setSelectedProjectIndex(idx); setCurrentPage(1); setIsDropdownOpen(false); }}
+                        onClick={async () => {
+                          setIsDropdownOpen(false);
+                          try {
+                            const res = await fetch("/api/auth/select-project", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ proyekId: proj.id }),
+                            });
+                            if (res.ok) {
+                              setSelectedProjectIndex(idx);
+                              setCurrentPage(1);
+                            } else {
+                              console.error("Gagal memperbarui session proyek");
+                              setSelectedProjectIndex(idx);
+                              setCurrentPage(1);
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            setSelectedProjectIndex(idx);
+                            setCurrentPage(1);
+                          }
+                        }}
                         className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 block transition ${idx === selectedProjectIndex ? 'text-blue-600 bg-blue-50/40' : 'text-slate-700'}`}
                       >
                         {proj.nama}
