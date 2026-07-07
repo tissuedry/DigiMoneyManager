@@ -91,7 +91,10 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
                 className="flex-1 flex items-end gap-0.5 cursor-pointer group h-full"
                 onMouseEnter={(e) => {
                   const rect = chartRef.current?.getBoundingClientRect();
-                  if (rect) setTooltip({ i, x: e.clientX - rect.left, y: 0 });
+                  if (rect) {
+                    const width = chartRef.current?.offsetWidth ?? 300;
+                    setTooltip({ i, x: Math.min(e.clientX - rect.left, width - 130), y: 0 });
+                  }
                 }}
                 onMouseLeave={() => setTooltip(null)}
               >
@@ -121,7 +124,7 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
         {tooltip !== null && displayed[tooltip.i] && (
           <div
             className="absolute bottom-12 pointer-events-none bg-stone-900 text-white text-[11px] rounded-lg px-3 py-2 shadow-xl z-10 whitespace-nowrap"
-            style={{ left: Math.min(tooltip.x, (chartRef.current?.offsetWidth ?? 300) - 130) }}
+            style={{ left: tooltip.x }}
           >
             <div className="font-bold mb-1">{displayed[tooltip.i].bulan}</div>
             <div className="flex items-center gap-1.5">

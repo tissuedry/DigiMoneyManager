@@ -1,0 +1,41 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop, 'fitur/**', 'bugfix/**', 'hotfix/**', 'fix/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./digi_app
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ./digi_app/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Lint Code
+        run: npm run lint
+
+      - name: Build Test
+        env:
+          DATABASE_URL: "placeholder_DB_URL_secret"
+          JWT_SECRET: "placeholder_jwt_secret"
+        run: npm run build

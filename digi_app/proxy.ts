@@ -1,11 +1,3 @@
-// Polyfill for Edge Runtime compatibility with some dependencies
-if (typeof (globalThis as any).__dirname === 'undefined') {
-  (globalThis as any).__dirname = '';
-}
-if (typeof (globalThis as any).__filename === 'undefined') {
-  (globalThis as any).__filename = '';
-}
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -77,8 +69,23 @@ async function verifyJWT(token: string, secret: string): Promise<any | null> {
   }
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  
+  // 0. Validasi Content-Type Global untuk POST, PUT, PATCH pada API
+  if (pathname.startsWith('/api/') && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    const contentType = req.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    const isMultipart = contentType.includes('multipart/form-data');
+    const isLogout = pathname === '/api/auth/logout';
+
+    if (!isJson && !isMultipart && !isLogout) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Unsupported Content-Type. Only application/json and multipart/form-data are allowed.' }),
+        { status: 415, headers: { 'content-type': 'application/json' } }
+      );
+    }
+  }
   
   // 1. Exclude public static files, images, login pages, and register page
   if (

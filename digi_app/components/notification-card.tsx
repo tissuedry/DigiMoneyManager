@@ -64,7 +64,7 @@ export default function NotificationCard({
 }: NotificationCardProps) {
   
   // Default mock data in database format (used if no external notifications are passed)
-  const [localNotifications, setLocalNotifications] = useState<NotificationDb[]>([
+  const [localNotifications, setLocalNotifications] = useState<NotificationDb[]>(() => [
     {
       id: "1",
       title: "Reimbursement disetujui PM",

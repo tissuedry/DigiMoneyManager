@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Initialize output object
-    let dashboardData: any = { role };
+    const dashboardData: any = { role };
 
     if (role === 'Karyawan') {
       // 1. Employee Dashboard data

@@ -73,6 +73,18 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
   const dropdownRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
+  const fetchNotifications = () => {
+    fetch("/api/notifications")
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error("Failed to fetch notifications");
+      })
+      .then((data) => {
+        if (data.notifications) setNotifications(data.notifications);
+      })
+      .catch((err) => console.error("Error fetching notifications:", err));
+  };
+
   // Fetch profile & notifications
   useEffect(() => {
     // 1. Get user profile
@@ -90,18 +102,6 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
     // 2. Fetch notifications
     fetchNotifications();
   }, []);
-
-  const fetchNotifications = () => {
-    fetch("/api/notifications")
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error("Failed to fetch notifications");
-      })
-      .then((data) => {
-        if (data.notifications) setNotifications(data.notifications);
-      })
-      .catch((err) => console.error("Error fetching notifications:", err));
-  };
 
   useEffect(() => {
     // Fetch profile

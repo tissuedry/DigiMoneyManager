@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const proyekId = searchParams.get('proyekId');
     const format = searchParams.get('export') || 'json'; // json, csv
 
-    let projectFilter: any = {};
+    const projectFilter: any = {};
     if (proyekId) {
       projectFilter.id = parseInt(proyekId, 10);
     }
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     if (type === 'buku-besar') {
       // 1. General Ledger (Buku Besar)
       // Retrieve JurnalAkuntansi entries
-      let journalFilter: any = {};
+      const journalFilter: any = {};
       if (proyekId) {
         journalFilter.reimbursement = { proyekId: parseInt(proyekId, 10) };
       }
