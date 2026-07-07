@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const urlRole = searchParams.get('role') || role;
 
-    let filter: any = {};
+    const filter: any = {};
 
     if (urlRole === 'Karyawan') {
       // Employees only see their own submissions

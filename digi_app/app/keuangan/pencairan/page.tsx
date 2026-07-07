@@ -450,7 +450,7 @@ function PencairanContent() {
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-medium text-stone-500">Keterangan dari pengaju</label>
                       <div className="bg-[#fcfbf9] border border-stone-200 rounded-xl p-3.5 text-[12px] text-stone-600 italic leading-relaxed">
-                        "{selectedItem.ocrData?.keterangan || selectedItem.ocrData?.raw || '-'}"
+                        &quot;{selectedItem.ocrData?.keterangan || selectedItem.ocrData?.raw || '-'}&quot;
                       </div>
                     </div>
 

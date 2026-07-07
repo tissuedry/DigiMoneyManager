@@ -366,7 +366,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           <div>
             <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Keterangan</p>
             <div className="rounded-xl border border-stone-200 bg-[#fcfbf8] px-4 py-3">
-              <p className="text-[12px] text-stone-600 italic leading-relaxed">"{raw.ocrData.keterangan}"</p>
+              <p className="text-[12px] text-stone-600 italic leading-relaxed">&quot;{raw.ocrData.keterangan}&quot;</p>
             </div>
           </div>
         )}
@@ -374,7 +374,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           <div>
             <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Keterangan</p>
             <div className="rounded-xl border border-stone-200 bg-[#fcfbf8] px-4 py-3">
-              <p className="text-[12px] text-stone-600 italic leading-relaxed">"BBM kendaraan operasional pertengahan April"</p>
+              <p className="text-[12px] text-stone-600 italic leading-relaxed">&quot;BBM kendaraan operasional pertengahan April&quot;</p>
             </div>
           </div>
         )}

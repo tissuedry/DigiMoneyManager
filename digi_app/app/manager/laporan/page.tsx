@@ -112,7 +112,7 @@ export default function LaporanPage() {
       minute: '2-digit'
     });
 
-    let reportTitle = report.title;
+    const reportTitle = report.title;
     let contentHtml = "";
 
     const metrics = dashboardData?.metrics || {};
