@@ -132,7 +132,7 @@ export default function BerandaKaryawanPage() {
             <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-[14px]">
               Gagal memuat dashboard: {error}
             </div>
-          ) : data ? (
+          ) : data && data.summary ? (
             <>
               {/* Kartu Statistik Dinamis */}
               <div className="grid grid-cols-3 gap-5 mb-8">

@@ -178,11 +178,11 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  if (pathname.startsWith('/karyawan') && !roles.includes('Karyawan')) {
+  if (pathname.startsWith('/karyawan') && role !== 'Karyawan') {
     return NextResponse.redirect(new URL('/', req.url));
   }
 
-  if (pathname.startsWith('/pm') && !roles.includes('Project Manager')) {
+  if (pathname.startsWith('/pm') && role !== 'Project Manager') {
     return NextResponse.redirect(new URL('/', req.url));
   }
 
