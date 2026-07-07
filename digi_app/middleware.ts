@@ -1,11 +1,3 @@
-// Polyfill for Edge Runtime compatibility with some dependencies
-if (typeof (globalThis as any).__dirname === 'undefined') {
-  (globalThis as any).__dirname = '';
-}
-if (typeof (globalThis as any).__filename === 'undefined') {
-  (globalThis as any).__filename = '';
-}
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
