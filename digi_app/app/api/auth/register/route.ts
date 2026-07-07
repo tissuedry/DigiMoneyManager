@@ -1,17 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
+import { registerSchema } from '@/lib/validations';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { nama, email, password, role, proyekId, divisi } = body;
-
-    if (!nama || !email || !password || !role) {
-      return NextResponse.json({ message: 'Nama, email, password, and role are required' }, { status: 400 });
+    const result = registerSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ 
+        message: 'Invalid input parameters', 
+        errors: result.error.flatten().fieldErrors 
+      }, { status: 400 });
     }
+    const { nama, email, password, role, proyekId, divisi } = result.data;
 
-    const trimmedEmail = String(email).trim().toLowerCase();
+    const trimmedEmail = email;
 
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
@@ -38,7 +42,7 @@ export async function POST(req: Request) {
       await prisma.userProyek.create({
         data: {
           userId: user.id,
-          proyekId: parseInt(proyekId, 10),
+          proyekId: typeof proyekId === 'number' ? proyekId : parseInt(proyekId, 10),
           role: role === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
         },
       });
