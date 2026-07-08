@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clearCache } from '@/lib/route-cache';
 
 // POST: Input/Set RAB budget for a project (PM or Tim Keuangan only)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -172,6 +173,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       })),
     };
 
+    clearCache('dashboard:');
+    clearCache('proyek:');
     return NextResponse.json({ message: 'RAB budget initialized successfully', budget: responseBudget }, { status: 201 });
   } catch (error: any) {
     console.error('Input budget error:', error);

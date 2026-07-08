@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
 // GET: Fetch notifications for the logged-in user
 export async function GET(req: NextRequest) {
@@ -9,12 +10,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    // ponytail: short TTL is fine for notifications
+    const cacheKey = `notif:${userId}`;
+    const cached = getCached(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     const notifications = await prisma.notification.findMany({
       where: { userId: parseInt(userId, 10) },
       orderBy: { timestamp: 'desc' },
     });
 
-    return NextResponse.json({ notifications });
+    const resp = { notifications };
+    setCache(cacheKey, resp);
+    return NextResponse.json(resp);
   } catch (error: any) {
     console.error('Fetch notifications error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -30,7 +38,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id } = body; // Optional: specific notification ID. If not provided, marks all as read.
+    const { id } = body;
 
     if (id) {
       const existing = await prisma.notification.findFirst({
@@ -46,14 +54,15 @@ export async function PUT(req: NextRequest) {
         data: { dibaca: true },
       });
 
+      clearCache(`notif:${userId}`);
       return NextResponse.json({ message: 'Notification marked as read', notification: updated });
     } else {
-      // Mark all as read for this user
       await prisma.notification.updateMany({
         where: { userId: parseInt(userId, 10), dibaca: false },
         data: { dibaca: true },
       });
 
+      clearCache(`notif:${userId}`);
       return NextResponse.json({ message: 'All notifications marked as read' });
     }
   } catch (error: any) {

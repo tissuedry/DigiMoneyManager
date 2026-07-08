@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { X, LayoutDashboard, Plus, History, FileCheck, Wallet, BookOpen, BarChart3, Settings, MessageSquare, TrendingUp, Users, FileText } from "lucide-react";
+import { useApi } from "@/lib/use-api";
 
 // Role type definition
 export type UserRole = "Karyawan" | "Project Manager" | "Tim Keuangan" | "Direktur / Manajemen";
@@ -54,26 +55,10 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
 
 // Role-specific styling
 const ROLE_STYLES: Record<UserRole, { bg: string; logoBg: string; logoText: string }> = {
-  Karyawan: {
-    bg: "bg-[#f5f4ef]",
-    logoBg: "bg-white",
-    logoText: "text-stone-800",
-  },
-  "Project Manager": {
-    bg: "bg-[#f5f4ef]",
-    logoBg: "bg-white",
-    logoText: "text-stone-800",
-  },
-  "Tim Keuangan": {
-    bg: "bg-[#f5f4ef]",
-    logoBg: "bg-white",
-    logoText: "text-stone-800",
-  },
-  "Direktur / Manajemen": {
-    bg: "bg-[#f5f4ef]",
-    logoBg: "bg-white",
-    logoText: "text-stone-800",
-  },
+  Karyawan: { bg: "bg-[#f5f4ef]", logoBg: "bg-white", logoText: "text-stone-800" },
+  "Project Manager": { bg: "bg-[#f5f4ef]", logoBg: "bg-white", logoText: "text-stone-800" },
+  "Tim Keuangan": { bg: "bg-[#f5f4ef]", logoBg: "bg-white", logoText: "text-stone-800" },
+  "Direktur / Manajemen": { bg: "bg-[#f5f4ef]", logoBg: "bg-white", logoText: "text-stone-800" },
 };
 
 export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarProps) {
@@ -81,20 +66,9 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
   const menuItems = ROLE_MENUS[userRole] || [];
   const styles = ROLE_STYLES[userRole];
 
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (userRole === "Project Manager") {
-      fetch("/api/dashboard")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.dashboard && typeof data.dashboard.pendingApprovalsCount === "number") {
-            setPendingCount(data.dashboard.pendingApprovalsCount);
-          }
-        })
-        .catch((err) => console.error("Error fetching approvals count for sidebar:", err));
-    }
-  }, [userRole]);
+  // ponytail: share the dashboard query — Sidebar only needs pendingCount from it
+  const { data: dashData } = useApi<any>(userRole === "Project Manager" ? "/api/dashboard" : null);
+  const pendingCount = dashData?.dashboard?.pendingApprovalsCount ?? null;
 
   const getLinkClass = (href: string) => {
     const isActive = pathname === href;
@@ -158,7 +132,7 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
                 displayCount = pendingCount;
                 displayBadge = pendingCount > 0;
               } else {
-                displayBadge = false; // hide until loaded
+                displayBadge = false;
               }
             }
 

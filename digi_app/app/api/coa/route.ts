@@ -1,13 +1,20 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
 // GET: List all chart of accounts
 export async function GET(req: NextRequest) {
   try {
+    // ponytail: CoA is near-static — cache 5 minutes
+    const cached = getCached('coa');
+    if (cached) return NextResponse.json(cached);
+
     const coa = await prisma.chartOfAccounts.findMany({
       orderBy: { nomorAkun: 'asc' },
     });
-    return NextResponse.json({ coa });
+    const resp = { coa };
+    setCache('coa', resp);
+    return NextResponse.json(resp);
   } catch (error: any) {
     console.error('Fetch CoA error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -85,7 +92,8 @@ export async function POST(req: NextRequest) {
       }, { status: 201 });
     }
 
-    // Single creation logic
+    clearCache('coa');
+
     const { nomorAkun, namaAkun, tipe } = body;
     const standar = body.standar || 'PSAK';
 

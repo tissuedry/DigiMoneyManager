@@ -12,31 +12,31 @@ generator client {
 }
 
 model User {
-  id              Int             @id @default(autoincrement())
-  nama            String
-  email           String          @unique
-  passwordHash    String          @map("password_hash")
-  role            String          @map("role")
-  divisi          String?         
-  
+  id           Int     @id @default(autoincrement())
+  nama         String
+  email        String  @unique
+  passwordHash String  @map("password_hash")
+  role         String  @map("role")
+  divisi       String?
+
   // Hubungan ke tabel perantara UserProyek (Many-to-Many)
-  proyek          UserProyek[]
-  reimbursements  Reimbursement[]
-  approvals       Approval[]
-  auditTrails     AuditTrail[]
-  notifications   Notification[]
+  proyek         UserProyek[]
+  reimbursements Reimbursement[]
+  approvals      Approval[]
+  auditTrails    AuditTrail[]
+  notifications  Notification[]
 
   @@map("users")
 }
 
 model Proyek {
-  id             Int             @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   nama           String
-  deskripsi      String?         @db.Text
-  status         String          
-  tanggalMulai   DateTime        @map("tanggal_mulai")
-  tanggalSelesai DateTime?       @map("tanggal_selesai")
-  
+  deskripsi      String?   @db.Text
+  status         String
+  tanggalMulai   DateTime  @map("tanggal_mulai")
+  tanggalSelesai DateTime? @map("tanggal_selesai")
+
   // Hubungan ke tabel perantara UserProyek
   users          UserProyek[]
   budget         Budget?
@@ -47,105 +47,113 @@ model Proyek {
 
 // Tabel Perantara (Junction Table) Many-to-Many
 model UserProyek {
-  id        Int      @id @default(autoincrement())
-  proyekId  Int      @map("proyek_id")
-  userId    Int      @map("user_id")
-  role      String   @map("role")
-  joinedAt  DateTime @default(now()) @map("joined_at")
+  id       Int      @id @default(autoincrement())
+  proyekId Int      @map("proyek_id")
+  userId   Int      @map("user_id")
+  role     String   @map("role")
+  joinedAt DateTime @default(now()) @map("joined_at")
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  proyek    Proyek   @relation(fields: [proyekId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  proyek Proyek @relation(fields: [proyekId], references: [id], onDelete: Cascade)
 
   @@unique([userId, proyekId])
+  @@index([userId, role])
   @@map("user_proyek")
 }
 
 model Budget {
-  id                  Int            @id @default(autoincrement())
-  proyekId            Int            @unique @map("proyek_id")
-  rabTotal            Decimal        @map("rab_total") @db.Decimal(15, 2)
-  totalPengeluaran    Decimal        @default(0) @map("total_pengeluaran") @db.Decimal(15, 2)
-  totalReimbursement  Decimal        @default(0) @map("total_reimbursement") @db.Decimal(15, 2)
-  sisaBudget          Decimal        @map("sisa_budget") @db.Decimal(15, 2)
-  
-  proyek              Proyek         @relation(fields: [proyekId], references: [id], onDelete: Cascade)
-  posAnggaran         PosAnggaran[]
+  id                 Int     @id @default(autoincrement())
+  proyekId           Int     @unique @map("proyek_id")
+  rabTotal           Decimal @map("rab_total") @db.Decimal(15, 2)
+  totalPengeluaran   Decimal @default(0) @map("total_pengeluaran") @db.Decimal(15, 2)
+  totalReimbursement Decimal @default(0) @map("total_reimbursement") @db.Decimal(15, 2)
+  sisaBudget         Decimal @map("sisa_budget") @db.Decimal(15, 2)
+
+  proyek      Proyek        @relation(fields: [proyekId], references: [id], onDelete: Cascade)
+  posAnggaran PosAnggaran[]
 
   @@map("budget")
 }
 
 model PosAnggaran {
-  id              Int               @id @default(autoincrement())
-  budgetId        Int               @map("budget_id")
-  namaPos         String            @map("nama_pos")
-  nominalAlokasi  Decimal           @map("nominal_alokasi") @db.Decimal(15, 2)
-  nominalTerpakai Decimal           @default(0) @map("nominal_terpakai") @db.Decimal(15, 2)
-  
-  budget          Budget            @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  reimbursements  Reimbursement[]
+  id              Int     @id @default(autoincrement())
+  budgetId        Int     @map("budget_id")
+  namaPos         String  @map("nama_pos")
+  nominalAlokasi  Decimal @map("nominal_alokasi") @db.Decimal(15, 2)
+  nominalTerpakai Decimal @default(0) @map("nominal_terpakai") @db.Decimal(15, 2)
+
+  budget         Budget          @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  reimbursements Reimbursement[]
 
   @@map("pos_anggaran")
 }
 
 model Reimbursement {
-  id              Int                @id @default(autoincrement())
-  userId          Int                @map("user_id")
-  proyekId        Int                @map("proyek_id")
-  posAnggaranId   Int                @map("pos_anggaran_id")
-  nominal         Decimal            @db.Decimal(15, 2)
-  urlStruk        String             @map("url_struk")
-  ocrData         Json               @map("ocr_data")
-  fraudFlag       Boolean            @default(false) @map("fraud_flag")
-  status          String             
-  
-  user            User               @relation(fields: [userId], references: [id])
-  proyek          Proyek             @relation(fields: [proyekId], references: [id])
-  posAnggaran     PosAnggaran        @relation(fields: [posAnggaranId], references: [id])
+  id            Int     @id @default(autoincrement())
+  userId        Int     @map("user_id")
+  proyekId      Int     @map("proyek_id")
+  posAnggaranId Int     @map("pos_anggaran_id")
+  nominal       Decimal @db.Decimal(15, 2)
+  urlStruk      String  @map("url_struk")
+  ocrData       Json    @map("ocr_data")
+  fraudFlag     Boolean @default(false) @map("fraud_flag")
+  status        String
+
+  user            User              @relation(fields: [userId], references: [id])
+  proyek          Proyek            @relation(fields: [proyekId], references: [id])
+  posAnggaran     PosAnggaran       @relation(fields: [posAnggaranId], references: [id])
   approvals       Approval[]
   jurnalAkuntansi JurnalAkuntansi[]
 
+  @@index([status])
+  @@index([proyekId])
+  @@index([userId])
+  @@index([userId, status])
+  @@index([proyekId, status])
   @@map("reimbursement")
 }
 
 model Approval {
-  id              Int           @id @default(autoincrement())
-  reimbursementId Int           @map("reimbursement_id")
-  approverId      Int           @map("approver_id")
-  level           String        
-  status          String        
-  catatan         String?       @db.Text
-  timestamp       DateTime      @default(now())
-  
-  reimbursement   Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
-  approver        User          @relation(fields: [approverId], references: [id])
+  id              Int      @id @default(autoincrement())
+  reimbursementId Int      @map("reimbursement_id")
+  approverId      Int      @map("approver_id")
+  level           String
+  status          String
+  catatan         String?  @db.Text
+  timestamp       DateTime @default(now())
 
+  reimbursement Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
+  approver      User          @relation(fields: [approverId], references: [id])
+
+  @@index([reimbursementId])
+  @@index([level, status, timestamp])
   @@map("approval")
 }
 
 model JurnalAkuntansi {
-  id              Int             @id @default(autoincrement())
-  reimbursementId Int             @map("reimbursement_id")
-  noAkunKredit    String          @map("no_akun_kredit")
-  noAkunDebit     String          @map("no_akun_debit")
-  nominal         Decimal         @db.Decimal(15, 2)
-  keterangan      String?         @db.Text
+  id              Int     @id @default(autoincrement())
+  reimbursementId Int     @map("reimbursement_id")
+  noAkunKredit    String  @map("no_akun_kredit")
+  noAkunDebit     String  @map("no_akun_debit")
+  nominal         Decimal @db.Decimal(15, 2)
+  keterangan      String? @db.Text
 
-  reimbursement   Reimbursement   @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
-  akunDebit       ChartOfAccounts @relation("DebitAccount", fields: [noAkunDebit], references: [id])
-  akunKredit      ChartOfAccounts @relation("KreditAccount", fields: [noAkunKredit], references: [id])
+  reimbursement Reimbursement   @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
+  akunDebit     ChartOfAccounts @relation("DebitAccount", fields: [noAkunDebit], references: [id])
+  akunKredit    ChartOfAccounts @relation("KreditAccount", fields: [noAkunKredit], references: [id])
 
   @@map("jurnal_akuntansi")
 }
 
 model ChartOfAccounts {
-  id            String            @id
-  nomorAkun     Int               @map("nomor_akun")
-  namaAkun      String            @map("nama_akun")
-  tipe          String            
-  standar       String            
-  
-  jurnalDebit   JurnalAkuntansi[] @relation("DebitAccount")
-  jurnalKredit  JurnalAkuntansi[] @relation("KreditAccount")
+  id        String @id
+  nomorAkun Int    @map("nomor_akun")
+  namaAkun  String @map("nama_akun")
+  tipe      String
+  standar   String
+
+  jurnalDebit  JurnalAkuntansi[] @relation("DebitAccount")
+  jurnalKredit JurnalAkuntansi[] @relation("KreditAccount")
 
   @@map("chart_of_accounts")
 }
@@ -153,24 +161,29 @@ model ChartOfAccounts {
 model AuditTrail {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
-  aksi      String   
-  detail    String   
+  aksi      String
+  detail    String
   timestamp DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([timestamp])
   @@map("audit_trail")
 }
 
 model Notification {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
-  tipe      String   
+  tipe      String
   pesan     String
   dibaca    Boolean  @default(false)
   timestamp DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([userId, dibaca])
+  @@index([userId, timestamp])
   @@map("notifications")
 }

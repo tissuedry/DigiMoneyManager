@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
 // GET: Fetch all projects with budget information (filtered by user assignment for Karyawan and Project Manager)
 export async function GET(req: NextRequest) {
@@ -9,6 +10,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const urlRole = searchParams.get('role') || role;
+
+    // ponytail: cache per role+user
+    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}`;
+    const cached = getCached(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
     let filter: any = {};
     if (userId) {
@@ -44,7 +50,9 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { tanggalMulai: 'desc' },
     });
-    return NextResponse.json({ projects });
+    const resp = { projects };
+    setCache(cacheKey, resp);
+    return NextResponse.json(resp);
   } catch (error: any) {
     console.error('Fetch projects error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -90,6 +98,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    clearCache('proyek:');
+    clearCache('dashboard:');
     return NextResponse.json({ message: 'Project created successfully', proyek: newProject }, { status: 201 });
   } catch (error: any) {
     console.error('Create project error:', error);

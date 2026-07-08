@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { FileText, TrendingUp, BarChart3, Star, Download, Loader2, CheckCircle2 } from "lucide-react";
+import { useApi } from '@/lib/use-api';
 
 type ReportCard = {
   id: string;
@@ -45,22 +46,12 @@ const REPORTS: ReportCard[] = [
 export default function LaporanPage() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [generated, setGenerated] = useState<Set<string>>(new Set());
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [reimbursements, setReimbursements] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/dashboard").then((res) => res.json()),
-      fetch("/api/reimbursements").then((res) => res.json()),
-    ])
-      .then(([dash, reimb]) => {
-        if (dash.dashboard) setDashboardData(dash.dashboard);
-        if (reimb.reimbursements) setReimbursements(reimb.reimbursements);
-      })
-      .catch((err) => console.error("Error fetching report data:", err))
-      .finally(() => setIsLoading(false));
-  }, []);
+  // ponytail: two useApi calls replace Promise.all + useEffect + useState
+  const { data: dashData, isLoading } = useApi<any>("/api/dashboard");
+  const { data: reimbData } = useApi<any>("/api/reimbursements");
+  const dashboardData = dashData?.dashboard ?? null;
+  const reimbursements = reimbData?.reimbursements ?? [];
 
   const handleGenerate = async (id: string) => {
     if (generating) return;
@@ -309,9 +300,9 @@ export default function LaporanPage() {
       `;
     } else if (id === "reimbursement-report") {
       const totalCount = reimbursements.length;
-      const approvedCount = reimbursements.filter(r => r.status === 'APPROVED').length;
-      const approvedNominal = reimbursements.filter(r => r.status === 'APPROVED').reduce((sum, r) => sum + Number(r.nominal), 0);
-      const pendingCount = reimbursements.filter(r => r.status === 'SUBMITTED' || r.status === 'APPROVED_BY_PM').length;
+      const approvedCount = reimbursements.filter((r: any) => r.status === 'APPROVED').length;
+      const approvedNominal = reimbursements.filter((r: any) => r.status === 'APPROVED').reduce((sum: number, r: any) => sum + Number(r.nominal), 0);
+      const pendingCount = reimbursements.filter((r: any) => r.status === 'SUBMITTED' || r.status === 'APPROVED_BY_PM').length;
 
       const reimbRows = reimbursements.map((r: any) => {
         let displayStatus = r.status;
@@ -659,9 +650,9 @@ export default function LaporanPage() {
       `;
     } else if (id === "reimbursement-report") {
       const totalCount = reimbursements.length;
-      const approvedCount = reimbursements.filter(r => r.status === 'APPROVED').length;
-      const approvedNominal = reimbursements.filter(r => r.status === 'APPROVED').reduce((sum, r) => sum + Number(r.nominal), 0);
-      const pendingCount = reimbursements.filter(r => r.status === 'SUBMITTED' || r.status === 'APPROVED_BY_PM').length;
+      const approvedCount = reimbursements.filter((r: any) => r.status === 'APPROVED').length;
+      const approvedNominal = reimbursements.filter((r: any) => r.status === 'APPROVED').reduce((sum: number, r: any) => sum + Number(r.nominal), 0);
+      const pendingCount = reimbursements.filter((r: any) => r.status === 'SUBMITTED' || r.status === 'APPROVED_BY_PM').length;
 
       tableHtml = `
         <tr style="height: 30px;"><td colspan="7" style="font-size: 16px; font-weight: bold; color: #d97706;">DIGI MONEY MANAGER</td></tr>

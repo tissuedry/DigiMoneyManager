@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clearCache } from '@/lib/route-cache';
 
 // POST: Process reimbursement approval / rejection (PM and Keuangan)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -121,6 +122,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           return rb;
         });
 
+        clearCache('dashboard:');
+        clearCache('reimb:');
+        clearCache('notif:');
         return NextResponse.json({ message: `PM successfully processed approval: ${nextStatus}`, reimbursement: mapReimbursement(updated) });
       }
     }
@@ -276,10 +280,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           return { rb, journal };
         });
 
-        return NextResponse.json({ 
-          message: 'Reimbursement successfully disbursed and journal entries generated.', 
+        clearCache('dashboard:');
+        clearCache('reimb:');
+        clearCache('notif:');
+        clearCache('coa');
+        return NextResponse.json({
+          message: 'Reimbursement successfully disbursed and journal entries generated.',
           reimbursement: mapReimbursement(result.rb),
-          journal: result.journal 
+          journal: result.journal
         });
       } else {
         // Keuangan Rejects
@@ -318,6 +326,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           return rb;
         });
 
+        clearCache('dashboard:');
+        clearCache('reimb:');
+        clearCache('notif:');
         return NextResponse.json({ message: 'Reimbursement successfully rejected by Keuangan.', reimbursement: mapReimbursement(updated) });
       }
     }

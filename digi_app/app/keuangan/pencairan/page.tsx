@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { 
+import {
   Download, Zap, X
 } from "lucide-react";
 
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import { useApi, useMutate, useInvalidate } from '@/lib/use-api';
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
@@ -26,8 +27,6 @@ function PencairanContent() {
   const idParam = searchParams.get("id");
   const selectParam = searchParams.get("select");
 
-  const [reimbursements, setReimbursements] = useState<any[]>([]);
-  const [coaList, setCoaList] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'diteruskan' | 'selesai'>('diteruskan');
   const [selectedId, setSelectedId] = useState<string | null>(idParam);
   const [isAllSelected, setIsAllSelected] = useState(selectParam === 'all');
@@ -46,38 +45,18 @@ function PencairanContent() {
   const [debitAccount, setDebitAccount] = useState("");
   const [creditAccount, setCreditAccount] = useState("");
   const [catatan, setCatatan] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const invalidate = useInvalidate();
 
-  const fetchData = async () => {
-    try {
-      const [rRes, cRes] = await Promise.all([
-        fetch('/api/reimbursements'),
-        fetch('/api/coa')
-      ]);
-      const rData = await rRes.json();
-      const cData = await cRes.json();
-      
-      if (rData.reimbursements) {
-        setReimbursements(rData.reimbursements);
-      }
-      if (cData.coa) {
-        setCoaList(cData.coa);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // ponytail: two useApi calls replace Promise.all + useEffect + useState
+  const { data: rData, isLoading } = useApi<any>("/api/reimbursements");
+  const { data: cData } = useApi<any>("/api/coa");
+  const reimbursements = rData?.reimbursements ?? [];
+  const coaList = cData?.coa ?? [];
 
   // Filter list based on active tab
-  const filteredList = reimbursements.filter((item) => {
+  const filteredList = reimbursements.filter((item: any) => {
     const matchesTab = activeTab === 'diteruskan' 
       ? item.status === 'APPROVED_BY_PM'
       : (item.status === 'APPROVED' || item.status === 'REJECTED');
@@ -92,11 +71,11 @@ function PencairanContent() {
   });
 
   // Count items for each tab
-  const countDiteruskan = reimbursements.filter(item => item.status === 'APPROVED_BY_PM').length;
-  const countSelesai = reimbursements.filter(item => item.status === 'APPROVED' || item.status === 'REJECTED').length;
+  const countDiteruskan = reimbursements.filter((item: any) => item.status === 'APPROVED_BY_PM').length;
+  const countSelesai = reimbursements.filter((item: any) => item.status === 'APPROVED' || item.status === 'REJECTED').length;
 
   // Selected item
-  const selectedItem = filteredList.find(item => String(item.id) === String(selectedId)) || filteredList[0] || null;
+  const selectedItem = filteredList.find((item: any) => String(item.id) === String(selectedId)) || filteredList[0] || null;
 
   // Update selectedId if selectedItem is not in the filtered list
   useEffect(() => {
@@ -156,7 +135,7 @@ function PencairanContent() {
       const data = await res.json();
       if (res.ok) {
         alert(action === 'APPROVE' ? "Pengajuan berhasil dicairkan dan jurnal akuntansi telah di-generate!" : "Pengajuan berhasil ditolak.");
-        fetchData();
+        invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
       } else {
         alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
       }
@@ -239,7 +218,7 @@ function PencairanContent() {
               ) : filteredList.length === 0 ? (
                 <div className="text-center py-8 text-xs font-semibold text-stone-400">Tidak ada pengajuan.</div>
               ) : (
-                filteredList.map((item) => {
+                filteredList.map((item: any) => {
                   const initials = item.user?.nama ? item.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'KY';
                   const active = isAllSelected || String(selectedItem?.id) === String(item.id);
                   const formattedNominal = `Rp ${Number(item.nominal).toLocaleString('id-ID')}`;
@@ -394,7 +373,7 @@ function PencairanContent() {
                               className="w-full text-xs font-mono bg-white border border-stone-200 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"
                             >
                               <option value="">-- Pilih Akun Debit --</option>
-                              {coaList.map((coa) => (
+                              {coaList.map((coa: any) => (
                                 <option key={coa.nomorAkun} value={coa.nomorAkun}>
                                   {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
                                 </option>
@@ -412,7 +391,7 @@ function PencairanContent() {
                               className="w-full text-xs font-mono bg-white border border-stone-200 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"
                             >
                               <option value="">-- Pilih Akun Kredit --</option>
-                              {coaList.map((coa) => (
+                              {coaList.map((coa: any) => (
                                 <option key={coa.nomorAkun} value={coa.nomorAkun}>
                                   {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
                                 </option>
@@ -427,13 +406,13 @@ function PencairanContent() {
                               <React.Fragment key={j.id}>
                                 <div className="flex justify-between items-center">
                                   <span className="text-stone-600">
-                                    <span className="text-emerald-600 font-bold mr-1">Dr</span> {j.noAkunDebit} - {coaList.find(c => c.nomorAkun === j.noAkunDebit)?.namaAkun || 'Beban'}
+                                    <span className="text-emerald-600 font-bold mr-1">Dr</span> {j.noAkunDebit} - {coaList.find((c: any) => c.nomorAkun === j.noAkunDebit)?.namaAkun || 'Beban'}
                                   </span>
                                   <span className="text-stone-800 font-medium">Rp {Number(j.nominal).toLocaleString('id-ID')}</span>
                                 </div>
                                 <div className="flex justify-between items-center pl-4">
                                   <span className="text-stone-600">
-                                    <span className="text-red-600 font-bold mr-1">Cr</span> {j.noAkunKredit} - {coaList.find(c => c.nomorAkun === j.noAkunKredit)?.namaAkun || 'Kas/Bank'}
+                                    <span className="text-red-600 font-bold mr-1">Cr</span> {j.noAkunKredit} - {coaList.find((c: any) => c.nomorAkun === j.noAkunKredit)?.namaAkun || 'Kas/Bank'}
                                   </span>
                                   <span className="text-stone-800 font-medium">Rp {Number(j.nominal).toLocaleString('id-ID')}</span>
                                 </div>

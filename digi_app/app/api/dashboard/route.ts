@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCached, setCache } from '@/lib/route-cache';
 
 // GET: Retrieve dashboard summary metrics based on user role
 export async function GET(req: NextRequest) {
@@ -11,6 +12,13 @@ export async function GET(req: NextRequest) {
     if (!userId || !role) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+
+    // ponytail: heaviest endpoint (~28 queries), cache 30s per role+user+project
+    const { searchParams } = new URL(req.url);
+    const projectIdParam = searchParams.get('projectId') || userProyekId || '';
+    const cacheKey = `dashboard:${role}:${userId}:${projectIdParam}`;
+    const cached = getCached(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
     // Initialize output object
     const dashboardData: any = { role };
@@ -413,6 +421,9 @@ export async function GET(req: NextRequest) {
       dashboardData.reimbursementPipeline = reimbursementPipeline;
       dashboardData.projectList = projectProfitability;
     }
+
+    // ponytail: store in cache before returning
+    setCache(cacheKey, { dashboard: dashboardData });
 
     return NextResponse.json({ dashboard: dashboardData });
   } catch (error: any) {

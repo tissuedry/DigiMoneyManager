@@ -1,13 +1,39 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { signToken } from '@/lib/auth';
+import { getCached, setCache } from '@/lib/route-cache';
 
 export async function GET(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');
-    
+
     if (!userId) {
       return NextResponse.json({ message: 'Unauthorized: No user session found' }, { status: 401 });
+    }
+
+    // ponytail: cache per user — data rarely changes, called 2-5x per page load
+    const cacheKey = `me:${userId}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      const cachedUser = cached as any;
+      const token = signToken({
+        id: cachedUser.id,
+        nama: cachedUser.nama,
+        email: cachedUser.email,
+        role: cachedUser.role,
+        roles: cachedUser.roles,
+        proyekId: cachedUser.proyekId,
+        divisi: cachedUser.divisi,
+      });
+      const resp = NextResponse.json({ user: cachedUser });
+      resp.cookies.set('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24,
+      });
+      return resp;
     }
 
     const user = await prisma.user.findUnique({
@@ -63,8 +89,8 @@ export async function GET(req: NextRequest) {
     }
     const allowedRoles = Array.from(rolesSet);
 
-    const activeProjectAssignment = activeProyekId !== null 
-      ? user.proyek.find((up: any) => up.proyekId === activeProyekId) 
+    const activeProjectAssignment = activeProyekId !== null
+      ? user.proyek.find((up: any) => up.proyekId === activeProyekId)
       : null;
     const userProyekDetails = activeProjectAssignment ? activeProjectAssignment.proyek : null;
 
@@ -78,6 +104,9 @@ export async function GET(req: NextRequest) {
       assignments,
     };
 
+    // Cache the resolved user object (without password) for 60s
+    setCache(cacheKey, responseUser);
+
     // Re-sign JWT Token to keep session current with database updates
     const token = signToken({
       id: user.id,
@@ -90,7 +119,7 @@ export async function GET(req: NextRequest) {
     });
 
     const response = NextResponse.json({ user: responseUser });
-    
+
     // Set token in Cookie (httpOnly, secure, lax, expires in 24h)
     response.cookies.set('auth_token', token, {
       httpOnly: true,

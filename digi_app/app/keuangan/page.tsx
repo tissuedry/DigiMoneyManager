@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Wallet,
   Notebook,
@@ -16,6 +16,7 @@ import {
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
+import { useApi } from "@/lib/use-api";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatRupiah(amount: number): string {
@@ -32,10 +33,6 @@ function formatRupiah(amount: number): string {
     return `Rp ${val % 1 === 0 ? val : val.toFixed(1)} rb`;
   }
   return `Rp ${amount.toLocaleString("id-ID")}`;
-}
-
-function formatRupiahFull(amount: number): string {
-  return `Rp ${Number(amount).toLocaleString("id-ID")}`;
 }
 
 function formatTanggal(iso: string | null): string {
@@ -90,90 +87,52 @@ interface JurnalItem {
   nominal: number;
 }
 
+interface DashboardResponse {
+  dashboard: {
+    metrics: DashboardMetrics;
+    pendingDisbursements: PencairanItem[];
+    recentJournals: JurnalItem[];
+  };
+}
+
 export default function KeuanganDashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [pencairanList, setPencairanList] = useState<PencairanItem[]>([]);
-  const [jurnalList, setJurnalList] = useState<JurnalItem[]>([]);
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    pendingDisbursementsNominal: 0,
-    pendingDisbursementCount: 0,
-    disbursedTodayNominal: 0,
-    disbursedTodayCount: 0,
-    jurnalCountThisMonth: 0,
-    totalDebitKredit: 0,
-    totalDebit: 0,
-    totalKredit: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch("/api/dashboard");
-        if (!res.ok) throw new Error("API not ready");
+  // ponytail: single query, derived state — no manual useState/useEffect
+  const { data, isLoading } = useApi<DashboardResponse>("/api/dashboard");
 
-        const data = await res.json();
-        const dashboard = data.dashboard;
+  const metrics = data?.dashboard?.metrics;
+  const pencairanList = data?.dashboard?.pendingDisbursements ?? [];
+  const jurnalList = data?.dashboard?.recentJournals ?? [];
 
-        if (dashboard?.metrics) {
-          setMetrics({
-            pendingDisbursementsNominal: dashboard.metrics.pendingDisbursementsNominal ?? 0,
-            pendingDisbursementCount: dashboard.metrics.pendingDisbursementCount ?? 0,
-            disbursedTodayNominal: dashboard.metrics.disbursedTodayNominal ?? 0,
-            disbursedTodayCount: dashboard.metrics.disbursedTodayCount ?? 0,
-            jurnalCountThisMonth: dashboard.metrics.jurnalCountThisMonth ?? 0,
-            totalDebitKredit: dashboard.metrics.totalDebitKredit ?? 0,
-            totalDebit: dashboard.metrics.totalDebit ?? 0,
-            totalKredit: dashboard.metrics.totalKredit ?? 0,
-          });
-        }
-
-        if (dashboard?.pendingDisbursements) {
-          setPencairanList(dashboard.pendingDisbursements);
-        }
-
-        if (dashboard?.recentJournals) {
-          setJurnalList(dashboard.recentJournals);
-        }
-      } catch {
-        // API belum siap — biarkan state default (0/kosong)
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchDashboard();
-  }, []);
-
-  const isBalanced = Math.abs(metrics.totalDebit - metrics.totalKredit) < 0.01;
-  const selisih = Math.abs(metrics.totalDebit - metrics.totalKredit);
+  const isBalanced = metrics ? Math.abs(metrics.totalDebit - metrics.totalKredit) < 0.01 : true;
+  const selisih = metrics ? Math.abs(metrics.totalDebit - metrics.totalKredit) : 0;
 
   const statCards = [
     {
       label: "Menunggu Pencairan",
-      value: formatRupiah(metrics.pendingDisbursementsNominal),
-      sub: `${metrics.pendingDisbursementCount} antrian`,
+      value: formatRupiah(metrics?.pendingDisbursementsNominal ?? 0),
+      sub: `${metrics?.pendingDisbursementCount ?? 0} antrian`,
       icon: <Wallet size={18} className="text-stone-500" />,
       iconBg: "bg-stone-100",
     },
     {
       label: "Dicairkan Hari ini",
-      value: formatRupiah(metrics.disbursedTodayNominal),
-      sub: `${metrics.disbursedTodayCount} pengajuan`,
+      value: formatRupiah(metrics?.disbursedTodayNominal ?? 0),
+      sub: `${metrics?.disbursedTodayCount ?? 0} pengajuan`,
       icon: <Check size={18} className="text-emerald-600" />,
       iconBg: "bg-emerald-50",
     },
     {
       label: `Jurnal (${getCurrentMonthName()})`,
-      value: String(metrics.jurnalCountThisMonth),
+      value: String(metrics?.jurnalCountThisMonth ?? 0),
       sub: "otomatis dari sistem",
       icon: <Notebook size={18} className="text-blue-500" />,
       iconBg: "bg-blue-50",
     },
     {
       label: "Total Debit = Kredit",
-      value: formatRupiah(metrics.totalDebit),
+      value: formatRupiah(metrics?.totalDebit ?? 0),
       sub: isBalanced ? "✓ Seimbang" : `Selisih: Rp ${selisih.toLocaleString('id-ID')}`,
       icon: isBalanced ? <Check size={18} className="text-emerald-600" /> : <X size={18} className="text-rose-600" />,
       iconBg: isBalanced ? "bg-emerald-50" : "bg-rose-50",
@@ -358,7 +317,7 @@ export default function KeuanganDashboardPage() {
                             {/* Nominal + Tombol Cairkan */}
                             <div className="flex items-center gap-3 shrink-0">
                               <span className="text-[13px] font-bold text-stone-800 tabular-nums">
-                                {formatRupiahFull(item.nominal)}
+                                {formatRupiah(item.nominal)}
                               </span>
                               <Link
                                 href={`/keuangan/pencairan?id=${item.id}`}
