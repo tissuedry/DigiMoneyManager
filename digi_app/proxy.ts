@@ -156,10 +156,13 @@ export async function proxy(req: NextRequest) {
     if (payload.proyekId === undefined || payload.proyekId === null) {
       return NextResponse.redirect(new URL('/select-project', req.url));
     }
-    if (role === 'Project Manager' || roles.includes('Project Manager')) {
+    if (role === 'Project Manager') {
       return NextResponse.redirect(new URL('/pm', req.url));
     }
-    return NextResponse.redirect(new URL('/karyawan', req.url));
+    if (role === 'Karyawan') {
+      return NextResponse.redirect(new URL('/karyawan', req.url));
+    }
+    return NextResponse.redirect(new URL('/select-project', req.url));
   }
 
   if (pathname.startsWith('/select-project')) {
