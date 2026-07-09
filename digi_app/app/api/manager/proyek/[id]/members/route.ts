@@ -68,42 +68,45 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Update members inside a transaction
-    await prisma.$transaction(async (tx) => {
-      // Delete existing assignments for this project
-      await tx.userProyek.deleteMany({
-        where: { proyekId },
+    // Update members inside a batch transaction (safe for PgBouncer transaction mode)
+    const deleteOp = prisma.userProyek.deleteMany({
+      where: { proyekId },
+    });
+
+    if (members && Array.isArray(members) && members.length > 0) {
+      const userProyeks = members.map((m: any) => ({
+        proyekId,
+        userId: typeof m.userId === 'string' ? parseInt(m.userId, 10) : m.userId,
+        role: m.role,
+        divisi: m.divisi || null,
+      }));
+
+      const createOp = prisma.userProyek.createMany({
+        data: userProyeks,
       });
 
-      // Insert new assignments
-      if (members && Array.isArray(members) && members.length > 0) {
-        const userProyeks = members.map((m: any) => ({
-          proyekId,
-          userId: m.userId,
-          role: m.role,
-        }));
+      await prisma.$transaction([deleteOp, createOp]);
+    } else if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+      // Fetch user roles (run before batch transaction)
+      const users = await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, role: true },
+      });
 
-        await tx.userProyek.createMany({
-          data: userProyeks,
-        });
-      } else if (userIds && Array.isArray(userIds) && userIds.length > 0) {
-        // Fetch user roles
-        const users = await tx.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, role: true },
-        });
+      const userProyeks = users.map((u) => ({
+        proyekId,
+        userId: u.id,
+        role: u.role === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
+      }));
 
-        const userProyeks = users.map((u) => ({
-          proyekId,
-          userId: u.id,
-          role: u.role === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
-        }));
+      const createOp = prisma.userProyek.createMany({
+        data: userProyeks,
+      });
 
-        await tx.userProyek.createMany({
-          data: userProyeks,
-        });
-      }
-    });
+      await prisma.$transaction([deleteOp, createOp]);
+    } else {
+      await deleteOp;
+    }
 
     // Audit trail
     if (direktorId) {

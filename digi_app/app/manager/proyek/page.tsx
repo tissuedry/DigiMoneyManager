@@ -42,6 +42,7 @@ export default function KelolaProyekPage() {
   const [editMode, setEditMode] = useState(false);
   const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [cashFlowRange, setCashFlowRange] = useState<"4m" | "12m" | "ytd">("12m");
 
   // Forms state
   const [submitting, setSubmitting] = useState(false);
@@ -162,7 +163,7 @@ export default function KelolaProyekPage() {
               },
               ...otherUsers.map((u: any, i: number) => ({
                 id: `row-loaded-${i}-${u.id}`,
-                role: u.roleInProyek || "",
+                role: u.divisiInProyek || "",
                 userId: String(u.id), // Di-string-kan agar dropdown otomatis memilih namanya
                 isLocked: false
               }))
@@ -295,6 +296,95 @@ export default function KelolaProyekPage() {
     }
   };
 
+  const handleSaveTeamRows = async () => {
+    if (!showProjectDetail) return;
+    setFormError("");
+    setSuccess("");
+
+    // Validate Project Manager is selected
+    const pmRow = teamRows.find((r) => r.id === "row-pm");
+    if (!pmRow || !pmRow.userId) {
+      setFormError("Project Manager Utama harus dipilih");
+      scrollToSection("tim-sec");
+      return;
+    }
+
+    // Validate duplicate members
+    const selectedUserIds = teamRows
+      .filter((r) => r.userId !== "")
+      .map((r) => r.userId);
+    const hasDuplicates = selectedUserIds.some((val, i) => selectedUserIds.indexOf(val) !== i);
+    if (hasDuplicates) {
+      setFormError("Setiap anggota tim hanya boleh dimasukkan satu kali");
+      scrollToSection("tim-sec");
+      return;
+    }
+
+    // Validate other rows (only partially filled ones, completely empty ones will be ignored)
+    const otherRows = teamRows.filter((r) => r.id !== "row-pm");
+    const activeOtherRows = otherRows.filter((r) => r.userId !== "" || r.role.trim() !== "");
+
+    for (const r of activeOtherRows) {
+      if (!r.userId) {
+        setFormError("Nama anggota tim tidak boleh kosong. Silakan pilih nama atau hapus baris.");
+        scrollToSection("tim-sec");
+        return;
+      }
+      if (!r.role.trim()) {
+        setFormError("Role/spesialisasi anggota tim tidak boleh kosong. Silakan ketik role (misal: DevOps) atau hapus baris.");
+        scrollToSection("tim-sec");
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    try {
+      // Map teamRows to members payload (skipping completely empty rows)
+      const payloadMembers = teamRows
+        .filter((r) => {
+          if (r.id === "row-pm") return r.userId !== ""; // Keep PM
+          return r.userId !== "" || r.role.trim() !== ""; // Keep others only if they are active/not empty
+        })
+        .map((r) => {
+          if (r.id === "row-pm") {
+            return {
+              userId: parseInt(r.userId, 10),
+              role: "Project Manager",
+              divisi: null,
+            };
+          } else {
+            return {
+              userId: parseInt(r.userId, 10),
+              role: "Anggota Lapangan",
+              divisi: r.role.trim(), // Inputted role is saved as divisi in UserProyek
+            };
+          }
+        });
+
+      const res = await fetch(`/api/manager/proyek/${showProjectDetail.id}/members`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          members: payloadMembers,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(data.error ? `${data.message}: ${data.error}` : (data.message || "Gagal menyimpan penugasan tim"));
+        return;
+      }
+
+      await handleOpenDetailModal(showProjectDetail); // Reload detailed project info
+      setSuccess("Penugasan tim berhasil disimpan!");
+      fetchData(); // Refresh main lists
+    } catch {
+      setFormError("Terjadi kesalahan koneksi saat menyimpan tim");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleInitBudget = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showInitBudget) return;
@@ -376,6 +466,14 @@ export default function KelolaProyekPage() {
       maximumFractionDigits: 0,
     }).format(num);
   };
+
+  const formatSummaryRupiah = (num: number) => {
+    if (num >= 1e9) return `Rp ${(num / 1e9).toFixed(2)} M`;
+    if (num >= 1e6) return `Rp ${(num / 1e6).toFixed(2)} jt`;
+    if (num >= 1e3) return `Rp ${(num / 1e3).toFixed(2)} rb`;
+    return `Rp ${num.toFixed(2)}`;
+  };
+
   const [activeTab, setActiveTab] = useState<"ringkasan" | "anggaran" | "tim" | "4m" | "12m" | "ytd">("ringkasan");
   const [teamRows, setTeamRows] = useState<{ id: string; role: string; userId: string; isLocked: boolean }[]>([
     { id: "row-pm", role: "Project Manager", userId: "", isLocked: true }, // Baris PM default & di-lock
@@ -1246,50 +1344,132 @@ export default function KelolaProyekPage() {
                       <div className="flex justify-between items-center">
                         <span className="text-[11px] font-bold text-stone-700">Arus Kas Real-Time</span>
                         <div className="flex bg-stone-100 p-0.5 rounded-lg text-[10px] font-bold text-stone-500">
-                          <span className="px-2 py-0.5 rounded">4M</span>
-                          <span className="px-2 py-0.5 bg-white text-stone-900 shadow-sm rounded">12M</span>
-                          <span className="px-2 py-0.5 rounded">YTD</span>
+                          <button
+                            type="button"
+                            onClick={() => setCashFlowRange("4m")}
+                            className={`px-2 py-0.5 rounded transition cursor-pointer ${cashFlowRange === "4m" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
+                          >
+                            4M
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCashFlowRange("12m")}
+                            className={`px-2 py-0.5 rounded transition cursor-pointer ${cashFlowRange === "12m" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
+                          >
+                            12M
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCashFlowRange("ytd")}
+                            className={`px-2 py-0.5 rounded transition cursor-pointer ${cashFlowRange === "ytd" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
+                          >
+                            YTD
+                          </button>
                         </div>
                       </div>
 
                       <div className="flex items-end justify-between gap-2 h-28 bg-stone-50 p-4 rounded-xl border border-stone-100 pt-6">
-                        {detailedProjectInfo?.cashFlow ? (
-                          (() => {
-                            const maxVal = Math.max(...(detailedProjectInfo.cashFlow.map((c: any) => Math.max(c.inflow, c.outflow)) || [1]));
-                            return detailedProjectInfo.cashFlow.map((c: any, idx: number) => {
+                        {(() => {
+                          const cashFlowData = cashFlowRange === "4m"
+                            ? detailedProjectInfo?.cashFlow4m
+                            : cashFlowRange === "ytd"
+                              ? detailedProjectInfo?.cashFlowYtd
+                              : detailedProjectInfo?.cashFlow12m;
+
+                          if (cashFlowData && cashFlowData.length > 0) {
+                            const maxVal = Math.max(...(cashFlowData.map((c: any) => Math.max(c.inflow, c.outflow)) || [1]));
+                            return cashFlowData.map((c: any, idx: number) => {
                               const inH = maxVal > 0 ? (c.inflow / maxVal) * 100 : 0;
                               const outH = maxVal > 0 ? (c.outflow / maxVal) * 100 : 0;
                               return (
-                                <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                                  <div className="flex items-end gap-0.5 w-full h-14">
-                                    <div className="flex-1 bg-emerald-600 rounded-t-sm" style={{ height: `${inH}%` }} />
-                                    <div className="flex-1 bg-amber-500 rounded-t-sm" style={{ height: `${outH}%` }} />
+                                <div key={idx} className="relative group flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                                  {/* Tooltip */}
+                                  <div className="absolute bottom-[72px] hidden group-hover:flex flex-col bg-stone-900 text-white text-[10px] p-2 rounded-lg shadow-md z-50 w-28 text-left pointer-events-none transition-all duration-200">
+                                    <span className="font-bold border-b border-stone-700 pb-0.5 mb-1 text-center">{c.bulan}</span>
+                                    <span className="text-emerald-400 font-medium">Inflow: {formatSummaryRupiah(c.inflow)}</span>
+                                    <span className="text-amber-400 font-medium">Outflow: {formatSummaryRupiah(c.outflow)}</span>
+                                    <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-stone-900 rotate-45" />
+                                  </div>
+
+                                  <div className="flex items-end gap-0.5 w-full h-14 cursor-pointer">
+                                    <div className="flex-1 bg-emerald-600 rounded-t-sm hover:brightness-110 transition-all" style={{ height: `${inH}%` }} />
+                                    <div className="flex-1 bg-amber-500 rounded-t-sm hover:brightness-110 transition-all" style={{ height: `${outH}%` }} />
                                   </div>
                                   <span className="text-[9px] font-bold text-stone-400">{c.bulan}</span>
                                 </div>
                               );
                             });
-                          })()
-                        ) : (
-                          ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul"].map((m, i) => (
-                            <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                              <div className="flex items-end gap-0.5 w-full h-14">
-                                <div className="flex-1 bg-emerald-600 rounded-t-sm" style={{ height: `${60 + (i * 5) % 40}%` }} />
-                                <div className="flex-1 bg-amber-500 rounded-t-sm" style={{ height: `${50 + (i * 3) % 40}%` }} />
-                              </div>
-                              <span className="text-[9px] font-bold text-stone-400">{m}</span>
-                            </div>
-                          ))
-                        )}
+                          } else {
+                            const fallbackMonths = cashFlowRange === "4m"
+                              ? ["Mei", "Jun", "Jul", "Ags"]
+                              : cashFlowRange === "ytd"
+                                ? ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul"]
+                                : ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+                            return fallbackMonths.map((m, i) => {
+                              const mockInflow = 300000000 + ((i * 1234567) % 50000000);
+                              const mockOutflow = 266666666 + ((i * 7654321) % 40000000);
+                              return (
+                                <div key={i} className="relative group flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                                  {/* Tooltip */}
+                                  <div className="absolute bottom-[72px] hidden group-hover:flex flex-col bg-stone-900 text-white text-[10px] p-2 rounded-lg shadow-md z-50 w-28 text-left pointer-events-none transition-all duration-200">
+                                    <span className="font-bold border-b border-stone-700 pb-0.5 mb-1 text-center">{m}</span>
+                                    <span className="text-emerald-400 font-medium">Inflow: {formatSummaryRupiah(mockInflow)}</span>
+                                    <span className="text-amber-400 font-medium">Outflow: {formatSummaryRupiah(mockOutflow)}</span>
+                                    <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-stone-900 rotate-45" />
+                                  </div>
+
+                                  <div className="flex items-end gap-0.5 w-full h-14 cursor-pointer">
+                                    <div className="flex-1 bg-emerald-600 rounded-t-sm hover:brightness-110 transition-all" style={{ height: `${60 + (i * 5) % 40}%` }} />
+                                    <div className="flex-1 bg-amber-500 rounded-t-sm hover:brightness-110 transition-all" style={{ height: `${50 + (i * 3) % 40}%` }} />
+                                  </div>
+                                  <span className="text-[9px] font-bold text-stone-400">{m}</span>
+                                </div>
+                              );
+                            });
+                          }
+                        })()}
                       </div>
 
-                      <div className="flex justify-between text-[10px] pt-1 text-stone-500 font-medium">
-                        <div className="flex gap-3">
-                          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /> Inflow Rp 3.6 M</span>
-                          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Outflow Rp 3.2 M</span>
-                        </div>
-                        <span className="text-emerald-700 font-bold">Net cash +Rp 340 jt</span>
-                      </div>
+                      {(() => {
+                        const cashFlowData = cashFlowRange === "4m"
+                          ? detailedProjectInfo?.cashFlow4m
+                          : cashFlowRange === "ytd"
+                            ? detailedProjectInfo?.cashFlowYtd
+                            : detailedProjectInfo?.cashFlow12m;
+
+                        let totalInflow = 0;
+                        let totalOutflow = 0;
+
+                        if (cashFlowData && cashFlowData.length > 0) {
+                          totalInflow = cashFlowData.reduce((sum: number, c: any) => sum + c.inflow, 0);
+                          totalOutflow = cashFlowData.reduce((sum: number, c: any) => sum + c.outflow, 0);
+                        } else {
+                          const length = cashFlowRange === "4m" ? 4 : cashFlowRange === "ytd" ? 7 : 12;
+                          totalInflow = length * 300000000;
+                          totalOutflow = length * 266666666;
+                        }
+
+                        const netCash = totalInflow - totalOutflow;
+                        const netPrefix = netCash >= 0 ? "+" : "-";
+
+                        return (
+                          <div className="flex justify-between text-[10px] pt-1 text-stone-500 font-medium">
+                            <div className="flex gap-3">
+                              <span className="flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                                Inflow {formatSummaryRupiah(totalInflow)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                Outflow {formatSummaryRupiah(totalOutflow)}
+                              </span>
+                            </div>
+                            <span className={`${netCash >= 0 ? "text-emerald-700" : "text-rose-600"} font-bold`}>
+                              Net cash {netPrefix}{formatSummaryRupiah(Math.abs(netCash))}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1373,6 +1553,20 @@ export default function KelolaProyekPage() {
                   <div id="tim-sec" className="min-h-full w-full px-6 pb-20 pt-4 text-left flex-shrink-0 space-y-3">
                     <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
 
+                    {/* Alert Validasi */}
+                    {formError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2 mb-2">
+                        <X size={14} className="flex-shrink-0" />
+                        <span>{formError}</span>
+                      </div>
+                    )}
+                    {success && (
+                      <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2 mb-2">
+                        <Check size={14} className="flex-shrink-0" />
+                        <span>{success}</span>
+                      </div>
+                    )}
+
                     {/* Header Label Kolom */}
                     <div className="grid grid-cols-12 gap-3 text-[11px] font-bold text-stone-400 uppercase tracking-wider px-1 mb-1">
                       <div className="col-span-5">Role</div>
@@ -1447,8 +1641,8 @@ export default function KelolaProyekPage() {
                       ))}
                     </div>
 
-                    {/* Tombol Tambah Baris Baru */}
-                    <div className="pt-2">
+                    {/* Tombol Tambah Baris Baru & Simpan Tim */}
+                    <div className="pt-4 flex gap-3 border-t border-stone-100 mt-4">
                       <button
                         type="button"
                         onClick={() => setTeamRows([...teamRows, { id: `row-${Date.now()}`, role: "", userId: "", isLocked: false }])}
@@ -1456,6 +1650,15 @@ export default function KelolaProyekPage() {
                       >
                         <Plus size={14} />
                         Tambah Baris
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveTeamRows}
+                        disabled={submitting}
+                        className="inline-flex items-center gap-1.5 px-5 py-2 bg-[#2d6a4f] hover:bg-[#1e5038] disabled:opacity-60 text-white text-[12px] font-bold rounded-xl transition cursor-pointer shadow-sm"
+                      >
+                        {submitting && <Loader2 size={12} className="animate-spin" />}
+                        Simpan Penugasan Tim
                       </button>
                     </div>
                   </div>

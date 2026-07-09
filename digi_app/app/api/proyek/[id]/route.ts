@@ -48,6 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const mappedUsers = project.users.map((up) => ({
       ...up.user,
       roleInProyek: up.role,
+      divisiInProyek: up.divisi,
     }));
     const mappedBudget = project.budget ? {
       ...project.budget,
@@ -57,34 +58,44 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       })),
     } : null;
 
-    // Calculate last 6 months cash flow
-    const cashFlow: { bulan: string; inflow: number; outflow: number }[] = [];
+    // Calculate cash flow for different ranges
+    const getCashFlowForMonths = (monthsCount: number) => {
+      const flow: { bulan: string; inflow: number; outflow: number }[] = [];
+      const now = new Date();
+      for (let i = monthsCount - 1; i >= 0; i--) {
+        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+        const monthLabel = monthDate.toLocaleDateString('id-ID', { month: 'short' });
+
+        const monthOutflow = approvals
+          .filter((a) => {
+            const t = new Date(a.timestamp);
+            return t >= monthDate && t <= monthEnd;
+          })
+          .reduce((sum, a) => sum + Number(a.reimbursement.nominal), 0);
+
+        const monthInflow = Math.round(monthOutflow * 1.2);
+        flow.push({
+          bulan: monthLabel,
+          inflow: monthInflow,
+          outflow: monthOutflow,
+        });
+      }
+      return flow;
+    };
+
     const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-      const monthLabel = monthDate.toLocaleDateString('id-ID', { month: 'short' });
-
-      const monthOutflow = approvals
-        .filter((a) => {
-          const t = new Date(a.timestamp);
-          return t >= monthDate && t <= monthEnd;
-        })
-        .reduce((sum, a) => sum + Number(a.reimbursement.nominal), 0);
-
-      const monthInflow = Math.round(monthOutflow * 1.2);
-      cashFlow.push({
-        bulan: monthLabel,
-        inflow: monthInflow,
-        outflow: monthOutflow,
-      });
-    }
+    const cashFlow4m = getCashFlowForMonths(4);
+    const cashFlow12m = getCashFlowForMonths(12);
+    const cashFlowYtd = getCashFlowForMonths(now.getMonth() + 1);
 
     const responseProject = {
       ...project,
       users: mappedUsers,
       budget: mappedBudget,
-      cashFlow,
+      cashFlow4m,
+      cashFlow12m,
+      cashFlowYtd,
     };
 
     return NextResponse.json({ project: responseProject });
@@ -159,18 +170,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Perform deletion in a transaction to handle non-cascading relations safely
-    await prisma.$transaction(async (tx) => {
-      // 1. Delete reimbursements (this will cascade delete approvals and jurnal entries)
-      await tx.reimbursement.deleteMany({
-        where: { proyekId },
-      });
-
-      // 2. Delete project itself (cascades UserProyek, Budget, and PosAnggaran)
-      await tx.proyek.delete({
-        where: { id: proyekId },
-      });
+    // Perform deletion in a batch transaction to handle non-cascading relations safely (safe for PgBouncer)
+    const deleteReimbursements = prisma.reimbursement.deleteMany({
+      where: { proyekId },
     });
+
+    const deleteProject = prisma.proyek.delete({
+      where: { id: proyekId },
+    });
+
+    await prisma.$transaction([deleteReimbursements, deleteProject]);
 
     if (direktorId) {
       await prisma.auditTrail.create({
