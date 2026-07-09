@@ -1157,7 +1157,7 @@ export default function KelolaProyekPage() {
                   className="flex-1 flex flex-col overflow-y-auto scroll-smooth min-h-0"
                   style={{ scrollbarWidth: 'none' }}
                 >
-                  {/* --- KONTEN SECTION 1: RINGKASAN --- */}
+                  
                   <div id="ringkasan-sec" className="px-6 py-4 space-y-4">
                     {/* Row Status & PM Utama */}
                     <div className="grid grid-cols-2 gap-4 pt-2 text-left">
@@ -1312,7 +1312,7 @@ export default function KelolaProyekPage() {
 
                   <hr className="border-stone-100 my-2" />
 
-                  {/* --- KONTEN SECTION 2: ANGGARAN --- */}
+
                   <div id="anggaran-sec" className="px-6 py-4 space-y-4">
                     <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Rincian Pos Anggaran</h3>
 
@@ -1386,7 +1386,7 @@ export default function KelolaProyekPage() {
                   </div>
                   
                   <hr className="border-stone-100 my-2" />
-                  {/* --- KONTEN SECTION 3: TIM --- */}
+                  
                   <div id="tim-sec" className="min-h-full w-full px-6 pb-20 pt-4 text-left flex-shrink-0 space-y-3">
                     <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
 
