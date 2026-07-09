@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clearCache } from '@/lib/route-cache';
 
 // GET: Retrieve a project with its full budget, expenses, and budget items
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -134,6 +135,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
+    clearCache('proyek:');
+    clearCache('dashboard:');
     return NextResponse.json({ message: 'Proyek berhasil diperbarui', project: updatedProject });
   } catch (error: any) {
     console.error('Update project error:', error);
@@ -182,7 +185,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       });
     }
 
-    return NextResponse.json({ message: 'Proyek berhasil dihapus' });
+    clearCache('proyek:');
+clearCache('dashboard:');
+return NextResponse.json({ message: 'Proyek berhasil dihapus' });
   } catch (error: any) {
     console.error('Delete project error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

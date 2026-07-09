@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clearCache } from '@/lib/route-cache';
 
 // POST: Add a new Pos Anggaran category to a project's budget
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -80,6 +81,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
     }
 
+    clearCache('dashboard:');
+    clearCache('proyek:');
     return NextResponse.json({ message: 'Pos Anggaran added successfully', pos: newPos }, { status: 201 });
   } catch (error: any) {
     console.error('Add pos anggaran error:', error);

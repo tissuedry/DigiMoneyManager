@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clearCache } from '@/lib/route-cache';
 
 // POST: Cancel (permanently delete) a reimbursement that is still pending PM review (Karyawan only)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       });
     });
+
+    clearCache('dashboard:');
+    clearCache('reimb:');
+    clearCache('notif:');
 
     return NextResponse.json({
       message: 'Reimbursement successfully cancelled and removed',

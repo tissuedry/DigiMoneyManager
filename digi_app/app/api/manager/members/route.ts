@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
+import { clearCache } from '@/lib/route-cache';
 
 // GET: List all members (users) with their project assignments
 export async function GET(req: NextRequest) {
@@ -127,6 +128,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { passwordHash: _, ...userWithoutPassword } = newUser;
+    clearCache('dashboard:');
     return NextResponse.json({ message: 'Anggota berhasil didaftarkan', user: userWithoutPassword }, { status: 201 });
   } catch (error: any) {
     console.error('Register member error:', error);
@@ -216,6 +218,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+    clearCache('dashboard:');
     return NextResponse.json({ message: 'Data anggota berhasil diperbarui', user: userWithoutPassword }, { status: 200 });
   } catch (error: any) {
     console.error('Update member error:', error);

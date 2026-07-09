@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Filter, Download, X, Check, ChevronDown, ChevronUp, Briefcase } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import { useApi, useMutate, useInvalidate } from '@/lib/use-api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -125,28 +126,12 @@ export default function AntrianApprovalPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Record<string, boolean>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [reimbursements, setReimbursements] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [catatan, setCatatan] = useState("");
+  const invalidate = useInvalidate();
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/reimbursements?role=Project+Manager");
-      const data = await res.json();
-      if (data.reimbursements) {
-        setReimbursements(data.reimbursements);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // ponytail: TanStack Query handles deduplication + caching
+  const { data, isLoading } = useApi<any>("/api/reimbursements?role=Project+Manager");
+  const reimbursements = data?.reimbursements ?? [];
 
   // Convert API reimbursements to Submission type
   const mappedSubmissions = reimbursements.map((r: any): Submission => {
@@ -226,7 +211,7 @@ export default function AntrianApprovalPage() {
   });
 
   // Filter data berdasarkan tab
-  const filteredData = mappedSubmissions.filter((item) => {
+  const filteredData = mappedSubmissions.filter((item: any) => {
     if (activeTab === "Menunggu Saya") return item.status === "Menunggu PM";
     if (activeTab === "Diteruskan") return item.status === "Verifikasi Keuangan";
     if (activeTab === "Selesai") return item.status === "Dicairkan" || item.status === "Ditolak";
@@ -234,7 +219,7 @@ export default function AntrianApprovalPage() {
   });
 
   // Group filtered data by project
-  const groupedProjects = filteredData.reduce((acc, item) => {
+  const groupedProjects = filteredData.reduce((acc: any, item: any) => {
     if (!acc[item.project]) {
       acc[item.project] = [];
     }
@@ -243,7 +228,7 @@ export default function AntrianApprovalPage() {
   }, {} as Record<string, Submission[]>);
 
   // Derived selected submission
-  const selected = filteredData.find((item) => item.id === selectedId) || filteredData[0] || null;
+  const selected = filteredData.find((item: any) => item.id === selectedId) || filteredData[0] || null;
 
   const handleProcess = async (action: 'APPROVE' | 'REJECT') => {
     if (!selected) return;
@@ -271,7 +256,7 @@ export default function AntrianApprovalPage() {
       if (res.ok) {
         alert(action === 'APPROVE' ? "Pengajuan berhasil disetujui!" : "Pengajuan berhasil ditolak.");
         setCatatan("");
-        fetchData();
+        invalidate("/api/reimbursements?role=Project+Manager", "/api/dashboard", "/api/notifications");
       } else {
         alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
       }
@@ -298,9 +283,9 @@ export default function AntrianApprovalPage() {
   const closeSidebar = () => setIsSidebarOpen(false);
 
   const tabCounts: Record<Tab, number> = {
-    "Menunggu Saya": mappedSubmissions.filter((s) => s.status === "Menunggu PM").length,
-    Diteruskan: mappedSubmissions.filter((s) => s.status === "Verifikasi Keuangan").length,
-    Selesai: mappedSubmissions.filter((s) => s.status === "Dicairkan" || s.status === "Ditolak").length,
+    "Menunggu Saya": mappedSubmissions.filter((s: any) => s.status === "Menunggu PM").length,
+    Diteruskan: mappedSubmissions.filter((s: any) => s.status === "Verifikasi Keuangan").length,
+    Selesai: mappedSubmissions.filter((s: any) => s.status === "Dicairkan" || s.status === "Ditolak").length,
   };
 
   return (
@@ -366,9 +351,9 @@ export default function AntrianApprovalPage() {
                   Tidak ada data.
                 </div>
               ) : (
-                Object.entries(groupedProjects).map(([projectName, items]) => {
+                Object.entries(groupedProjects).map(([projectName, items]: [string, any]) => {
                   const isCollapsed = collapsedProjects[projectName] || false;
-                  const totalProjectAmount = items.reduce((sum, item) => sum + item.amountRaw, 0);
+                  const totalProjectAmount = items.reduce((sum: number, item: any) => sum + item.amountRaw, 0);
                   const formattedTotal = `Rp ${totalProjectAmount.toLocaleString('id-ID')}`;
 
                   return (
@@ -407,7 +392,7 @@ export default function AntrianApprovalPage() {
                       {/* Project Items List */}
                       {!isCollapsed && (
                         <div className="flex flex-col gap-1.5 pl-2 transition-all duration-200">
-                          {items.map((item) => {
+                          {items.map((item: any) => {
                             const isSelected = selected && selected.id === item.id;
                             return (
                               <button
@@ -537,7 +522,7 @@ export default function AntrianApprovalPage() {
                   <div>
                     <p className="text-[13px] font-bold text-stone-800 mb-4">Alur Approval</p>
                     <div className="flex flex-col gap-0">
-                      {selected.steps.map((step, i) => (
+                      {selected.steps.map((step: any, i: number) => (
                         <div key={i} className="flex gap-3">
                           {/* Ikon + garis vertikal */}
                           <div className="flex flex-col items-center">

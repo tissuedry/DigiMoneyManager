@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react';
+import { useApi } from '@/lib/use-api';
 
 function AjukanReimbursementContent() {
   const searchParams = useSearchParams();
@@ -26,8 +27,15 @@ function AjukanReimbursementContent() {
   const [resubmitStrukUrl, setResubmitStrukUrl] = useState<string | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
-  // Backend dynamic projects and categories
-  const [projects, setProjects] = useState<any[]>([]);
+  // ponytail: TanStack Query deduplicates /api/auth/me across Header, Sidebar, and this page
+  const { data: meData } = useApi<any>("/api/auth/me");
+  const { data: proyekData } = useApi<any>("/api/proyek?role=Karyawan");
+  const { data: reimbData } = useApi<any>(
+    resubmitId ? "/api/reimbursements?role=Karyawan" : null
+  );
+  const projects = proyekData?.projects ?? [];
+
+  // Auto-select project when data loads
   const [proyekId, setProyekId] = useState('');
   const [posAnggaranId, setPosAnggaranId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,64 +53,46 @@ function AjukanReimbursementContent() {
   const [filePreview, setFilePreview] = useState('/bukti_struk.png');
 
   useEffect(() => {
-    // Load projects and session data to select the default active project
-    Promise.all([
-      fetch('/api/auth/me').then(res => res.ok ? res.json() : null),
-      fetch('/api/proyek?role=Karyawan').then(res => res.json())
-    ])
-      .then(([meData, data]) => {
-        if (data.projects) {
-          setProjects(data.projects);
-          // When resubmitting, the project/pos selection comes from the original submission instead
-          if (!resubmitId && data.projects.length > 0) {
-            const sessionProyekId = meData?.user?.proyekId;
-            const hasSessionProyek = sessionProyekId && data.projects.some((p: any) => p.id === sessionProyekId);
-            
-            const selectedProj = hasSessionProyek 
-              ? data.projects.find((p: any) => p.id === sessionProyekId)
-              : data.projects[0];
+    if (projects.length > 0 && !proyekId && !resubmitId) {
+      const sessionProyekId = meData?.user?.proyekId;
+      const hasSessionProyek = sessionProyekId && projects.some((p: any) => p.id === sessionProyekId);
+      const selectedProj = hasSessionProyek
+        ? projects.find((p: any) => p.id === sessionProyekId)
+        : projects[0];
 
-            setProyekId(String(selectedProj.id));
-            if (selectedProj.budget?.posAnggaran?.length > 0) {
-              setPosAnggaranId(String(selectedProj.budget.posAnggaran[0].id));
-            }
-          }
-        }
-      })
-      .catch(err => console.error('Error loading projects:', err));
-  }, [resubmitId]);
+      setProyekId(String(selectedProj.id));
+      if (selectedProj.budget?.posAnggaran?.length > 0) {
+        setPosAnggaranId(String(selectedProj.budget.posAnggaran[0].id));
+      }
+    }
+  }, [projects, meData, resubmitId, proyekId]);
 
   useEffect(() => {
     // Pre-fill the form with the rejected submission's data and jump straight to "Review & kirim"
-    if (!resubmitId) return;
+    if (!resubmitId || !reimbData?.reimbursements) return;
 
-    fetch('/api/reimbursements?role=Karyawan')
-      .then(res => res.json())
-      .then(data => {
-        const original = data.reimbursements?.find((r: any) => String(r.id) === resubmitId);
-        if (!original || original.status !== 'REJECTED') {
-          setCurrentState('upload');
-          return;
-        }
+    const original = reimbData.reimbursements.find((r: any) => String(r.id) === resubmitId);
+    if (!original || original.status !== 'REJECTED') {
+      setCurrentState('upload');
+      return;
+    }
 
-        setProyekId(String(original.proyekId));
-        setPosAnggaranId(String(original.posAnggaranId));
-        setMerchant(original.ocrData?.merchant || '');
-        setTanggal(original.ocrData?.tanggal || '');
-        setNominal(original.nominal != null ? String(Number(original.nominal)) : '');
-        setKategoriBukti(original.ocrData?.kategoriBukti || 'Struk Pembelian');
-        setKeterangan(original.ocrData?.keterangan || '');
-        setFilePreview(original.strukUrl || '/bukti_struk.png');
-        setResubmitStrukUrl(original.strukUrl || null);
-        setCurrentState('review');
-      })
-      .catch(err => console.error('Error loading original reimbursement:', err))
-      .finally(() => setIsResubmitLoading(false));
-  }, [resubmitId]);
+    setProyekId(String(original.proyekId));
+    setPosAnggaranId(String(original.posAnggaranId));
+    setMerchant(original.ocrData?.merchant || '');
+    setTanggal(original.ocrData?.tanggal || '');
+    setNominal(original.nominal != null ? String(Number(original.nominal)) : '');
+    setKategoriBukti(original.ocrData?.kategoriBukti || 'Struk Pembelian');
+    setKeterangan(original.ocrData?.keterangan || '');
+    setFilePreview(original.strukUrl || '/bukti_struk.png');
+    setResubmitStrukUrl(original.strukUrl || null);
+    setCurrentState('review');
+    setIsResubmitLoading(false);
+  }, [resubmitId, reimbData]);
 
   const handleProjectChange = (id: string) => {
     setProyekId(id);
-    const proj = projects.find(p => String(p.id) === id);
+    const proj = projects.find((p: any) => String(p.id) === id);
     if (proj?.budget?.posAnggaran?.length > 0) {
       setPosAnggaranId(String(proj.budget.posAnggaran[0].id));
     } else {
@@ -426,7 +416,7 @@ function AjukanReimbursementContent() {
                           onChange={(e) => handleProjectChange(e.target.value)}
                           className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
                         >
-                          {projects.map(p => (
+                          {projects.map((p: any) => (
                             <option key={p.id} value={String(p.id)}>{p.nama}</option>
                           ))}
                         </select>
@@ -441,7 +431,7 @@ function AjukanReimbursementContent() {
                           onChange={(e) => setPosAnggaranId(e.target.value)}
                           className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
                         >
-                          {projects.find(p => String(p.id) === proyekId)?.budget?.posAnggaran?.map((pos: any) => (
+                          {projects.find((p: any) => String(p.id) === proyekId)?.budget?.posAnggaran?.map((pos: any) => (
                             <option key={pos.id} value={String(pos.id)}>{pos.namaPos}</option>
                           )) || <option value="">Tidak ada pos anggaran</option>}
                         </select>

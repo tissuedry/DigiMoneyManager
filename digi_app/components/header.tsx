@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Bell, Menu, LogOut, Check, ArrowRight, Loader2, X } from "lucide-react";
 import Link from "next/link";
+import { useApi, useMutate } from "@/lib/use-api";
 
 export type UserRole = "Karyawan" | "Project Manager" | "Tim Keuangan" | "Direktur / Manajemen";
 
@@ -29,6 +30,10 @@ type NotificationItem = {
   pesan: string;
   dibaca: boolean;
   timestamp: string;
+};
+
+type NotificationsResponse = {
+  notifications: NotificationItem[];
 };
 
 function getInitials(name: string) {
@@ -64,62 +69,23 @@ const ROLE_AVATAR_STYLES: Record<UserRole, { bg: string; text: string }> = {
 };
 
 export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotificationDropdown = false }: HeaderProps) {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isMarkingAll, setIsMarkingAll] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = () => {
-    fetch("/api/notifications")
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error("Failed to fetch notifications");
-      })
-      .then((data) => {
-        if (data.notifications) setNotifications(data.notifications);
-      })
-      .catch((err) => console.error("Error fetching notifications:", err));
-  };
+  // ponytail: useApi deduplicates — two components with same URL share one request
+  const { data: profileData } = useApi<UserProfile & { user: UserProfile }>("/api/auth/me");
+  const { data: notifData } = useApi<NotificationsResponse>(
+    hideNotificationDropdown ? null : "/api/notifications"
+  );
 
-  // Fetch profile & notifications
-  useEffect(() => {
-    // 1. Get user profile
-    fetch("/api/auth/me")
-      .then((res) => {
-        if (res.ok) return res.json();
-        window.location.href = "/login";
-        throw new Error("Failed to fetch profile");
-      })
-      .then((data) => {
-        if (data.user) setProfile(data.user);
-      })
-      .catch((err) => console.error("Error fetching profile:", err));
+  const profile = profileData?.user ?? null;
+  const notifications = notifData?.notifications ?? [];
 
-    // 2. Fetch notifications
-    fetchNotifications();
-  }, []);
-
-  useEffect(() => {
-    // Fetch profile
-    fetch("/api/auth/me")
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error("Failed to fetch profile");
-      })
-      .then((data) => {
-        if (data.user) setProfile(data.user);
-      })
-      .catch((err) => console.error("Error fetching profile:", err));
-
-    // Fetch notifications
-    if (!hideNotificationDropdown) {
-      fetchNotifications();
-    }
-  }, [hideNotificationDropdown]);
+  const markAllRead = useMutate("/api/notifications", "PUT", ["/api/notifications"]);
+  const markOneRead = useMutate("/api/notifications", "PUT", ["/api/notifications"]);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -140,48 +106,18 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
     };
   }, [isNotificationsOpen, isProfileOpen]);
 
-  const unreadCount = notifications.filter((n) => !n.dibaca).length;
+  const unreadCount = notifications.filter((n: NotificationItem) => !n.dibaca).length;
 
   // Mark all as read
   const handleMarkAllRead = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (unreadCount === 0 || isMarkingAll) return;
-    setIsMarkingAll(true);
-
-    try {
-      const res = await fetch("/api/notifications", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-
-      if (res.ok) {
-        setNotifications((prev) => prev.map((n) => ({ ...n, dibaca: true })));
-      }
-    } catch (err) {
-      console.error("Error marking all read:", err);
-    } finally {
-      setIsMarkingAll(false);
-    }
+    if (unreadCount === 0 || markAllRead.isPending) return;
+    markAllRead.mutate({});
   };
 
   // Mark specific notification as read
   const handleMarkOneRead = async (id: string) => {
-    try {
-      const res = await fetch("/api/notifications", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-
-      if (res.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, dibaca: true } : n))
-        );
-      }
-    } catch (err) {
-      console.error("Error marking notification read:", err);
-    }
+    markOneRead.mutate({ id });
   };
 
   // Logout function
@@ -251,10 +187,10 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                   </div>
                   <button
                     onClick={handleMarkAllRead}
-                    disabled={unreadCount === 0 || isMarkingAll}
+                    disabled={unreadCount === 0 || markAllRead.isPending}
                     className={`flex items-center gap-1.5 px-3 py-1.5 border border-stone-200/80 rounded-full text-[11px] font-bold bg-white text-stone-700 hover:bg-stone-50 transition shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    {isMarkingAll ? (
+                    {markAllRead.isPending ? (
                       <Loader2 size={12} className="animate-spin text-stone-500" />
                     ) : (
                       <Check size={12} className="text-stone-600" />
@@ -265,7 +201,7 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
 
                 <div className="flex-1 overflow-y-auto divide-y divide-stone-100 max-h-[350px]">
                   {notifications.length > 0 ? (
-                    notifications.map((item) => {
+                    notifications.map((item: NotificationItem) => {
                       const isRejected = item.tipe === "rejected" || item.pesan.toLowerCase().includes("ditolak");
                       return (
                         <div
@@ -274,14 +210,14 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                             if (!item.dibaca) handleMarkOneRead(item.id);
                           }}
                           className={`flex gap-3.5 p-4 transition-all duration-200 cursor-pointer ${
-                            !item.dibaca 
-                              ? (isRejected ? "bg-[#fff5f5] hover:bg-[#fee2e2]" : "bg-[#f5fbf8] hover:bg-[#eaf5ef]") 
+                            !item.dibaca
+                              ? (isRejected ? "bg-[#fff5f5] hover:bg-[#fee2e2]" : "bg-[#f5fbf8] hover:bg-[#eaf5ef]")
                               : "bg-transparent hover:bg-stone-50"
                           }`}
                         >
                           <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-sm border ${
-                            isRejected 
-                              ? "bg-red-50 text-red-700 border-red-100" 
+                            isRejected
+                              ? "bg-red-50 text-red-700 border-red-100"
                               : "bg-[#e2f1eb] text-[#117a5b] border-emerald-100"
                           }`}>
                             {isRejected ? (

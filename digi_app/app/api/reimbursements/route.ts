@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
 // Helper to map DB fields to client fields
 const mapReimbursement = (r: any) => {
@@ -27,6 +28,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const urlRole = searchParams.get('role') || role;
+
+    // ponytail: cache per role+user — 6 pages call this endpoint
+    const cacheKey = `reimb:${urlRole}:${userId}`;
+    const cached = getCached(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
     const filter: any = {};
 
@@ -77,7 +83,9 @@ export async function GET(req: NextRequest) {
       orderBy: { id: 'desc' },
     });
 
-    return NextResponse.json({ reimbursements: reimbursements.map(mapReimbursement) });
+    const mapped = reimbursements.map(mapReimbursement);
+    setCache(cacheKey, { reimbursements: mapped });
+    return NextResponse.json({ reimbursements: mapped });
   } catch (error: any) {
     console.error('Fetch reimbursements error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -206,9 +214,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ 
-      message: 'Reimbursement submitted successfully', 
-      reimbursement: mapReimbursement(reimbursement) 
+    // ponytail: invalidate caches that include this new reimbursement
+    const userIdInt = parseInt(userId, 10);
+    clearCache(`reimb:Karyawan:${userIdInt}`);
+    clearCache(`reimb:Project+Manager:`);
+    clearCache('reimb:Tim Keuangan:');
+    clearCache('dashboard:');
+    clearCache('notif:');
+
+    return NextResponse.json({
+      message: 'Reimbursement submitted successfully',
+      reimbursement: mapReimbursement(reimbursement)
     }, { status: 201 });
   } catch (error: any) {
     console.error('Submit reimbursement error:', error);

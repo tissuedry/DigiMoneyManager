@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { 
-  Plus, 
-  ArrowRight, 
-  FileText, 
-  Loader2, 
-  AlertCircle, 
-  Check, 
-  TrendingUp, 
+import React, { useState, useRef } from "react";
+import {
+  Plus,
+  ArrowRight,
+  FileText,
+  Loader2,
+  AlertCircle,
+  Check,
+  TrendingUp,
   Wallet,
   FileCheck,
   ChevronRight,
@@ -18,8 +18,7 @@ import {
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
-
-
+import { useApi, useMutate } from "@/lib/use-api";
 
 // Type Definitions matching API responses
 type PosAnggaran = {
@@ -65,6 +64,14 @@ type DashboardData = {
   message?: string;
 };
 
+type ProyekResponse = {
+  projects: Array<{ id: number; nama: string }>;
+};
+
+type MeResponse = {
+  user?: { proyekId?: number };
+};
+
 // Formatting helpers
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat("id-ID", {
@@ -72,19 +79,6 @@ const formatRupiah = (amount: number) => {
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(amount);
-};
-
-const formatShortAmount = (amount: number) => {
-  if (amount >= 1000000000) {
-    return { value: (amount / 1000000000).toFixed(1), unit: "M" };
-  }
-  if (amount >= 1000000) {
-    return { value: (amount / 1000000).toFixed(1), unit: "jt" };
-  }
-  if (amount >= 1000) {
-    return { value: (amount / 1000).toFixed(0), unit: "rb" };
-  }
-  return { value: amount.toString(), unit: "" };
 };
 
 const formatTanggal = (isoString: string | null) => {
@@ -98,70 +92,37 @@ const formatTanggal = (isoString: string | null) => {
 };
 
 export default function PMDashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [allProjects, setAllProjects] = useState<{ id: number; nama: string }[]>([]);
   const projectDropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        setLoading(true);
-        setError(null);
+  // ponytail: TanStack Query deduplicates — Sidebar, Header, and this page share one request
+  const { data: meData } = useApi<MeResponse>("/api/auth/me");
+  const { data: proyekData } = useApi<ProyekResponse>("/api/proyek?role=Project+Manager");
 
-        const url = selectedProjectId ? `/api/dashboard?projectId=${selectedProjectId}&role=Project+Manager` : "/api/dashboard?role=Project+Manager";
-        const response = await fetch(url, { method: "GET" });
-        if (!response.ok) {
-          const msg = await response.json().catch(() => null);
-          throw new Error(msg?.message || "Gagal mengambil data dari server");
-        }
+  const allProjects = proyekData?.projects ?? [];
 
-        const result = await response.json();
-        setData(result.dashboard);
-      } catch (err: any) {
-        setError(err.message || "Terjadi kesalahan koneksi");
-      } finally {
-        setLoading(false);
-      }
-    }
+  // Auto-select project when data loads (runs once when both queries resolve)
+  const resolvedProyekId = selectedProjectId ?? meData?.user?.proyekId ?? allProjects[0]?.id ?? null;
+  if (!selectedProjectId && resolvedProyekId) {
+    // Trigger once when resolution happens — not a useEffect because we don't need the effect lifecycle
+    setTimeout(() => setSelectedProjectId(resolvedProyekId), 0);
+  }
 
-    fetchDashboardData();
-  }, [selectedProjectId]);
+  const dashboardUrl = resolvedProyekId
+    ? `/api/dashboard?projectId=${resolvedProyekId}&role=Project+Manager`
+    : "/api/dashboard?role=Project+Manager";
+  const { data: dashData, isLoading, error: dashError } = useApi<{ dashboard: DashboardData }>(
+    resolvedProyekId ? dashboardUrl : null
+  );
+  const data = dashData?.dashboard ?? null;
+  const error = dashError?.message ?? null;
 
-  // Fetch data proyek dan data user session, lalu pilih proyek yang sedang aktif
-  useEffect(() => {
-    async function initProject() {
-      try {
-        const [meRes, proyekRes] = await Promise.all([
-          fetch("/api/auth/me").then((res) => (res.ok ? res.json() : null)),
-          fetch("/api/proyek?role=Project+Manager").then((res) => res.json()),
-        ]);
+  const selectProject = useMutate("/api/auth/select-project", "POST", ["/api/auth/me", "/api/dashboard"]);
 
-        if (proyekRes && proyekRes.projects && proyekRes.projects.length > 0) {
-          setAllProjects(proyekRes.projects);
-          
-          const sessionProyekId = meRes?.user?.proyekId;
-          const hasSessionProyek = sessionProyekId && proyekRes.projects.some((p: any) => p.id === sessionProyekId);
-          
-          if (hasSessionProyek) {
-            setSelectedProjectId(sessionProyekId);
-          } else {
-            setSelectedProjectId(proyekRes.projects[0].id);
-          }
-        }
-      } catch (err) {
-        console.error("Initialization error:", err);
-      }
-    }
-    initProject();
-  }, []);
-
-  // Tutup dropdown saat klik di luar
-  useEffect(() => {
+  // Close dropdown on click outside
+  React.useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
         setIsProjectDropdownOpen(false);
@@ -220,22 +181,9 @@ export default function PMDashboardPage() {
                         type="button"
                         onClick={async () => {
                           setIsProjectDropdownOpen(false);
-                          try {
-                            const res = await fetch("/api/auth/select-project", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ proyekId: proj.id }),
-                            });
-                            if (res.ok) {
-                              setSelectedProjectId(proj.id);
-                            } else {
-                              console.error("Gagal memperbarui session proyek");
-                              setSelectedProjectId(proj.id);
-                            }
-                          } catch (err) {
-                            console.error(err);
-                            setSelectedProjectId(proj.id);
-                          }
+                          selectProject.mutate({ proyekId: proj.id });
+                          // Optimistic: switch display immediately
+                          setSelectedProjectId(proj.id);
                         }}
                         className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-stone-50 flex items-center gap-2 transition ${
                           proj.id === data.project?.id
@@ -253,7 +201,7 @@ export default function PMDashboardPage() {
             )}
           </div>
 
-          {loading ? (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <Loader2 className="animate-spin text-[#008f5d]" size={32} />
               <p className="text-stone-500 text-[14px]">Memuat dasbor Project Manager...</p>
@@ -281,7 +229,7 @@ export default function PMDashboardPage() {
                     const rab = budget ? Number(budget.rabTotal) : 0;
                     const used = budget ? Number(budget.totalPengeluaran) : 0;
                     const rem = budget ? Number(budget.sisaBudget) : 0;
-                    
+
                     const usedPercentage = rab > 0 ? (used / rab) * 100 : 0;
                     const remPercentage = rab > 0 ? (rem / rab) * 100 : 0;
 
@@ -356,7 +304,7 @@ export default function PMDashboardPage() {
                               ID: {project.id}
                             </span>
                           </div>
-                          
+
                           <div className="w-full bg-stone-100 h-5 rounded-full overflow-hidden relative">
                             <div
                               style={{ width: `${usedPercentage}%` }}
@@ -387,7 +335,7 @@ export default function PMDashboardPage() {
                                 <h3 className="font-bold text-[15px] text-stone-900">Realisasi Pos Anggaran</h3>
                                 <p className="text-[11px] text-stone-400 mt-0.5">Penyerapan per kategori alokasi</p>
                               </div>
-                              <Link 
+                              <Link
                                 href="/pm/budget"
                                 className="inline-flex items-center gap-1 text-[11px] font-bold text-[#008f5d] hover:underline"
                               >
@@ -423,12 +371,12 @@ export default function PMDashboardPage() {
                                       </div>
 
                                       <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
-                                        <div 
-                                          className={`h-full transition-all duration-500 ${isWarning ? 'bg-amber-500' : 'bg-emerald-600'}`} 
+                                        <div
+                                          className={`h-full transition-all duration-500 ${isWarning ? 'bg-amber-500' : 'bg-emerald-600'}`}
                                           style={{ width: `${pct}%` }}
                                         />
                                       </div>
-                                      
+
                                       <div className="flex justify-between text-[10px] text-stone-400 font-medium">
                                         <span>Terpakai: {pct}%</span>
                                         <span>Sisa: Rp {(alloc - spent).toLocaleString('id-ID')}</span>

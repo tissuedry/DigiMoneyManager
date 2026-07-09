@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Plus, ArrowRight, FileText, Loader2 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
+import { useApi } from "@/lib/use-api";
 
 // Tipe Data untuk State Frontend
 type DashboardData = {
@@ -63,37 +64,16 @@ const formatRupiah = (amount: number) => {
   }).format(amount);
 };
 
+type DashboardResponse = {
+  dashboard: DashboardData;
+};
+
 export default function BerandaKaryawanPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await fetch("/api/dashboard?role=Karyawan", { method: "GET" });
-
-        if (!response.ok) {
-          const msg = await response.json().catch(() => null);
-          throw new Error(msg?.message || "Gagal mengambil data dari server");
-        }
-
-        const result = await response.json();
-        setData(result.dashboard);
-      } catch (err: any) {
-        setError(err.message || "Terjadi kesalahan koneksi");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchDashboardData();
-  }, []);
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // ponytail: single useApi replaces useState + useEffect + fetch
+  const { data, isLoading, error } = useApi<DashboardResponse>("/api/dashboard?role=Karyawan");
+  const d = data?.dashboard ?? null;
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
@@ -123,16 +103,16 @@ export default function BerandaKaryawanPage() {
             </Link>
           </div>
 
-          {loading ? (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="animate-spin text-[#2d6a4f]" size={32} />
               <p className="text-stone-500 text-[14px]">Memuat data dashboard...</p>
             </div>
           ) : error ? (
             <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-[14px]">
-              Gagal memuat dashboard: {error}
+              Gagal memuat dashboard: {error.message}
             </div>
-          ) : data && data.summary ? (
+          ) : d ? (
             <>
               {/* Kartu Statistik Dinamis */}
               <div className="grid grid-cols-3 gap-5 mb-8">
@@ -145,7 +125,7 @@ export default function BerandaKaryawanPage() {
                     </div>
                   </div>
                   <p className="text-[32px] font-bold text-stone-900 leading-none mb-2">
-                    {data.summary.pendingCount}
+                    {d.summary.pendingCount}
                   </p>
                   <p className="text-[12px] text-stone-400">menunggu approval</p>
                 </div>
@@ -160,12 +140,12 @@ export default function BerandaKaryawanPage() {
                   </div>
                   <p className="text-[32px] font-bold text-stone-900 leading-none mb-2">
                     <span className="text-[16px] font-semibold text-stone-500 mr-1">Rp</span>
-                    {formatShortAmount(data.summary.totalNominalSubmitted).value}{" "}
+                    {formatShortAmount(d.summary.totalNominalSubmitted).value}{" "}
                     <span className="text-[20px] font-semibold text-stone-500">
-                      {formatShortAmount(data.summary.totalNominalSubmitted).unit}
+                      {formatShortAmount(d.summary.totalNominalSubmitted).unit}
                     </span>
                   </p>
-                  <p className="text-[12px] text-stone-400">{data.summary.totalSubmissions} pengajuan</p>
+                  <p className="text-[12px] text-stone-400">{d.summary.totalSubmissions} pengajuan</p>
                 </div>
 
                 {/* Total Pengajuan Berhasil Dicairkan */}
@@ -176,7 +156,7 @@ export default function BerandaKaryawanPage() {
                       <FileText size={16} className="text-[#117a5b]" />
                     </div>
                   </div>
-                  <p className="text-[32px] font-bold text-stone-900 leading-none mb-2">{data.summary.approvedCount}</p>
+                  <p className="text-[32px] font-bold text-stone-900 leading-none mb-2">{d.summary.approvedCount}</p>
                   <p className="text-[12px] text-stone-400">pengajuan berhasil dicairkan</p>
                 </div>
               </div>
@@ -193,12 +173,12 @@ export default function BerandaKaryawanPage() {
 
                 {/* List item pengajuan */}
                 <div className="divide-y divide-stone-100">
-                  {data.recentSubmissions.length === 0 ? (
+                  {d.recentSubmissions.length === 0 ? (
                     <div className="p-6 text-center text-stone-400 text-[13px]">
                       Belum ada riwayat pengajuan reimbursement.
                     </div>
                   ) : (
-                    data.recentSubmissions.map((item) => {
+                    d.recentSubmissions.map((item) => {
                       const badge = getStatusBadge(item.status);
                       const merchantName =
                         item.ocrData?.merchantName ||

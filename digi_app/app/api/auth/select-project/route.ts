@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { signToken } from '@/lib/auth';
+import { clearCache } from '@/lib/route-cache';
 
 export async function POST(req: NextRequest) {
   try {
@@ -72,7 +73,11 @@ export async function POST(req: NextRequest) {
       divisi: user.divisi,
     });
 
-    // 5. Create Response
+    // 5. Clear caches — project switch changes dashboard + me data
+    clearCache(`me:${userIdStr}`);
+    clearCache('dashboard:');
+
+    // 6. Create Response
     const redirectUrl = primaryRole === 'Project Manager' ? '/pm' : '/karyawan';
     const response = NextResponse.json({
       message: 'Project selected successfully',

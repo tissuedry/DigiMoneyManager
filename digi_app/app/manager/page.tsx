@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Loader2, TrendingUp, TrendingDown, Check, ArrowUpRight, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useApi } from "@/lib/use-api";
 
 // ── Type Definitions ──────────────────────────────────────────────────────────
 type CashFlowMonth = { bulan: string; inflow: number; outflow: number };
@@ -42,6 +43,9 @@ type DashboardData = {
   reimbursementPipeline: ReimbursementPipeline;
   projectList: ProjectItem[];
 };
+type DashboardResponse = {
+  dashboard: DashboardData;
+};
 
 // ── Formatting Helpers ─────────────────────────────────────────────────────────
 const fmtShort = (n: number) => {
@@ -50,9 +54,6 @@ const fmtShort = (n: number) => {
   if (n >= 1_000) return `Rp ${(n / 1_000).toFixed(0)} rb`;
   return `Rp ${n}`;
 };
-
-const fmtRupiah = (n: number) =>
-  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 
 // ── Bar Chart Component ────────────────────────────────────────────────────────
 function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
@@ -161,22 +162,15 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManagerDashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // ponytail: single useApi replaces useState + useEffect + fetch
+  const { data, isLoading, error } = useApi<DashboardResponse>("/api/dashboard");
 
-  useEffect(() => {
-    fetch("/api/dashboard")
-      .then((r) => r.json())
-      .then((d) => setData(d.dashboard))
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  const d = data?.dashboard ?? null;
 
   const now = new Date();
   const dateLabel = now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <main className="flex-1 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -187,17 +181,17 @@ export default function ManagerDashboardPage() {
     );
   }
 
-  if (error || !data) {
+  if (error || !d) {
     return (
       <main className="flex-1 p-8">
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm">
-          Gagal memuat dashboard: {error || "Data tidak tersedia"}
+          Gagal memuat dashboard: {error?.message || "Data tidak tersedia"}
         </div>
       </main>
     );
   }
 
-  const { metrics, cashFlow, reimbursementPipeline, projectList } = data;
+  const { metrics, cashFlow, reimbursementPipeline, projectList } = d;
 
   const statCards = [
     {
