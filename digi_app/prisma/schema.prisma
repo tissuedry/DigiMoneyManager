@@ -51,6 +51,7 @@ model UserProyek {
   proyekId  Int      @map("proyek_id")
   userId    Int      @map("user_id")
   role      String   @map("role")
+  divisi    String?  @map("divisi")
   joinedAt  DateTime @default(now()) @map("joined_at")
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
