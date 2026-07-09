@@ -94,24 +94,7 @@ export default function KelolaProyekPage() {
 
   useEffect(() => {
     fetchData();
-
-    const container = document.getElementById("scroll-bridge-container");
-    if (!container) return;
-
-    const sections = ["ringkasan-sec", "anggaran-sec", "tim-sec"];
-    const handleScroll = () => {
-      const scrollPos = container.scrollTop;
-      const containerHeight = container.clientHeight;
-
-      const activeIndex = Math.round(scrollPos / containerHeight);
-      const mappedTabs: ("ringkasan" | "anggaran" | "tim")[] = ["ringkasan", "anggaran", "tim"];
-
-      if (mappedTabs[activeIndex]) {
-        setActiveTab(mappedTabs[activeIndex]);
-      }
-    }; container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [showProjectDetail]);
+  }, []);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
