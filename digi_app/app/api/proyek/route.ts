@@ -10,10 +10,15 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const urlRole = searchParams.get('role') || role;
 
-    let filter: any = {};
+    // 💡 1. Menangkap query string yang dikirim oleh frontend
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status') || '';
+
+    // Filter berdasarkan Role & User ID
+    let roleFilter: any = {};
     if (userId) {
       if (urlRole === 'Karyawan') {
-        filter = {
+        roleFilter = {
           users: {
             some: {
               userId: parseInt(userId, 10),
@@ -22,7 +27,7 @@ export async function GET(req: NextRequest) {
           },
         };
       } else if (urlRole === 'Project Manager') {
-        filter = {
+        roleFilter = {
           users: {
             some: {
               userId: parseInt(userId, 10),
@@ -33,8 +38,42 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 💡 2. Logika Search: Mencari berdasarkan kolom 'nama' atau 'id'
+    let searchFilter: any = {};
+    if (search) {
+      searchFilter = {
+        OR: [
+          { nama: { contains: search, mode: 'insensitive' } },
+          ...(isNaN(Number(search)) ? [] : [{ id: parseInt(search, 10) }]),
+        ],
+      };
+    }
+
+    // 💡 3. Logika Filter Status Tab
+    let statusFilter: any = {};
+    if (status && status !== 'Semua') {
+      // Mengubah ke uppercase agar cocok dengan data Enum/String di DB (Contoh: 'AKTIF', 'DONE')
+      // Gantilah mapping string di bawah jika penamaan di database kamu berbeda
+      let mappedStatus = status.toUpperCase();
+      if (mappedStatus === 'ACTIVE') mappedStatus = 'AKTIF'; 
+      if (mappedStatus === 'CANCELED') mappedStatus = 'CANCELED'; 
+      statusFilter = {
+        status: mappedStatus,
+      };
+    }
+
+    // Menggabungkan semua filter ke dalam kondisi AND Prisma
+    const finalWhere = {
+      AND: [
+        roleFilter,
+        searchFilter,
+        statusFilter
+      ]
+    };
+
+    // Eksekusi query ke database Supabase via Prisma
     const projects = await prisma.proyek.findMany({
-      where: filter,
+      where: finalWhere,
       include: {
         budget: {
           include: {
@@ -44,12 +83,14 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { tanggalMulai: 'desc' },
     });
+
     return NextResponse.json({ projects });
   } catch (error: any) {
     console.error('Fetch projects error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
+
 
 // POST: Create a new project (PM or Tim Keuangan only)
 export async function POST(req: NextRequest) {
