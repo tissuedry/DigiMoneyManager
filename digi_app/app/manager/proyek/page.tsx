@@ -331,6 +331,15 @@ export default function KelolaProyekPage() {
     }
   };
 
+  const handleAddTeamRow = () => {
+    const newId = `row-new-${Date.now()}`;
+    setTeamRows([...teamRows, { id: newId, role: "", userId: "", isLocked: false }]);
+  };
+
+  const handleRemoveTeamRow = (id: string) => {
+    setTeamRows(teamRows.filter((r) => r.id !== id));
+  };
+
   const handleSaveTeamRows = async () => {
     if (!showProjectDetail) return;
     setFormError("");
@@ -354,16 +363,22 @@ export default function KelolaProyekPage() {
     }
 
     const otherRows = teamRows.filter((r) => r.id !== "row-pm");
-    const activeOtherRows = otherRows.filter((r) => r.userId !== "" || r.role.trim() !== "");
 
-    for (const r of activeOtherRows) {
-      if (!r.userId) {
-        setFormError("Nama anggota tim tidak boleh kosong. Silakan pilih nama atau hapus baris.");
+    for (let i = 0; i < otherRows.length; i++) {
+      const r = otherRows[i];
+      const rowNum = i + 1;
+      if (!r.role.trim() && !r.userId) {
+        setFormError(`Baris anggota ke-${rowNum} masih kosong. Harap isi Role dan Nama, atau hapus baris tersebut.`);
         scrollToSection("tim-sec");
         return;
       }
       if (!r.role.trim()) {
-        setFormError("Role/spesialisasi anggota tim tidak boleh kosong. Silakan ketik role (misal: DevOps) atau hapus baris.");
+        setFormError(`Role untuk anggota pada baris ke-${rowNum} belum diisi.`);
+        scrollToSection("tim-sec");
+        return;
+      }
+      if (!r.userId) {
+        setFormError(`Nama anggota pada baris ke-${rowNum} belum dipilih.`);
         scrollToSection("tim-sec");
         return;
       }
@@ -422,15 +437,15 @@ export default function KelolaProyekPage() {
     setFormError("");
     setSuccess("");
 
-    const total = parseFloat(rabTotal);
-    if (isNaN(total) || total <= 0) {
+    const total = ribuanToNumber(rabTotal);
+    if (total <= 0) {
       setFormError("Total Nilai Proyek harus berupa angka positif");
       return;
     }
 
-    const sum = posAnggaranList.reduce((acc, pos) => acc + (parseFloat(pos.nominalAlokasi) || 0), 0);
+    const sum = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
     if (Math.abs(sum - total) > 0.01) {
-      setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString()}) harus sama dengan total Nilai Proyek (Rp ${total.toLocaleString()})`);
+      setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString("id-ID")}) harus sama dengan total Nilai Proyek (Rp ${total.toLocaleString("id-ID")})`);
       return;
     }
 
@@ -443,7 +458,7 @@ export default function KelolaProyekPage() {
           rabTotal: total,
           posAnggaran: posAnggaranList.map((pos) => ({
             deskripsi: pos.deskripsi,
-            nominalAlokasi: parseFloat(pos.nominalAlokasi),
+            nominalAlokasi: ribuanToNumber(pos.nominalAlokasi),
           })),
         }),
       });
@@ -936,16 +951,16 @@ export default function KelolaProyekPage() {
                         className="flex-1 border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none"
                       />
                       <input
-                        type="number"
+                        type="text"
                         required
                         value={pos.nominalAlokasi}
                         onChange={(e) => {
                           const newList = [...posAnggaranList];
-                          newList[idx].nominalAlokasi = e.target.value;
+                          newList[idx].nominalAlokasi = formatRibuan(e.target.value);
                           setPosAnggaranList(newList);
                         }}
                         placeholder="Nominal (Rp)"
-                        className="w-28 border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white font-mono text-right"
+                        className="w-28 border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white font-mono text-right focus:outline-none"
                       />
                       {posAnggaranList.length > 1 && (
                         <button type="button" onClick={() => setPosAnggaranList(posAnggaranList.filter((_, i) => i !== idx))} className="p-1.5 text-stone-400 hover:text-red-500 rounded-lg hover:bg-stone-50 transition">
@@ -1175,12 +1190,16 @@ export default function KelolaProyekPage() {
                           type="button"
                           onClick={() => {
                             if (detailedProjectInfo?.budget) {
-                              setRabTotal(detailedProjectInfo.budget.rabTotal);
+                              const rawTotal = parseFloat(detailedProjectInfo.budget.rabTotal) || 0;
+                              setRabTotal(formatRibuan(String(Math.round(rawTotal))));
 
-                              const existingPos = detailedProjectInfo.budget.posAnggaran.map((pos: any) => ({
-                                deskripsi: pos.namaPos || pos.deskripsi,
-                                nominalAlokasi: pos.nominalAlokasi
-                              }));
+                              const existingPos = detailedProjectInfo.budget.posAnggaran.map((pos: any) => {
+                                const rawAlokasi = parseFloat(pos.nominalAlokasi) || 0;
+                                return {
+                                  deskripsi: pos.namaPos || pos.deskripsi,
+                                  nominalAlokasi: formatRibuan(String(Math.round(rawAlokasi)))
+                                };
+                              });
                               setPosAnggaranList(existingPos);
                             }
                             setShowInitBudget(showProjectDetail);
@@ -1263,25 +1282,86 @@ export default function KelolaProyekPage() {
                       <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
                       <div className="space-y-3">
                         {teamRows.map((row, idx) => (
-                          <div key={row.id} className="grid grid-cols-12 gap-3 items-center">
+                          <div key={row.id} className="grid grid-cols-12 gap-2.5 items-center">
                             <div className="col-span-5">
-                              <input type="text" placeholder="Ketik role karyawan... (cth. DevOps)" required disabled={row.isLocked} value={row.role} onChange={(e) => { const updated = [...teamRows]; updated[idx].role = e.target.value; setTeamRows(updated); }} className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white" />
+                              <input
+                                type="text"
+                                placeholder={row.isLocked ? "Role Karyawan" : "Cth: DevOps"}
+                                required
+                                disabled={row.isLocked}
+                                value={row.role}
+                                onChange={(e) => {
+                                  const updated = [...teamRows];
+                                  updated[idx].role = e.target.value;
+                                  setTeamRows(updated);
+                                }}
+                                className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
+                              />
                             </div>
-                            <div className="col-span-7">
-                              <select required value={row.userId} onChange={(e) => { const updated = [...teamRows]; updated[idx].userId = e.target.value; setTeamRows(updated); }} className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white">
+                            <div className={row.isLocked ? "col-span-7" : "col-span-6"}>
+                              <select
+                                required
+                                value={row.userId}
+                                onChange={(e) => {
+                                  const updated = [...teamRows];
+                                  updated[idx].userId = e.target.value;
+                                  setTeamRows(updated);
+                                }}
+                                className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
+                              >
                                 <option value="" disabled hidden>Pilih nama...</option>
                                 {members.map((member) => (
                                   <option key={member.id} value={member.id}>{member.nama}</option>
                                 ))}
                               </select>
                             </div>
+                            {!row.isLocked && (
+                              <div className="col-span-1 flex justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTeamRow(row.id)}
+                                  className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                                  title="Hapus Anggota"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
-                      <div className="pt-4 flex gap-3 border-t border-stone-100 mt-4">
-                        <button type="button" onClick={handleSaveTeamRows} disabled={submitting} className="inline-flex items-center gap-1.5 px-5 py-2 bg-[#2d6a4f] text-white text-[12px] font-bold rounded-xl shadow-sm">
-                          Simpan Penugasan Tim
-                        </button>
+                      <div className="pt-4 flex flex-col gap-3 border-t border-stone-100 mt-4">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleAddTeamRow}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 border border-stone-200 hover:bg-stone-50 text-stone-700 text-[12px] font-bold rounded-xl shadow-sm transition cursor-pointer"
+                          >
+                            <Plus size={13} />
+                            Tambah Anggota
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveTeamRows}
+                            disabled={submitting}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2d6a4f] text-white text-[12px] font-bold rounded-xl shadow-sm hover:bg-[#1e5038] transition cursor-pointer"
+                          >
+                            {submitting && <Loader2 size={12} className="animate-spin" />}
+                            Simpan Penugasan Tim
+                          </button>
+                        </div>
+                        {formError && (
+                          <div className="bg-red-50 border border-red-200 text-red-700 px-3.5 py-2.5 rounded-xl text-[11px] font-medium flex items-center gap-2">
+                            <X size={13} />
+                            <span>{formError}</span>
+                          </div>
+                        )}
+                        {success && (
+                          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3.5 py-2.5 rounded-xl text-[11px] font-medium flex items-center gap-2">
+                            <Check size={13} />
+                            <span>{success}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
