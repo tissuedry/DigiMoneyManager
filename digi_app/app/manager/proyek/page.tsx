@@ -63,8 +63,16 @@ export default function KelolaProyekPage() {
   const sudahReimburseNominal = parseFloat(detailedProjectInfo?.budget?.totalReimbursement) || 0;
   const belumReimburseNominal = Math.max(0, detailTotalTerpakai - sudahReimburseNominal);
 
-  const inflowNominal = detailTotalRAB;
-  const outflowNominal = detailTotalTerpakai;
+  const getSelectedCashFlow = () => {
+    if (!detailedProjectInfo) return [];
+    if (timeFilter === "4M") return detailedProjectInfo.cashFlow4m || [];
+    if (timeFilter === "YTD") return detailedProjectInfo.cashFlowYtd || [];
+    return detailedProjectInfo.cashFlow12m || [];
+  };
+  const activeCashFlow = getSelectedCashFlow();
+
+  const inflowNominal = activeCashFlow.reduce((sum: number, c: any) => sum + (c.inflow || 0), 0);
+  const outflowNominal = activeCashFlow.reduce((sum: number, c: any) => sum + (c.outflow || 0), 0);
   const netCashNominal = inflowNominal - outflowNominal;
 
   // Mock Data Log Aktivitas Uang Proyek
@@ -1109,36 +1117,37 @@ export default function KelolaProyekPage() {
 
                         <div className="bg-white border border-stone-100 rounded-2xl p-4 shadow-[0_4px_12px_rgba(0,0,0,0.01)] space-y-4">
                           <div className="h-28 flex items-end gap-3 px-2 pt-2 border-b border-stone-100">
-                            {[
-                              { label: "Jan", inflowVal: detailTotalRAB * 0.75, outflowVal: detailTotalTerpakai * 0.60 },
-                              { label: "Feb", inflowVal: detailTotalRAB * 0.80, outflowVal: detailTotalTerpakai * 0.68 },
-                              { label: "Mar", inflowVal: detailTotalRAB * 0.90, outflowVal: detailTotalTerpakai * 0.85 },
-                              { label: "Apr", inflowVal: detailTotalRAB * 0.95, outflowVal: detailTotalTerpakai * 0.88 },
-                              { label: "Mei", inflowVal: detailTotalRAB * 0.85, outflowVal: detailTotalTerpakai * 0.78 },
-                              { label: "Jun", inflowVal: detailTotalRAB * 1.00, outflowVal: detailTotalTerpakai * 0.92 },
-                              { label: "Jul", inflowVal: detailTotalRAB * 0.20, outflowVal: detailTotalTerpakai * 0.10 },
-                            ].map((bar, idx) => {
-                              const inflowHeight = detailTotalRAB > 0 ? Math.min(100, Math.round((bar.inflowVal / detailTotalRAB) * 100)) : 0;
-                              const outflowHeight = detailTotalRAB > 0 ? Math.min(100, Math.round((bar.outflowVal / detailTotalRAB) * 100)) : 0;
+                            {activeCashFlow.length === 0 ? (
+                              <div className="flex-1 flex items-center justify-center text-xs text-stone-400 pb-4">
+                                Tidak ada data arus kas untuk periode ini
+                              </div>
+                            ) : (
+                              (() => {
+                                const maxVal = Math.max(1, ...activeCashFlow.map((c: any) => Math.max(c.inflow || 0, c.outflow || 0)));
+                                return activeCashFlow.map((bar: any, idx: number) => {
+                                  const inflowHeight = Math.min(100, Math.round(((bar.inflow || 0) / maxVal) * 100));
+                                  const outflowHeight = Math.min(100, Math.round(((bar.outflow || 0) / maxVal) * 100));
 
-                              return (
-                                <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
-                                  <div className="w-full flex justify-center items-end gap-0.5 h-full">
-                                    <div
-                                      className="w-2.5 bg-[#2d6a4f] rounded-t-sm transition-all duration-500 ease-out"
-                                      style={{ height: `${inflowHeight}%` }}
-                                      title={`Inflow: ${formatSummaryRupiah(bar.inflowVal)}`}
-                                    />
-                                    <div
-                                      className="w-2.5 bg-[#d4a373] rounded-t-sm transition-all duration-500 ease-out"
-                                      style={{ height: `${outflowHeight}%` }}
-                                      title={`Outflow: ${formatSummaryRupiah(bar.outflowVal)}`}
-                                    />
-                                  </div>
-                                  <span className="text-[9px] font-medium text-stone-400 mt-1 block">{bar.label}</span>
-                                </div>
-                              );
-                            })}
+                                  return (
+                                    <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
+                                      <div className="w-full flex justify-center items-end gap-0.5 h-full">
+                                        <div
+                                          className="w-2.5 bg-[#2d6a4f] rounded-t-sm transition-all duration-500 ease-out"
+                                          style={{ height: `${inflowHeight}%` }}
+                                          title={`Inflow: ${formatRupiah(bar.inflow)}`}
+                                        />
+                                        <div
+                                          className="w-2.5 bg-[#d4a373] rounded-t-sm transition-all duration-500 ease-out"
+                                          style={{ height: `${outflowHeight}%` }}
+                                          title={`Outflow: ${formatRupiah(bar.outflow)}`}
+                                        />
+                                      </div>
+                                      <span className="text-[9px] font-medium text-stone-400 mt-1 block">{bar.bulan}</span>
+                                    </div>
+                                  );
+                                });
+                              })()
+                            )}
                           </div>
 
                           <div className="flex justify-between items-center pt-1 text-[11px]">
