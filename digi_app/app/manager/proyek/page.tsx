@@ -52,6 +52,7 @@ export default function KelolaProyekPage() {
   const [showInitBudget, setShowInitBudget] = useState<Project | null>(null);
   const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [isDirectEdit, setIsDirectEdit] = useState(false);
   const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"4M" | "12M" | "YTD">("12M");
@@ -188,6 +189,7 @@ export default function KelolaProyekPage() {
   };
 
   const handleOpenDetailModal = async (project: Project) => {
+    setIsDirectEdit(false);
     setShowProjectDetail(project);
     setEditMode(false);
     setLoadingDetail(true);
@@ -231,6 +233,7 @@ export default function KelolaProyekPage() {
   };
 
   const handleDirectEdit = (project: Project) => {
+    setIsDirectEdit(true);
     setShowProjectDetail(null);
     setFormError("");
     setSuccess("");
@@ -245,6 +248,14 @@ export default function KelolaProyekPage() {
       tanggalSelesai: project.tanggalSelesai ? project.tanggalSelesai.split('T')[0] : "",
       status: project.status,
     });
+  };
+
+  const handleCloseEdit = () => {
+    setEditMode(false);
+    if (isDirectEdit) {
+      setShowProjectDetail(null);
+      setIsDirectEdit(false);
+    }
   };
 
   const handleUpdateProject = async (e: React.FormEvent) => {
@@ -276,6 +287,7 @@ export default function KelolaProyekPage() {
       setSuccess(`Proyek "${editForm.nama}" berhasil diperbarui!`);
       setEditMode(false);
       setShowProjectDetail(null); // 💡 UBAH DISINI: Reset agar sidebar detail tidak otomatis terbuka
+      setIsDirectEdit(false);
       fetchData(); // Refresh data grid utama
     } catch {
       setFormError("Terjadi kesalahan koneksi");
@@ -1006,7 +1018,7 @@ export default function KelolaProyekPage() {
       )}
 
       {/* MODAL: DETAIL PROYEK SIDEBAR */}
-      {showProjectDetail && (
+      {showProjectDetail && !editMode && !isDirectEdit && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-100">
           <div className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md bg-white border-l border-stone-200 shadow-2xl flex flex-col h-full">
             <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50 flex-shrink-0">
@@ -1386,14 +1398,14 @@ export default function KelolaProyekPage() {
                 {/* Footer Modal */}
                 <div className="p-4 border-t border-stone-100 bg-white flex gap-3 flex-shrink-0">
                   <button type="button"
-                    onClick={() => setEditMode(true)}
+                    onClick={() => { setIsDirectEdit(false); setEditMode(true); }}
                     className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5">
                     ⚙ Edit Proyek
                   </button>
-                  {(currentStatus !== "ACTIVE" && currentStatus !== "PLANNING") && (
+                  {(currentStatus?.toUpperCase() === "DONE" || currentStatus?.toUpperCase() === "CANCELED") && (
                     <button
-                      onClick={() => {/* fungsi untuk mengaktifkan kembali */ }}
-                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[13px] font-semibold transition"
+                      onClick={handleReactivateProject}
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-1.5"
                     >
                       Aktifkan Kembali
                     </button>
@@ -1416,7 +1428,7 @@ export default function KelolaProyekPage() {
           <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
               <h3 className="font-bold text-[15px] text-stone-900">Edit Proyek</h3>
-              <button type="button" onClick={() => setEditMode(false)} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition">
+              <button type="button" onClick={handleCloseEdit} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition">
                 <X size={16} />
               </button>
             </div>
@@ -1464,7 +1476,7 @@ export default function KelolaProyekPage() {
               )}
 
               <div className="flex gap-3 pt-3 border-t border-stone-100">
-                <button type="button" onClick={() => setEditMode(false)} className="flex-1 py-2.5 border border-stone-200 rounded-xl text-[13px] font-semibold text-stone-600 hover:bg-stone-50 transition">Batal</button>
+                <button type="button" onClick={handleCloseEdit} className="flex-1 py-2.5 border border-stone-200 rounded-xl text-[13px] font-semibold text-stone-600 hover:bg-stone-50 transition">Batal</button>
                 <button type="submit" disabled={submitting} className="flex-1 py-2.5 bg-stone-900 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-2">
                   {submitting && <Loader2 size={13} className="animate-spin" />}
                   Simpan Perubahan
