@@ -1402,7 +1402,7 @@ export default function KelolaProyekPage() {
                     className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5">
                     ⚙ Edit Proyek
                   </button>
-                  {(currentStatus?.toUpperCase() === "DONE" || currentStatus?.toUpperCase() === "CANCELED") && (
+                  {currentStatus?.toUpperCase() === "CANCELED" && (
                     <button
                       onClick={handleReactivateProject}
                       className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-1.5"
