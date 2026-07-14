@@ -54,7 +54,7 @@ WAJIB: Format output hanya boleh berupa JSON bersih tanpa pembungkus markdown bl
 
     // 6. Jalankan request ke Llama 4 Scout Vision API
     const chatCompletion = await client.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'qwen/qwen3.6-27b',
       messages: [
         {
           role: 'user',
@@ -72,20 +72,33 @@ WAJIB: Format output hanya boleh berupa JSON bersih tanpa pembungkus markdown bl
 
     const rawResponse = chatCompletion.choices[0]?.message?.content || '';
 
-    // 7. Bersihkan data string dari kemungkinan kembalian blok markdown luar
+    // 7. Bersihkan data string dari kemungkinan kembalian blok markdown luar dengan pencarian regex/bracket
     let cleanedResponse = rawResponse.trim();
-    if (cleanedResponse.startsWith('```json')) {
-      cleanedResponse = cleanedResponse.substring(7);
-    } else if (cleanedResponse.startsWith('```')) {
-      cleanedResponse = cleanedResponse.substring(3);
+    const jsonBlockMatch = cleanedResponse.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonBlockMatch) {
+      cleanedResponse = jsonBlockMatch[1].trim();
+    } else {
+      const codeBlockMatch = cleanedResponse.match(/```\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        cleanedResponse = codeBlockMatch[1].trim();
+      } else {
+        const firstBrace = cleanedResponse.indexOf('{');
+        const lastBrace = cleanedResponse.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          cleanedResponse = cleanedResponse.substring(firstBrace, lastBrace + 1).trim();
+        }
+      }
     }
-    if (cleanedResponse.endsWith('```')) {
-      cleanedResponse = cleanedResponse.substring(0, cleanedResponse.length - 3);
-    }
-    cleanedResponse = cleanedResponse.trim();
 
     // 8. Transformasikan string bersih menjadi objek JSON terstruktur
-    const dataJson = JSON.parse(cleanedResponse);
+    let dataJson;
+    try {
+      dataJson = JSON.parse(cleanedResponse);
+    } catch (parseError: any) {
+      console.error('Gagal mem-parse JSON. Raw response:', rawResponse);
+      console.error('Cleaned response:', cleanedResponse);
+      throw new Error(`Model did not return valid JSON: ${parseError.message}`);
+    }
 
     // Kembalikan struktur data yang pas dengan konsumsi state Frontend Anda
     return NextResponse.json({
