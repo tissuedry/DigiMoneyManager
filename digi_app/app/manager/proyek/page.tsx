@@ -230,6 +230,23 @@ export default function KelolaProyekPage() {
     }
   };
 
+  const handleDirectEdit = (project: Project) => {
+    setShowProjectDetail(null);
+    setFormError("");
+    setSuccess("");
+
+    setShowProjectDetail(project);
+    setEditMode(true);
+
+    setEditForm({
+      nama: project.nama,
+      deskripsi: project.deskripsi || "",
+      tanggalMulai: project.tanggalMulai ? project.tanggalMulai.split('T')[0] : "",
+      tanggalSelesai: project.tanggalSelesai ? project.tanggalSelesai.split('T')[0] : "",
+      status: project.status,
+    });
+  };
+
   const handleUpdateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showProjectDetail) return;
@@ -258,8 +275,8 @@ export default function KelolaProyekPage() {
 
       setSuccess(`Proyek "${editForm.nama}" berhasil diperbarui!`);
       setEditMode(false);
-      fetchData();
-      handleOpenDetailModal(data.project || showProjectDetail);
+      setShowProjectDetail(null); // 💡 UBAH DISINI: Reset agar sidebar detail tidak otomatis terbuka
+      fetchData(); // Refresh data grid utama
     } catch {
       setFormError("Terjadi kesalahan koneksi");
     } finally {
@@ -697,8 +714,7 @@ export default function KelolaProyekPage() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleOpenDetailModal(project);
-                        setEditMode(true);
+                        handleDirectEdit(project); 
                       }}
                       className="p-3 border border-stone-200 hover:bg-stone-50 text-stone-500 hover:text-stone-800 rounded-2xl transition cursor-pointer shadow-sm flex-shrink-0"
                     >
@@ -1374,7 +1390,7 @@ export default function KelolaProyekPage() {
                     className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5">
                     ⚙ Edit Proyek
                   </button>
-                  {(detailedProjectInfo?.status || showProjectDetail.status) !== "AKTIF" && (
+                  {(detailedProjectInfo?.status || showProjectDetail.status) !== "AKTIF" || (detailedProjectInfo?.status || showProjectDetail.status) !== "PLANNING" && (
                     <button
                       type="button"
                       onClick={handleReactivateProject}
