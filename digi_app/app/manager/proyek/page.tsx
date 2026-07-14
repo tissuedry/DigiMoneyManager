@@ -520,19 +520,15 @@ export default function KelolaProyekPage() {
   };
 
   const formatRibuan = (value: string) => {
-    // 1. Buang semua karakter selain angka
     const angkaMurni = value.replace(/[^0-9]/g, "");
 
-    // 2. Jika kosong, langsung kembalikan string kosong
     if (!angkaMurni) return "";
 
-    // 3. Regex otomatis: Menyisipkan titik setiap kelipatan 3 digit dari belakang (jika di atas 999)
     return angkaMurni.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 
   const ribuanToNumber = (stringRibuan: string) => {
     if (!stringRibuan) return 0;
-    // Menghapus tanda titik agar kembali menjadi angka biasa (e.g. "2.500.000" -> 2500000)
     return parseFloat(stringRibuan.replace(/\./g, "")) || 0;
   };
 
@@ -551,7 +547,29 @@ export default function KelolaProyekPage() {
         return "bg-stone-50 text-stone-500 border-stone-100";
     }
   };
+
+  const [isEditFromDetail, setIsEditFromDetail] = useState(false);
+
   const currentStatus = detailedProjectInfo?.status || showProjectDetail?.status;
+
+  const handleEditFromCard = (project: Project) => {
+  setIsEditFromDetail(false); 
+  setShowProjectDetail(null); 
+  setFormError("");
+  setSuccess("");
+  
+  setShowProjectDetail(project); 
+  setEditMode(true);
+  
+  setEditForm({
+    nama: project.nama,
+    deskripsi: project.deskripsi || "",
+    tanggalMulai: project.tanggalMulai ? project.tanggalMulai.split('T')[0] : "",
+    tanggalSelesai: project.tanggalSelesai ? project.tanggalSelesai.split('T')[0] : "",
+    status: project.status,
+  });
+};
+
   return (
     <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
       {/* Header */}
@@ -711,15 +729,15 @@ export default function KelolaProyekPage() {
                     </button>
 
                     <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDirectEdit(project);
-                      }}
-                      className="p-3 border border-stone-200 hover:bg-stone-50 text-stone-500 hover:text-stone-800 rounded-2xl transition cursor-pointer shadow-sm flex-shrink-0"
-                    >
-                      <Settings size={16} className="stroke-[2]" />
-                    </button>
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    handleEditFromCard(project); 
+  }}
+  className="p-3 border border-stone-200 hover:bg-stone-50 text-stone-500 hover:text-stone-800 rounded-2xl transition cursor-pointer shadow-sm flex-shrink-0"
+>
+  <Settings size={16} className="stroke-[2]" />
+</button>
                   </div>
                 </div>
               </div>
@@ -1006,7 +1024,7 @@ export default function KelolaProyekPage() {
       )}
 
       {/* MODAL: DETAIL PROYEK SIDEBAR */}
-      {showProjectDetail && (
+      {showProjectDetail && (!editMode || isEditFromDetail) && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-100">
           <div className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md bg-white border-l border-stone-200 shadow-2xl flex flex-col h-full">
             <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50 flex-shrink-0">
@@ -1384,12 +1402,16 @@ export default function KelolaProyekPage() {
                 </div>
 
                 {/* Footer Modal */}
-                <div className="p-4 border-t border-stone-100 bg-white flex gap-3 flex-shrink-0">
-                  <button type="button"
-                    onClick={() => setEditMode(true)}
-                    className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5">
-                    ⚙ Edit Proyek
-                  </button>
+                <button 
+  type="button"
+  onClick={() => {
+    setIsEditFromDetail(true);
+    setEditMode(true);
+  }}
+  className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5"
+>
+  ⚙ Edit Proyek
+</button>
                   {(currentStatus !== "ACTIVE" && currentStatus !== "PLANNING") && (
                     <button
                       onClick={() => {/* fungsi untuk mengaktifkan kembali */ }}
@@ -1404,10 +1426,10 @@ export default function KelolaProyekPage() {
                     Tutup
                   </button>
                 </div>
-              </div>
             )}
           </div>
         </div>
+
       )}
 
       {/* --- TEMPAT BARU: POP-UP MODAL EDIT PROYEK DI TENGAH LAYAR --- */}
