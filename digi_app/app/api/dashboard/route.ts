@@ -40,7 +40,15 @@ export async function GET(req: NextRequest) {
 
       const recentSubmissions = await prisma.reimbursement.findMany({
         where: { userId: parseInt(userId, 10) },
-        include: { proyek: { select: { nama: true } }, posAnggaran: { select: { namaPos: true } } },
+        include: {
+          proyek: { select: { nama: true } },
+          keteranganAnggaran: {
+            select: {
+              keterangan: true,
+              subAnggaran: { select: { namaSub: true, mainAnggaran: { select: { namaMain: true } } } },
+            },
+          },
+        },
         orderBy: { id: 'desc' },
         take: 5,
       });
@@ -48,9 +56,9 @@ export async function GET(req: NextRequest) {
       const mappedRecent = recentSubmissions.map((r: any) => ({
         ...r,
         strukUrl: r.urlStruk,
-        posAnggaran: r.posAnggaran ? {
-          ...r.posAnggaran,
-          deskripsi: r.posAnggaran.namaPos,
+        posAnggaran: r.keteranganAnggaran ? {
+          deskripsi: r.keteranganAnggaran.keterangan,
+          namaPos: r.keteranganAnggaran.subAnggaran?.mainAnggaran?.namaMain,
         } : null,
       }));
 
@@ -78,7 +86,9 @@ export async function GET(req: NextRequest) {
           include: {
             budget: {
               include: {
-                posAnggaran: true,
+                mainAnggaran: {
+                  include: { subAnggaran: { include: { keterangan: true } } },
+                },
               },
             },
           },
@@ -87,7 +97,7 @@ export async function GET(req: NextRequest) {
         const pendingApprovalsCount = await prisma.reimbursement.count({
           where: {
             proyekId: parseInt(targetProjectId, 10),
-            status: 'SUBMITTED', // PM only approves SUBMITTED status
+            status: 'SUBMITTED',
           },
         });
 
@@ -103,9 +113,10 @@ export async function GET(req: NextRequest) {
 
         const mappedBudget = project?.budget ? {
           ...project.budget,
-          posAnggaran: project.budget.posAnggaran.map((pos) => ({
-            ...pos,
-            deskripsi: pos.namaPos,
+          posAnggaran: project.budget.mainAnggaran.map((main) => ({
+            ...main,
+            deskripsi: main.namaMain,
+            namaPos: main.namaMain,
           })),
         } : null;
 
@@ -203,7 +214,12 @@ export async function GET(req: NextRequest) {
           reimbursement: {
             include: {
               user: { select: { nama: true } },
-              posAnggaran: { select: { namaPos: true } },
+              keteranganAnggaran: {
+                select: {
+                  keterangan: true,
+                  subAnggaran: { select: { mainAnggaran: { select: { namaMain: true } } } },
+                },
+              },
             },
           },
           akunDebit: { select: { nomorAkun: true, namaAkun: true } },
@@ -214,14 +230,16 @@ export async function GET(req: NextRequest) {
       });
 
       const recentJournals = recentJournalsRaw.map((j) => {
-        // Determine tanggal from OCR data or approval timestamp
         const ocrData = j.reimbursement.ocrData as any;
         const tanggal = ocrData?.tanggal || null;
+        const kategori = j.reimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
+          || j.reimbursement.keteranganAnggaran?.keterangan
+          || '-';
 
         return {
           jeId: `JE-${String(j.id).padStart(4, '0')}`,
           tanggal,
-          keterangan: j.keterangan || `Pencairan reimbursement ${j.reimbursement.user.nama} - ${j.reimbursement.posAnggaran.namaPos}`,
+          keterangan: j.keterangan || `Pencairan reimbursement ${j.reimbursement.user.nama} - ${kategori}`,
           debitKode: `${j.akunDebit.nomorAkun}`,
           debitNama: j.akunDebit.namaAkun,
           kreditKode: `${j.akunKredit.nomorAkun}`,
@@ -234,19 +252,35 @@ export async function GET(req: NextRequest) {
       const pendingDisbursementsRaw = await prisma.reimbursement.findMany({
         where: { status: 'APPROVED_BY_PM' },
         include: {
-          user: { select: { nama: true, divisi: true } },
+          user: {
+            select: {
+              nama: true,
+              proyek: {
+                select: {
+                  proyekId: true,
+                  divisi: true,
+                },
+              },
+            },
+          },
           proyek: { select: { nama: true } },
         },
         orderBy: { id: 'desc' },
       });
 
-      const pendingDisbursements = pendingDisbursementsRaw.map((r) => ({
-        id: r.id,
-        nominal: Number(r.nominal),
-        status: r.status,
-        user: { nama: r.user.nama, divisi: r.user.divisi },
-        proyek: { nama: r.proyek.nama },
-      }));
+      const pendingDisbursements = pendingDisbursementsRaw.map((r) => {
+        const assignment = r.user.proyek.find((up) => up.proyekId === r.proyekId);
+        return {
+          id: r.id,
+          nominal: Number(r.nominal),
+          status: r.status,
+          user: {
+            nama: r.user.nama,
+            divisi: assignment?.divisi || null,
+          },
+          proyek: { nama: r.proyek.nama },
+        };
+      });
 
       dashboardData.metrics = {
         activeProjectsCount,
@@ -277,10 +311,10 @@ export async function GET(req: NextRequest) {
       const proyekList = await prisma.proyek.findMany({
         include: {
           budget: {
-            include: { posAnggaran: true },
+            include: { mainAnggaran: true },
           },
           users: {
-            include: { user: { select: { nama: true, role: true, divisi: true } } },
+            include: { user: { select: { nama: true, role: true } } },
           },
         },
       });

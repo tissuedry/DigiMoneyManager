@@ -17,8 +17,7 @@ model User {
   email           String          @unique
   passwordHash    String          @map("password_hash")
   role            String          @map("role")
-  divisi          String?         
-  
+
   // Hubungan ke tabel perantara UserProyek (Many-to-Many)
   proyek          UserProyek[]
   reimbursements  Reimbursement[]
@@ -70,41 +69,71 @@ model Budget {
   sisaBudget          Decimal        @map("sisa_budget") @db.Decimal(15, 2)
   
   proyek              Proyek         @relation(fields: [proyekId], references: [id], onDelete: Cascade)
-  posAnggaran         PosAnggaran[]
+  mainAnggaran        MainAnggaran[]
 
   @@map("budget")
 }
 
-model PosAnggaran {
+model MainAnggaran {
   id              Int               @id @default(autoincrement())
   budgetId        Int               @map("budget_id")
-  namaPos         String            @map("nama_pos")
+  namaMain        String            @map("nama_main")
   nominalAlokasi  Decimal           @map("nominal_alokasi") @db.Decimal(15, 2)
   nominalTerpakai Decimal           @default(0) @map("nominal_terpakai") @db.Decimal(15, 2)
-  
-  budget          Budget            @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  reimbursements  Reimbursement[]
 
-  @@map("pos_anggaran")
+  budget          Budget            @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  subAnggaran     SubAnggaran[]
+
+  @@index([budgetId])
+  @@map("main_anggaran")
+}
+
+model SubAnggaran {
+  id              Int                  @id @default(autoincrement())
+  mainAnggaranId  Int                  @map("main_anggaran_id")
+  namaSub         String               @map("nama_sub")
+  nominalAlokasi  Decimal              @map("nominal_alokasi") @db.Decimal(15, 2)
+  nominalTerpakai Decimal              @default(0) @map("nominal_terpakai") @db.Decimal(15, 2)
+
+  mainAnggaran    MainAnggaran         @relation(fields: [mainAnggaranId], references: [id], onDelete: Cascade)
+  keterangan      KeteranganAnggaran[]
+
+  @@index([mainAnggaranId])
+  @@map("sub_anggaran")
+}
+
+model KeteranganAnggaran {
+  id               Int             @id @default(autoincrement())
+  subAnggaranId    Int             @map("sub_anggaran_id")
+  keterangan       String
+  nominalAlokasi   Decimal         @map("nominal_alokasi") @db.Decimal(15, 2)
+  nominalRealisasi Decimal         @default(0) @map("nominal_realisasi") @db.Decimal(15, 2)
+
+  subAnggaran      SubAnggaran     @relation(fields: [subAnggaranId], references: [id], onDelete: Cascade)
+  reimbursements   Reimbursement[]
+
+  @@index([subAnggaranId])
+  @@map("keterangan_anggaran")
 }
 
 model Reimbursement {
-  id              Int                @id @default(autoincrement())
-  userId          Int                @map("user_id")
-  proyekId        Int                @map("proyek_id")
-  posAnggaranId   Int                @map("pos_anggaran_id")
-  nominal         Decimal            @db.Decimal(15, 2)
-  urlStruk        String             @map("url_struk")
-  ocrData         Json               @map("ocr_data")
-  fraudFlag       Boolean            @default(false) @map("fraud_flag")
-  status          String             
-  
-  user            User               @relation(fields: [userId], references: [id])
-  proyek          Proyek             @relation(fields: [proyekId], references: [id])
-  posAnggaran     PosAnggaran        @relation(fields: [posAnggaranId], references: [id])
-  approvals       Approval[]
-  jurnalAkuntansi JurnalAkuntansi[]
+  id                   Int                @id @default(autoincrement())
+  userId               Int                @map("user_id")
+  proyekId             Int                @map("proyek_id")
+  keteranganAnggaranId Int                @map("keterangan_anggaran_id")
+  nominal              Decimal            @db.Decimal(15, 2)
+  urlStruk             String             @map("url_struk")
+  ocrData              Json               @map("ocr_data")
+  fraudFlag            Boolean            @default(false) @map("fraud_flag")
+  status               String
 
+  user                 User               @relation(fields: [userId], references: [id])
+  proyek               Proyek             @relation(fields: [proyekId], references: [id])
+  keteranganAnggaran   KeteranganAnggaran @relation(fields: [keteranganAnggaranId], references: [id])
+  approvals            Approval[]
+  jurnalAkuntansi      JurnalAkuntansi[]
+
+  @@index([keteranganAnggaranId])
   @@map("reimbursement")
 }
 

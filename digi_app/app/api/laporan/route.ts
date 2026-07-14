@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       include: {
         budget: {
           include: {
-            posAnggaran: true,
+            mainAnggaran: true,
           },
         },
       },
@@ -64,7 +64,12 @@ export async function GET(req: NextRequest) {
             include: {
               user: { select: { nama: true } },
               proyek: { select: { nama: true } },
-              posAnggaran: { select: { namaPos: true } },
+              keteranganAnggaran: {
+                select: {
+                  keterangan: true,
+                  subAnggaran: { select: { mainAnggaran: { select: { namaMain: true } } } },
+                },
+              },
             },
           },
           akunDebit: true,
@@ -75,13 +80,15 @@ export async function GET(req: NextRequest) {
 
       const reportData = entries.map((entry) => ({
         ID: entry.id,
-        Tanggal: entry.reimbursement.ocrData && (entry.reimbursement.ocrData as any).tanggal 
-          ? (entry.reimbursement.ocrData as any).tanggal 
+        Tanggal: entry.reimbursement.ocrData && (entry.reimbursement.ocrData as any).tanggal
+          ? (entry.reimbursement.ocrData as any).tanggal
           : 'N/A',
         Keterangan: entry.keterangan || `Pencairan reimbursement ${entry.reimbursement.id}`,
         Proyek: entry.reimbursement.proyek.nama,
         Karyawan: entry.reimbursement.user.nama,
-        PosAnggaran: entry.reimbursement.posAnggaran.namaPos,
+        KategoriAnggaran: (entry.reimbursement as any).keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
+          || (entry.reimbursement as any).keteranganAnggaran?.keterangan
+          || 'N/A',
         'Akun Debit': `${entry.akunDebit.nomorAkun} - ${entry.akunDebit.namaAkun}`,
         'Akun Kredit': `${entry.akunKredit.nomorAkun} - ${entry.akunKredit.namaAkun}`,
         Nominal: Number(entry.nominal),
@@ -155,8 +162,8 @@ export async function GET(req: NextRequest) {
         // Break down expenses by PosAnggaran
         const expensesBreakdown: any = {};
         if (p.budget) {
-          p.budget.posAnggaran.forEach((pos) => {
-            expensesBreakdown[`Beban ${pos.namaPos}`] = Number(pos.nominalTerpakai);
+          p.budget.mainAnggaran.forEach((main: any) => {
+            expensesBreakdown[`Beban ${main.namaMain}`] = Number(main.nominalTerpakai);
           });
         }
 

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'Forbidden: You must be the assigned Project Manager, Tim Keuangan, or Direktur / Manajemen to modify this project budget' }, { status: 403 });
     }
     const body = await req.json();
-    const { rabTotal, posAnggaran } = body; // posAnggaran is array of { deskripsi, nominalAlokasi }
+    const { rabTotal, posAnggaran } = body; // posAnggaran is array of { deskripsi, nominalAlokasi } — kept for API compat
 
     if (!rabTotal || !posAnggaran || !Array.isArray(posAnggaran)) {
       return NextResponse.json({ message: 'rabTotal and posAnggaran (array) are required' }, { status: 400 });
@@ -39,10 +39,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // Verify sum of posAnggaran equals rabTotal
-    const sumAllocations = posAnggaran.reduce((sum, pos) => sum + parseFloat(pos.nominalAlokasi), 0);
+    const sumAllocations = posAnggaran.reduce((sum: number, pos: any) => sum + parseFloat(pos.nominalAlokasi), 0);
     if (Math.abs(sumAllocations - parseFloat(rabTotal)) > 0.01) {
-      return NextResponse.json({ 
-        message: `Allocation mismatch: Sum of item budgets (Rp ${sumAllocations.toLocaleString()}) must equal total RAB (Rp ${parseFloat(rabTotal).toLocaleString()})` 
+      return NextResponse.json({
+        message: `Allocation mismatch: Sum of item budgets (Rp ${sumAllocations.toLocaleString()}) must equal total RAB (Rp ${parseFloat(rabTotal).toLocaleString()})`
       }, { status: 400 });
     }
 
@@ -52,22 +52,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const existingBudget = await tx.budget.findUnique({
         where: { proyekId: parseInt(proyekId, 10) },
         include: {
-          posAnggaran: {
-            include: {
-              reimbursements: {
-                select: { id: true },
-              },
-            },
-          },
+          mainAnggaran: true,
         },
       });
 
       if (existingBudget) {
-        const existingPos = existingBudget.posAnggaran;
+        const existingMain = existingBudget.mainAnggaran;
 
-        for (const ext of existingPos) {
+        for (const ext of existingMain) {
           const matchedIncoming = posAnggaran.find(
-            (pos) => pos.deskripsi.trim().toLowerCase() === ext.namaPos.trim().toLowerCase()
+            (pos: any) => pos.deskripsi.trim().toLowerCase() === ext.namaMain.trim().toLowerCase()
           );
 
           if (matchedIncoming) {
@@ -76,40 +70,34 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
             if (newAlokasi < nominalTerpakai) {
               throw new Error(
-                `ValidationError: Alokasi untuk pos "${ext.namaPos}" tidak boleh kurang dari nominal yang sudah terpakai (Rp ${nominalTerpakai.toLocaleString('id-ID')})`
+                `ValidationError: Alokasi untuk pos "${ext.namaMain}" tidak boleh kurang dari nominal yang sudah terpakai (Rp ${nominalTerpakai.toLocaleString('id-ID')})`
               );
             }
 
-            await tx.posAnggaran.update({
+            await tx.mainAnggaran.update({
               where: { id: ext.id },
               data: {
                 nominalAlokasi: newAlokasi,
-                namaPos: matchedIncoming.deskripsi,
+                namaMain: matchedIncoming.deskripsi,
               },
             });
           } else {
-            if (ext.reimbursements.length > 0 || Number(ext.nominalTerpakai) > 0) {
-              throw new Error(
-                `ValidationError: Tidak dapat menghapus pos anggaran "${ext.namaPos}" karena sudah memiliki pengajuan reimbursement terkait`
-              );
-            }
-
-            await tx.posAnggaran.delete({
+            await tx.mainAnggaran.delete({
               where: { id: ext.id },
             });
           }
         }
 
         for (const incoming of posAnggaran) {
-          const exists = existingPos.some(
-            (ext) => ext.namaPos.trim().toLowerCase() === incoming.deskripsi.trim().toLowerCase()
+          const exists = existingMain.some(
+            (ext) => ext.namaMain.trim().toLowerCase() === incoming.deskripsi.trim().toLowerCase()
           );
 
           if (!exists) {
-            await tx.posAnggaran.create({
+            await tx.mainAnggaran.create({
               data: {
                 budgetId: existingBudget.id,
-                namaPos: incoming.deskripsi,
+                namaMain: incoming.deskripsi,
                 nominalAlokasi: parseFloat(incoming.nominalAlokasi),
                 nominalTerpakai: 0,
               },
@@ -125,7 +113,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             sisaBudget: Number(rabTotal) - totalPengeluaran,
           },
           include: {
-            posAnggaran: true,
+            mainAnggaran: true,
           },
         });
 
@@ -138,16 +126,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             sisaBudget: rabTotal,
             totalPengeluaran: 0,
             totalReimbursement: 0,
-            posAnggaran: {
-              create: posAnggaran.map((pos) => ({
-                namaPos: pos.deskripsi,
+            mainAnggaran: {
+              create: posAnggaran.map((pos: any) => ({
+                namaMain: pos.deskripsi,
                 nominalAlokasi: pos.nominalAlokasi,
                 nominalTerpakai: 0,
               })),
             },
           },
           include: {
-            posAnggaran: true,
+            mainAnggaran: true,
           },
         });
 
@@ -167,9 +155,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const responseBudget = {
       ...result,
-      posAnggaran: result.posAnggaran.map((pos) => ({
-        ...pos,
-        deskripsi: pos.namaPos,
+      posAnggaran: result.mainAnggaran.map((m) => ({
+        ...m,
+        deskripsi: m.namaMain,
+        namaPos: m.namaMain,
       })),
     };
 

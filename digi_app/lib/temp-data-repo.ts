@@ -18,7 +18,7 @@ interface CachedAIChatContext {
     nominal: number;
     pemohon: string;
     proyek: string;
-    posAnggaran: string;
+    kategoriAnggaran: string;
   } | null;
 }
 
@@ -62,7 +62,12 @@ export async function getAIChatContext(): Promise<CachedAIChatContext> {
       include: {
         user: { select: { nama: true } },
         proyek: { select: { nama: true } },
-        posAnggaran: { select: { namaPos: true } },
+        keteranganAnggaran: {
+          select: {
+            keterangan: true,
+            subAnggaran: { select: { mainAnggaran: { select: { namaMain: true } } } },
+          },
+        },
       },
     }),
     prisma.chartOfAccounts.findMany({
@@ -84,7 +89,12 @@ export async function getAIChatContext(): Promise<CachedAIChatContext> {
       include: {
         user: { select: { nama: true } },
         proyek: { select: { nama: true } },
-        posAnggaran: { select: { namaPos: true } },
+        keteranganAnggaran: {
+          select: {
+            keterangan: true,
+            subAnggaran: { select: { mainAnggaran: { select: { namaMain: true } } } },
+          },
+        },
       },
     })
   ]);
@@ -109,11 +119,13 @@ export async function getAIChatContext(): Promise<CachedAIChatContext> {
     };
   });
 
-  const recentReimbursementsContext = recentReimbursements.map((r) => ({
+  const recentReimbursementsContext = recentReimbursements.map((r: any) => ({
     id: r.id,
     pemohon: r.user.nama,
     proyek: r.proyek.nama,
-    posAnggaran: r.posAnggaran.namaPos,
+    kategoriAnggaran: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
+      || r.keteranganAnggaran?.keterangan
+      || 'N/A',
     nominal: Number(r.nominal),
     status: r.status,
     fraudFlag: r.fraudFlag,
@@ -132,9 +144,11 @@ export async function getAIChatContext(): Promise<CachedAIChatContext> {
 
   const largestApproved = largestRb ? {
     nominal: Number(largestRb.nominal),
-    pemohon: largestRb.user.nama,
-    proyek: largestRb.proyek.nama,
-    posAnggaran: largestRb.posAnggaran.namaPos,
+    pemohon: (largestRb as any).user.nama,
+    proyek: (largestRb as any).proyek.nama,
+    kategoriAnggaran: (largestRb as any).keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
+      || (largestRb as any).keteranganAnggaran?.keterangan
+      || 'N/A',
   } : null;
 
   cache = {

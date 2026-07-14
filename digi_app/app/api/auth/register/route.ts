@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         errors: result.error.flatten().fieldErrors 
       }, { status: 400 });
     }
-    const { nama, email, password, role, proyekId, divisi } = result.data;
+    const { nama, email, password, role, proyekId } = result.data;
 
     const trimmedEmail = email;
 
@@ -34,7 +34,6 @@ export async function POST(req: Request) {
         email: trimmedEmail,
         passwordHash: hashedPassword,
         role,
-        divisi: divisi || null,
       },
     });
 

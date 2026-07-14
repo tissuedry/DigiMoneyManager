@@ -83,14 +83,30 @@ export async function GET(req: NextRequest) {
       include: {
         budget: {
           include: {
-            posAnggaran: true,
+            mainAnggaran: true,
           },
         },
       },
       orderBy: { tanggalMulai: 'desc' },
     });
 
-    return NextResponse.json({ projects });
+    const mappedProjects = projects.map((p) => {
+      if (!p.budget) return p;
+      return {
+        ...p,
+        budget: {
+          ...p.budget,
+          posAnggaran: p.budget.mainAnggaran.map((m: any) => ({
+            ...m,
+            deskripsi: m.namaMain,
+            namaPos: m.namaMain,
+          })),
+        },
+      };
+    });
+
+    setCache(cacheKey, { projects: mappedProjects });
+    return NextResponse.json({ projects: mappedProjects });
   } catch (error: any) {
     console.error('Fetch projects error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

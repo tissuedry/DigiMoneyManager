@@ -15,5 +15,4 @@ export const registerSchema = z.object({
     error: "Role harus salah satu dari: Karyawan, Project Manager, Tim Keuangan, Direktur / Manajemen"
   }),
   proyekId: z.union([z.number(), z.string()]).optional().nullable(),
-  divisi: z.string().trim().optional().nullable(),
 });

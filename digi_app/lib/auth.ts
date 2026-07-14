@@ -19,7 +19,6 @@ export interface JWTPayload {
   role: string;
   roles?: string[];
   proyekId?: number | null;
-  divisi?: string | null;
 }
 
 export function signToken(payload: JWTPayload): string {

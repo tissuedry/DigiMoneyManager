@@ -23,7 +23,6 @@ export async function GET(req: NextRequest) {
         role: cachedUser.role,
         roles: cachedUser.roles,
         proyekId: cachedUser.proyekId,
-        divisi: cachedUser.divisi,
       });
       const resp = NextResponse.json({ user: cachedUser });
       resp.cookies.set('auth_token', token, {
@@ -58,6 +57,7 @@ export async function GET(req: NextRequest) {
       nama: up.proyek.nama,
       status: up.proyek.status,
       role: up.role === 'Anggota Lapangan' ? 'Karyawan' : up.role,
+      divisi: up.divisi,
     }));
 
     const activeProyekIdHeader = req.headers.get('x-user-proyek-id');
@@ -101,6 +101,7 @@ export async function GET(req: NextRequest) {
       roles: allowedRoles,
       proyek: userProyekDetails,
       proyekId: activeProyekId,
+      divisi: activeProjectAssignment?.divisi || null,
       assignments,
     };
 
@@ -115,7 +116,6 @@ export async function GET(req: NextRequest) {
       role: primaryRole,
       roles: allowedRoles,
       proyekId: activeProyekId,
-      divisi: user.divisi,
     });
 
     const response = NextResponse.json({ user: responseUser });

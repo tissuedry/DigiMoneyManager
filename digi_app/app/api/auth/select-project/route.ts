@@ -70,7 +70,6 @@ export async function POST(req: NextRequest) {
       role: primaryRole,
       roles: allowedRoles,
       proyekId: targetProyekId,
-      divisi: user.divisi,
     });
 
     // 5. Clear caches — project switch changes dashboard + me data

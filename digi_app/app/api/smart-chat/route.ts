@@ -60,8 +60,8 @@ export async function POST(req: NextRequest) {
       if (!context.largestApproved) {
         mockResponseText = 'Belum ada pengeluaran disetujui.';
       } else {
-        const { nominal, pemohon, proyek, posAnggaran } = context.largestApproved;
-        mockResponseText = `Pengeluaran terbesar yang dicairkan: **Rp ${nominal.toLocaleString()}** oleh **${pemohon}** untuk proyek **${proyek}** (Pos: ${posAnggaran}).`;
+        const { nominal, pemohon, proyek, kategoriAnggaran } = context.largestApproved;
+        mockResponseText = `Pengeluaran terbesar yang dicairkan: **Rp ${nominal.toLocaleString()}** oleh **${pemohon}** untuk proyek **${proyek}** (Pos: ${kategoriAnggaran}).`;
       }
     }
     // 2.4 Pending approvals query
