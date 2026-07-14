@@ -551,7 +551,7 @@ export default function KelolaProyekPage() {
         return "bg-stone-50 text-stone-500 border-stone-100";
     }
   };
-
+  const currentStatus = detailedProjectInfo?.status || showProjectDetail?.status;
   return (
     <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
       {/* Header */}
@@ -714,7 +714,7 @@ export default function KelolaProyekPage() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDirectEdit(project); 
+                        handleDirectEdit(project);
                       }}
                       className="p-3 border border-stone-200 hover:bg-stone-50 text-stone-500 hover:text-stone-800 rounded-2xl transition cursor-pointer shadow-sm flex-shrink-0"
                     >
@@ -1390,14 +1390,11 @@ export default function KelolaProyekPage() {
                     className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5">
                     ⚙ Edit Proyek
                   </button>
-                  {(detailedProjectInfo?.status || showProjectDetail.status) !== "AKTIF" || (detailedProjectInfo?.status || showProjectDetail.status) !== "PLANNING" && (
+                  {(currentStatus !== "ACTIVE" && currentStatus !== "PLANNING") && (
                     <button
-                      type="button"
-                      onClick={handleReactivateProject}
-                      disabled={submitting}
-                      className="flex-1 py-2.5 bg-[#00966c] hover:bg-[#007d5a] text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center"
+                      onClick={() => {/* fungsi untuk mengaktifkan kembali */ }}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[13px] font-semibold transition"
                     >
-                      {submitting && <Loader2 size={13} className="animate-spin" />}
                       Aktifkan Kembali
                     </button>
                   )}
