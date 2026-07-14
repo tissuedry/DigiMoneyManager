@@ -70,7 +70,6 @@ async function main() {
       email: 'karyawan@digi.com',
       passwordHash: hashedPassword,
       role: 'Karyawan',
-      divisi: 'Site Operations',
     },
   });
 
@@ -80,7 +79,6 @@ async function main() {
       email: 'pm@digi.com',
       passwordHash: hashedPassword,
       role: 'Project Manager',
-      divisi: 'Project Management Office',
     },
   });
 
@@ -90,7 +88,6 @@ async function main() {
       email: 'keuangan@digi.com',
       passwordHash: hashedPassword,
       role: 'Tim Keuangan',
-      divisi: 'Finance & Accounting',
     },
   });
 
@@ -100,7 +97,6 @@ async function main() {
       email: 'direktur@digi.com',
       passwordHash: hashedPassword,
       role: 'Direktur / Manajemen',
-      divisi: 'Executive Board',
     },
   });
 
@@ -112,12 +108,14 @@ async function main() {
         userId: employee.id,
         proyekId: project.id,
         role: 'Anggota Lapangan',
+        divisi: 'Site Operations',
         joinedAt: new Date(),
       },
       {
         userId: pm.id,
         proyekId: project.id,
         role: 'Project Manager',
+        divisi: 'Project Management Office',
         joinedAt: new Date(),
       },
     ],

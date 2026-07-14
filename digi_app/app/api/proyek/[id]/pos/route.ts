@@ -50,10 +50,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Update in transaction: create PosAnggaran and increment budget fields
     const newPos = await prisma.$transaction(async (tx) => {
-      const createdPos = await tx.posAnggaran.create({
+      const createdPos = await tx.mainAnggaran.create({
         data: {
           budgetId: budget.id,
-          namaPos: namaPos.trim(),
+          namaMain: namaPos.trim(),
           nominalAlokasi: Number(nominalAlokasi),
           nominalTerpakai: 0,
         },

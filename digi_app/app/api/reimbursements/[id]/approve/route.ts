@@ -26,9 +26,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return {
         ...r,
         strukUrl: r.urlStruk,
-        posAnggaran: r.posAnggaran ? {
-          ...r.posAnggaran,
-          deskripsi: r.posAnggaran.namaPos,
+        posAnggaran: r.keteranganAnggaran ? {
+          ...r.keteranganAnggaran,
+          deskripsi: r.keteranganAnggaran.keterangan,
+          namaPos: r.keteranganAnggaran.subAnggaran?.mainAnggaran?.namaMain,
         } : null,
       };
     };
@@ -39,7 +40,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       include: {
         user: { select: { nama: true, id: true } },
         proyek: { select: { nama: true, id: true } },
-        posAnggaran: true,
+        keteranganAnggaran: {
+          include: { subAnggaran: { include: { mainAnggaran: true } } },
+        },
       },
     });
 
@@ -176,11 +179,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             },
           });
 
-          // C. Update nominalTerpakai in PosAnggaran
-          await tx.posAnggaran.update({
-            where: { id: reimbursement.posAnggaranId },
+          // C. Update nominalRealisasi in KeteranganAnggaran
+          await tx.keteranganAnggaran.update({
+            where: { id: reimbursement.keteranganAnggaranId },
             data: {
-              nominalTerpakai: Number(reimbursement.posAnggaran.nominalTerpakai) + nominal,
+              nominalRealisasi: Number(reimbursement.keteranganAnggaran.nominalRealisasi) + nominal,
             },
           });
 
@@ -191,7 +194,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               noAkunDebit: deb.id,
               noAkunKredit: kre.id,
               nominal,
-              keterangan: `Pencairan reimbursement ${id} - ${reimbursement.user.nama} untuk ${reimbursement.posAnggaran.namaPos}`,
+              keterangan: `Pencairan reimbursement ${id} - ${reimbursement.user.nama} untuk ${reimbursement.keteranganAnggaran.keterangan}`,
             },
           });
 

@@ -21,7 +21,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             nama: true,
             email: true,
             role: true,
-            divisi: true,
           },
         },
       },
@@ -32,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       nama: m.user.nama,
       email: m.user.email,
       role: m.user.role,
-      divisi: m.user.divisi,
+      divisi: m.divisi,
       roleInProyek: m.role,
     }));
 

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         include: {
           budget: {
             include: {
-              posAnggaran: true,
+              mainAnggaran: true,
             },
           },
           users: {
@@ -46,16 +46,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    const mappedUsers = project.users.map((up) => ({
+    const mappedUsers = project.users.map((up: any) => ({
       ...up.user,
       roleInProyek: up.role,
       divisiInProyek: up.divisi,
     }));
     const mappedBudget = project.budget ? {
       ...project.budget,
-      posAnggaran: project.budget.posAnggaran.map((pos) => ({
-        ...pos,
-        deskripsi: pos.namaPos,
+      posAnggaran: (project.budget as any).mainAnggaran.map((m: any) => ({
+        ...m,
+        deskripsi: m.namaMain,
+        namaPos: m.namaMain,
       })),
     } : null;
 

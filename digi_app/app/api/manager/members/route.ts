@@ -18,7 +18,6 @@ export async function GET(req: NextRequest) {
         nama: true,
         email: true,
         role: true,
-        divisi: true,
         proyek: {
           include: {
             proyek: {
@@ -30,19 +29,23 @@ export async function GET(req: NextRequest) {
       orderBy: { id: 'desc' },
     });
 
-    const mapped = users.map((u) => ({
-      id: u.id,
-      nama: u.nama,
-      email: u.email,
-      role: u.role,
-      divisi: u.divisi,
-      proyek: u.proyek.map((up) => ({
-        id: up.proyek.id,
-        nama: up.proyek.nama,
-        status: up.proyek.status,
-        roleInProyek: up.role,
-      })),
-    }));
+    const mapped = users.map((u) => {
+      const firstDivisi = u.proyek.find(up => up.divisi !== null)?.divisi || null;
+      return {
+        id: u.id,
+        nama: u.nama,
+        email: u.email,
+        role: u.role,
+        divisi: firstDivisi,
+        proyek: u.proyek.map((up) => ({
+          id: up.proyek.id,
+          nama: up.proyek.nama,
+          status: up.proyek.status,
+          roleInProyek: up.role,
+          divisi: up.divisi,
+        })),
+      };
+    });
 
     return NextResponse.json({ members: mapped });
   } catch (error: any) {
@@ -82,7 +85,6 @@ export async function POST(req: NextRequest) {
         email: trimmedEmail,
         passwordHash: hashedPassword,
         role: userRole,
-        divisi: divisi || null,
       },
     });
 
@@ -92,6 +94,7 @@ export async function POST(req: NextRequest) {
         userId: newUser.id,
         proyekId: parseInt(pa.proyekId, 10),
         role: pa.role || (userRole === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan'),
+        divisi: divisi || null,
       }));
       await prisma.userProyek.createMany({
         data: userProyeks,
@@ -101,6 +104,7 @@ export async function POST(req: NextRequest) {
         userId: newUser.id,
         proyekId: parseInt(pid, 10),
         role: userRole === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
+        divisi: divisi || null,
       }));
       await prisma.userProyek.createMany({
         data: userProyeks,
@@ -111,6 +115,7 @@ export async function POST(req: NextRequest) {
           userId: newUser.id,
           proyekId: parseInt(proyekId, 10),
           role: userRole === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
+          divisi: divisi || null,
         },
       });
     }
@@ -175,7 +180,6 @@ export async function PUT(req: NextRequest) {
         nama,
         email: trimmedEmail,
         role: userRole,
-        divisi: divisi || null,
       },
     });
 
@@ -190,6 +194,7 @@ export async function PUT(req: NextRequest) {
         userId: parseInt(userId, 10),
         proyekId: parseInt(pa.proyekId, 10),
         role: pa.role || (userRole === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan'),
+        divisi: divisi || null,
       }));
       await prisma.userProyek.createMany({
         data: userProyeks,
@@ -199,6 +204,7 @@ export async function PUT(req: NextRequest) {
         userId: parseInt(userId, 10),
         proyekId: parseInt(pid, 10),
         role: userRole === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
+        divisi: divisi || null,
       }));
       await prisma.userProyek.createMany({
         data: userProyeks,

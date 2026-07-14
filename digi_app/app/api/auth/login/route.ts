@@ -60,8 +60,7 @@ export async function POST(req: Request) {
       email: user.email,
       role: primaryRole,
       roles: allowedRoles,
-      proyekId: null, // Force selection on select-project screen
-      divisi: user.divisi,
+      proyekId: null,
     });
 
     // Create audit trail log

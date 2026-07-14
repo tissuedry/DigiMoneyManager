@@ -8,9 +8,10 @@ const mapReimbursement = (r: any) => {
   return {
     ...r,
     strukUrl: r.urlStruk,
-    posAnggaran: r.posAnggaran ? {
-      ...r.posAnggaran,
-      deskripsi: r.posAnggaran.namaPos,
+    posAnggaran: r.keteranganAnggaran ? {
+      ...r.keteranganAnggaran,
+      deskripsi: r.keteranganAnggaran.keterangan,
+      namaPos: r.keteranganAnggaran.subAnggaran?.mainAnggaran?.namaMain,
     } : null,
   };
 };
@@ -66,11 +67,14 @@ export async function GET(req: NextRequest) {
             nama: true,
             email: true,
             role: true,
-            divisi: true,
           },
         },
         proyek: true,
-        posAnggaran: true,
+        keteranganAnggaran: {
+          include: {
+            subAnggaran: { include: { mainAnggaran: true } },
+          },
+        },
         approvals: {
           include: {
             approver: {
@@ -103,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     let proyekId = '';
-    let posAnggaranId = '';
+    let keteranganAnggaranId = '';
     let nominal = 0;
     let strukUrl = '';
     let ocrData: any = {};
@@ -113,7 +117,7 @@ export async function POST(req: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
       proyekId = formData.get('proyekId') as string;
-      posAnggaranId = formData.get('posAnggaranId') as string;
+      keteranganAnggaranId = (formData.get('keteranganAnggaranId') || formData.get('posAnggaranId')) as string;
       nominal = parseFloat(formData.get('nominal') as string);
       
       const ocrDataStr = formData.get('ocrData') as string;
@@ -139,30 +143,30 @@ export async function POST(req: NextRequest) {
       // Parse as standard JSON
       const body = await req.json();
       proyekId = body.proyekId;
-      posAnggaranId = body.posAnggaranId;
+      keteranganAnggaranId = body.keteranganAnggaranId || body.posAnggaranId;
       nominal = parseFloat(body.nominal);
       strukUrl = body.strukUrl || '/uploads/placeholder.png';
       ocrData = body.ocrData || {};
     }
 
-    if (!proyekId || !posAnggaranId || isNaN(nominal) || nominal <= 0) {
-      return NextResponse.json({ message: 'proyekId, posAnggaranId, and a positive nominal are required' }, { status: 400 });
+    if (!proyekId || !keteranganAnggaranId || isNaN(nominal) || nominal <= 0) {
+      return NextResponse.json({ message: 'proyekId, keteranganAnggaranId, and a positive nominal are required' }, { status: 400 });
     }
 
     // Stamp the actual submission timestamp (date + time), distinct from the
     // receipt's transaction date (ocrData.tanggal)
     ocrData = { ...ocrData, submittedAt: new Date().toISOString() };
 
-    // Verify project and budget category existence
-    const pos = await prisma.posAnggaran.findUnique({
-      where: { id: parseInt(posAnggaranId, 10) },
+    // Verify keteranganAnggaran exists and belongs to the correct project
+    const ket = await prisma.keteranganAnggaran.findUnique({
+      where: { id: parseInt(keteranganAnggaranId, 10) },
       include: {
-        budget: true,
+        subAnggaran: { include: { mainAnggaran: { include: { budget: true } } } },
       },
     });
 
-    if (!pos || pos.budget.proyekId !== parseInt(proyekId, 10)) {
-      return NextResponse.json({ message: 'Invalid Pos Anggaran or Proyek match' }, { status: 400 });
+    if (!ket || ket.subAnggaran.mainAnggaran.budget.proyekId !== parseInt(proyekId, 10)) {
+      return NextResponse.json({ message: 'Invalid KeteranganAnggaran or Proyek match' }, { status: 400 });
     }
 
     // Create Reimbursement record in SUBMITTED state
@@ -170,7 +174,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId: parseInt(userId, 10),
         proyekId: parseInt(proyekId, 10),
-        posAnggaranId: parseInt(posAnggaranId, 10),
+        keteranganAnggaranId: parseInt(keteranganAnggaranId, 10),
         nominal,
         urlStruk: strukUrl,
         ocrData,
@@ -179,7 +183,9 @@ export async function POST(req: NextRequest) {
       include: {
         user: { select: { nama: true } },
         proyek: { select: { nama: true } },
-        posAnggaran: true,
+        keteranganAnggaran: {
+          include: { subAnggaran: { include: { mainAnggaran: true } } },
+        },
       },
     });
 
