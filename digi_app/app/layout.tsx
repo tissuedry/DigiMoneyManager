@@ -1,6 +1,21 @@
 // app/layout.tsx
 import "./globals.css";
 import QueryProvider from "@/lib/query-provider";
+import { Plus_Jakarta_Sans, IBM_Plex_Mono } from "next/font/google";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta-sans",
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800"],
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  variable: "--font-ibm-plex-mono",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
 
 export default function DashboardLayout({
   children,
@@ -8,8 +23,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}>
+      <body className={plusJakartaSans.className}>
         <div className="flex min-h-screen w-full bg-background text-zinc-800 antialiased overflow-hidden">
           {/* Sidebar Keuangan */}
           {/* <Sidebar /> */}
