@@ -10,15 +10,13 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const urlRole = searchParams.get('role') || role;
-
-    // ponytail: cache per role+user
-    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}`;
-    const cached = getCached(cacheKey);
-    if (cached) return NextResponse.json(cached);
-
-    // 💡 1. Menangkap query string yang dikirim oleh frontend
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
+
+    // ponytail: cache per role+user+search+status to prevent filter/search bugs
+    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}`;
+    const cached = getCached(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
     // Filter berdasarkan Role & User ID
     let roleFilter: any = {};
