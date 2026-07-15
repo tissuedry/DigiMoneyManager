@@ -25,6 +25,7 @@ model User {
   auditTrails     AuditTrail[]
   notifications   Notification[]
 
+  @@index([role])
   @@map("users")
 }
 
@@ -41,6 +42,8 @@ model Proyek {
   budget         Budget?
   reimbursements Reimbursement[]
 
+  @@index([status])
+  @@index([tanggalMulai])
   @@map("proyek")
 }
 
@@ -57,6 +60,7 @@ model UserProyek {
   proyek    Proyek   @relation(fields: [proyekId], references: [id], onDelete: Cascade)
 
   @@unique([userId, proyekId])
+  @@index([userId, role])
   @@map("user_proyek")
 }
 
@@ -134,6 +138,9 @@ model Reimbursement {
   jurnalAkuntansi      JurnalAkuntansi[]
 
   @@index([keteranganAnggaranId])
+  @@index([status, proyekId])
+  @@index([userId])
+  @@index([proyekId])
   @@map("reimbursement")
 }
 
@@ -149,6 +156,9 @@ model Approval {
   reimbursement   Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
   approver        User          @relation(fields: [approverId], references: [id])
 
+  @@index([reimbursementId])
+  @@index([approverId])
+  @@index([level, status, timestamp])
   @@map("approval")
 }
 
@@ -164,6 +174,9 @@ model JurnalAkuntansi {
   akunDebit       ChartOfAccounts @relation("DebitAccount", fields: [noAkunDebit], references: [id])
   akunKredit      ChartOfAccounts @relation("KreditAccount", fields: [noAkunKredit], references: [id])
 
+  @@index([reimbursementId])
+  @@index([noAkunDebit])
+  @@index([noAkunKredit])
   @@map("jurnal_akuntansi")
 }
 
@@ -177,6 +190,7 @@ model ChartOfAccounts {
   jurnalDebit   JurnalAkuntansi[] @relation("DebitAccount")
   jurnalKredit  JurnalAkuntansi[] @relation("KreditAccount")
 
+  @@index([nomorAkun])
   @@map("chart_of_accounts")
 }
 
@@ -189,6 +203,8 @@ model AuditTrail {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, timestamp])
+  @@index([timestamp])
   @@map("audit_trail")
 }
 
@@ -202,5 +218,6 @@ model Notification {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, dibaca, timestamp])
   @@map("notifications")
 }
