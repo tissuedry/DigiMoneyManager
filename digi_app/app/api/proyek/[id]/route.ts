@@ -8,13 +8,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const proyekId = parseInt(id, 10);
 
-    const [project, approvals] = await Promise.all([
+    const [project, approvals, pendingReimbursements] = await Promise.all([
       prisma.proyek.findUnique({
         where: { id: proyekId },
         include: {
           budget: {
             include: {
-              mainAnggaran: true,
+              mainAnggaran: {
+                include: {
+                  subAnggaran: {
+                    include: {
+                      keterangan: true,
+                    },
+                  },
+                },
+              },
             },
           },
           users: {
@@ -39,6 +47,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         },
         include: { reimbursement: { select: { nominal: true } } },
         orderBy: { timestamp: 'asc' },
+      }),
+      prisma.reimbursement.findMany({
+        where: {
+          proyekId: proyekId,
+          status: 'SUBMITTED',
+        },
+        include: {
+          user: {
+            select: {
+              nama: true,
+            },
+          },
+          keteranganAnggaran: {
+            include: {
+              subAnggaran: {
+                include: {
+                  mainAnggaran: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          id: 'desc',
+        },
       })
     ]);
 
@@ -57,6 +90,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         ...m,
         deskripsi: m.namaMain,
         namaPos: m.namaMain,
+        subAnggaran: m.subAnggaran ? m.subAnggaran.map((s: any) => ({
+          ...s,
+          keterangan: s.keterangan || [],
+        })) : [],
       })),
     } : null;
 
@@ -98,6 +135,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       cashFlow4m,
       cashFlow12m,
       cashFlowYtd,
+      pendingPmCount: pendingReimbursements.length,
+      pendingReimbursements,
     };
 
     return NextResponse.json({ project: responseProject });

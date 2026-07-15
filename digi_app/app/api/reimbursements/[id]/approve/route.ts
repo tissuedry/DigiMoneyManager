@@ -6,6 +6,8 @@ import { clearCache } from '@/lib/route-cache';
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
+    const rolesHeader = req.headers.get('x-user-roles') || role || '';
+    const roles = rolesHeader.split(',');
     const userId = req.headers.get('x-user-id');
 
     if (!userId || !role) {
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
-    if (isPM) {
+    if (isPM || role === 'Direktur / Manajemen' || roles.includes('Direktur / Manajemen')) {
       if (reimbursement.status !== 'SUBMITTED') {
         if (role !== 'Tim Keuangan') {
           return NextResponse.json({ message: 'Reimbursement is not pending PM approval' }, { status: 400 });
