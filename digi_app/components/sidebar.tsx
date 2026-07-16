@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { X, LayoutDashboard, Plus, History, FileCheck, Wallet, BookOpen, BarChart3, Settings, MessageSquare, TrendingUp, Users, FileText } from "lucide-react";
+import { X, LayoutDashboard, Plus, History, FileCheck, Wallet, BookOpen, BarChart3, Settings, MessageSquare, TrendingUp, Users, FileText, FolderKanban } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 
 // Role type definition
@@ -32,7 +32,8 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Riwayat Pengajuan", href: "/karyawan/riwayat-pengajuan", icon: History, hasBadge: false },
   ],
   "Project Manager": [
-    { name: "Beranda", href: "/pm", icon: LayoutDashboard, hasBadge: false },
+    { name: "Beranda PM", href: "/pm", icon: LayoutDashboard, hasBadge: false },
+    { name: "Kelola Proyek", href: "/pm/proyek", icon: FolderKanban, hasBadge: false },
     { name: "Antrian Approval", href: "/pm/approval", icon: FileCheck, hasBadge: true, badgeCount: 0 },
     { name: "Budget Proyek", href: "/pm/budget", icon: Wallet, hasBadge: false },
   ],
