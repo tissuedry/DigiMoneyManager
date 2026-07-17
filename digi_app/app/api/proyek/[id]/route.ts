@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    const [project, approvals, pendingReimbursements] = await Promise.all([
+    const [project, approvals, pendingReimbursements, pendingPengajuanCount] = await Promise.all([
       prisma.proyek.findUnique({
         where: { id: proyekId },
         include: {
@@ -104,6 +104,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         orderBy: {
           id: 'desc',
         },
+      }),
+      prisma.pengajuanAnggaran.count({
+        where: { proyekId, status: 'PENDING' },
       })
     ]);
 
@@ -167,7 +170,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       cashFlow4m,
       cashFlow12m,
       cashFlowYtd,
-      pendingPmCount: pendingReimbursements.length,
+      pendingPmCount: pendingPengajuanCount,
       pendingReimbursements,
     };
 

@@ -35,7 +35,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // DITOLAK — cukup update status + notif
-    if (targetStatus === 'APPROVE') {
+    if (targetStatus === 'REJECT') {
       const updated = await prisma.pengajuanAnggaran.update({
         where: { id: pengajuanId },
         data: { status: 'REJECT', catatan: catatan?.trim() || null, processedAt: new Date() },
@@ -87,7 +87,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           });
           // Map draft ID (dari frontend Date.now()) → real DB id
           if (item.targetId) subIdMap.set(item.targetId, created.id);
-          totalNewAlokasi += item.nominalAlokasi ?? 0;
+          // ponytail: Number() wajib — item.nominalAlokasi adalah Prisma Decimal (string/Decimal.js),
+          // tanpa ini `+=` jadi string concatenation → total membesar tak terhingga → numeric overflow.
+          totalNewAlokasi += Number(item.nominalAlokasi ?? 0);
         } else if (item.aksi === 'UBAH') {
           if (!item.targetId) continue;
           const existing = await tx.subAnggaran.findUnique({ where: { id: item.targetId }, select: { nominalAlokasi: true } });
@@ -128,7 +130,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               nominalAlokasi: item.nominalAlokasi ?? 0,
             },
           });
-          totalNewAlokasi += item.nominalAlokasi ?? 0;
+          // ponytail: Number() wajib — item.nominalAlokasi adalah Prisma Decimal (string/Decimal.js),
+          // tanpa ini `+=` jadi string concatenation → total membesar tak terhingga → numeric overflow.
+          totalNewAlokasi += Number(item.nominalAlokasi ?? 0);
         } else if (item.aksi === 'UBAH') {
           if (!item.targetId) continue;
           const existing = await tx.keteranganAnggaran.findUnique({ where: { id: item.targetId }, select: { nominalAlokasi: true } });

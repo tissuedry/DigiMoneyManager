@@ -56,7 +56,7 @@ export default function KelolaProyekPage() {
   const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
   const [showDetailBudgetModal, setShowDetailBudgetModal] = useState(false);
   const [showPendingPmModal, setShowPendingPmModal] = useState(false);
-  const [rejectingReimbursement, setRejectingReimbursement] = useState<any | null>(null);
+  const [rejectingPengajuan, setRejectingPengajuan] = useState<any | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<Record<number, boolean>>({});
   const [rejectionReason, setRejectionReason] = useState("");
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
@@ -64,6 +64,11 @@ export default function KelolaProyekPage() {
   const [expandedKet, setExpandedKet] = useState<Record<string, boolean>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"4M" | "12M" | "YTD">("12M");
+
+  // Pengajuan anggaran pending (Direktur review)
+  const [pendingPengajuan, setPendingPengajuan] = useState<any[]>([]);
+  const [loadingPengajuan, setLoadingPengajuan] = useState(false);
+  const [expandedPengajuan, setExpandedPengajuan] = useState<Record<number, boolean>>({});
 
   const detailTotalRAB = parseFloat(detailedProjectInfo?.budget?.rabTotal) || 0;
   const detailTotalTerpakai = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
@@ -147,45 +152,20 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const handleProcessReimbursement = async (reimbursementId: number, action: 'APPROVE' | 'REJECT', catatan?: string) => {
-    if (!detailedProjectInfo) return;
-    setLoadingDetail(true);
-    setFormError("");
-    setSuccess("");
+  const fetchPendingPengajuan = async (proyekId: number) => {
+    setLoadingPengajuan(true);
     try {
-      const res = await fetch(`/api/reimbursements/${reimbursementId}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, catatan }),
-      });
+      const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran?status=PENDING`);
       const data = await res.json();
-      if (res.ok) {
-        alert(action === 'APPROVE' ? "Pengajuan reimbursement berhasil disetujui!" : "Pengajuan reimbursement ditolak.");
-        
-        // Reset rejection states
-        setRejectingReimbursement(null);
-        setRejectionReason("");
-
-        // Refresh detail modal
-        const detailRes = await fetch(`/api/proyek/${detailedProjectInfo.id}`);
-        const detailData = await detailRes.json();
-        if (detailRes.ok && detailData.project) {
-          setDetailedProjectInfo(detailData.project);
-        }
-        fetchData();
-      } else {
-        alert(data.message || "Gagal memproses pengajuan");
-        setFormError(data.message || "Gagal memproses pengajuan");
-      }
+      setPendingPengajuan(data.pengajuan || []);
     } catch {
-      alert("Terjadi kesalahan koneksi saat memproses pengajuan");
-      setFormError("Terjadi kesalahan koneksi");
+      setPendingPengajuan([]);
     } finally {
-      setLoadingDetail(false);
+      setLoadingPengajuan(false);
     }
   };
 
-  const handleBulkProcess = async (ids: number[], action: 'APPROVE' | 'REJECT', catatan?: string) => {
+  const handleProcessPengajuan = async (ids: number[], action: 'APPROVE' | 'REJECT', catatan?: string) => {
     if (!detailedProjectInfo || ids.length === 0) return;
     setLoadingDetail(true);
     setFormError("");
@@ -193,24 +173,28 @@ export default function KelolaProyekPage() {
     try {
       const results = await Promise.all(
         ids.map(id =>
-          fetch(`/api/reimbursements/${id}/approve`, {
-            method: "POST",
+          fetch(`/api/pengajuan-anggaran/${id}/review`, {
+            method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, catatan }),
+            body: JSON.stringify({ status: action, catatan }),
           })
         )
       );
-      
-      const allOk = results.every(res => res.ok);
-      if (allOk) {
-        alert(action === 'APPROVE' ? `Berhasil menyetujui ${ids.length} pengajuan!` : `Berhasil menolak ${ids.length} pengajuan.`);
-        
-        // Reset rejection states
-        setRejectingReimbursement(null);
-        setRejectionReason("");
-        setShowPendingPmModal(false);
 
-        // Refresh detail modal
+      const failed: string[] = [];
+      results.forEach((res) => {
+        if (!res.ok) {
+          res.json().then((d: any) => failed.push(d.message || `HTTP ${res.status}`)).catch(() => failed.push(`HTTP ${res.status}`));
+        }
+      });
+
+      if (results.every(res => res.ok)) {
+        alert(action === 'APPROVE' ? `Berhasil menyetujui ${ids.length} pengajuan!` : `Berhasil menolak ${ids.length} pengajuan.`);
+        setRejectingPengajuan(null);
+        setRejectionReason("");
+        setSelectedPendingIds({});
+        // Refresh pengajuan list + detail + grid
+        await fetchPendingPengajuan(detailedProjectInfo.id);
         const detailRes = await fetch(`/api/proyek/${detailedProjectInfo.id}`);
         const detailData = await detailRes.json();
         if (detailRes.ok && detailData.project) {
@@ -218,8 +202,9 @@ export default function KelolaProyekPage() {
         }
         fetchData();
       } else {
-        alert("Beberapa pengajuan gagal diproses.");
+        alert(`Beberapa pengajuan gagal diproses: ${failed.join("; ")}`);
         setFormError("Beberapa pengajuan gagal diproses.");
+        await fetchPendingPengajuan(detailedProjectInfo.id);
       }
     } catch {
       alert("Terjadi kesalahan koneksi saat memproses pengajuan");
@@ -1541,12 +1526,12 @@ export default function KelolaProyekPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              const initial: Record<number, boolean> = {};
-                              (detailedProjectInfo?.pendingReimbursements || []).forEach((r: any) => {
-                                initial[r.id] = true;
-                              });
-                              setSelectedPendingIds(initial);
+                              setSelectedPendingIds({});
+                              setExpandedPengajuan({});
                               setShowPendingPmModal(true);
+                              if (detailedProjectInfo?.id) {
+                                fetchPendingPengajuan(detailedProjectInfo.id);
+                              }
                             }}
                             className="flex-1 flex items-center justify-between px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer gap-2"
                           >
@@ -2259,8 +2244,7 @@ export default function KelolaProyekPage() {
 
       {/* --- POP-UP MODAL: PENGAJUAN PM PENDING --- */}
       {showPendingPmModal && (() => {
-        const submissions = detailedProjectInfo?.pendingReimbursements || [];
-        const mainAnggaranList = detailedProjectInfo?.budget?.mainAnggaran || [];
+        const submissions = pendingPengajuan || [];
 
         // Checkbox states
         const anySelected = submissions.some((r: any) => selectedPendingIds[r.id]);
@@ -2280,7 +2264,25 @@ export default function KelolaProyekPage() {
             .map(Number)
             .filter(id => selectedPendingIds[id]);
           if (selectedIds.length === 0) return;
-          await handleBulkProcess(selectedIds, 'APPROVE');
+          await handleProcessPengajuan(selectedIds, 'APPROVE');
+        };
+
+        const formatPengajuanDate = (iso: string) =>
+          new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+        // Hitung total nominal per pengajuan (sum nominalAlokasi across items)
+        const pengajuanTotal = (p: any) =>
+          (p.items || []).reduce((sum: number, it: any) => sum + Number(it.nominalAlokasi || 0), 0);
+
+        const pengajuanItemSummary = (p: any) => {
+          const items = p.items || [];
+          const counts = { TAMBAH: 0, UBAH: 0, HAPUS: 0 };
+          items.forEach((it: any) => { if (counts[it.aksi as keyof typeof counts] != null) counts[it.aksi as keyof typeof counts]++; });
+          const parts: string[] = [];
+          if (counts.TAMBAH) parts.push(`${counts.TAMBAH} tambah`);
+          if (counts.UBAH) parts.push(`${counts.UBAH} ubah`);
+          if (counts.HAPUS) parts.push(`${counts.HAPUS} hapus`);
+          return parts.length ? parts.join(' · ') : `${items.length} item`;
         };
 
         return (
@@ -2323,7 +2325,12 @@ export default function KelolaProyekPage() {
 
               {/* Body */}
               <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
-                {submissions.length > 0 ? (
+                {loadingPengajuan ? (
+                  <div style={{ padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#9A948B' }}>
+                    <Loader2 size={22} className="animate-spin" />
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>Memuat pengajuan...</span>
+                  </div>
+                ) : submissions.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                     {/* Toggle All Select / "Batalkan Semua (n)" */}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
@@ -2348,239 +2355,104 @@ export default function KelolaProyekPage() {
                       </button>
                     </div>
 
-                    {/* Hierarchy table container */}
+                    {/* Pengajuan list container */}
                     <div style={{ borderRadius: 10, border: '1px solid #E6E1D4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                      {mainAnggaranList.map((main: any, gi: number) => {
-                        // Filter pending submissions belonging to this MAIN category
-                        const mainPending = submissions.filter((r: any) => {
-                          const rMainId = r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.id
-                            || r.subAnggaran?.mainAnggaran?.id
-                            || r.posAnggaran?.id;
-                          return rMainId === main.id;
-                        });
-
-                        const subAnggarans = main.subAnggaran || [];
-
-                        // If this main has no sub budgets AND no pending submissions, we don't display it to keep clean
-                        if (subAnggarans.length === 0 && mainPending.length === 0) return null;
+                      {submissions.map((p: any, gi: number) => {
+                        const isChecked = !!selectedPendingIds[p.id];
+                        const isOpen = !!expandedPengajuan[p.id];
+                        const submitterName = p.pengaju?.nama || 'Project Manager';
+                        const total = pengajuanTotal(p);
+                        const summary = pengajuanItemSummary(p);
 
                         return (
-                          <div key={main.id} style={{ borderBottom: gi < mainAnggaranList.length - 1 ? '1px solid #E6E1D4' : 'none' }}>
-                            {/* Group Header (MAIN) */}
+                          <div key={p.id} style={{ borderBottom: gi < submissions.length - 1 ? '1px solid #E6E1D4' : 'none' }}>
+                            {/* Row: one pengajuan */}
                             <div style={{
-                              padding: '9px 12px',
-                              background: 'white',
-                              borderBottom: '1px solid #E6E1D4',
-                              fontFamily: "'Plus Jakarta Sans', sans-serif",
-                              fontWeight: 700,
-                              fontSize: 12.5,
-                              color: '#14130F',
+                              background: isChecked ? '#D5F4E3' : 'white',
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 8,
+                              padding: '10px 12px',
+                              transition: 'background-color 0.2s ease',
                             }}>
-                              {main.namaMain}
+                              {/* Checkbox */}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPendingIds(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
+                                style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                              >
+                                <div style={{
+                                  width: 14, height: 14, borderRadius: 4,
+                                  background: isChecked ? '#009162' : 'white',
+                                  border: isChecked ? 'none' : '1.20px solid #E6E1D4',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                  {isChecked && (
+                                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                      <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </button>
+
+                              {/* Info */}
+                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  <span style={{ color: '#14130F', fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                    {p.judul}
+                                  </span>
+                                  <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                    MENUNGGU
+                                  </span>
+                                </div>
+                                {p.deskripsi && (
+                                  <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
+                                    &ldquo;{p.deskripsi}&rdquo;
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                  <span>Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formatPengajuanDate(p.createdAt)}</span>
+                                  <span style={{ color: '#6A6660', fontWeight: 600 }}>{summary}</span>
+                                </div>
+                                {/* Expand toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedPengajuan(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
+                                  style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0', color: '#005D8D', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}
+                                  className="hover:underline"
+                                >
+                                  {isOpen ? 'Sembunyikan detail' : `Lihat detail (${(p.items || []).length} item)`}
+                                </button>
+                              </div>
+
+                              {/* Nominal */}
+                              <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                Rp {Number(total).toLocaleString('id-ID')}
+                              </div>
                             </div>
 
-                            {/* Render existing sub budgets tree first */}
-                            {subAnggarans.map((sub: any) => {
-                              // Find any pending keterangan item under this existing sub
-                              const childPendingKets = mainPending.filter((r: any) => {
-                                return r.keteranganAnggaran?.subAnggaranId === sub.id && !!r.keteranganAnggaran;
-                              });
-
-                              const subKey = `modal-sub-${sub.id}`;
-                              const isSubOpen = expandedSub[subKey] !== false;
-
-                              return (
-                                <div key={sub.id} style={{ display: 'flex', flexDirection: 'column' }}>
-                                  {/* Existing subbudget row */}
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      padding: '7px 12px 7px 14px',
-                                      borderBottom: (childPendingKets.length > 0 && isSubOpen) ? '1px solid #E6E1D4' : 'none',
-                                      background: 'white',
-                                      cursor: 'pointer',
-                                      userSelect: 'none',
-                                    }}
-                                    onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
-                                    className="hover:bg-stone-50 transition"
-                                  >
-                                    <svg
-                                      width="10"
-                                      height="10"
-                                      viewBox="0 0 10 10"
-                                      fill="none"
-                                      style={{
-                                        marginRight: 8,
-                                        flexShrink: 0,
-                                        transition: 'transform 0.15s ease',
-                                        transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
-                                      }}
-                                    >
-                                      <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                    <span style={{ flex: 1, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 12, color: '#14130F' }}>
-                                      {sub.namaSub}
-                                    </span>
-                                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 400, fontSize: 11, color: '#9A948B' }}>
-                                      Rp {Number(sub.nominalAlokasi).toLocaleString('id-ID')}
-                                    </span>
-                                  </div>
-
-                                  {/* Render child pending items (KETERANGAN BARU) under this subbudget if it is expanded */}
-                                  {isSubOpen && childPendingKets.map((r: any) => {
-                                    const isChecked = !!selectedPendingIds[r.id];
-                                    const itemDate = r.createdAt || r.timestamp || new Date();
-                                    const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                                    const submitterName = r.user?.nama || 'Karyawan';
-                                    const nominal = r.nominal || 0;
-
-                                    return (
-                                      <div key={r.id} style={{
-                                        background: isChecked ? '#D5F4E3' : 'white',
-                                        borderBottom: '1px solid #E6E1D4',
-                                        padding: '7px 12px 7px 34px', // further indented
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: 8,
-                                        transition: 'background-color 0.2s ease',
-                                      }}>
-                                        {/* Checkbox */}
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
-                                          }}
-                                          style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                        >
-                                          <div style={{
-                                            width: 14,
-                                            height: 14,
-                                            borderRadius: 4,
-                                            background: isChecked ? '#009162' : 'white',
-                                            border: isChecked ? 'none' : '1.20px solid #E6E1D4',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                          }}>
-                                            {isChecked && (
-                                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                                <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                              </svg>
-                                            )}
-                                          </div>
-                                        </button>
-
-                                        {/* Info */}
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                            <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                              KETERANGAN BARU
-                                            </span>
-                                            <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                              {r.keteranganAnggaran?.keterangan || r.deskripsi}
-                                            </span>
-                                            <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                              MENUNGGU
-                                            </span>
-                                          </div>
-                                          {r.keterangan && r.keterangan !== 'N/A' && (
-                                            <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
-                                              &ldquo;{r.keterangan}&rdquo;
-                                            </div>
-                                          )}
-                                          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                            Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
-                                          </div>
-                                        </div>
-
-                                        {/* Nominal */}
-                                        <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                          Rp {Number(nominal).toLocaleString('id-ID')}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            })}
-
-                            {/* Render pending categories that are SUB BARU directly under Main header */}
-                            {mainPending.filter((r: any) => !r.keteranganAnggaran && r.subAnggaran).map((r: any) => {
-                              const isChecked = !!selectedPendingIds[r.id];
-                              const subName = r.subAnggaran?.namaSub || 'Sub Baru';
-                              const itemDate = r.createdAt || r.timestamp || new Date();
-                              const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                              const submitterName = r.user?.nama || 'Karyawan';
-                              const nominal = r.nominal || 0;
-
-                              return (
-                                <div key={r.id} style={{
-                                  background: isChecked ? '#D5F4E3' : 'white',
-                                  borderBottom: '1px solid #E6E1D4',
-                                  padding: '7px 12px 7px 14px',
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: 8,
-                                  transition: 'background-color 0.2s ease',
-                                }}>
-                                  {/* Checkbox */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
-                                    }}
-                                    style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                  >
-                                    <div style={{
-                                      width: 14,
-                                      height: 14,
-                                      borderRadius: 4,
-                                      background: isChecked ? '#009162' : 'white',
-                                      border: isChecked ? 'none' : '1.20px solid #E6E1D4',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                    }}>
-                                      {isChecked && (
-                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                          <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                  </button>
-
-                                  {/* Info */}
-                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                      <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        SUB BARU
+                            {/* Expanded item detail */}
+                            {isOpen && (p.items || []).length > 0 && (
+                              <div style={{ background: '#FAF9F5', borderTop: '1px solid #E6E1D4', padding: '6px 12px 10px 34px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {p.items.map((it: any, ii: number) => {
+                                  const tipeLabel = it.tipe === 'SUB_ANGGARAN' ? 'SUB' : 'KET';
+                                  const aksiLabel = it.aksi;
+                                  const aksiColor = it.aksi === 'TAMBAH' ? '#005836' : it.aksi === 'HAPUS' ? '#922' : '#894C06';
+                                  return (
+                                    <div key={ii} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                                      <span style={{ color: '#9A948B', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, minWidth: 28 }}>{tipeLabel}</span>
+                                      <span style={{ color: aksiColor, fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, minWidth: 44 }}>{aksiLabel}</span>
+                                      <span style={{ flex: 1, color: '#14130F', fontSize: 11.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600 }}>
+                                        {it.nama || (it.aksi === 'HAPUS' ? `ID ${it.targetId}` : '-')}
                                       </span>
-                                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        {subName}
-                                      </span>
-                                      <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        MENUNGGU
+                                      <span style={{ color: '#14130F', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>
+                                        {it.nominalAlokasi != null ? `Rp ${Number(it.nominalAlokasi).toLocaleString('id-ID')}` : '-'}
                                       </span>
                                     </div>
-                                    {r.keterangan && r.keterangan !== 'N/A' && (
-                                      <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
-                                        &ldquo;{r.keterangan}&rdquo;
-                                      </div>
-                                    )}
-                                    <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                      Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
-                                    </div>
-                                  </div>
-
-                                  {/* Nominal */}
-                                  <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                    Rp {Number(nominal).toLocaleString('id-ID')}
-                                  </div>
-                                </div>
-                              );
-                            })}
-
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -2589,7 +2461,7 @@ export default function KelolaProyekPage() {
                 ) : (
                   <div style={{ padding: '48px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12 }}>
                     <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Tidak Ada Pengajuan PM Pending</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan yang menunggu persetujuan Project Manager.</div>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan pos anggaran yang menunggu persetujuan Direktur.</div>
                   </div>
                 )}
               </div>
@@ -2614,7 +2486,7 @@ export default function KelolaProyekPage() {
                       type="button"
                       onClick={() => {
                         const itemsToReject = submissions.filter((r: any) => selectedPendingIds[r.id]);
-                        setRejectingReimbursement(itemsToReject); // pass list of items to reject
+                        setRejectingPengajuan(itemsToReject);
                         setRejectionReason("");
                       }}
                       style={{
@@ -2685,23 +2557,13 @@ export default function KelolaProyekPage() {
               </div>
 
               {/* Tolak Pengajuan Confirmation Overlay Modal */}
-              {rejectingReimbursement && (() => {
-                const isArray = Array.isArray(rejectingReimbursement);
-                const itemsList = isArray ? rejectingReimbursement : [rejectingReimbursement];
-                
-                // Construct displaying subtitle
+              {rejectingPengajuan && (() => {
+                const isArray = Array.isArray(rejectingPengajuan);
+                const itemsList = isArray ? rejectingPengajuan : [rejectingPengajuan];
+
                 let subtitle = "";
                 if (itemsList.length === 1) {
-                  const singleItem = itemsList[0];
-                  const subName = singleItem.keteranganAnggaran?.subAnggaran?.namaSub
-                    || singleItem.subAnggaran?.namaSub
-                    || null;
-                  const ketName = singleItem.keteranganAnggaran?.keterangan
-                    || singleItem.deskripsi
-                    || 'N/A';
-                  const isNewSub = !singleItem.keteranganAnggaran && singleItem.subAnggaran && !singleItem.subAnggaran.id;
-                  const isNewKet = !!singleItem.keteranganAnggaran && !singleItem.keteranganAnggaran.id;
-                  subtitle = isNewSub ? subName : isNewKet ? ketName : (ketName !== 'N/A' ? ketName : subName);
+                  subtitle = itemsList[0]?.judul || '1 pengajuan';
                 } else {
                   subtitle = `${itemsList.length} pengajuan terpilih`;
                 }
@@ -2733,7 +2595,7 @@ export default function KelolaProyekPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setRejectingReimbursement(null)}
+                          onClick={() => setRejectingPengajuan(null)}
                           style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           className="hover:bg-stone-100 transition"
                         >
@@ -2775,7 +2637,7 @@ export default function KelolaProyekPage() {
                       }}>
                         <button
                           type="button"
-                          onClick={() => setRejectingReimbursement(null)}
+                          onClick={() => setRejectingPengajuan(null)}
                           style={{
                             flex: 1,
                             padding: '9px 14px',
@@ -2801,7 +2663,7 @@ export default function KelolaProyekPage() {
                               return;
                             }
                             const ids = itemsList.map((item: any) => item.id);
-                            await handleBulkProcess(ids, 'REJECT', rejectionReason);
+                            await handleProcessPengajuan(ids, 'REJECT', rejectionReason);
                           }}
                           style={{
                             flex: 1,

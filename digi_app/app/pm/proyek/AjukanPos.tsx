@@ -151,13 +151,32 @@ export default function AjukanPosModal({
   const handleSubmit = async () => {
     const items: any[] = [];
 
+    // ponytail: draft id Sub baru (Date.now(), 13-digit) gak muat di kolom targetId (Int32).
+    // Remap setiap draft Sub id ke index negatif (-1, -2, ...) — muat Int32, gak nabrak
+    // real autoincrement id (selalu positif). Backend pakai targetId ini sebagai key
+    // subIdMap lalu resolve parentId KET yang nested di Sub baru → real DB id.
+    const draftIdMap = new Map<number, number>();
+    let draftIdx = 0;
+    const draftRef = (draftSubId: number) => {
+      if (!draftIdMap.has(draftSubId)) {
+        draftIdx += 1;
+        draftIdMap.set(draftSubId, -draftIdx);
+      }
+      return draftIdMap.get(draftSubId)!;
+    };
+
     data.forEach((main) => {
       main.subPos.forEach((sub) => {
-        if (sub.status === "MENUNGGU") {
+        const isDraftSub = sub.status === "MENUNGGU";
+        // parent ref untuk KET: Sub lama → id asli; Sub baru → index negatif remap.
+        const ketParentRef = isDraftSub ? draftRef(sub.id) : sub.id;
+
+        if (isDraftSub) {
           items.push({
             tipe: "SUB_ANGGARAN",
             aksi: "TAMBAH",
             parentId: main.id,
+            targetId: ketParentRef,
             nama: sub.nama,
             nominalAlokasi: sub.alokasi,
           });
@@ -167,7 +186,7 @@ export default function AjukanPosModal({
             items.push({
               tipe: "KETERANGAN",
               aksi: "TAMBAH",
-              parentId: sub.id,
+              parentId: ketParentRef,
               nama: ket.nama,
               nominalAlokasi: ket.alokasi,
             });

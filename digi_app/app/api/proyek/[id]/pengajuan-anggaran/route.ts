@@ -1,7 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-async function verifyIsProjectManagerOf(userId: string | null, proyekId: number) {
+async function verifyCanAccessPengajuan(userId: string | null, userRole: string | null, proyekId: number) {
+  if (userRole === 'Direktur / Manajemen') return true;
   if (!userId) return false;
   const up = await prisma.userProyek.findFirst({
     where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
@@ -16,7 +17,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    if (!(await verifyIsProjectManagerOf(userId, proyekId))) {
+    // ponytail: POST stays PM-only — Direktur never submits proposals, only reviews.
+    if (!(await verifyCanAccessPengajuan(userId, null, proyekId))) {
       return NextResponse.json(
         { message: 'Forbidden: Only the assigned Project Manager can submit proposals' },
         { status: 403 },
@@ -107,12 +109,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
+    const userRole = req.headers.get('x-user-role');
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    if (!(await verifyIsProjectManagerOf(userId, proyekId))) {
+    if (!(await verifyCanAccessPengajuan(userId, userRole, proyekId))) {
       return NextResponse.json(
-        { message: 'Forbidden: Only the assigned Project Manager can view proposals' },
+        { message: 'Forbidden: Only the assigned Project Manager or Direktur can view proposals' },
         { status: 403 },
       );
     }
