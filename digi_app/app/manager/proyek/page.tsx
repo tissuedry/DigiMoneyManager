@@ -16,7 +16,7 @@ type Project = {
     totalPengeluaran: string;
     totalReimbursement: string;
     sisaBudget: string;
-    posAnggaran: { id: number; namaPos: string; nominalAlokasi: string }[];
+    posAnggaran: { id: number; namaPos: string; nominalAlokasi: string; deskripsi?: string }[];
   } | null;
 };
 
@@ -57,9 +57,11 @@ export default function KelolaProyekPage() {
   const [showDetailBudgetModal, setShowDetailBudgetModal] = useState(false);
   const [showPendingPmModal, setShowPendingPmModal] = useState(false);
   const [rejectingReimbursement, setRejectingReimbursement] = useState<any | null>(null);
+  const [selectedPendingIds, setSelectedPendingIds] = useState<Record<number, boolean>>({});
   const [rejectionReason, setRejectionReason] = useState("");
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<string, boolean>>({});
+  const [expandedKet, setExpandedKet] = useState<Record<string, boolean>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"4M" | "12M" | "YTD">("12M");
 
@@ -117,9 +119,7 @@ export default function KelolaProyekPage() {
   // Budget initialization state
   const [rabTotal, setRabTotal] = useState("");
   const [posAnggaranList, setPosAnggaranList] = useState<{ deskripsi: string; nominalAlokasi: string }[]>([
-    { deskripsi: "Akomodasi & Transportasi", nominalAlokasi: "" },
-    { deskripsi: "Konsumsi", nominalAlokasi: "" },
-    { deskripsi: "Perlengkapan & ATK", nominalAlokasi: "" },
+    { deskripsi: "", nominalAlokasi: "" },
   ]);
 
   const [activeTab, setActiveTab] = useState<"ringkasan" | "anggaran" | "tim">("ringkasan");
@@ -174,6 +174,50 @@ export default function KelolaProyekPage() {
       } else {
         alert(data.message || "Gagal memproses pengajuan");
         setFormError(data.message || "Gagal memproses pengajuan");
+      }
+    } catch {
+      alert("Terjadi kesalahan koneksi saat memproses pengajuan");
+      setFormError("Terjadi kesalahan koneksi");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleBulkProcess = async (ids: number[], action: 'APPROVE' | 'REJECT', catatan?: string) => {
+    if (!detailedProjectInfo || ids.length === 0) return;
+    setLoadingDetail(true);
+    setFormError("");
+    setSuccess("");
+    try {
+      const results = await Promise.all(
+        ids.map(id =>
+          fetch(`/api/reimbursements/${id}/approve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action, catatan }),
+          })
+        )
+      );
+
+      const allOk = results.every(res => res.ok);
+      if (allOk) {
+        alert(action === 'APPROVE' ? `Berhasil menyetujui ${ids.length} pengajuan!` : `Berhasil menolak ${ids.length} pengajuan.`);
+
+        // Reset rejection states
+        setRejectingReimbursement(null);
+        setRejectionReason("");
+        setShowPendingPmModal(false);
+
+        // Refresh detail modal
+        const detailRes = await fetch(`/api/proyek/${detailedProjectInfo.id}`);
+        const detailData = await detailRes.json();
+        if (detailRes.ok && detailData.project) {
+          setDetailedProjectInfo(detailData.project);
+        }
+        fetchData();
+      } else {
+        alert("Beberapa pengajuan gagal diproses.");
+        setFormError("Beberapa pengajuan gagal diproses.");
       }
     } catch {
       alert("Terjadi kesalahan koneksi saat memproses pengajuan");
@@ -517,8 +561,8 @@ export default function KelolaProyekPage() {
     }
 
     const sum = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
-    if (Math.abs(sum - total) > 0.01) {
-      setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString("id-ID")}) harus sama dengan total Nilai Proyek (Rp ${total.toLocaleString("id-ID")})`);
+    if (sum > total) {
+      setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString("id-ID")}) tidak boleh melebihi total Nilai Proyek (Rp ${total.toLocaleString("id-ID")})`);
       return;
     }
 
@@ -608,6 +652,14 @@ export default function KelolaProyekPage() {
     }
   };
   const currentStatus = detailedProjectInfo?.status || showProjectDetail?.status;
+  const masterBudgetOptions = Array.from(
+    new Set(
+      projects
+        .flatMap((p) => p.budget?.posAnggaran ?? [])
+        .map((pos) => pos.namaPos || pos.deskripsi)
+        .filter(Boolean)
+    )
+  )as string[];
   return (
     <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
       {/* Header */}
@@ -842,28 +894,15 @@ export default function KelolaProyekPage() {
                 <div className="flex flex-wrap gap-3 mt-1">
                   {[
                     { value: "AKTIF", label: "Active" },
-                    { value: "PLANNING", label: "Planning" },
-                    { value: "DONE", label: "Done" },
-                    { value: "CANCELED", label: "Canceled" }
+                    { value: "PLANNING", label: "Planning" }
                   ].map((statusItem) => {
                     const isSelected = projectForm.status === statusItem.value;
-
-                    const isDisabled =
-                      statusItem.value !== "AKTIF" &&
-                      statusItem.value !== "PLANNING" &&
-                      !isSelected;
-
                     return (
                       <button
                         key={statusItem.value}
                         type="button"
-                        disabled={isDisabled}
                         onClick={() => setProjectForm({ ...projectForm, status: statusItem.value })}
-                        className={`px-5 py-2 text-[13px] font-semibold rounded-xl border transition-all ${isSelected
-                          ? "border-[#2d6a4f] bg-[#e8f5e9] text-[#1b4332]"
-                          : isDisabled
-                            ? "border-stone-200 bg-stone-50 text-stone-400 cursor-not-allowed opacity-60" // Styling saat disabled
-                            : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                        className={`px-5 py-2 text-[13px] font-semibold rounded-xl border transition-all ${isSelected ? "border-[#2d6a4f] bg-[#e8f5e9] text-[#1b4332]" : "border-stone-200 bg-white text-stone-600"
                           }`}
                       >
                         {statusItem.label}
@@ -978,171 +1017,341 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
-      {/* MODAL: INISIALISASI BUDGET */}
-      {showInitBudget && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-stone-200 shadow-xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Header Modal */}
-            <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between text-left">
-              <div>
-                <h3 className="font-extrabold text-[18px] text-stone-900 tracking-tight">Edit Nilai Proyek</h3>
-                <p className="text-xs text-stone-450 font-medium mt-0.5">{showInitBudget.nama}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowInitBudget(null)}
-                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {/* MODAL: INISIALISASI / EDIT Nilai Proyek */}
+      {showInitBudget && (() => {
+        // Calculate progress bar and remaining budget metrics dynamically
+        const totalVal = ribuanToNumber(rabTotal) || 0;
+        const terpakaiVal = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
+        const pctVal = totalVal > 0 ? Math.round((terpakaiVal / totalVal) * 100) : 0;
+        const sisaVal = Math.max(0, totalVal - terpakaiVal);
 
-            <form onSubmit={handleInitBudget} className="p-6 space-y-5 text-left">
-              {/* Total Nilai Proyek */}
-              <div>
-                <label className="block text-[12px] font-bold text-stone-700 mb-1.5">
-                  Total Nilai Proyek (Rupiah) <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-4 text-[13px] font-bold text-stone-450 select-none">Rp</span>
-                  <input
-                    type="text"
-                    required
-                    value={rabTotal}
-                    onChange={(e) => setRabTotal(formatRibuan(e.target.value))}
-                    placeholder="6.200.000"
-                    className="w-full border border-stone-200 rounded-xl pl-11 pr-4 py-3 text-[14px] font-black font-mono text-stone-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 transition"
-                  />
+        // Real-time calculations for Main budget allocations
+        const totalPosAllocated = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
+        const isOverbudget = totalPosAllocated > totalVal;
+
+        const formatMillions = (val: number) => {
+          if (val >= 1_000_000_000) {
+            return `${(val / 1_000_000_000).toFixed(1)} M`;
+          }
+          return `${(val / 1_000_000).toFixed(1)} jt`;
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div style={{
+              width: 520,
+              background: 'white',
+              boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.28)',
+              overflow: 'hidden',
+              borderRadius: 22,
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '90vh',
+              animation: 'fadeIn 0.2s ease',
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '0.80px #E6E1D4 solid',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Edit Nilai Proyek</div>
+                  <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 400, fontSize: 12, color: '#9A948B', lineHeight: '18px' }}>{showInitBudget.nama}</div>
                 </div>
-              </div>
-
-              {/* Progress Realisasi Anggaran */}
-              <div className="border border-stone-100 rounded-2xl p-4 bg-white space-y-3 shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
-                <div className="flex justify-between items-center text-[12px] font-extrabold text-stone-900">
-                  <span>Realisasi Anggaran</span>
-                  <span className="font-mono text-[13px] font-black">{detailPercentUsed}%</span>
-                </div>
-                <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#00966c] rounded-full transition-all duration-500"
-                    style={{ width: `${detailBarWidth}%` }}
-                  />
-                </div>
-                <div className="flex justify-between items-center text-[11px] text-stone-450 font-medium font-mono">
-                  <span>Nilai Proyek <b className="text-stone-700 font-bold ml-0.5">{formatSummaryRupiah(detailTotalRAB)}</b></span>
-                  <span>Realisasi <b className="text-stone-700 font-bold ml-0.5">{formatSummaryRupiah(detailTotalTerpakai)}</b></span>
-                  <span>Sisa <b className="text-stone-700 font-bold ml-0.5">{formatSummaryRupiah(parseFloat(detailedProjectInfo?.budget?.sisaBudget || "0"))}</b></span>
-                </div>
-              </div>
-
-              {/* Breakdown Pos Anggaran Main */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[12px] font-bold text-stone-700">Breakdown Pos Anggaran Main</label>
-                  <button
-                    type="button"
-                    onClick={() => setPosAnggaranList([...posAnggaranList, { deskripsi: "", nominalAlokasi: "" }])}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold bg-[#e8f5e9] text-[#2d6a4f] px-2.5 py-1.5 rounded-lg hover:bg-[#c8e6c9] transition"
-                  >
-                    <Plus size={12} /> Tambah Main
-                  </button>
-                </div>
-
-                {/* List Items Alokasi Pos */}
-                <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-                  {posAnggaranList.map((pos, idx) => (
-                    <div key={idx} className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
-                      <input
-                        type="text"
-                        required
-                        value={pos.deskripsi}
-                        onChange={(e) => {
-                          const newList = [...posAnggaranList];
-                          newList[idx].deskripsi = e.target.value;
-                          setPosAnggaranList(newList);
-                        }}
-                        placeholder="Nama pos (cth. Material)"
-                        className="flex-1 border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] font-medium bg-white focus:outline-none focus:border-stone-400 uppercase placeholder-stone-300"
-                      />
-                      <div className="relative flex items-center w-44">
-                        <span className="absolute left-3 text-[12px] font-bold text-stone-400 font-mono">Rp</span>
-                        <input
-                          type="text"
-                          required
-                          value={pos.nominalAlokasi}
-                          onChange={(e) => {
-                            const newList = [...posAnggaranList];
-                            newList[idx].nominalAlokasi = formatRibuan(e.target.value);
-                            setPosAnggaranList(newList);
-                          }}
-                          placeholder="Alokasi (Rp)"
-                          className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[13px] bg-white font-mono text-stone-900 font-bold text-left focus:outline-none focus:border-stone-400 placeholder-stone-300"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setPosAnggaranList(posAnggaranList.filter((_, i) => i !== idx))}
-                        className="p-2 text-stone-400 hover:text-rose-600 rounded-xl hover:bg-stone-50 transition"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Banner Info Selisih Sisa Nilai Proyek */}
-              {(() => {
-                const totalTarget = ribuanToNumber(rabTotal);
-                const totalAllocated = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
-                const selisih = totalTarget - totalAllocated;
-
-                if (selisih > 0) {
-                  return (
-                    <div className="bg-[#fdf6ec] border border-[#f5ebd7] text-[#935a16] px-4 py-3.5 rounded-xl text-[12.5px] font-bold shadow-sm">
-                      Selisih: +Rp {formatRibuan(String(selisih))} (sisa nilai proyek belum dialokasikan)
-                    </div>
-                  );
-                } else if (selisih < 0) {
-                  return (
-                    <div className="bg-rose-50 border border-rose-100 text-rose-700 px-4 py-3.5 rounded-xl text-[12.5px] font-bold shadow-sm">
-                      Over Budget: Rp {formatRibuan(String(Math.abs(selisih)))} (alokasi melebihi total nilai proyek)
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* Error Alert dari API */}
-              {formError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2">
-                  <X size={14} />
-                  {formError}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-3 border-t border-stone-100">
                 <button
                   type="button"
                   onClick={() => setShowInitBudget(null)}
-                  className="flex-1 py-3 border border-stone-200 rounded-xl text-[13px] font-bold text-stone-600 hover:bg-stone-50 transition"
+                  style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="hover:bg-stone-100 transition"
                 >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 py-3 bg-stone-950 text-white text-[13px] font-bold rounded-xl hover:bg-stone-900 transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-                >
-                  {submitting && <Loader2 size={14} className="animate-spin" />}
-                  Simpan Perubahan
+                  <X size={16} color="#2C2A24" />
                 </button>
               </div>
-            </form>
+
+              {/* Form Body */}
+              <form onSubmit={handleInitBudget} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+                  {/* Total Nilai Proyek (Rupiah) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                    <div>
+                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                        Total Nilai Proyek (Rupiah) <span style={{ color: '#902F33' }}>*</span>
+                      </span>
+                    </div>
+                    <div style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      width: '100%',
+                      height: 40,
+                      background: 'white',
+                      borderRadius: 12,
+                      border: '1px solid #E6E1D4',
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                    }}>
+                      <span style={{ fontSize: 13.50, fontFamily: 'IBM Plex Mono', fontWeight: '400', color: '#14130F', marginRight: 4 }}>Rp</span>
+                      <input
+                        type="text"
+                        required
+                        value={rabTotal}
+                        onChange={(e) => setRabTotal(formatRibuan(e.target.value))}
+                        style={{
+                          flex: 1,
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          fontFamily: 'IBM Plex Mono',
+                          fontSize: 13.50,
+                          fontWeight: '400',
+                          color: '#14130F',
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Progress Card: Realisasi Anggaran */}
+                  <div style={{
+                    alignSelf: 'stretch',
+                    padding: 16,
+                    background: 'white',
+                    boxShadow: '0px 0px 0px 1px rgba(20, 18, 14, 0.04), 0px 1px 2px rgba(20, 18, 14, 0.05)',
+                    borderRadius: 16,
+                    border: '1.20px #E6E1D4 solid',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>Realisasi Anggaran</span>
+                      <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>{pctVal}%</span>
+                    </div>
+                    <div style={{ height: 8, background: '#F3F0E9', overflow: 'hidden', borderRadius: 999 }}>
+                      <div style={{ width: `${Math.min(pctVal, 100)}%`, height: '100%', background: '#009162', borderRadius: 999 }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3 }}>
+                        <span style={{ color: 'black', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '500' }}>Nilai Proyek</span>
+                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>Rp</span>
+                        <span style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>{formatMillions(totalVal)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3 }}>
+                        <span style={{ color: 'black', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '500' }}>Realisasi</span>
+                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>Rp</span>
+                        <span style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>{formatMillions(terpakaiVal)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+                        <span style={{ color: '#9A948B', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '400' }}>Sisa</span>
+                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>Rp</span>
+                        <span style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>{formatMillions(sisaVal)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Breakdown Main Budget List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                        Breakdown Pos Anggaran Main
+                      </span>
+                      <button
+                        type="button"
+                       onClick={() => setPosAnggaranList([...posAnggaranList, { deskripsi: "", nominalAlokasi: "" }])}
+                        style={{
+                          padding: '4px 10px',
+                          background: '#D5F4E3',
+                          borderRadius: 6,
+                          border: 'none',
+                          color: '#005836',
+                          fontSize: 11.50,
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                        className="hover:opacity-80 transition"
+                      >
+                        + Tambah Main
+                      </button>
+                    </div>
+
+                    {/* Real-time Summary Cards */}
+                    <div style={{
+                      alignSelf: 'stretch',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 16
+                    }}>
+                      {/* Card 1: Total Pos Teralokasi */}
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'white',
+                        borderRadius: 12,
+                        outline: '0.80px #E6E1D4 solid',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'flex-start',
+                        gap: 2
+                      }}>
+                        <div style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                          Total Pos Teralokasi
+                        </div>
+                        <div style={{ color: 'black', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>
+                          Rp {totalPosAllocated.toLocaleString("id-ID")}
+                        </div>
+                      </div>
+
+                      {/* Card 2: Sisa Pos Belum Dialokasikan / Overbudget */}
+                      <div style={{
+                        padding: '10px 12px',
+                        background: isOverbudget ? 'rgba(211, 108, 102, 0.05)' : 'white',
+                        borderRadius: 12,
+                        outline: isOverbudget ? '0.80px #D36C66 solid' : '0.80px #E6E1D4 solid',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'flex-start',
+                        gap: 2
+                      }}>
+                        <div style={{ color: isOverbudget ? '#D36C66' : '#14130F', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                          {isOverbudget ? 'Kelebihan Alokasi (Overbudget)' : 'Sisa Pos Belum Dialokasikan'}
+                        </div>
+                        <div style={{ color: isOverbudget ? '#D36C66' : 'black', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
+                          Rp {isOverbudget ? '-' : ''}{Math.abs(totalVal - totalPosAllocated).toLocaleString("id-ID")}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Scrollable list */}
+                    <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                      {posAnggaranList.map((pos, idx) => (
+                        <div key={idx} className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
+
+                          {/* SEBELUMNYA INPUT TEKS, SEKARANG MENJADI DROPDOWN SELECT */}
+                          <select
+                            required
+                            value={pos.deskripsi}
+                            onChange={(e) => {
+                              const newList = [...posAnggaranList];
+                              newList[idx].deskripsi = e.target.value;
+                              setPosAnggaranList(newList);
+                            }}
+                            className="flex-1 border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] font-medium bg-white focus:outline-none focus:border-stone-400 text-stone-700"
+                          >
+                            <option value="" disabled hidden>-- Pilih Nama Budget/Pos --</option>
+                            {masterBudgetOptions.map((optionName) => (
+                              <option key={optionName} value={optionName}>
+                                {optionName.toUpperCase()}
+                              </option>
+                            ))}
+                            {/* Opsi bawaan jika database master masih kosong */}
+                            {!masterBudgetOptions.includes("Akomodasi & Transportasi") && <option value="Akomodasi & Transportasi">AKOMODASI & TRANSPORTASI</option>}
+                            {!masterBudgetOptions.includes("Konsumsi") && <option value="Konsumsi">KONSUMSI</option>}
+                            {!masterBudgetOptions.includes("Perlengkapan & ATK") && <option value="Perlengkapan & ATK">PERLENGKAPAN & ATK</option>}
+                          </select>
+
+                          <div className="relative flex items-center w-44">
+                            <span className="absolute left-3 text-[12px] font-bold text-stone-400 font-mono">Rp</span>
+                            <input
+                              type="text"
+                              required
+                              value={pos.nominalAlokasi}
+                              onChange={(e) => {
+                                const newList = [...posAnggaranList];
+                                newList[idx].nominalAlokasi = formatRibuan(e.target.value);
+                                setPosAnggaranList(newList);
+                              }}
+                              placeholder="Alokasi (Rp)"
+                              className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[13px] bg-white font-mono text-stone-900 font-bold text-left focus:outline-none focus:border-stone-400 placeholder-stone-300"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPosAnggaranList(posAnggaranList.filter((_, i) => i !== idx))}
+                            className="p-2 text-stone-400 hover:text-rose-600 rounded-xl hover:bg-stone-50 transition"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Form Error Message */}
+                  {formError && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2" style={{ fontFamily: 'Plus Jakarta Sans' }}>
+                      <X size={14} />
+                      {formError}
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Footer Buttons */}
+                <div style={{
+                  alignSelf: 'stretch',
+                  padding: '14px 24px',
+                  borderTop: '0.80px #E6E1D4 solid',
+                  display: 'flex',
+                  gap: 8,
+                  background: 'white',
+                  flexShrink: 0
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowInitBudget(null)}
+                    style={{
+                      flex: 1,
+                      padding: '9px 14px',
+                      background: 'white',
+                      border: '0.80px solid #E6E1D4',
+                      borderRadius: 12,
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: '600',
+                      fontSize: 13,
+                      color: '#14130F',
+                      cursor: 'pointer'
+                    }}
+                    className="hover:bg-stone-50 transition"
+                  >
+                    Batalkan
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    style={{
+                      flex: 1,
+                      padding: '9px 14px',
+                      background: 'black',
+                      border: 'none',
+                      borderRadius: 12,
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: '600',
+                      fontSize: 13,
+                      color: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6
+                    }}
+                    className="hover:opacity-80 transition"
+                  >
+                    {submitting && <Loader2 size={13} className="animate-spin" />}
+                    Simpan Nilai Proyek
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL: DETAIL PROYEK SIDEBAR */}
       {showProjectDetail && !editMode && !isDirectEdit && (
@@ -1343,11 +1552,18 @@ export default function KelolaProyekPage() {
                         </h3>
                       </div>
 
+                      {/* Container for the 3 Premium Buttons */}
                       <div className="flex flex-col gap-2 pb-2">
                         <div className="flex gap-2 w-full">
+                          {/* Button 1: Pengajuan Pos PM */}
                           <button
                             type="button"
                             onClick={() => {
+                              const initial: Record<number, boolean> = {};
+                              (detailedProjectInfo?.pendingReimbursements || []).forEach((r: any) => {
+                                initial[r.id] = true;
+                              });
+                              setSelectedPendingIds(initial);
                               setShowPendingPmModal(true);
                             }}
                             className="flex-1 flex items-center justify-between px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer gap-2"
@@ -1361,6 +1577,7 @@ export default function KelolaProyekPage() {
                             </span>
                           </button>
 
+                          {/* Button 2: Edit Nilai Proyek */}
                           <button
                             type="button"
                             onClick={() => {
@@ -1386,6 +1603,7 @@ export default function KelolaProyekPage() {
                           </button>
                         </div>
 
+                        {/* Button 3: Lihat Detail Anggaran */}
                         <button
                           type="button"
                           onClick={() => {
@@ -1398,6 +1616,7 @@ export default function KelolaProyekPage() {
                         </button>
                       </div>
 
+                      {/* List Item Pos Anggaran Dinamis */}
                       {detailedProjectInfo?.budget?.posAnggaran ? (
                         <div className="space-y-6">
                           {detailedProjectInfo.budget.posAnggaran.map((pos: any, index: number) => {
@@ -1581,6 +1800,7 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
+      {/* --- TEMPAT BARU: POP-UP MODAL EDIT PROYEK DI TENGAH LAYAR --- */}
       {editMode && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -1646,209 +1866,446 @@ export default function KelolaProyekPage() {
       )}
 
       {/* --- POP-UP MODAL: DETAIL ANGGARAN --- */}
-      {showDetailBudgetModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[1040px] max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
+      {showDetailBudgetModal && (() => {
+        const formatMillionsShort = (num: number) => {
+          if (num >= 1e9) return `${(num / 1e9).toFixed(1)} M`;
+          if (num >= 1e6) return `${(num / 1e6).toFixed(1)} jt`;
+          if (num >= 1e3) return `${(num / 1e3).toFixed(1)} rb`;
+          return `${num.toFixed(1)}`;
+        };
 
-            {/* Header Modal */}
-            <div className="px-6 py-5 flex items-start justify-between flex-shrink-0">
-              <div className="flex flex-col gap-1">
-                <h3 className="font-extrabold text-[18px] text-stone-900 tracking-tight" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Detail Anggaran</h3>
-                <p className="text-[13.5px] text-stone-500 font-medium" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{detailedProjectInfo?.nama || "Nama Proyek"}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowDetailBudgetModal(false)}
-                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
+        const posAnggaran = detailedProjectInfo?.budget?.posAnggaran || [];
 
-            {/* Konten Utama */}
-            <div className="overflow-y-auto flex-1 px-6 pb-6">
-
-              {/* Batang Kolom Judul Tabel (Sesuai Gambar) */}
-              <div className="flex justify-between items-center py-2 border-b border-stone-200">
-                <span className="font-extrabold text-[10px] text-stone-400 tracking-wider uppercase" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>MAIN · SUB · KETERANGAN</span>
-                <div className="flex items-center text-right" style={{ width: 660, gap: 24 }}>
-                  <span className="w-64 font-extrabold text-[10px] text-stone-400 tracking-wider uppercase text-left" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Progress</span>
-                  <span className="w-44 font-extrabold text-[10px] text-stone-400 tracking-wider uppercase" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Alokasi</span>
-                  <span className="w-44 font-extrabold text-[10px] text-stone-400 tracking-wider uppercase" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Realisasi</span>
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+            <div style={{
+              width: 920,
+              background: 'white',
+              boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
+              borderRadius: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '85vh',
+              animation: 'fadeIn 0.2s ease',
+              textAlign: 'left'
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '22px 28px 18px 28px',
+                borderBottom: '0.80px #E6E1D4 solid',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexShrink: 0
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ color: '#14130F', fontSize: 19, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', lineHeight: '28.50px' }}>Detail Anggaran</div>
+                  <div style={{ color: '#6A6660', fontSize: 13, fontFamily: 'Plus Jakarta Sans', fontWeight: '400', lineHeight: '19.50px' }}>{detailedProjectInfo?.nama || "Pembangunan Gudang Cikarang Fase 2"}</div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDetailBudgetModal(false)}
+                  style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="hover:bg-stone-100 transition"
+                >
+                  <X size={16} color="#2C2A24" />
+                </button>
               </div>
 
-              {/* Tree Rows List */}
-              <div className="flex flex-col mt-3 divide-y divide-stone-100/60">
-                {detailedProjectInfo?.budget?.posAnggaran && detailedProjectInfo.budget.posAnggaran.length > 0 ? (
-                  detailedProjectInfo.budget.posAnggaran.map((pos: any, idxPos: number) => {
+              {/* Table Column Headers */}
+              <div style={{
+                alignSelf: 'stretch',
+                padding: '14px 40px 10px 40px',
+                borderBottom: '0.80px #E6E1D4 solid',
+                display: 'grid',
+                gridTemplateColumns: '384px 180px 150px 150px',
+                alignItems: 'center',
+                flexShrink: 0
+              }}>
+                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>MAIN · SUB · KETERANGAN</div>
+                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>PROGRESS</div>
+                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>ALOKASI</div>
+                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>REALISASI</div>
+              </div>
+
+              {/* Scrollable Content Area */}
+              <div style={{
+                flex: 1,
+                padding: '10px 28px 28px 28px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8
+              }}>
+                {posAnggaran.length > 0 ? (
+                  posAnggaran.map((pos: any, idxPos: number) => {
                     const alokasiPos = parseFloat(pos.nominalAlokasi) || 0;
                     const terpakaiPos = parseFloat(pos.nominalTerpakai) || 0;
                     const pctPos = alokasiPos > 0 ? Math.min((terpakaiPos / alokasiPos) * 100, 100) : 0;
                     const pctPosText = alokasiPos > 0 ? ((terpakaiPos / alokasiPos) * 100).toFixed(1) : '0.0';
 
-                    // Handler penentuan warna bar
-                    const mainBarColor = 'bg-[#00966c]';
+                    let mainBarColor = '#2F9E5E';
+                    if (pctPos >= 90) { mainBarColor = '#D36C66'; }
+                    else if (pctPos >= 75) { mainBarColor = '#D8953D'; }
+
                     const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
-                    const isMainOpen = expandedMain[idxPos] !== false;
+                    const isMainOpen = hasSub && expandedMain[idxPos] !== false;
 
                     return (
-                      <div key={pos.id || idxPos} className="py-2.5">
-
-                        {/* 1. LAYER MAIN (POS UTAMA) */}
+                      <div key={pos.id || idxPos} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {/* MAIN Row */}
                         <div
-                          className={`flex justify-between items-center py-2 px-2 hover:bg-stone-50/60 rounded-xl transition cursor-pointer`}
-                          onClick={() => setExpandedMain(prev => ({ ...prev, [idxPos]: !isMainOpen }))}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '384px 180px 150px 150px',
+                            alignItems: 'center',
+                            padding: '10px 12px',
+                            background: '#F6F4EF',
+                            borderRadius: 10,
+                            cursor: hasSub ? 'pointer' : 'default',
+                            userSelect: 'none'
+                          }}
+                          onClick={() => {
+                            if (hasSub) {
+                              setExpandedMain(prev => ({ ...prev, [idxPos]: !isMainOpen }));
+                            }
+                          }}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-stone-400 font-bold text-[10.5px] font-mono select-none w-10">▼ MAIN</span>
-                            <span className="font-extrabold text-[13.5px] text-stone-900 tracking-wide">{pos.namaPos || pos.deskripsi}</span>
+                          {/* Col 1: Name and badge */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {hasSub ? (
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 10 10"
+                                fill="none"
+                                style={{
+                                  flexShrink: 0,
+                                  transition: 'transform 0.15s ease',
+                                  transform: isMainOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
+                                }}
+                              >
+                                <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            ) : (
+                              <div style={{ width: 10 }} />
+                            )}
+                            <span style={{ background: '#E6E1D4', color: '#14130F', fontSize: 9.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', padding: '2px 6px', borderRadius: 4 }}>
+                              MAIN
+                            </span>
+                            <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {pos.namaPos || pos.deskripsi}
+                            </span>
                           </div>
 
-                          <div className="flex items-center text-right" style={{ width: 660, gap: 24 }}>
-                            {/* Progress Bar & Persentase */}
-                            <div className="w-64 flex items-center gap-3">
-                              <div className="flex-1 h-2 bg-stone-100 rounded-full overflow-hidden relative">
-                                <div className={`h-full ${mainBarColor} rounded-full`} style={{ width: `${pctPos}%` }} />
-                              </div>
-                              <span className="font-mono font-black text-[12px] text-[#00966c] w-12 text-right">{pctPosText}%</span>
+                          {/* Col 2: Progress */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
+                            <div style={{ flex: 1, height: 6, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
+                              <div style={{ width: `${pctPos}%`, height: '100%', background: mainBarColor, borderRadius: 99 }} />
                             </div>
-                            {/* Alokasi */}
-                            <div className="w-44 font-mono font-bold text-[13px] text-stone-900">
-                              {alokasiPos > 0 ? formatSummaryRupiah(alokasiPos) : "-"}
-                            </div>
-                            {/* Realisasi */}
-                            <div className="w-44 font-mono font-black text-[13px] text-stone-900">
-                              {formatSummaryRupiah(terpakaiPos)}
-                            </div>
+                            <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'right' }}>
+                              {pctPosText}%
+                            </span>
+                          </div>
+
+                          {/* Col 3: Alokasi */}
+                          <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
+                            Rp {formatMillionsShort(alokasiPos)}
+                          </div>
+
+                          {/* Col 4: Realisasi */}
+                          <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
+                            Rp {formatMillionsShort(terpakaiPos)}
                           </div>
                         </div>
 
-                        {/* 2. LAYER SUB (SUB ANGGERAN) */}
-                        {isMainOpen && pos.subAnggaran && pos.subAnggaran.map((sub: any, idxSub: number) => {
+                        {/* SUB Rows - only if parent MAIN is expanded */}
+                        {isMainOpen && pos.subAnggaran.map((sub: any, idxSub: number) => {
                           const alokasiSub = parseFloat(sub.nominalAlokasi) || 0;
                           const terpakaiSub = parseFloat(sub.nominalTerpakai) || 0;
                           const pctSub = alokasiSub > 0 ? Math.min((terpakaiSub / alokasiSub) * 100, 100) : 0;
                           const pctSubText = alokasiSub > 0 ? ((terpakaiSub / alokasiSub) * 100).toFixed(1) : '0.0';
 
+                          let subBarColor = '#2F9E5E';
+                          if (pctSub >= 90) { subBarColor = '#D36C66'; }
+                          else if (pctSub >= 75) { subBarColor = '#D8953D'; }
+
                           const subKey = `${idxPos}-${idxSub}`;
-                          const isSubOpen = expandedSub[subKey] !== false;
+                          const hasKet = sub.keterangan && sub.keterangan.length > 0;
+                          const isSubOpen = hasKet && expandedSub[subKey] !== false;
 
                           return (
-                            <div key={sub.id || idxSub} className="pl-6 mt-1">
+                            <div key={sub.id || idxSub} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {/* SUB Row */}
                               <div
-                                className="flex justify-between items-center py-2 px-2 hover:bg-stone-50/60 rounded-xl transition cursor-pointer"
-                                onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '384px 180px 150px 150px',
+                                  alignItems: 'center',
+                                  padding: '8px 12px',
+                                  background: 'white',
+                                  cursor: hasKet ? 'pointer' : 'default',
+                                  userSelect: 'none'
+                                }}
+                                onClick={() => {
+                                  if (hasKet) {
+                                    setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }));
+                                  }
+                                }}
+                                className="hover:bg-stone-50 transition"
                               >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-stone-400 font-bold text-[10.5px] font-mono select-none w-9">▼ SUB</span>
-                                  <span className="font-bold text-[13px] text-stone-800">· {sub.namaSub || sub.deskripsi}</span>
+                                {/* Col 1: Sub title */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 24 }}>
+                                  {hasKet ? (
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 10 10"
+                                      fill="none"
+                                      style={{
+                                        flexShrink: 0,
+                                        transition: 'transform 0.15s ease',
+                                        transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
+                                      }}
+                                    >
+                                      <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  ) : (
+                                    <div style={{ width: 10 }} />
+                                  )}
+                                  <span style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textTransform: 'uppercase' }}>
+                                    Sub
+                                  </span>
+                                  <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                    · {sub.namaSub}
+                                  </span>
                                 </div>
 
-                                <div className="flex items-center text-right" style={{ width: 660, gap: 24 }}>
-                                  <div className="w-64 flex items-center gap-3">
-                                    <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden relative">
-                                      <div className="h-full bg-[#00966c] rounded-full" style={{ width: `${pctSub}%` }} />
-                                    </div>
-                                    <span className="font-mono font-bold text-[11.5px] text-[#00966c] w-12 text-right">{pctSubText}%</span>
+                                {/* Col 2: Progress */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
+                                  <div style={{ flex: 1, height: 6, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
+                                    <div style={{ width: `${pctSub}%`, height: '100%', background: subBarColor, borderRadius: 99 }} />
                                   </div>
-                                  <div className="w-44 font-mono font-medium text-[12.5px] text-stone-600">
-                                    {alokasiSub > 0 ? formatSummaryRupiah(alokasiSub) : "-"}
-                                  </div>
-                                  <div className="w-44 font-mono font-bold text-[12.5px] text-stone-750">
-                                    {formatSummaryRupiah(terpakaiSub)}
-                                  </div>
+                                  <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'right' }}>
+                                    {pctSubText}%
+                                  </span>
+                                </div>
+
+                                {/* Col 3: Alokasi */}
+                                <div style={{ color: '#14130F', fontSize: 12, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                  Rp {formatMillionsShort(alokasiSub)}
+                                </div>
+
+                                {/* Col 4: Realisasi */}
+                                <div style={{ color: '#14130F', fontSize: 12, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                  Rp {formatMillionsShort(terpakaiSub)}
                                 </div>
                               </div>
 
-                              {/* 3. LAYER KET (KETERANGAN & DETAIL REALISASI REIMBURSEMENT) */}
-                              {isSubOpen && sub.keterangan && sub.keterangan.map((ket: any, idxKet: number) => {
+                              {/* KET Rows - only if sub is expanded */}
+                              {isSubOpen && sub.keterangan.map((ket: any, idxKet: number) => {
                                 const alokasiKet = parseFloat(ket.nominalAlokasi) || 0;
                                 const realisasiKet = parseFloat(ket.nominalRealisasi) || 0;
+                                const pctKet = alokasiKet > 0 ? ((realisasiKet / alokasiKet) * 100).toFixed(1) : '0.0';
+
+                                const childReimbursements = ket.reimbursements || [];
+                                const approvedReimbs = childReimbursements.filter((r: any) => r.status === 'APPROVED' || r.status === 'PAID' || r.status === 'DISBURSED');
+                                const hasReimbs = approvedReimbs.length > 0;
+                                const ketKey = `${subKey}-${idxKet}`;
+                                const isKetOpen = hasReimbs && expandedKet[ketKey] !== false;
 
                                 return (
-                                  <div key={ket.id || idxKet} className="pl-10 mt-0.5 space-y-1">
-                                    <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-stone-50/40 transition">
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-stone-350 font-bold text-[10px] font-mono select-none">KET</span>
-                                        <span className="text-[12.5px] text-stone-500 font-medium">· {ket.keterangan}</span>
+                                  <div key={ket.id || idxKet} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    {/* KET Row */}
+                                    <div
+                                      style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '384px 180px 150px 150px',
+                                        alignItems: 'center',
+                                        padding: '6px 12px',
+                                        background: 'white',
+                                        cursor: hasReimbs ? 'pointer' : 'default',
+                                        userSelect: 'none'
+                                      }}
+                                      onClick={() => {
+                                        if (hasReimbs) {
+                                          setExpandedKet(prev => ({ ...prev, [ketKey]: !isKetOpen }));
+                                        }
+                                      }}
+                                      className={hasReimbs ? "hover:bg-stone-50 transition" : ""}
+                                    >
+                                      {/* Col 1 */}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 48 }}>
+                                        {hasReimbs ? (
+                                          <svg
+                                            width="10"
+                                            height="10"
+                                            viewBox="0 0 10 10"
+                                            fill="none"
+                                            style={{
+                                              flexShrink: 0,
+                                              transition: 'transform 0.15s ease',
+                                              transform: isKetOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
+                                            }}
+                                          >
+                                            <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                          </svg>
+                                        ) : (
+                                          <div style={{ width: 10 }} />
+                                        )}
+                                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textTransform: 'uppercase' }}>
+                                          Ket
+                                        </span>
+                                        <span style={{ color: '#6A6660', fontSize: 12, fontFamily: 'Plus Jakarta Sans', fontWeight: '400', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                          · {ket.keterangan}
+                                        </span>
                                       </div>
 
-                                      <div className="flex items-center text-right" style={{ width: 660, gap: 24 }}>
-                                        <div className="w-64" /> {/* Spacer untuk kolom progress */}
-                                        <div className="w-44 font-mono text-[12px] text-stone-400">
-                                          {alokasiKet > 0 ? formatSummaryRupiah(alokasiKet) : "-"}
-                                        </div>
-                                        <div className="w-44 font-mono text-[12px] text-stone-500 font-medium">
-                                          {formatSummaryRupiah(realisasiKet)}
-                                        </div>
+                                      {/* Col 2 (Blank for Keterangan) */}
+                                      <div />
+
+                                      {/* Col 3 */}
+                                      <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                        Rp {formatMillionsShort(alokasiKet)}
+                                      </div>
+
+                                      {/* Col 4 */}
+                                      <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                        Rp {formatMillionsShort(realisasiKet)}
                                       </div>
                                     </div>
 
-                                    {/* 4. LAYER SUB-REIMBURSEMENT (LOG PERTANGGUNGJAWABAN JIKA ADA) */}
-                                    {ket.reimbursements && ket.reimbursements.map((reimb: any, idxReimb: number) => (
-                                      <div key={reimb.id || idxReimb} className="flex justify-between items-center py-1 pl-8 pr-2 bg-stone-50/40 rounded-lg text-[11.5px]">
-                                        <div className="flex items-center gap-3">
-                                          <span className="px-1.5 py-0.5 font-mono font-bold text-[9px] bg-sky-50 text-sky-700 border border-sky-200/60 rounded">REIMB</span>
-                                          <span className="text-stone-400 font-medium">
-                                            - {reimb.user?.nama || "User"} - {reimb.tanggal ? new Date(reimb.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ""}
-                                          </span>
-                                          {reimb.status === "APPROVED" && (
-                                            <span className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                    {/* Approved Reimbursements list under this Keterangan */}
+                                    {isKetOpen && approvedReimbs.map((reimb: any) => {
+                                      const itemDate = reimb.createdAt || reimb.timestamp || new Date();
+                                      const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                      const nominalReimb = reimb.nominal || 0;
+
+                                      return (
+                                        <div key={reimb.id} style={{
+                                          display: 'grid',
+                                          gridTemplateColumns: '384px 180px 150px 150px',
+                                          alignItems: 'center',
+                                          padding: '4px 12px',
+                                          background: 'rgba(0, 145, 98, 0.02)'
+                                        }}>
+                                          {/* Col 1 */}
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 72 }}>
+                                            <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textTransform: 'uppercase' }}>
+                                              Reimb
+                                            </span>
+                                            <span style={{ color: '#9A948B', fontSize: 11.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '400', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                              · {reimb.user?.nama || 'Karyawan'} · {formattedDate}
+                                            </span>
+                                            <span style={{
+                                              padding: '2px 8px',
+                                              background: 'rgba(0, 145, 98, 0.12)',
+                                              borderRadius: 999,
+                                              color: '#005836',
+                                              fontSize: 10,
+                                              fontFamily: 'Plus Jakarta Sans',
+                                              fontWeight: '600'
+                                            }}>
                                               Dicairkan
                                             </span>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center text-right" style={{ width: 660, gap: 24 }}>
-                                          <div className="w-64" />
-                                          <div className="w-44" />
-                                          <div className="w-44 font-mono text-[11.5px] text-stone-450">
-                                            {formatSummaryRupiah(parseFloat(reimb.nominal))}
+                                          </div>
+
+                                          {/* Col 2 */}
+                                          <div />
+
+                                          {/* Col 3 */}
+                                          <div />
+
+                                          {/* Col 4 */}
+                                          <div style={{ color: '#6A6660', fontSize: 11, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                            Rp {formatMillionsShort(nominalReimb)}
                                           </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 );
                               })}
                             </div>
                           );
                         })}
-
                       </div>
                     );
                   })
                 ) : (
-                  <div className="py-20 text-center text-stone-400 font-medium text-xs border border-dashed border-stone-200 rounded-2xl mt-4">
-                    Belum ada struktur detail budget terkonfigurasi.
+                  <div style={{ padding: '60px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12 }}>
+                    <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Data Anggaran Kosong</div>
+                    <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Belum ada data nilai proyek atau pos anggaran yang diinisialisasi.</div>
                   </div>
                 )}
               </div>
 
-            </div>
+              {/* Footer */}
+              <div style={{
+                padding: '14px 28px',
+                borderTop: '0.80px #E6E1D4 solid',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                flexShrink: 0,
+                background: 'white'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDetailBudgetModal(false)}
+                  style={{
+                    padding: '9px 24px',
+                    background: 'black',
+                    borderRadius: 12,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: 'white',
+                    textAlign: 'center',
+                  }}
+                  className="hover:opacity-80 transition"
+                >
+                  Tutup
+                </button>
+              </div>
 
-            {/* Tombol Aksi Bawah */}
-            <div className="p-4 border-t border-stone-100 bg-stone-50/50 flex justify-end flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowDetailBudgetModal(false)}
-                className="px-6 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-[13px] font-bold rounded-xl transition cursor-pointer"
-              >
-                Tutup
-              </button>
             </div>
-
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* --- POP-UP MODAL: PENGAJUAN PM PENDING --- */}
       {showPendingPmModal && (() => {
         const submissions = detailedProjectInfo?.pendingReimbursements || [];
+        const mainAnggaranList = detailedProjectInfo?.budget?.mainAnggaran || [];
+
+        // Checkbox states
+        const anySelected = submissions.some((r: any) => selectedPendingIds[r.id]);
+        const selectedCount = submissions.filter((r: any) => selectedPendingIds[r.id]).length;
+
+        const handleToggleAllSelect = () => {
+          const next: Record<number, boolean> = {};
+          const setTo = !anySelected;
+          submissions.forEach((r: any) => {
+            next[r.id] = setTo;
+          });
+          setSelectedPendingIds(next);
+        };
+
+        const handleBulkApprove = async () => {
+          const selectedIds = Object.keys(selectedPendingIds)
+            .map(Number)
+            .filter(id => selectedPendingIds[id]);
+          if (selectedIds.length === 0) return;
+          await handleBulkProcess(selectedIds, 'APPROVE');
+        };
+
         return (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: 'rgba(20, 18, 14, 0.60)' }}>
             <div style={{
-              width: 560,
+              width: 820,
+              height: 680,
               maxHeight: '85vh',
               background: 'white',
               boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
@@ -1883,133 +2340,337 @@ export default function KelolaProyekPage() {
               </div>
 
               {/* Body */}
-              <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {submissions.length > 0 ? submissions.map((r: any, index: number) => {
-                  const mainName = r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
-                    || r.subAnggaran?.mainAnggaran?.namaMain
-                    || r.posAnggaran?.namaPos
-                    || 'N/A';
-                  const subName = r.keteranganAnggaran?.subAnggaran?.namaSub
-                    || r.subAnggaran?.namaSub
-                    || null;
-                  const ketName = r.keteranganAnggaran?.keterangan
-                    || r.deskripsi
-                    || 'N/A';
-                  const isNewSub = !r.keteranganAnggaran && r.subAnggaran && !r.subAnggaran.id;
-                  const isNewKet = !!r.keteranganAnggaran && !r.keteranganAnggaran.id;
+              <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {submissions.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {/* Toggle All Select / "Batalkan Semua (n)" */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                      <button
+                        type="button"
+                        onClick={handleToggleAllSelect}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: 7,
+                          border: '1px solid #009162',
+                          background: anySelected ? 'rgba(0, 145, 98, 0.05)' : 'white',
+                          display: 'inline-flex',
+                          cursor: 'pointer',
+                          fontFamily: "'Plus Jakarta Sans', sans-serif",
+                          fontWeight: 600,
+                          fontSize: 11.5,
+                          color: '#005836'
+                        }}
+                        className="hover:opacity-80 transition"
+                      >
+                        {anySelected ? `Batalkan Semua (${selectedCount})` : `Pilih Semua (${submissions.length})`}
+                      </button>
+                    </div>
 
-                  const itemDate = r.createdAt || r.timestamp || new Date();
-                  const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                  const submitterName = r.user?.nama || 'Karyawan';
-                  const nominal = r.nominal || 0;
+                    {/* Hierarchy table container */}
+                    <div style={{ borderRadius: 10, border: '1px solid #E6E1D4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                      {mainAnggaranList.map((main: any, gi: number) => {
+                        // Filter pending submissions belonging to this MAIN category
+                        const mainPending = submissions.filter((r: any) => {
+                          const rMainId = r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.id
+                            || r.subAnggaran?.mainAnggaran?.id
+                            || r.posAnggaran?.id;
+                          return rMainId === main.id;
+                        });
 
-                  return (
-                    <div key={r.id || index} style={{
-                      padding: 14,
-                      borderRadius: 12,
-                      border: '0.80px solid #E6E1D4',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 0,
-                      background: 'white',
-                    }}>
-                      {/* Top row: breadcrumb + status badge */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, marginRight: 12 }}>
-                          {/* Breadcrumb */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 10.5, color: '#9A948B', letterSpacing: 0.42, lineHeight: '15.75px' }}>{mainName}</span>
-                            {subName && <>
-                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ flexShrink: 0 }}><path d="M2 1.5L5.5 4L2 6.5" stroke="#9A948B" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 10.5, color: isNewSub ? '#005836' : '#9A948B', letterSpacing: 0.42, lineHeight: '15.75px' }}>{isNewSub ? 'SUB BARU' : subName}</span>
-                            </>}
-                            {ketName && ketName !== 'N/A' && !isNewSub && <>
-                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ flexShrink: 0 }}><path d="M2 1.5L5.5 4L2 6.5" stroke="#9A948B" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 10.5, color: isNewKet ? '#005D8D' : '#9A948B', letterSpacing: 0.42, lineHeight: '15.75px' }}>{isNewKet ? 'KETERANGAN BARU' : ketName}</span>
-                            </>}
-                          </div>
-                          {/* Item name */}
-                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: '#14130F', lineHeight: '21px' }}>
-                            {isNewSub ? subName : isNewKet ? ketName : (ketName !== 'N/A' ? ketName : subName)}
-                          </div>
-                        </div>
-                        {/* Status badge */}
-                        <div style={{ padding: '3px 9px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 999, flexShrink: 0 }}>
-                          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 10.5, color: '#894C06', lineHeight: '15.75px' }}>Menunggu</span>
-                        </div>
-                      </div>
+                        const subAnggarans = main.subAnggaran || [];
 
-                      {/* Deskripsi */}
-                      {r.keterangan && (
-                        <div style={{ paddingTop: 8 }}>
-                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#6A6660', lineHeight: '18.75px' }}>{r.keterangan}</div>
-                        </div>
-                      )}
+                        // If this main has no sub budgets AND no pending submissions, we don't display it to keep clean
+                        if (subAnggarans.length === 0 && mainPending.length === 0) return null;
 
-                      {/* Footer row: submitter + nominal */}
-                      <div style={{ paddingTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11.5, color: '#9A948B', lineHeight: '17.25px' }}>
-                          Diajukan oleh{' '}
-                          <span style={{ fontWeight: 700, color: '#2C2A24' }}>{submitterName}</span>
-                          <span style={{ color: '#9A948B' }}> · {formattedDate}</span>
-                        </div>
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 11.5, color: '#2C2A24', lineHeight: '17.25px' }}>
-                          Rp {(nominal / 1_000_000).toFixed(1)} jt
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div style={{ paddingTop: 10 }}>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button
-                            type="button"
-                            onClick={() => handleProcessReimbursement(r.id, 'APPROVE')}
-                            style={{
-                              flex: 1,
-                              padding: '6px 10px',
-                              background: '#14130F',
-                              borderRadius: 12,
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontFamily: "'Plus Jakarta Sans', sans-serif",
-                              fontWeight: 600,
-                              fontSize: 12.5,
-                              color: '#FBFAF6',
-                            }}
-                            className="hover:opacity-80 transition"
-                          >
-                            Setujui
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setRejectingReimbursement(r); setRejectionReason(""); }}
-                            style={{
-                              flex: 1,
-                              padding: '6px 10px',
+                        return (
+                          <div key={main.id} style={{ borderBottom: gi < mainAnggaranList.length - 1 ? '1px solid #E6E1D4' : 'none' }}>
+                            {/* Group Header (MAIN) */}
+                            <div style={{
+                              padding: '9px 12px',
                               background: 'white',
-                              borderRadius: 12,
-                              border: '0.80px solid #E6E1D4',
-                              cursor: 'pointer',
+                              borderBottom: '1px solid #E6E1D4',
                               fontFamily: "'Plus Jakarta Sans', sans-serif",
-                              fontWeight: 600,
+                              fontWeight: 700,
                               fontSize: 12.5,
                               color: '#14130F',
-                            }}
-                            className="hover:bg-stone-50 transition"
-                          >
-                            Tidak Setujui
-                          </button>
-                        </div>
-                      </div>
+                            }}>
+                              {main.namaMain}
+                            </div>
+
+                            {/* Render existing sub budgets tree first */}
+                            {subAnggarans.map((sub: any) => {
+                              // Find any pending keterangan item under this existing sub
+                              const childPendingKets = mainPending.filter((r: any) => {
+                                return r.keteranganAnggaran?.subAnggaranId === sub.id && !!r.keteranganAnggaran;
+                              });
+
+                              const subKey = `modal-sub-${sub.id}`;
+                              const isSubOpen = expandedSub[subKey] !== false;
+
+                              return (
+                                <div key={sub.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                                  {/* Existing subbudget row */}
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      padding: '7px 12px 7px 14px',
+                                      borderBottom: (childPendingKets.length > 0 && isSubOpen) ? '1px solid #E6E1D4' : 'none',
+                                      background: 'white',
+                                      cursor: 'pointer',
+                                      userSelect: 'none',
+                                    }}
+                                    onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
+                                    className="hover:bg-stone-50 transition"
+                                  >
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 10 10"
+                                      fill="none"
+                                      style={{
+                                        marginRight: 8,
+                                        flexShrink: 0,
+                                        transition: 'transform 0.15s ease',
+                                        transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
+                                      }}
+                                    >
+                                      <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    <span style={{ flex: 1, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 12, color: '#14130F' }}>
+                                      {sub.namaSub}
+                                    </span>
+                                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 400, fontSize: 11, color: '#9A948B' }}>
+                                      Rp {Number(sub.nominalAlokasi).toLocaleString('id-ID')}
+                                    </span>
+                                  </div>
+
+                                  {/* Render child pending items (KETERANGAN BARU) under this subbudget if it is expanded */}
+                                  {isSubOpen && childPendingKets.map((r: any) => {
+                                    const isChecked = !!selectedPendingIds[r.id];
+                                    const itemDate = r.createdAt || r.timestamp || new Date();
+                                    const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                    const submitterName = r.user?.nama || 'Karyawan';
+                                    const nominal = r.nominal || 0;
+
+                                    return (
+                                      <div key={r.id} style={{
+                                        background: isChecked ? '#D5F4E3' : 'white',
+                                        borderBottom: '1px solid #E6E1D4',
+                                        padding: '7px 12px 7px 34px', // further indented
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 8,
+                                        transition: 'background-color 0.2s ease',
+                                      }}>
+                                        {/* Checkbox */}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
+                                          }}
+                                          style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                        >
+                                          <div style={{
+                                            width: 14,
+                                            height: 14,
+                                            borderRadius: 4,
+                                            background: isChecked ? '#009162' : 'white',
+                                            border: isChecked ? 'none' : '1.20px solid #E6E1D4',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                          }}>
+                                            {isChecked && (
+                                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                                <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </button>
+
+                                        {/* Info */}
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                            <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                              KETERANGAN BARU
+                                            </span>
+                                            <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                              {r.keteranganAnggaran?.keterangan || r.deskripsi}
+                                            </span>
+                                            <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                              MENUNGGU
+                                            </span>
+                                          </div>
+                                          {r.keterangan && r.keterangan !== 'N/A' && (
+                                            <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
+                                              &ldquo;{r.keterangan}&rdquo;
+                                            </div>
+                                          )}
+                                          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                            Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                                          </div>
+                                        </div>
+
+                                        {/* Nominal */}
+                                        <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                          Rp {Number(nominal).toLocaleString('id-ID')}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+
+                            {/* Render pending categories that are SUB BARU directly under Main header */}
+                            {mainPending.filter((r: any) => !r.keteranganAnggaran && r.subAnggaran).map((r: any) => {
+                              const isChecked = !!selectedPendingIds[r.id];
+                              const subName = r.subAnggaran?.namaSub || 'Sub Baru';
+                              const itemDate = r.createdAt || r.timestamp || new Date();
+                              const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                              const submitterName = r.user?.nama || 'Karyawan';
+                              const nominal = r.nominal || 0;
+
+                              return (
+                                <div key={r.id} style={{
+                                  background: isChecked ? '#D5F4E3' : 'white',
+                                  borderBottom: '1px solid #E6E1D4',
+                                  padding: '7px 12px 7px 14px',
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: 8,
+                                  transition: 'background-color 0.2s ease',
+                                }}>
+                                  {/* Checkbox */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                  >
+                                    <div style={{
+                                      width: 14,
+                                      height: 14,
+                                      borderRadius: 4,
+                                      background: isChecked ? '#009162' : 'white',
+                                      border: isChecked ? 'none' : '1.20px solid #E6E1D4',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}>
+                                      {isChecked && (
+                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                          <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                  </button>
+
+                                  {/* Info */}
+                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                      <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                        SUB BARU
+                                      </span>
+                                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                        {subName}
+                                      </span>
+                                      <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                        MENUNGGU
+                                      </span>
+                                    </div>
+                                    {r.keterangan && r.keterangan !== 'N/A' && (
+                                      <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
+                                        &ldquo;{r.keterangan}&rdquo;
+                                      </div>
+                                    )}
+                                    <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                      Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                                    </div>
+                                  </div>
+
+                                  {/* Nominal */}
+                                  <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                    Rp {Number(nominal).toLocaleString('id-ID')}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                }) : (
+                  </div>
+                ) : (
                   <div style={{ padding: '48px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12 }}>
                     <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Tidak Ada Pengajuan PM Pending</div>
                     <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan yang menunggu persetujuan Project Manager.</div>
                   </div>
                 )}
               </div>
+
+              {/* Bottom bulk selected summary bar */}
+              {selectedCount > 0 && (
+                <div style={{
+                  alignSelf: 'stretch',
+                  background: '#D5F4E3',
+                  padding: '12px 24px',
+                  borderTop: '0.80px #E6E1D4 solid',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexShrink: 0
+                }}>
+                  <div style={{ color: '#005836', fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                    {selectedCount} pos dipilih
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const itemsToReject = submissions.filter((r: any) => selectedPendingIds[r.id]);
+                        setRejectingReimbursement(itemsToReject); // pass list of items to reject
+                        setRejectionReason("");
+                      }}
+                      style={{
+                        padding: '9px 14px',
+                        background: 'white',
+                        border: '0.80px solid #E6E1D4',
+                        borderRadius: 12,
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: '#14130F',
+                        cursor: 'pointer'
+                      }}
+                      className="hover:bg-stone-50 transition"
+                    >
+                      Tolak Terpilih ({selectedCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBulkApprove}
+                      style={{
+                        padding: '9px 14px',
+                        background: 'black',
+                        border: 'none',
+                        borderRadius: 12,
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: 'white',
+                        cursor: 'pointer'
+                      }}
+                      className="hover:opacity-80 transition"
+                    >
+                      Setujui Terpilih ({selectedCount})
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Footer */}
               <div style={{
@@ -2025,17 +2686,17 @@ export default function KelolaProyekPage() {
                   style={{
                     flex: 1,
                     padding: '9px 14px',
-                    background: 'black',
+                    background: 'white',
                     borderRadius: 12,
-                    border: 'none',
+                    border: '0.80px solid #E6E1D4',
                     cursor: 'pointer',
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
                     fontWeight: 600,
                     fontSize: 13,
-                    color: 'white',
+                    color: '#14130F',
                     textAlign: 'center',
                   }}
-                  className="hover:opacity-80 transition"
+                  className="hover:bg-stone-50 transition"
                 >
                   Tutup
                 </button>
@@ -2043,20 +2704,25 @@ export default function KelolaProyekPage() {
 
               {/* Tolak Pengajuan Confirmation Overlay Modal */}
               {rejectingReimbursement && (() => {
-                const mainName = rejectingReimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
-                  || rejectingReimbursement.subAnggaran?.mainAnggaran?.namaMain
-                  || rejectingReimbursement.posAnggaran?.namaPos
-                  || 'N/A';
-                const subName = rejectingReimbursement.keteranganAnggaran?.subAnggaran?.namaSub
-                  || rejectingReimbursement.subAnggaran?.namaSub
-                  || null;
-                const ketName = rejectingReimbursement.keteranganAnggaran?.keterangan
-                  || rejectingReimbursement.deskripsi
-                  || 'N/A';
-                const isNewSub = !rejectingReimbursement.keteranganAnggaran && rejectingReimbursement.subAnggaran && !rejectingReimbursement.subAnggaran.id;
-                const isNewKet = !!rejectingReimbursement.keteranganAnggaran && !rejectingReimbursement.keteranganAnggaran.id;
+                const isArray = Array.isArray(rejectingReimbursement);
+                const itemsList = isArray ? rejectingReimbursement : [rejectingReimbursement];
 
-                const displayName = isNewSub ? subName : isNewKet ? ketName : (ketName !== 'N/A' ? ketName : subName);
+                // Construct displaying subtitle
+                let subtitle = "";
+                if (itemsList.length === 1) {
+                  const singleItem = itemsList[0];
+                  const subName = singleItem.keteranganAnggaran?.subAnggaran?.namaSub
+                    || singleItem.subAnggaran?.namaSub
+                    || null;
+                  const ketName = singleItem.keteranganAnggaran?.keterangan
+                    || singleItem.deskripsi
+                    || 'N/A';
+                  const isNewSub = !singleItem.keteranganAnggaran && singleItem.subAnggaran && !singleItem.subAnggaran.id;
+                  const isNewKet = !!singleItem.keteranganAnggaran && !singleItem.keteranganAnggaran.id;
+                  subtitle = isNewSub ? subName : isNewKet ? ketName : (ketName !== 'N/A' ? ketName : subName);
+                } else {
+                  subtitle = `${itemsList.length} pengajuan terpilih`;
+                }
 
                 return (
                   <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: 'rgba(20, 18, 14, 0.60)' }}>
@@ -2081,7 +2747,7 @@ export default function KelolaProyekPage() {
                       }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Tolak Pengajuan</div>
-                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#6A6660', lineHeight: '18.75px' }}>{displayName}</div>
+                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#6A6660', lineHeight: '18.75px' }}>{subtitle}</div>
                         </div>
                         <button
                           type="button"
@@ -2147,12 +2813,13 @@ export default function KelolaProyekPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             if (!rejectionReason.trim()) {
                               alert("Alasan penolakan wajib diisi");
                               return;
                             }
-                            handleProcessReimbursement(rejectingReimbursement.id, 'REJECT', rejectionReason);
+                            const ids = itemsList.map((item: any) => item.id);
+                            await handleBulkProcess(ids, 'REJECT', rejectionReason);
                           }}
                           style={{
                             flex: 1,
