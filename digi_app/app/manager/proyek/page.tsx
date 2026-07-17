@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import { FolderPlus, Loader2, Check, X, Calendar, Briefcase, DollarSign, Plus, Trash2, Settings, ArrowUpRight, ArrowDownLeft, Receipt, Eye, ClipboardList } from "lucide-react";
@@ -161,7 +161,7 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (res.ok) {
         alert(action === 'APPROVE' ? "Pengajuan reimbursement berhasil disetujui!" : "Pengajuan reimbursement ditolak.");
-        
+
         // Reset rejection states
         setRejectingReimbursement(null);
         setRejectionReason("");
@@ -200,11 +200,11 @@ export default function KelolaProyekPage() {
           })
         )
       );
-      
+
       const allOk = results.every(res => res.ok);
       if (allOk) {
         alert(action === 'APPROVE' ? `Berhasil menyetujui ${ids.length} pengajuan!` : `Berhasil menolak ${ids.length} pengajuan.`);
-        
+
         // Reset rejection states
         setRejectingReimbursement(null);
         setRejectionReason("");
@@ -1069,7 +1069,7 @@ export default function KelolaProyekPage() {
               {/* Form Body */}
               <form onSubmit={handleInitBudget} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
-                  
+
                   {/* Total Nilai Proyek (Rupiah) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
                     <div>
@@ -1105,7 +1105,7 @@ export default function KelolaProyekPage() {
                           fontWeight: '400',
                           color: '#14130F',
                         }}
-                        placeholder="6.200.000.000"
+                        placeholder="0"
                       />
                     </div>
                   </div>
@@ -2740,7 +2740,7 @@ export default function KelolaProyekPage() {
               {rejectingReimbursement && (() => {
                 const isArray = Array.isArray(rejectingReimbursement);
                 const itemsList = isArray ? rejectingReimbursement : [rejectingReimbursement];
-                
+
                 // Construct displaying subtitle
                 let subtitle = "";
                 if (itemsList.length === 1) {
