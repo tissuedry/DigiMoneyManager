@@ -35,7 +35,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 include: {
                   subAnggaran: {
                     include: {
-                      keterangan: true,
+                      keterangan: {
+                        include: {
+                          reimbursements: {
+                            include: {
+                              user: {
+                                select: {
+                                  nama: true,
+                                },
+                              },
+                            },
+                            orderBy: {
+                              id: 'desc',
+                            },
+                          },
+                        },
+                      },
                     },
                   },
                 },
