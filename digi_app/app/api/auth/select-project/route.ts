@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
     // 5. Clear caches — project switch changes dashboard + me data
     clearCache(`me:${userIdStr}`);
     clearCache('dashboard:');
+    clearCache('proyek:');
 
     // 6. Create Response
     const redirectUrl = primaryRole === 'Project Manager' ? '/pm' : '/karyawan';

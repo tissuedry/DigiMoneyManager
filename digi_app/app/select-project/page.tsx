@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Briefcase, ChevronRight, LogOut, Loader2, FolderOpen, AlertCircle, Search, X } from 'lucide-react';
 import Image from 'next/image';
+import { useQueryClient } from '@tanstack/react-query';
 
 type ProjectAssignment = {
   proyekId: number;
@@ -25,6 +26,8 @@ export default function SelectProjectPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [selectingId, setSelectingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -62,6 +65,7 @@ export default function SelectProjectPage() {
       if (!res.ok) {
         throw new Error(data.message || 'Gagal memilih proyek');
       }
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'], refetchType: 'all' });
       // Redirect to dashboard
       router.push(data.redirectUrl);
       router.refresh();
