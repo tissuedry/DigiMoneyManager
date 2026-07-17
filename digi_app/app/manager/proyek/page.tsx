@@ -563,8 +563,8 @@ export default function KelolaProyekPage() {
     }
 
     const sum = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
-    if (Math.abs(sum - total) > 0.01) {
-      setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString("id-ID")}) harus sama dengan total Nilai Proyek (Rp ${total.toLocaleString("id-ID")})`);
+    if (sum > total) {
+      setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString("id-ID")}) tidak boleh melebihi total Nilai Proyek (Rp ${total.toLocaleString("id-ID")})`);
       return;
     }
 
@@ -1014,10 +1014,14 @@ export default function KelolaProyekPage() {
       {/* MODAL: INISIALISASI / EDIT Nilai Proyek */}
       {showInitBudget && (() => {
         // Calculate progress bar and remaining budget metrics dynamically
-        const totalVal = ribuanToNumber(rabTotal) || 1;
+        const totalVal = ribuanToNumber(rabTotal) || 0;
         const terpakaiVal = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
         const pctVal = totalVal > 0 ? Math.round((terpakaiVal / totalVal) * 100) : 0;
         const sisaVal = Math.max(0, totalVal - terpakaiVal);
+
+        // Real-time calculations for Main budget allocations
+        const totalPosAllocated = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
+        const isOverbudget = totalPosAllocated > totalVal;
 
         const formatMillions = (val: number) => {
           if (val >= 1_000_000_000) {
@@ -1168,6 +1172,54 @@ export default function KelolaProyekPage() {
                       >
                         + Tambah Main
                       </button>
+                    </div>
+
+                    {/* Real-time Summary Cards */}
+                    <div style={{
+                      alignSelf: 'stretch',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 16
+                    }}>
+                      {/* Card 1: Total Pos Teralokasi */}
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'white',
+                        borderRadius: 12,
+                        outline: '0.80px #E6E1D4 solid',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'flex-start',
+                        gap: 2
+                      }}>
+                        <div style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                          Total Pos Teralokasi
+                        </div>
+                        <div style={{ color: 'black', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>
+                          Rp {totalPosAllocated.toLocaleString("id-ID")}
+                        </div>
+                      </div>
+
+                      {/* Card 2: Sisa Pos Belum Dialokasikan / Overbudget */}
+                      <div style={{
+                        padding: '10px 12px',
+                        background: isOverbudget ? 'rgba(211, 108, 102, 0.05)' : 'white',
+                        borderRadius: 12,
+                        outline: isOverbudget ? '0.80px #D36C66 solid' : '0.80px #E6E1D4 solid',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'flex-start',
+                        gap: 2
+                      }}>
+                        <div style={{ color: isOverbudget ? '#D36C66' : '#14130F', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                          {isOverbudget ? 'Kelebihan Alokasi (Overbudget)' : 'Sisa Pos Belum Dialokasikan'}
+                        </div>
+                        <div style={{ color: isOverbudget ? '#D36C66' : 'black', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
+                          Rp {isOverbudget ? '-' : ''}{Math.abs(totalVal - totalPosAllocated).toLocaleString("id-ID")}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Scrollable list */}

@@ -38,11 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Verify sum of posAnggaran equals rabTotal
+    // Verify sum of posAnggaran does not exceed rabTotal
     const sumAllocations = posAnggaran.reduce((sum: number, pos: any) => sum + parseFloat(pos.nominalAlokasi), 0);
-    if (Math.abs(sumAllocations - parseFloat(rabTotal)) > 0.01) {
+    if (sumAllocations > parseFloat(rabTotal)) {
       return NextResponse.json({
-        message: `Allocation mismatch: Sum of item budgets (Rp ${sumAllocations.toLocaleString()}) must equal total RAB (Rp ${parseFloat(rabTotal).toLocaleString()})`
+        message: `Jumlah alokasi item (Rp ${sumAllocations.toLocaleString('id-ID')}) tidak boleh melebihi total Nilai Proyek (Rp ${parseFloat(rabTotal).toLocaleString('id-ID')})`
       }, { status: 400 });
     }
 
