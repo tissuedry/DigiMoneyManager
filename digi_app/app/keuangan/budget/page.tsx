@@ -13,6 +13,7 @@ import {
   X,
   PlusCircle,
   FolderOpen,
+  FileSpreadsheet, // Ditambahkan untuk tombol export
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
@@ -274,11 +275,38 @@ function ProyekCard({
   onManageBudget: (p: Proyek) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
   const budget = proyek.budget;
   const rab = budget ? Number(budget.rabTotal) : 0;
   const terpakai = budget ? Number(budget.totalPengeluaran) : 0;
   const sisa = budget ? Number(budget.sisaBudget) : 0;
   const pct = rab > 0 ? Math.round((terpakai / rab) * 100) : 0;
+
+  // Handler Export Excel
+  const handleExport = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExporting(true);
+    try {
+      const res = await fetch(`/api/proyek/${proyek.id}/budget/laporan`);
+      if (!res.ok) throw new Error("Gagal export excel");
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Laporan_Budget_${proyek.nama.replace(/\s+/g, "_")}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Export error", error);
+      alert("Gagal mengunduh Excel. Pastikan data budget valid.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
@@ -311,23 +339,33 @@ function ProyekCard({
               </div>
             </div>
 
-            <button
-              onClick={() => onManageBudget(proyek)}
-              className={`shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
-                budget
-                  ? "border border-stone-200 text-stone-600 hover:bg-stone-50"
-                  : "bg-[#2d6a4f] text-white hover:bg-[#1e5038]"
-              }`}
-            >
-              {budget ? (
-                <>Edit Budget</>
-              ) : (
-                <>
-                  <Plus size={12} />
-                  Buat Budget
-                </>
-              )}
-            </button>
+            {/* Tombol Aksi */}
+            {budget ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isExporting ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
+                  Export
+                </button>
+                <button
+                  onClick={() => onManageBudget(proyek)}
+                  className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  Edit Budget
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => onManageBudget(proyek)}
+                className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white hover:bg-[#1e5038] transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus size={12} />
+                Buat Budget
+              </button>
+            )}
           </div>
 
           {/* Budget Summary */}
