@@ -38,11 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Verify sum of posAnggaran equals rabTotal
+    // Verify sum of posAnggaran does not exceed rabTotal
     const sumAllocations = posAnggaran.reduce((sum: number, pos: any) => sum + parseFloat(pos.nominalAlokasi), 0);
-    if (Math.abs(sumAllocations - parseFloat(rabTotal)) > 0.01) {
+    if (sumAllocations > parseFloat(rabTotal)) {
       return NextResponse.json({
-        message: `Allocation mismatch: Sum of item budgets (Rp ${sumAllocations.toLocaleString()}) must equal total RAB (Rp ${parseFloat(rabTotal).toLocaleString()})`
+        message: `Jumlah alokasi item (Rp ${sumAllocations.toLocaleString('id-ID')}) tidak boleh melebihi total Nilai Proyek (Rp ${parseFloat(rabTotal).toLocaleString('id-ID')})`
       }, { status: 400 });
     }
 
@@ -64,17 +64,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             (pos: any) => pos.deskripsi.trim().toLowerCase() === ext.namaMain.trim().toLowerCase()
           );
 
-          if (matchedIncoming) {
-            const newAlokasi = parseFloat(matchedIncoming.nominalAlokasi);
-            const nominalTerpakai = Number(ext.nominalTerpakai);
+            if (matchedIncoming) {
+              const newAlokasi = parseFloat(matchedIncoming.nominalAlokasi);
+              const nominalTerpakai = Number(ext.nominalTerpakai);
 
-            if (newAlokasi < nominalTerpakai) {
-              throw new Error(
-                `ValidationError: Alokasi untuk pos "${ext.namaMain}" tidak boleh kurang dari nominal yang sudah terpakai (Rp ${nominalTerpakai.toLocaleString('id-ID')})`
-              );
-            }
-
-            await tx.mainAnggaran.update({
+              await tx.mainAnggaran.update({
               where: { id: ext.id },
               data: {
                 nominalAlokasi: newAlokasi,

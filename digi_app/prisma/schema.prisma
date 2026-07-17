@@ -7,33 +7,33 @@ datasource db {
 }
 
 model User {
-  id                Int                 @id @default(autoincrement())
-  nama              String
-  email             String              @unique
-  passwordHash      String              @map("password_hash")
-  role              String              @map("role")
-  approvals         Approval[]
-  auditTrails       AuditTrail[]
-  notifications     Notification[]
-  pengajuanAnggaran PengajuanAnggaran[]
-  reimbursements    Reimbursement[]
-  proyek            UserProyek[]
+  id                 Int                  @id @default(autoincrement())
+  nama               String
+  email              String               @unique
+  passwordHash       String               @map("password_hash")
+  role               String               @map("role")
+  approvals          Approval[]
+  auditTrails        AuditTrail[]
+  notifications      Notification[]
+  pengajuan_anggaran pengajuan_anggaran[]
+  reimbursements     Reimbursement[]
+  proyek             UserProyek[]
 
   @@index([role])
   @@map("users")
 }
 
 model Proyek {
-  id                Int                 @id @default(autoincrement())
-  nama              String
-  deskripsi         String?
-  status            String
-  tanggalMulai      DateTime            @map("tanggal_mulai")
-  tanggalSelesai    DateTime?           @map("tanggal_selesai")
-  budget            Budget?
-  pengajuanAnggaran PengajuanAnggaran[]
-  reimbursements    Reimbursement[]
-  users             UserProyek[]
+  id                 Int                  @id @default(autoincrement())
+  nama               String
+  deskripsi          String?
+  status             String
+  tanggalMulai       DateTime             @map("tanggal_mulai")
+  tanggalSelesai     DateTime?            @map("tanggal_selesai")
+  budget             Budget?
+  pengajuan_anggaran pengajuan_anggaran[]
+  reimbursements     Reimbursement[]
+  users              UserProyek[]
 
   @@index([status])
   @@index([tanggalMulai])
@@ -235,4 +235,63 @@ model Notification {
 
   @@index([userId, dibaca, timestamp])
   @@map("notifications")
+}
+
+model pengajuan_anggaran {
+  id                      Int                       @id @default(autoincrement())
+  proyek_id               Int
+  pengaju_id              Int
+  judul                   String
+  deskripsi               String?
+  status                  String                    @default("PENDING")
+  catatan                 String?
+  created_at              DateTime                  @default(now())
+  diproses_pada           DateTime?
+  users                   User                      @relation(fields: [pengaju_id], references: [id])
+  proyek                  Proyek                    @relation(fields: [proyek_id], references: [id], onDelete: Cascade)
+  pengajuan_anggaran_item pengajuan_anggaran_item[]
+
+  @@index([proyek_id, status])
+  @@index([status, created_at])
+}
+
+model pengajuan_anggaran_item {
+  id                 Int                @id @default(autoincrement())
+  pengajuan_id       Int
+  tipe               String
+  aksi               String
+  target_id          Int?
+  parent_id          Int?
+  nama               String?
+  nominal_alokasi    Decimal?           @db.Decimal(15, 2)
+  pengajuan_anggaran pengajuan_anggaran @relation(fields: [pengajuan_id], references: [id], onDelete: Cascade)
+
+  @@index([pengajuan_id])
+}
+
+model MasterMain {
+  id        Int         @id @default(autoincrement())
+  nama      String
+  MasterSub MasterSub[]
+
+  @@map("master_main")
+}
+
+model MasterSub {
+  id               Int                @id @default(autoincrement())
+  mainId           Int                @map("main_id")
+  nama             String
+  MasterKeterangan MasterKeterangan[]
+  master_main      MasterMain         @relation(fields: [mainId], references: [id], onDelete: Cascade)
+
+  @@map("master_sub")
+}
+
+model MasterKeterangan {
+  id         Int       @id @default(autoincrement())
+  subId      Int       @map("sub_id")
+  nama       String
+  master_sub MasterSub @relation(fields: [subId], references: [id], onDelete: Cascade)
+
+  @@map("master_keterangan")
 }
