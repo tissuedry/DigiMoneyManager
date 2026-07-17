@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import { formatShort } from "./page";
 
 type AjukanKet = {
   id: number;
   nama: string;
   alokasi: number;
-  reason?: string;
   isDraft?: boolean;
 };
 
@@ -16,7 +15,6 @@ type AjukanSub = {
   id: number;
   nama: string;
   alokasi: number;
-  reason?: string;
   status?: "MENUNGGU";
   keterangan: AjukanKet[];
 };
@@ -29,87 +27,70 @@ type AjukanMain = {
 };
 
 export default function AjukanPosModal({
+  proyekId,
   proyekNama,
-  proyekTotalRAB,
-  proyekRealisasi,
+  totalRAB,
+  realisasi,
+  posAnggaran,
   onClose,
 }: {
+  proyekId: number;
   proyekNama: string;
-  proyekTotalRAB: number;
-  proyekRealisasi: number;
+  totalRAB: number;
+  realisasi: number;
+  posAnggaran: any[];
   onClose: () => void;
 }) {
-  const [data, setData] = useState<AjukanMain[]>(() => [
-    {
-      id: 1,
-      nama: "Material Konstruksi",
-      alokasi: 2_400_000_000,
-      subPos: [
-        {
-          id: 11,
-          nama: "Beton & Semen",
-          alokasi: 1_200_000_000,
-          keterangan: [
-            { id: 111, nama: "Semen Portland 500 sak", alokasi: 460_000_000 },
-            { id: 112, nama: "Beton Ready Mix K-350", alokasi: 600_000_000 },
-            { id: 113, nama: "Bahan aditif & campuran", alokasi: 200_000_000 },
-          ],
-        },
-        {
-          id: 12,
-          nama: "Baja & Besi",
-          alokasi: 720_000_000,
-          keterangan: [],
-        },
-        {
-          id: 13,
-          nama: "Material Lainnya",
-          alokasi: 300_000_000,
-          keterangan: [],
-        },
-      ],
-    },
-    {
-      id: 2,
-      nama: "Tenaga Kerja Lapangan",
-      alokasi: 1_200_000_000,
-      subPos: [
-        {
-          id: 21,
-          nama: "Upah Tim Lapangan",
-          alokasi: 800_000_000,
-          keterangan: [],
-        },
-        {
-          id: 22,
-          nama: "Tunjangan",
-          alokasi: 400_000_000,
-          keterangan: [],
-        },
-      ],
-    },
-  ]);
+  // Build initial data from API
+  const [data, setData] = useState<AjukanMain[]>(() => []);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({ 1: true, 2: true });
-  const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({ 11: true, 12: false });
+  useEffect(() => {
+    const mapped: AjukanMain[] = posAnggaran.map((main) => ({
+      id: main.id,
+      nama: main.nama,
+      alokasi: main.alokasi,
+      subPos: (main.subAnggaran || []).map((sub: any) => ({
+        id: sub.id,
+        nama: sub.nama,
+        alokasi: sub.alokasi,
+        keterangan: (sub.keterangan || []).map((ket: any) => ({
+          id: ket.id,
+          nama: ket.nama,
+          alokasi: ket.alokasi,
+        })),
+      })),
+    }));
+    setData(mapped);
+    setLoading(false);
+  }, [posAnggaran]);
+
+  const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
+  const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    if (data.length > 0 && Object.keys(expandedMain).length === 0) {
+      data.forEach((m) => setExpandedMain((p) => ({ ...p, [m.id]: true })));
+    }
+  }, [data, expandedMain]);
 
   // Adding Sub state
   const [addingSubMainId, setAddingSubMainId] = useState<number | null>(null);
   const [newSubName, setNewSubName] = useState("");
   const [newSubAlokasi, setNewSubAlokasi] = useState("");
-  const [newSubReason, setNewSubReason] = useState("");
 
   // Adding Keterangan state
   const [addingKetSubId, setAddingKetSubId] = useState<number | null>(null);
   const [newKetName, setNewKetName] = useState("");
   const [newKetAlokasi, setNewKetAlokasi] = useState("");
-  const [newKetReason, setNewKetReason] = useState("");
 
   const toggleMain = (id: number) => setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
   const toggleSub = (id: number) => setExpandedSub((p) => ({ ...p, [id]: !p[id] }));
 
   const handleAddSub = (mainId: number) => {
-    if (!newSubName || !newSubAlokasi || !newSubReason) {
+    if (!newSubName || !newSubAlokasi) {
       alert("Harap isi semua kolom untuk mengajukan Sub baru!");
       return;
     }
@@ -122,15 +103,11 @@ export default function AjukanPosModal({
             id: Date.now(),
             nama: newSubName,
             alokasi: alokasiVal,
-            reason: newSubReason,
             status: "MENUNGGU" as const,
             keterangan: [],
           };
           setExpandedSub((prevSub) => ({ ...prevSub, [updatedSub.id]: true }));
-          return {
-            ...main,
-            subPos: [...main.subPos, updatedSub],
-          };
+          return { ...main, subPos: [...main.subPos, updatedSub] };
         }
         return main;
       })
@@ -139,11 +116,10 @@ export default function AjukanPosModal({
     setAddingSubMainId(null);
     setNewSubName("");
     setNewSubAlokasi("");
-    setNewSubReason("");
   };
 
   const handleAddKet = (subId: number) => {
-    if (!newKetName || !newKetAlokasi || !newKetReason) {
+    if (!newKetName || !newKetAlokasi) {
       alert("Harap isi semua kolom untuk mengajukan Keterangan baru!");
       return;
     }
@@ -158,13 +134,7 @@ export default function AjukanPosModal({
               ...sub,
               keterangan: [
                 ...sub.keterangan,
-                {
-                  id: Date.now(),
-                  nama: newKetName,
-                  alokasi: alokasiVal,
-                  reason: newKetReason,
-                  isDraft: true,
-                },
+                { id: Date.now(), nama: newKetName, alokasi: alokasiVal, isDraft: true },
               ],
             };
           }
@@ -176,7 +146,64 @@ export default function AjukanPosModal({
     setAddingKetSubId(null);
     setNewKetName("");
     setNewKetAlokasi("");
-    setNewKetReason("");
+  };
+
+  const handleSubmit = async () => {
+    const items: any[] = [];
+
+    data.forEach((main) => {
+      main.subPos.forEach((sub) => {
+        if (sub.status === "MENUNGGU") {
+          items.push({
+            tipe: "SUB_ANGGARAN",
+            aksi: "TAMBAH",
+            parentId: main.id,
+            nama: sub.nama,
+            nominalAlokasi: sub.alokasi,
+          });
+        }
+        sub.keterangan.forEach((ket) => {
+          if (ket.isDraft) {
+            items.push({
+              tipe: "KETERANGAN",
+              aksi: "TAMBAH",
+              parentId: sub.id,
+              nama: ket.nama,
+              nominalAlokasi: ket.alokasi,
+            });
+          }
+        });
+      });
+    });
+
+    if (items.length === 0) {
+      alert("Belum ada pos yang diajukan.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          judul: `Pengajuan pos anggaran untuk ${proyekNama}`,
+          deskripsi: `Pengajuan ${items.length} item baru`,
+          items,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result.message || "Gagal mengajukan pos");
+        return;
+      }
+      onClose();
+    } catch {
+      setError("Terjadi kesalahan koneksi");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatInputRupiah = (val: string) => {
@@ -188,23 +215,28 @@ export default function AjukanPosModal({
   let pendingCount = 0;
   data.forEach((main) => {
     main.subPos.forEach((sub) => {
-      if (sub.status === "MENUNGGU") {
-        pendingCount++;
-      }
-      sub.keterangan.forEach((ket) => {
-        if (ket.isDraft) {
-          pendingCount++;
-        }
-      });
+      if (sub.status === "MENUNGGU") pendingCount++;
+      sub.keterangan.forEach((ket) => { if (ket.isDraft) pendingCount++; });
     });
   });
 
-  const progressPct = proyekTotalRAB > 0 ? Math.min((proyekRealisasi / proyekTotalRAB) * 100, 100) : 0;
+  const progressPct = totalRAB > 0 ? Math.min((realisasi / totalRAB) * 100, 100) : 0;
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <Loader2 size={24} className="animate-spin text-stone-400 mx-auto" />
+          <p className="text-stone-400 text-sm mt-3">Memuat data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-stone-100 flex items-start justify-between shrink-0">
           <div>
@@ -216,44 +248,39 @@ export default function AjukanPosModal({
           </button>
         </div>
 
+        {/* Error banner */}
+        {error && (
+          <div className="mx-6 mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-[12px] font-medium text-red-700">{error}</div>
+        )}
+
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          
+
           {/* Realisasi Anggaran Box */}
           <div className="bg-stone-50 border border-stone-150 rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between text-xs font-bold text-stone-750">
               <span>Realisasi Anggaran</span>
               <span>{progressPct.toFixed(0)}%</span>
             </div>
-            
-            {/* Progress Bar */}
             <div className="w-full bg-stone-200 h-2.5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#008f5d] rounded-full transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
-              />
+              <div className="h-full bg-[#008f5d] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
             </div>
-
-            {/* Project info */}
-            <div className="flex justify-between items-center text-[11px] text-stone-500 font-semibold px-0.5">
-              <span>Nilai Proyek <span className="text-stone-850 font-bold">{formatShort(proyekTotalRAB)}</span></span>
-              <span>Realisasi <span className="text-stone-850 font-bold">{formatShort(proyekRealisasi)}</span></span>
-              <span>Sisa <span className="text-stone-850 font-bold">{formatShort(proyekTotalRAB - proyekRealisasi)}</span></span>
+            <div className="flex justify-between items-center text-[11px] text-stone-950 px-0.5">
+              <span>Nilai Proyek <span className="text-stone-850 font-bold">{formatShort(totalRAB)}</span></span>
+              <span>Realisasi <span className="text-stone-850 font-bold">{formatShort(realisasi)}</span></span>
+              <span>Sisa <span className="text-stone-850 font-bold">{formatShort(totalRAB - realisasi)}</span></span>
             </div>
           </div>
 
           <p className="text-[12px] font-bold text-stone-500">
-            Anggaran Proyek — klik "+ Tambah" untuk mengajukan Sub / Keterangan baru
+            Anggaran Proyek — klik &quot;+ Tambah&quot; untuk mengajukan Sub / Keterangan baru
           </p>
 
-          {/* List items */}
           <div className="border border-stone-250/70 rounded-2xl divide-y divide-stone-100 overflow-hidden bg-white">
             {data.map((main) => {
               const isMainOpen = expandedMain[main.id] ?? true;
               return (
                 <div key={main.id} className="p-4 space-y-3">
-                  
-                  {/* MAIN row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <button onClick={() => toggleMain(main.id)} className="p-0.5 hover:bg-stone-100 rounded transition cursor-pointer shrink-0 text-stone-500">
@@ -265,7 +292,6 @@ export default function AjukanPosModal({
                     <span className="text-[13px] font-bold text-stone-900">{formatShort(main.alokasi)}</span>
                   </div>
 
-                  {/* SUBS */}
                   {isMainOpen && (
                     <div className="pl-6 space-y-3">
                       {main.subPos.map((sub) => {
@@ -273,8 +299,6 @@ export default function AjukanPosModal({
                         const isNewSub = sub.status === "MENUNGGU";
                         return (
                           <div key={sub.id} className="border-l border-stone-200/60 pl-3 space-y-2">
-                            
-                            {/* SUB row */}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <button onClick={() => toggleSub(sub.id)} className="p-0.5 hover:bg-stone-100 rounded transition cursor-pointer shrink-0 text-stone-500">
@@ -284,19 +308,13 @@ export default function AjukanPosModal({
                                 <span className="text-[12px] font-semibold text-stone-800">
                                   {isNewSub ? `Sub Baru: ${sub.nama}` : sub.nama}
                                 </span>
-                                {sub.reason && (
-                                  <span className="text-[11px] text-stone-400 italic">"{sub.reason}"</span>
-                                )}
                                 {sub.status && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider">
-                                    {sub.status}
-                                  </span>
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider">{sub.status}</span>
                                 )}
                               </div>
                               <span className="text-[12px] font-bold text-stone-800">{formatShort(sub.alokasi)}</span>
                             </div>
 
-                            {/* KETS and "+ Tambah Keterangan" */}
                             {isSubOpen && (
                               <div className="pl-6 space-y-2">
                                 {sub.keterangan.map((ket) => (
@@ -304,93 +322,40 @@ export default function AjukanPosModal({
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>KET</span>
                                       <span className="font-medium text-stone-700">{ket.nama}</span>
-                                      {ket.reason && (
-                                        <span className="text-[11px] text-stone-400 italic">"{ket.reason}"</span>
-                                      )}
                                       {ket.isDraft && (
-                                        <span className="text-[8px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider rounded">
-                                          Draft
-                                        </span>
+                                        <span className="text-[8px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider rounded">Draft</span>
                                       )}
                                     </div>
                                     <span className="text-stone-500 font-semibold">{formatShort(ket.alokasi)}</span>
                                   </div>
                                 ))}
 
-                                {/* Add Keterangan Inline Form */}
+                                {/* Add Keterangan inline */}
                                 <div className="pt-1">
                                   {addingKetSubId === sub.id ? (
                                     <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3 mt-1 mr-2 shadow-inner">
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                           <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Keterangan Baru:</label>
-                                          <input
-                                            type="text"
-                                            value={newKetName}
-                                            onChange={(e) => setNewKetName(e.target.value)}
-                                            placeholder="Contoh: Batu Bata Tipe A"
-                                            className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850"
-                                          />
+                                          <input type="text" value={newKetName} onChange={(e) => setNewKetName(e.target.value)} placeholder="Contoh: Batu Bata Tipe A" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850" />
                                         </div>
                                         <div>
                                           <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Nominal:</label>
-                                          <input
-                                            type="text"
-                                            value={newKetAlokasi}
-                                            onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))}
-                                            placeholder="Rp 0"
-                                            className="w-full text-xs border border-stone-255 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800"
-                                          />
+                                          <input type="text" value={newKetAlokasi} onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))} placeholder="Rp 0" className="w-full text-xs border border-stone-255 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800" />
                                         </div>
                                       </div>
-                                      <div>
+                                      {/* <div>
                                         <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Alasan:</label>
-                                        <input
-                                          type="text"
-                                          value={newKetReason}
-                                          onChange={(e) => setNewKetReason(e.target.value)}
-                                          placeholder="Contoh: buat disimpan"
-                                          className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850"
-                                        />
-                                      </div>
-                                      
+                                        <input type="text" value={newKetReason} onChange={(e) => setNewKetReason(e.target.value)} placeholder="Contoh: buat disimpan" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850" />
+                                      </div> */}
                                       <div className="flex flex-wrap items-center gap-3 pt-1">
-                                        <button
-                                          onClick={() => handleAddKet(sub.id)}
-                                          className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer"
-                                        >
-                                          Simpan Draft
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setAddingKetSubId(null);
-                                            setNewKetName("");
-                                            setNewKetAlokasi("");
-                                            setNewKetReason("");
-                                          }}
-                                          className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer"
-                                        >
-                                          Batal
-                                        </button>
-                                        
-                                        {/* Selisih warning */}
-                                        <span className="bg-[#FAF0E3] text-[#9A6235] px-3 py-1.5 rounded-lg text-[10px] font-semibold">
-                                          Selisih: +Rp {(() => {
-                                            const valInput = parseFloat(newKetAlokasi.replace(/[^0-9]/g, "")) || 0;
-                                            const totalExistingKet = sub.keterangan.reduce((sum, k) => sum + k.alokasi, 0);
-                                            const diff = sub.alokasi - totalExistingKet - valInput;
-                                            return diff.toLocaleString("id-ID");
-                                          })()} (sisa Sub - {sub.nama.replace("Sub Baru: ", "")} belum dialokasikan)
-                                        </span>
+                                        <button onClick={() => handleAddKet(sub.id)} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer">Simpan Draft</button>
+                                        <button onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer">Batal</button>
                                       </div>
                                     </div>
                                   ) : (
-                                    <button
-                                      onClick={() => setAddingKetSubId(sub.id)}
-                                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#005D8D] hover:underline cursor-pointer"
-                                    >
-                                      <Plus size={11} />
-                                      Tambah Keterangan
+                                    <button onClick={() => setAddingKetSubId(sub.id)} className="inline-flex items-center gap-1 text-[11px] font-bold text-[#005D8D] hover:underline cursor-pointer">
+                                      <Plus size={11} /> Tambah Keterangan
                                     </button>
                                   )}
                                 </div>
@@ -400,80 +365,32 @@ export default function AjukanPosModal({
                         );
                       })}
 
-                      {/* Add Sub Inline Form / Button */}
+                      {/* Add Sub inline */}
                       <div className="pt-1">
                         {addingSubMainId === main.id ? (
                           <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3 mt-1 mr-2 shadow-inner">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div>
                                 <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Sub Pos Baru:</label>
-                                <input
-                                  type="text"
-                                  value={newSubName}
-                                  onChange={(e) => setNewSubName(e.target.value)}
-                                  placeholder="Contoh: Batu Bata"
-                                  className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850"
-                                />
+                                <input type="text" value={newSubName} onChange={(e) => setNewSubName(e.target.value)} placeholder="Contoh: Batu Bata" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850" />
                               </div>
                               <div>
                                 <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Alokasi Anggaran:</label>
-                                <input
-                                  type="text"
-                                  value={newSubAlokasi}
-                                  onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))}
-                                  placeholder="Rp 0"
-                                  className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800"
-                                />
+                                <input type="text" value={newSubAlokasi} onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))} placeholder="Rp 0" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800" />
                               </div>
                             </div>
-                            <div>
+                            {/* <div>
                               <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Alasan Pengajuan:</label>
-                              <input
-                                type="text"
-                                value={newSubReason}
-                                onChange={(e) => setNewSubReason(e.target.value)}
-                                placeholder="Contoh: buat dilempar"
-                                className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850"
-                              />
-                            </div>
-                            
+                              <input type="text" value={newSubReason} onChange={(e) => setNewSubReason(e.target.value)} placeholder="Contoh: buat dilempar" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850" />
+                            </div> */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
-                              <button
-                                onClick={() => handleAddSub(main.id)}
-                                className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0"
-                              >
-                                Simpan Draft
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setAddingSubMainId(null);
-                                  setNewSubName("");
-                                  setNewSubAlokasi("");
-                                  setNewSubReason("");
-                                }}
-                                className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer shrink-0"
-                              >
-                                Batal
-                              </button>
-                              
-                              {/* Selisih warning */}
-                              <span className="bg-[#FAF0E3] text-[#9A6235] px-3 py-1.5 rounded-lg text-[10px] font-semibold">
-                                Selisih: +Rp {(() => {
-                                  const valInput = parseFloat(newSubAlokasi.replace(/[^0-9]/g, "")) || 0;
-                                  const totalExistingSub = main.subPos.reduce((sum, s) => sum + s.alokasi, 0);
-                                  const diff = main.alokasi - totalExistingSub - valInput;
-                                  return diff.toLocaleString("id-ID");
-                                })()} (sisa Main - {main.nama} belum dialokasikan)
-                              </span>
+                              <button onClick={() => handleAddSub(main.id)} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0">Simpan Draft</button>
+                              <button onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer shrink-0">Batal</button>
                             </div>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => setAddingSubMainId(main.id)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer"
-                          >
-                            <Plus size={11} />
-                            Tambah Sub
+                          <button onClick={() => setAddingSubMainId(main.id)} className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer">
+                            <Plus size={11} /> Tambah Sub
                           </button>
                         )}
                       </div>
@@ -484,29 +401,19 @@ export default function AjukanPosModal({
             })}
           </div>
 
-          {/* Banner */}
           {pendingCount > 0 && (
-            <div className="bg-[#e6f4ea] text-emerald-800 border border-emerald-200 rounded-xl px-4 py-3 text-xs font-semibold shrink-0">
-              {pendingCount} pos menunggu diajukan
-            </div>
+            <div className="bg-[#e6f4ea] text-emerald-800 border border-emerald-200 rounded-xl px-4 py-3 text-xs font-semibold shrink-0">{pendingCount} pos menunggu diajukan</div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-between shrink-0">
-          <span className="text-[11px] text-rose-500 font-semibold">* setiap pos wajib punya alasan</span>
+        <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-end shrink-0">
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-5 py-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-[13px] font-bold rounded-xl transition cursor-pointer">
+            <button onClick={onClose} disabled={submitting} className="px-5 py-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-[13px] font-bold rounded-xl transition cursor-pointer">
               Batal
             </button>
-            <button
-              onClick={() => {
-                alert(`Pengajuan ${pendingCount} pos berhasil dikirim!`);
-                onClose();
-              }}
-              className="px-5 py-2 bg-stone-900 hover:bg-stone-950 text-white text-[13px] font-bold rounded-xl transition cursor-pointer inline-flex items-center gap-1.5"
-            >
-              <Plus size={14} />
+            <button onClick={handleSubmit} disabled={submitting} className="px-5 py-2 bg-stone-900 hover:bg-stone-950 text-white text-[13px] font-bold rounded-xl transition cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50">
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               Ajukan
             </button>
           </div>

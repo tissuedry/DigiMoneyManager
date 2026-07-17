@@ -2,11 +2,28 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
+async function canAccess(userId: string | null, userRole: string | null, proyekId: number, action: 'read' | 'write' | 'delete') {
+  if (userRole === 'Direktur / Manajemen') return true;
+
+  if (action !== 'delete' && userId) {
+    return !!(await prisma.userProyek.findFirst({
+      where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
+    }));
+  }
+  return false;
+}
+
 // GET: Retrieve a project with its full budget, expenses, and budget items
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const userId = req.headers.get('x-user-id');
+    const userRole = req.headers.get('x-user-role');
     const { id } = await params;
     const proyekId = parseInt(id, 10);
+
+    if (!(await canAccess(userId, userRole, proyekId, 'read'))) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
 
     const [project, approvals, pendingReimbursements] = await Promise.all([
       prisma.proyek.findUnique({
@@ -51,7 +68,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       prisma.reimbursement.findMany({
         where: {
           proyekId: proyekId,
-          status: 'SUBMITTED',
+          status: { notIn: ['APPROVED', 'REJECTED'] },
         },
         include: {
           user: {
@@ -149,14 +166,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 // PUT: Update project details
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const role = req.headers.get('x-user-role');
-    const direktorId = req.headers.get('x-user-id');
-    if (role !== 'Direktur / Manajemen') {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-    }
-
+    const userId = req.headers.get('x-user-id');
+    const userRole = req.headers.get('x-user-role');
     const { id } = await params;
     const proyekId = parseInt(id, 10);
+
+    if (!(await canAccess(userId, userRole, proyekId, 'write'))) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
 
     const body = await req.json();
     const { nama, deskripsi, tanggalMulai, tanggalSelesai, status } = body;
@@ -176,12 +193,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
-    if (direktorId) {
+    if (userId) {
+      const actor = userRole === 'Direktur / Manajemen' ? 'Direktur' : 'Project Manager';
       await prisma.auditTrail.create({
         data: {
-          userId: parseInt(direktorId, 10),
+          userId: parseInt(userId, 10),
           aksi: 'update_project',
-          detail: `Direktur memperbarui proyek: ${nama} (Status: ${status})`,
+          detail: `${actor} memperbarui proyek: ${nama} (Status: ${status})`,
         },
       });
     }
@@ -195,12 +213,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE: Delete a project
+// DELETE: Delete a project (Direktur only)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const role = req.headers.get('x-user-role');
-    const direktorId = req.headers.get('x-user-id');
-    if (role !== 'Direktur / Manajemen') {
+    const userId = req.headers.get('x-user-id');
+    const userRole = req.headers.get('x-user-role');
+    if (userRole !== 'Direktur / Manajemen') {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -224,10 +242,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await prisma.$transaction([deleteReimbursements, deleteProject]);
 
-    if (direktorId) {
+    if (userId) {
       await prisma.auditTrail.create({
         data: {
-          userId: parseInt(direktorId, 10),
+          userId: parseInt(userId, 10),
           aksi: 'delete_project',
           detail: `Direktur menghapus proyek: ${project.nama}`,
         },
