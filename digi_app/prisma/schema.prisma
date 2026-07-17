@@ -15,7 +15,7 @@ model User {
   approvals          Approval[]
   auditTrails        AuditTrail[]
   notifications      Notification[]
-  pengajuan_anggaran pengajuan_anggaran[]
+  pengajuanAnggaran  PengajuanAnggaran[]
   reimbursements     Reimbursement[]
   proyek             UserProyek[]
 
@@ -31,7 +31,7 @@ model Proyek {
   tanggalMulai       DateTime             @map("tanggal_mulai")
   tanggalSelesai     DateTime?            @map("tanggal_selesai")
   budget             Budget?
-  pengajuan_anggaran pengajuan_anggaran[]
+  pengajuanAnggaran  PengajuanAnggaran[]
   reimbursements     Reimbursement[]
   users              UserProyek[]
 
@@ -237,37 +237,6 @@ model Notification {
   @@map("notifications")
 }
 
-model pengajuan_anggaran {
-  id                      Int                       @id @default(autoincrement())
-  proyek_id               Int
-  pengaju_id              Int
-  judul                   String
-  deskripsi               String?
-  status                  String                    @default("PENDING")
-  catatan                 String?
-  created_at              DateTime                  @default(now())
-  diproses_pada           DateTime?
-  users                   User                      @relation(fields: [pengaju_id], references: [id])
-  proyek                  Proyek                    @relation(fields: [proyek_id], references: [id], onDelete: Cascade)
-  pengajuan_anggaran_item pengajuan_anggaran_item[]
-
-  @@index([proyek_id, status])
-  @@index([status, created_at])
-}
-
-model pengajuan_anggaran_item {
-  id                 Int                @id @default(autoincrement())
-  pengajuan_id       Int
-  tipe               String
-  aksi               String
-  target_id          Int?
-  parent_id          Int?
-  nama               String?
-  nominal_alokasi    Decimal?           @db.Decimal(15, 2)
-  pengajuan_anggaran pengajuan_anggaran @relation(fields: [pengajuan_id], references: [id], onDelete: Cascade)
-
-  @@index([pengajuan_id])
-}
 
 model MasterMain {
   id        Int         @id @default(autoincrement())
