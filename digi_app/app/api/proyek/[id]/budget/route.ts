@@ -64,17 +64,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             (pos: any) => pos.deskripsi.trim().toLowerCase() === ext.namaMain.trim().toLowerCase()
           );
 
-          if (matchedIncoming) {
-            const newAlokasi = parseFloat(matchedIncoming.nominalAlokasi);
-            const nominalTerpakai = Number(ext.nominalTerpakai);
+            if (matchedIncoming) {
+              const newAlokasi = parseFloat(matchedIncoming.nominalAlokasi);
+              const nominalTerpakai = Number(ext.nominalTerpakai);
 
-            if (newAlokasi < nominalTerpakai) {
-              throw new Error(
-                `ValidationError: Alokasi untuk pos "${ext.namaMain}" tidak boleh kurang dari nominal yang sudah terpakai (Rp ${nominalTerpakai.toLocaleString('id-ID')})`
-              );
-            }
-
-            await tx.mainAnggaran.update({
+              await tx.mainAnggaran.update({
               where: { id: ext.id },
               data: {
                 nominalAlokasi: newAlokasi,
