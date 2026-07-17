@@ -330,8 +330,9 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                 </span>
               </div>
 
-              {/* Switch Project Option for members */}
-              {profile?.assignments && profile.assignments.length > 0 && (
+              {/* Switch Project Option for members — only Karyawan & Project Manager */}
+              {profile?.assignments && profile.assignments.length > 0 &&
+               (activeRole === "Karyawan" || activeRole === "Project Manager") && (
                 <div className="border-b border-stone-100 py-1 mb-1">
                   <div className="px-4 py-1 text-[9px] font-bold text-stone-400 uppercase tracking-wider">
                     Proyek Aktif
