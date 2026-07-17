@@ -1,7 +1,6 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
-import { FolderPlus, Loader2, Check, X, Calendar, Briefcase, DollarSign, Plus, Trash2, Settings, ArrowUpRight, ArrowDownLeft, Receipt, Eye, ClipboardList } from "lucide-react";
 import { FolderPlus, Loader2, Check, X, Calendar, Briefcase, DollarSign, Plus, Trash2, Settings, ArrowUpRight, ArrowDownLeft, Receipt, Eye, ClipboardList } from "lucide-react";
 
 type Project = {
@@ -53,7 +52,6 @@ export default function KelolaProyekPage() {
   const [showInitBudget, setShowInitBudget] = useState<Project | null>(null);
   const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [isDirectEdit, setIsDirectEdit] = useState(false);
   const [isDirectEdit, setIsDirectEdit] = useState(false);
   const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
   const [showDetailBudgetModal, setShowDetailBudgetModal] = useState(false);
@@ -281,7 +279,6 @@ export default function KelolaProyekPage() {
   };
 
   const handleOpenDetailModal = async (project: Project) => {
-    setIsDirectEdit(false);
     setIsDirectEdit(false);
     setShowProjectDetail(project);
     setEditMode(false);
@@ -891,28 +888,15 @@ export default function KelolaProyekPage() {
                 <div className="flex flex-wrap gap-3 mt-1">
                   {[
                     { value: "AKTIF", label: "Active" },
-                    { value: "PLANNING", label: "Planning" },
-                    { value: "DONE", label: "Done" },
-                    { value: "CANCELED", label: "Canceled" }
+                    { value: "PLANNING", label: "Planning" }
                   ].map((statusItem) => {
                     const isSelected = projectForm.status === statusItem.value;
-
-                    const isDisabled =
-                      statusItem.value !== "AKTIF" &&
-                      statusItem.value !== "PLANNING" &&
-                      !isSelected;
-
                     return (
                       <button
                         key={statusItem.value}
                         type="button"
-                        disabled={isDisabled}
                         onClick={() => setProjectForm({ ...projectForm, status: statusItem.value })}
-                        className={`px-5 py-2 text-[13px] font-semibold rounded-xl border transition-all ${isSelected
-                          ? "border-[#2d6a4f] bg-[#e8f5e9] text-[#1b4332]"
-                          : isDisabled
-                            ? "border-stone-200 bg-stone-50 text-stone-400 cursor-not-allowed opacity-60" // Styling saat disabled
-                            : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                        className={`px-5 py-2 text-[13px] font-semibold rounded-xl border transition-all ${isSelected ? "border-[#2d6a4f] bg-[#e8f5e9] text-[#1b4332]" : "border-stone-200 bg-white text-stone-600"
                           }`}
                       >
                         {statusItem.label}
@@ -1027,101 +1011,381 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
-      {/* MODAL: INISIALISASI BUDGET */}
-      {showInitBudget && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-lg w-full overflow-hidden">
-            <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
-              <h3 className="font-bold text-[15px] text-stone-900">Inisialisasi Nilai Proyek</h3>
-              <button type="button" onClick={() => setShowInitBudget(null)} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition">
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleInitBudget} className="p-6 space-y-4">
-              <div className="bg-amber-50/50 border border-amber-200/60 p-3.5 rounded-xl space-y-1">
-                <h4 className="text-xs font-bold text-amber-800">Proyek</h4>
-                <p className="text-[13px] font-bold text-stone-800">{showInitBudget.nama}</p>
-              </div>
-              <div>
-                <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Total Nilai Proyek (Rupiah)</label>
-                <div className="relative flex items-center">
-                  {/* Label Rp statis di depan input agar tampilan tetap rapi */}
-                  <span className="absolute left-4 text-[13px] font-bold text-stone-400 select-none">Rp</span>
-                  <input
-                    type="text"
-                    required
-                    value={rabTotal}
-                    // 💡 Otomatis memberi titik saat mengetik angka di atas 1.000
-                    onChange={(e) => setRabTotal(formatRibuan(e.target.value))}
-                    placeholder="1.000.000"
-                    className="w-full border border-stone-200 rounded-xl pl-11 pr-4 py-2.5 text-[13px] font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30"
-                  />
+      {/* MODAL: INISIALISASI / EDIT Nilai Proyek */}
+      {showInitBudget && (() => {
+        // Calculate progress bar and remaining budget metrics dynamically
+        const totalVal = ribuanToNumber(rabTotal) || 0;
+        const terpakaiVal = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
+        const pctVal = totalVal > 0 ? Math.round((terpakaiVal / totalVal) * 100) : 0;
+        const sisaVal = Math.max(0, totalVal - terpakaiVal);
+
+        // Real-time calculations for Main budget allocations
+        const totalPosAllocated = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
+        const isOverbudget = totalPosAllocated > totalVal;
+
+        const formatMillions = (val: number) => {
+          if (val >= 1_000_000_000) {
+            return `${(val / 1_000_000_000).toFixed(1)} M`;
+          }
+          return `${(val / 1_000_000).toFixed(1)} jt`;
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div style={{
+              width: 520,
+              background: 'white',
+              boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.28)',
+              overflow: 'hidden',
+              borderRadius: 22,
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '90vh',
+              animation: 'fadeIn 0.2s ease',
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '0.80px #E6E1D4 solid',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Edit Nilai Proyek</div>
+                  <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 400, fontSize: 12, color: '#9A948B', lineHeight: '18px' }}>{showInitBudget.nama}</div>
                 </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[12px] font-bold text-stone-600">Breakdown Pos Anggaran</label>
-                  <button
-                    type="button"
-                    onClick={() => setPosAnggaranList([...posAnggaranList, { deskripsi: "", nominalAlokasi: "" }])}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2d6a4f] hover:underline"
-                  >
-                    <Plus size={12} /> Tambah Item
-                  </button>
-                </div>
-                <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
-                  {posAnggaranList.map((pos, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        required
-                        value={pos.deskripsi}
-                        onChange={(e) => {
-                          const newList = [...posAnggaranList];
-                          newList[idx].deskripsi = e.target.value;
-                          setPosAnggaranList(newList);
-                        }}
-                        placeholder="Deskripsi Pos Anggaran"
-                        className="flex-1 border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        required
-                        value={pos.nominalAlokasi}
-                        onChange={(e) => {
-                          const newList = [...posAnggaranList];
-                          newList[idx].nominalAlokasi = formatRibuan(e.target.value);
-                          setPosAnggaranList(newList);
-                        }}
-                        placeholder="Nominal (Rp)"
-                        className="w-28 border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white font-mono text-right focus:outline-none"
-                      />
-                      {posAnggaranList.length > 1 && (
-                        <button type="button" onClick={() => setPosAnggaranList(posAnggaranList.filter((_, i) => i !== idx))} className="p-1.5 text-stone-400 hover:text-red-500 rounded-lg hover:bg-stone-50 transition">
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {formError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2">
-                  <X size={14} />
-                  {formError}
-                </div>
-              )}
-              <div className="flex gap-3 pt-3 border-t border-stone-100">
-                <button type="button" onClick={() => setShowInitBudget(null)} className="flex-1 py-2.5 border border-stone-200 rounded-xl text-[13px] font-semibold text-stone-600 hover:bg-stone-50 transition">Batal</button>
-                <button type="submit" disabled={submitting} className="flex-1 py-2.5 bg-[#2d6a4f] text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-2">
-                  {submitting && <Loader2 size={13} className="animate-spin" />}
-                  Simpan Nilai Proyek
+                <button
+                  type="button"
+                  onClick={() => setShowInitBudget(null)}
+                  style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="hover:bg-stone-100 transition"
+                >
+                  <X size={16} color="#2C2A24" />
                 </button>
               </div>
-            </form>
+
+              {/* Form Body */}
+              <form onSubmit={handleInitBudget} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+                  {/* Total Nilai Proyek (Rupiah) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                    <div>
+                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                        Total Nilai Proyek (Rupiah) <span style={{ color: '#902F33' }}>*</span>
+                      </span>
+                    </div>
+                    <div style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      width: '100%',
+                      height: 40,
+                      background: 'white',
+                      borderRadius: 12,
+                      border: '1px solid #E6E1D4',
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                    }}>
+                      <span style={{ fontSize: 13.50, fontFamily: 'IBM Plex Mono', fontWeight: '400', color: '#14130F', marginRight: 4 }}>Rp</span>
+                      <input
+                        type="text"
+                        required
+                        value={rabTotal}
+                        onChange={(e) => setRabTotal(formatRibuan(e.target.value))}
+                        style={{
+                          flex: 1,
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          fontFamily: 'IBM Plex Mono',
+                          fontSize: 13.50,
+                          fontWeight: '400',
+                          color: '#14130F',
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Progress Card: Realisasi Anggaran */}
+                  <div style={{
+                    alignSelf: 'stretch',
+                    padding: 16,
+                    background: 'white',
+                    boxShadow: '0px 0px 0px 1px rgba(20, 18, 14, 0.04), 0px 1px 2px rgba(20, 18, 14, 0.05)',
+                    borderRadius: 16,
+                    border: '1.20px #E6E1D4 solid',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>Realisasi Anggaran</span>
+                      <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>{pctVal}%</span>
+                    </div>
+                    <div style={{ height: 8, background: '#F3F0E9', overflow: 'hidden', borderRadius: 999 }}>
+                      <div style={{ width: `${Math.min(pctVal, 100)}%`, height: '100%', background: '#009162', borderRadius: 999 }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3 }}>
+                        <span style={{ color: 'black', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '500' }}>Nilai Proyek</span>
+                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>Rp</span>
+                        <span style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>{formatMillions(totalVal)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3 }}>
+                        <span style={{ color: 'black', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '500' }}>Realisasi</span>
+                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>Rp</span>
+                        <span style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>{formatMillions(terpakaiVal)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+                        <span style={{ color: '#9A948B', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '400' }}>Sisa</span>
+                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>Rp</span>
+                        <span style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>{formatMillions(sisaVal)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Breakdown Main Budget List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                        Breakdown Pos Anggaran Main
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPosAnggaranList([...posAnggaranList, { deskripsi: "", nominalAlokasi: "" }])}
+                        style={{
+                          padding: '4px 10px',
+                          background: '#D5F4E3',
+                          borderRadius: 6,
+                          border: 'none',
+                          color: '#005836',
+                          fontSize: 11.50,
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                        className="hover:opacity-80 transition"
+                      >
+                        + Tambah Main
+                      </button>
+                    </div>
+
+                    {/* Real-time Summary Cards */}
+                    <div style={{
+                      alignSelf: 'stretch',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 16
+                    }}>
+                      {/* Card 1: Total Pos Teralokasi */}
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'white',
+                        borderRadius: 12,
+                        outline: '0.80px #E6E1D4 solid',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'flex-start',
+                        gap: 2
+                      }}>
+                        <div style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                          Total Pos Teralokasi
+                        </div>
+                        <div style={{ color: 'black', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>
+                          Rp {totalPosAllocated.toLocaleString("id-ID")}
+                        </div>
+                      </div>
+
+                      {/* Card 2: Sisa Pos Belum Dialokasikan / Overbudget */}
+                      <div style={{
+                        padding: '10px 12px',
+                        background: isOverbudget ? 'rgba(211, 108, 102, 0.05)' : 'white',
+                        borderRadius: 12,
+                        outline: isOverbudget ? '0.80px #D36C66 solid' : '0.80px #E6E1D4 solid',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'flex-start',
+                        gap: 2
+                      }}>
+                        <div style={{ color: isOverbudget ? '#D36C66' : '#14130F', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
+                          {isOverbudget ? 'Kelebihan Alokasi (Overbudget)' : 'Sisa Pos Belum Dialokasikan'}
+                        </div>
+                        <div style={{ color: isOverbudget ? '#D36C66' : 'black', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
+                          Rp {isOverbudget ? '-' : ''}{Math.abs(totalVal - totalPosAllocated).toLocaleString("id-ID")}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Scrollable list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
+                      {posAnggaranList.map((pos, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                          <div style={{
+                            flex: 1,
+                            height: 38,
+                            paddingLeft: 12,
+                            paddingRight: 12,
+                            background: 'white',
+                            borderRadius: 12,
+                            border: '1px solid #E6E1D4',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}>
+                            <input
+                              type="text"
+                              required
+                              value={pos.deskripsi}
+                              onChange={(e) => {
+                                const newList = [...posAnggaranList];
+                                newList[idx].deskripsi = e.target.value;
+                                setPosAnggaranList(newList);
+                              }}
+                              placeholder="Nama Pos Anggaran"
+                              style={{
+                                width: '100%',
+                                border: 'none',
+                                outline: 'none',
+                                background: 'transparent',
+                                fontSize: 12.50,
+                                fontFamily: 'Plus Jakarta Sans',
+                                color: '#14130F',
+                              }}
+                            />
+                          </div>
+                          <div style={{
+                            width: 140,
+                            height: 38,
+                            paddingLeft: 12,
+                            paddingRight: 12,
+                            background: 'white',
+                            borderRadius: 12,
+                            border: '1px solid #E6E1D4',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}>
+                            <span style={{ fontSize: 12.50, fontFamily: 'IBM Plex Mono', color: '#9A948B', marginRight: 4 }}>Rp</span>
+                            <input
+                              type="text"
+                              required
+                              value={pos.nominalAlokasi}
+                              onChange={(e) => {
+                                const newList = [...posAnggaranList];
+                                newList[idx].nominalAlokasi = formatRibuan(e.target.value);
+                                setPosAnggaranList(newList);
+                              }}
+                              placeholder="0"
+                              style={{
+                                width: '100%',
+                                border: 'none',
+                                outline: 'none',
+                                background: 'transparent',
+                                fontSize: 12.50,
+                                fontFamily: 'IBM Plex Mono',
+                                color: '#14130F',
+                                textAlign: 'right'
+                              }}
+                            />
+                          </div>
+                          {posAnggaranList.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setPosAnggaranList(posAnggaranList.filter((_, i) => i !== idx))}
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 8,
+                                border: 'none',
+                                background: 'transparent',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                              className="hover:bg-stone-100 transition text-[#B7B7B7] hover:text-red-500"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Form Error Message */}
+                  {formError && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2" style={{ fontFamily: 'Plus Jakarta Sans' }}>
+                      <X size={14} />
+                      {formError}
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Footer Buttons */}
+                <div style={{
+                  alignSelf: 'stretch',
+                  padding: '14px 24px',
+                  borderTop: '0.80px #E6E1D4 solid',
+                  display: 'flex',
+                  gap: 8,
+                  background: 'white',
+                  flexShrink: 0
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowInitBudget(null)}
+                    style={{
+                      flex: 1,
+                      padding: '9px 14px',
+                      background: 'white',
+                      border: '0.80px solid #E6E1D4',
+                      borderRadius: 12,
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: '600',
+                      fontSize: 13,
+                      color: '#14130F',
+                      cursor: 'pointer'
+                    }}
+                    className="hover:bg-stone-50 transition"
+                  >
+                    Batalkan
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    style={{
+                      flex: 1,
+                      padding: '9px 14px',
+                      background: 'black',
+                      border: 'none',
+                      borderRadius: 12,
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: '600',
+                      fontSize: 13,
+                      color: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6
+                    }}
+                    className="hover:opacity-80 transition"
+                  >
+                    {submitting && <Loader2 size={13} className="animate-spin" />}
+                    Simpan Nilai Proyek
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL: DETAIL PROYEK SIDEBAR */}
       {showProjectDetail && !editMode && !isDirectEdit && (
@@ -1320,292 +1584,1305 @@ export default function KelolaProyekPage() {
                         <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider">
                           Rincian Pos Anggaran
                         </h3>
+                      </div>
+
+                      {/* Container for the 3 Premium Buttons */}
+                      <div className="flex flex-col gap-2 pb-2">
+                        <div className="flex gap-2 w-full">
+                          {/* Button 1: Pengajuan Pos PM */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const initial: Record<number, boolean> = {};
+                              (detailedProjectInfo?.pendingReimbursements || []).forEach((r: any) => {
+                                initial[r.id] = true;
+                              });
+                              setSelectedPendingIds(initial);
+                              setShowPendingPmModal(true);
+                            }}
+                            className="flex-1 flex items-center justify-between px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer gap-2"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <ClipboardList size={13.5} className="text-stone-500" />
+                              <span>Pengajuan Pos PM</span>
+                            </div>
+                            <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-[9px] font-bold bg-[#005836] text-white rounded-full">
+                              {detailedProjectInfo?.pendingPmCount || 0}
+                            </span>
+                          </button>
+
+                          {/* Button 2: Edit Nilai Proyek */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (detailedProjectInfo?.budget) {
+                                const rawTotal = parseFloat(detailedProjectInfo.budget.rabTotal) || 0;
+                                setRabTotal(formatRibuan(String(Math.round(rawTotal))));
+
+                                const existingPos = detailedProjectInfo.budget.posAnggaran.map((pos: any) => {
+                                  const rawAlokasi = parseFloat(pos.nominalAlokasi) || 0;
+                                  return {
+                                    deskripsi: pos.namaPos || pos.deskripsi,
+                                    nominalAlokasi: formatRibuan(String(Math.round(rawAlokasi)))
+                                  };
+                                });
+                                setPosAnggaranList(existingPos);
+                              }
+                              setShowInitBudget(showProjectDetail);
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer"
+                          >
+                            <Settings size={13.5} className="text-stone-500" />
+                            <span>Edit Nilai Proyek</span>
+                          </button>
+                        </div>
+
+                        {/* Button 3: Lihat Detail Anggaran */}
                         <button
                           type="button"
                           onClick={() => {
-                            if (detailedProjectInfo?.budget) {
-                              const rawTotal = parseFloat(detailedProjectInfo.budget.rabTotal) || 0;
-                              setRabTotal(formatRibuan(String(Math.round(rawTotal))));
-
-                              const existingPos = detailedProjectInfo.budget.posAnggaran.map((pos: any) => {
-                                const rawAlokasi = parseFloat(pos.nominalAlokasi) || 0;
-                                return {
-                                  deskripsi: pos.namaPos || pos.deskripsi,
-                                  nominalAlokasi: formatRibuan(String(Math.round(rawAlokasi)))
-                                };
-                              });
-                              setPosAnggaranList(existingPos);
-                            }
-                            setShowInitBudget(showProjectDetail);
+                            setShowDetailBudgetModal(true);
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 text-[11px] font-bold rounded-xl shadow-sm transition cursor-pointer"
+                          className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer"
                         >
-                          <Settings size={13} className="text-stone-500" />
-                          Edit Nilai Proyek
+                          <Eye size={13.5} className="text-stone-500" />
+                          <span>Lihat Detail Anggaran</span>
                         </button>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowDetailBudgetModal(true);
-                        }}
-                        className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer"
-                      >
-                        <Eye size={13.5} className="text-stone-500" />
-                        <span>Lihat Detail Anggaran</span>
-                      </button>
-                    </div>
-
+                      {/* List Item Pos Anggaran Dinamis */}
                       {detailedProjectInfo?.budget?.posAnggaran ? (
-                    <div className="space-y-6">
-                      {detailedProjectInfo.budget.posAnggaran.map((pos: any, index: number) => {
-                        const nominalAlokasi = parseFloat(pos.nominalAlokasi) || 0;
+                        <div className="space-y-6">
+                          {detailedProjectInfo.budget.posAnggaran.map((pos: any, index: number) => {
+                            const nominalAlokasi = parseFloat(pos.nominalAlokasi) || 0;
 
-                        const simPercentages = [95, 96, 86, 73, 56, 30];
-                        const terpakaiVal = parseFloat(pos.nominalTerpakai) || 0;
-                        const sisaVal = Math.max(0, nominalAlokasi - terpakaiVal);
-                        const percentUsed = nominalAlokasi > 0 ? Math.round((terpakaiVal / nominalAlokasi) * 100) : 0;
+                            const simPercentages = [95, 96, 86, 73, 56, 30];
+                            const terpakaiVal = parseFloat(pos.nominalTerpakai) || 0;
+                            const sisaVal = Math.max(0, nominalAlokasi - terpakaiVal);
+                            const percentUsed = nominalAlokasi > 0 ? Math.round((terpakaiVal / nominalAlokasi) * 100) : 0;
 
-                        let barColor = "bg-[#00966c]";
-                        if (percentUsed >= 90) {
-                          barColor = "bg-[#d65f5f]";
-                        } else if (percentUsed >= 80) {
-                          barColor = "bg-[#d4a373]";
-                        }
+                            let barColor = "bg-[#00966c]";
+                            if (percentUsed >= 90) {
+                              barColor = "bg-[#d65f5f]";
+                            } else if (percentUsed >= 80) {
+                              barColor = "bg-[#d4a373]";
+                            }
 
-                        return (
-                          <div key={pos.id || index} className="space-y-2 text-left">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="text-[14px] font-bold text-stone-800 leading-tight">
-                                  {pos.namaPos || pos.deskripsi}
-                                </h4>
-                                <span className="text-[10px] font-mono font-bold text-stone-400">
-                                  POS-{201 + index}
-                                </span>
+                            return (
+                              <div key={pos.id || index} className="space-y-2 text-left">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h4 className="text-[14px] font-bold text-stone-800 leading-tight">
+                                      {pos.namaPos || pos.deskripsi}
+                                    </h4>
+                                    <span className="text-[10px] font-mono font-bold text-stone-400">
+                                      POS-{201 + index}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-[14px] font-black text-stone-900 font-mono">
+                                      {formatSummaryRupiah(terpakaiVal)}
+                                    </span>
+                                    <span className="text-[10px] text-stone-400 block font-medium mt-0.5">
+                                      dari {formatSummaryRupiah(nominalAlokasi)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="w-full h-2 bg-stone-100/80 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-500 ease-out ${barColor}`}
+                                    style={{ width: `${Math.min(percentUsed, 100)}%` }}
+                                  />
+                                </div>
+
+                                <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium pt-0.5">
+                                  <span className="font-semibold" style={{ color: percentUsed >= 90 ? '#d65f5f' : percentUsed >= 80 ? '#d4a373' : '#00966c' }}>
+                                    {percentUsed}% terpakai
+                                  </span>
+                                  <span>
+                                    Sisa <b className="text-stone-700 font-mono font-bold">{formatSummaryRupiah(sisaVal)}</b>
+                                  </span>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <span className="text-[14px] font-black text-stone-900 font-mono">
-                                  {formatSummaryRupiah(terpakaiVal)}
-                                </span>
-                                <span className="text-[10px] text-stone-400 block font-medium mt-0.5">
-                                  dari {formatSummaryRupiah(nominalAlokasi)}
-                                </span>
-                              </div>
-                            </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-xs font-medium text-stone-450 bg-stone-50 rounded-2xl border border-stone-100">
+                          Nilai Proyek belum diinisialisasi untuk proyek ini.
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                            <div className="w-full h-2 bg-stone-100/80 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ease-out ${barColor}`}
-                                style={{ width: `${Math.min(percentUsed, 100)}%` }}
+                  {activeTab === "tim" && (
+                    <div id="tim-sec" className="min-h-full w-full px-6 pb-20 pt-4 text-left flex-shrink-0 space-y-3">
+                      <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
+                      <div className="space-y-3">
+                        {teamRows.map((row, idx) => (
+                          <div key={row.id} className="grid grid-cols-12 gap-2.5 items-center">
+                            <div className="col-span-5">
+                              <input
+                                type="text"
+                                placeholder={row.isLocked ? "Role Karyawan" : "Cth: DevOps"}
+                                required
+                                disabled={row.isLocked}
+                                value={row.role}
+                                onChange={(e) => {
+                                  const updated = [...teamRows];
+                                  updated[idx].role = e.target.value;
+                                  setTeamRows(updated);
+                                }}
+                                className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
                               />
                             </div>
-
-                            <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium pt-0.5">
-                              <span className="font-semibold" style={{ color: percentUsed >= 90 ? '#d65f5f' : percentUsed >= 80 ? '#d4a373' : '#00966c' }}>
-                                {percentUsed}% terpakai
-                              </span>
-                              <span>
-                                Sisa <b className="text-stone-700 font-mono font-bold">{formatSummaryRupiah(sisaVal)}</b>
-                              </span>
+                            <div className={row.isLocked ? "col-span-7" : "col-span-6"}>
+                              <select
+                                required
+                                value={row.userId}
+                                onChange={(e) => {
+                                  const updated = [...teamRows];
+                                  updated[idx].userId = e.target.value;
+                                  setTeamRows(updated);
+                                }}
+                                className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
+                              >
+                                <option value="" disabled hidden>Pilih nama...</option>
+                                {members.map((member) => (
+                                  <option key={member.id} value={member.id}>{member.nama}</option>
+                                ))}
+                              </select>
                             </div>
+                            {!row.isLocked && (
+                              <div className="col-span-1 flex justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTeamRow(row.id)}
+                                  className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                                  title="Hapus Anggota"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-xs font-medium text-stone-450 bg-stone-50 rounded-2xl border border-stone-100">
-                      Nilai Proyek belum diinisialisasi untuk proyek ini.
+                        ))}
+                      </div>
+                      <div className="pt-4 flex flex-col gap-3 border-t border-stone-100 mt-4">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleAddTeamRow}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 border border-stone-200 hover:bg-stone-50 text-stone-700 text-[12px] font-bold rounded-xl shadow-sm transition cursor-pointer"
+                          >
+                            <Plus size={13} />
+                            Tambah Anggota
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveTeamRows}
+                            disabled={submitting}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2d6a4f] text-white text-[12px] font-bold rounded-xl shadow-sm hover:bg-[#1e5038] transition cursor-pointer"
+                          >
+                            {submitting && <Loader2 size={12} className="animate-spin" />}
+                            Simpan Penugasan Tim
+                          </button>
+                        </div>
+                        {formError && (
+                          <div className="bg-red-50 border border-red-200 text-red-700 px-3.5 py-2.5 rounded-xl text-[11px] font-medium flex items-center gap-2">
+                            <X size={13} />
+                            <span>{formError}</span>
+                          </div>
+                        )}
+                        {success && (
+                          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3.5 py-2.5 rounded-xl text-[11px] font-medium flex items-center gap-2">
+                            <Check size={13} />
+                            <span>{success}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
-                  )}
 
-                {activeTab === "tim" && (
-                  <div id="tim-sec" className="min-h-full w-full px-6 pb-20 pt-4 text-left flex-shrink-0 space-y-3">
-                    <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
-                    <div className="space-y-3">
-                      {teamRows.map((row, idx) => (
-                        <div key={row.id} className="grid grid-cols-12 gap-2.5 items-center">
-                          <div className="col-span-5">
-                            <input
-                              type="text"
-                              placeholder={row.isLocked ? "Role Karyawan" : "Cth: DevOps"}
-                              required
-                              disabled={row.isLocked}
-                              value={row.role}
-                              onChange={(e) => {
-                                const updated = [...teamRows];
-                                updated[idx].role = e.target.value;
-                                setTeamRows(updated);
-                              }}
-                              className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
-                            />
-                          </div>
-                          <div className={row.isLocked ? "col-span-7" : "col-span-6"}>
-                            <select
-                              required
-                              value={row.userId}
-                              onChange={(e) => {
-                                const updated = [...teamRows];
-                                updated[idx].userId = e.target.value;
-                                setTeamRows(updated);
-                              }}
-                              className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
-                            >
-                              <option value="" disabled hidden>Pilih nama...</option>
-                              {members.map((member) => (
-                                <option key={member.id} value={member.id}>{member.nama}</option>
-                              ))}
-                            </select>
-                          </div>
-                          {!row.isLocked && (
-                            <div className="col-span-1 flex justify-center">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTeamRow(row.id)}
-                                className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                                title="Hapus Anggota"
+                {/* Footer Modal */}
+                <div className="p-4 border-t border-stone-100 bg-white flex gap-3 flex-shrink-0">
+                  <button type="button"
+                    onClick={() => { setIsDirectEdit(false); setEditMode(true); }}
+                    className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5">
+                    <Settings size={15} className="stroke-[1.8]" />
+                    Edit Proyek
+                  </button>
+                  {(currentStatus?.toUpperCase() === "CANCELED" || currentStatus?.toUpperCase() === "DONE") && (
+                    <button
+                      onClick={handleReactivateProject}
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                    >
+                      Aktifkan Kembali
+                    </button>
+                  )}
+                  <button type="button"
+                    onClick={() => { setShowProjectDetail(null); setActiveTab("ringkasan"); }}
+                    className="flex-1 py-2.5 bg-black hover:bg-stone-900 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center">
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- TEMPAT BARU: POP-UP MODAL EDIT PROYEK DI TENGAH LAYAR --- */}
+      {editMode && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+              <h3 className="font-bold text-[15px] text-stone-900">Edit Proyek</h3>
+              <button type="button" onClick={handleCloseEdit} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProject} className="p-6 space-y-4 text-left">
+              <div>
+                <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek *</label>
+                <input type="text" required value={editForm.nama} onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30" />
+              </div>
+              <div>
+                <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Deskripsi Proyek</label>
+                <textarea rows={3} value={editForm.deskripsi} onChange={(e) => setEditForm({ ...editForm, deskripsi: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white resize-none focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
+                  <input type="date" required value={editForm.tanggalMulai} onChange={(e) => setEditForm({ ...editForm, tanggalMulai: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai</label>
+                  <input type="date" value={editForm.tanggalSelesai} onChange={(e) => setEditForm({ ...editForm, tanggalSelesai: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {[{ value: "AKTIF", label: "Active" }, { value: "PLANNING", label: "Planning" }, { value: "DONE", label: "Done" }, { value: "CANCELED", label: "Canceled" }].map((statusItem) => {
+                    const isSelected = editForm.status === statusItem.value;
+                    return (
+                      <button key={statusItem.value} type="button" onClick={() => setEditForm({ ...editForm, status: statusItem.value })}
+                        className={`px-3.5 py-1.5 text-[12px] font-semibold rounded-xl border transition-all ${isSelected ? "border-[#2d6a4f] bg-[#e8f5e9] text-[#1b4332]" : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"}`}
+                      >
+                        {statusItem.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2">
+                  <X size={14} />
+                  {formError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-3 border-t border-stone-100">
+                <button type="button" onClick={handleCloseEdit} className="flex-1 py-2.5 border border-stone-200 rounded-xl text-[13px] font-semibold text-stone-600 hover:bg-stone-50 transition">Batal</button>
+                <button type="submit" disabled={submitting} className="flex-1 py-2.5 bg-stone-900 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-2">
+                  {submitting && <Loader2 size={13} className="animate-spin" />}
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- POP-UP MODAL: DETAIL ANGGARAN --- */}
+      {showDetailBudgetModal && (() => {
+        const formatMillionsShort = (num: number) => {
+          if (num >= 1e9) return `${(num / 1e9).toFixed(1)} M`;
+          if (num >= 1e6) return `${(num / 1e6).toFixed(1)} jt`;
+          if (num >= 1e3) return `${(num / 1e3).toFixed(1)} rb`;
+          return `${num.toFixed(1)}`;
+        };
+
+        const posAnggaran = detailedProjectInfo?.budget?.posAnggaran || [];
+
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+            <div style={{
+              width: 920,
+              background: 'white',
+              boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
+              borderRadius: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '85vh',
+              animation: 'fadeIn 0.2s ease',
+              textAlign: 'left'
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '22px 28px 18px 28px',
+                borderBottom: '0.80px #E6E1D4 solid',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexShrink: 0
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ color: '#14130F', fontSize: 19, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', lineHeight: '28.50px' }}>Detail Anggaran</div>
+                  <div style={{ color: '#6A6660', fontSize: 13, fontFamily: 'Plus Jakarta Sans', fontWeight: '400', lineHeight: '19.50px' }}>{detailedProjectInfo?.nama || "Pembangunan Gudang Cikarang Fase 2"}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDetailBudgetModal(false)}
+                  style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="hover:bg-stone-100 transition"
+                >
+                  <X size={16} color="#2C2A24" />
+                </button>
+              </div>
+
+              {/* Table Column Headers */}
+              <div style={{
+                alignSelf: 'stretch',
+                padding: '14px 40px 10px 40px',
+                borderBottom: '0.80px #E6E1D4 solid',
+                display: 'grid',
+                gridTemplateColumns: '384px 180px 150px 150px',
+                alignItems: 'center',
+                flexShrink: 0
+              }}>
+                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>MAIN · SUB · KETERANGAN</div>
+                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>PROGRESS</div>
+                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>ALOKASI</div>
+                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>REALISASI</div>
+              </div>
+
+              {/* Scrollable Content Area */}
+              <div style={{
+                flex: 1,
+                padding: '10px 28px 28px 28px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8
+              }}>
+                {posAnggaran.length > 0 ? (
+                  posAnggaran.map((pos: any, idxPos: number) => {
+                    const alokasiPos = parseFloat(pos.nominalAlokasi) || 0;
+                    const terpakaiPos = parseFloat(pos.nominalTerpakai) || 0;
+                    const pctPos = alokasiPos > 0 ? Math.min((terpakaiPos / alokasiPos) * 100, 100) : 0;
+                    const pctPosText = alokasiPos > 0 ? ((terpakaiPos / alokasiPos) * 100).toFixed(1) : '0.0';
+
+                    let mainBarColor = '#2F9E5E';
+                    if (pctPos >= 90) { mainBarColor = '#D36C66'; }
+                    else if (pctPos >= 75) { mainBarColor = '#D8953D'; }
+
+                    const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
+                    const isMainOpen = hasSub && expandedMain[idxPos] !== false;
+
+                    return (
+                      <div key={pos.id || idxPos} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {/* MAIN Row */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '384px 180px 150px 150px',
+                            alignItems: 'center',
+                            padding: '10px 12px',
+                            background: '#F6F4EF',
+                            borderRadius: 10,
+                            cursor: hasSub ? 'pointer' : 'default',
+                            userSelect: 'none'
+                          }}
+                          onClick={() => {
+                            if (hasSub) {
+                              setExpandedMain(prev => ({ ...prev, [idxPos]: !isMainOpen }));
+                            }
+                          }}
+                        >
+                          {/* Col 1: Name and badge */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {hasSub ? (
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 10 10"
+                                fill="none"
+                                style={{
+                                  flexShrink: 0,
+                                  transition: 'transform 0.15s ease',
+                                  transform: isMainOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
+                                }}
                               >
-                                <Trash2 size={14} />
-                              </button>
+                                <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            ) : (
+                              <div style={{ width: 10 }} />
+                            )}
+                            <span style={{ background: '#E6E1D4', color: '#14130F', fontSize: 9.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', padding: '2px 6px', borderRadius: 4 }}>
+                              MAIN
+                            </span>
+                            <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {pos.namaPos || pos.deskripsi}
+                            </span>
+                          </div>
+
+                          {/* Col 2: Progress */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
+                            <div style={{ flex: 1, height: 6, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
+                              <div style={{ width: `${pctPos}%`, height: '100%', background: mainBarColor, borderRadius: 99 }} />
                             </div>
-                          )}
+                            <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'right' }}>
+                              {pctPosText}%
+                            </span>
+                          </div>
+
+                          {/* Col 3: Alokasi */}
+                          <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
+                            Rp {formatMillionsShort(alokasiPos)}
+                          </div>
+
+                          {/* Col 4: Realisasi */}
+                          <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
+                            Rp {formatMillionsShort(terpakaiPos)}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                    <div className="pt-4 flex flex-col gap-3 border-t border-stone-100 mt-4">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleAddTeamRow}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 border border-stone-200 hover:bg-stone-50 text-stone-700 text-[12px] font-bold rounded-xl shadow-sm transition cursor-pointer"
-                        >
-                          <Plus size={13} />
-                          Tambah Anggota
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSaveTeamRows}
-                          disabled={submitting}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2d6a4f] text-white text-[12px] font-bold rounded-xl shadow-sm hover:bg-[#1e5038] transition cursor-pointer"
-                        >
-                          {submitting && <Loader2 size={12} className="animate-spin" />}
-                          Simpan Penugasan Tim
-                        </button>
+
+                        {/* SUB Rows - only if parent MAIN is expanded */}
+                        {isMainOpen && pos.subAnggaran.map((sub: any, idxSub: number) => {
+                          const alokasiSub = parseFloat(sub.nominalAlokasi) || 0;
+                          const terpakaiSub = parseFloat(sub.nominalTerpakai) || 0;
+                          const pctSub = alokasiSub > 0 ? Math.min((terpakaiSub / alokasiSub) * 100, 100) : 0;
+                          const pctSubText = alokasiSub > 0 ? ((terpakaiSub / alokasiSub) * 100).toFixed(1) : '0.0';
+
+                          let subBarColor = '#2F9E5E';
+                          if (pctSub >= 90) { subBarColor = '#D36C66'; }
+                          else if (pctSub >= 75) { subBarColor = '#D8953D'; }
+
+                          const subKey = `${idxPos}-${idxSub}`;
+                          const hasKet = sub.keterangan && sub.keterangan.length > 0;
+                          const isSubOpen = hasKet && expandedSub[subKey] !== false;
+
+                          return (
+                            <div key={sub.id || idxSub} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {/* SUB Row */}
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '384px 180px 150px 150px',
+                                  alignItems: 'center',
+                                  padding: '8px 12px',
+                                  background: 'white',
+                                  cursor: hasKet ? 'pointer' : 'default',
+                                  userSelect: 'none'
+                                }}
+                                onClick={() => {
+                                  if (hasKet) {
+                                    setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }));
+                                  }
+                                }}
+                                className="hover:bg-stone-50 transition"
+                              >
+                                {/* Col 1: Sub title */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 24 }}>
+                                  {hasKet ? (
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 10 10"
+                                      fill="none"
+                                      style={{
+                                        flexShrink: 0,
+                                        transition: 'transform 0.15s ease',
+                                        transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
+                                      }}
+                                    >
+                                      <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  ) : (
+                                    <div style={{ width: 10 }} />
+                                  )}
+                                  <span style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textTransform: 'uppercase' }}>
+                                    Sub
+                                  </span>
+                                  <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                    · {sub.namaSub}
+                                  </span>
+                                </div>
+
+                                {/* Col 2: Progress */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
+                                  <div style={{ flex: 1, height: 6, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
+                                    <div style={{ width: `${pctSub}%`, height: '100%', background: subBarColor, borderRadius: 99 }} />
+                                  </div>
+                                  <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'right' }}>
+                                    {pctSubText}%
+                                  </span>
+                                </div>
+
+                                {/* Col 3: Alokasi */}
+                                <div style={{ color: '#14130F', fontSize: 12, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                  Rp {formatMillionsShort(alokasiSub)}
+                                </div>
+
+                                {/* Col 4: Realisasi */}
+                                <div style={{ color: '#14130F', fontSize: 12, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                  Rp {formatMillionsShort(terpakaiSub)}
+                                </div>
+                              </div>
+
+                              {/* KET Rows - only if sub is expanded */}
+                              {isSubOpen && sub.keterangan.map((ket: any, idxKet: number) => {
+                                const alokasiKet = parseFloat(ket.nominalAlokasi) || 0;
+                                const realisasiKet = parseFloat(ket.nominalRealisasi) || 0;
+                                const pctKet = alokasiKet > 0 ? ((realisasiKet / alokasiKet) * 100).toFixed(1) : '0.0';
+
+                                const childReimbursements = ket.reimbursements || [];
+                                const approvedReimbs = childReimbursements.filter((r: any) => r.status === 'APPROVED' || r.status === 'PAID' || r.status === 'DISBURSED');
+                                const hasReimbs = approvedReimbs.length > 0;
+                                const ketKey = `${subKey}-${idxKet}`;
+                                const isKetOpen = hasReimbs && expandedKet[ketKey] !== false;
+
+                                return (
+                                  <div key={ket.id || idxKet} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    {/* KET Row */}
+                                    <div
+                                      style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '384px 180px 150px 150px',
+                                        alignItems: 'center',
+                                        padding: '6px 12px',
+                                        background: 'white',
+                                        cursor: hasReimbs ? 'pointer' : 'default',
+                                        userSelect: 'none'
+                                      }}
+                                      onClick={() => {
+                                        if (hasReimbs) {
+                                          setExpandedKet(prev => ({ ...prev, [ketKey]: !isKetOpen }));
+                                        }
+                                      }}
+                                      className={hasReimbs ? "hover:bg-stone-50 transition" : ""}
+                                    >
+                                      {/* Col 1 */}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 48 }}>
+                                        {hasReimbs ? (
+                                          <svg
+                                            width="10"
+                                            height="10"
+                                            viewBox="0 0 10 10"
+                                            fill="none"
+                                            style={{
+                                              flexShrink: 0,
+                                              transition: 'transform 0.15s ease',
+                                              transform: isKetOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
+                                            }}
+                                          >
+                                            <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                          </svg>
+                                        ) : (
+                                          <div style={{ width: 10 }} />
+                                        )}
+                                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textTransform: 'uppercase' }}>
+                                          Ket
+                                        </span>
+                                        <span style={{ color: '#6A6660', fontSize: 12, fontFamily: 'Plus Jakarta Sans', fontWeight: '400', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                          · {ket.keterangan}
+                                        </span>
+                                      </div>
+
+                                      {/* Col 2 (Blank for Keterangan) */}
+                                      <div />
+
+                                      {/* Col 3 */}
+                                      <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                        Rp {formatMillionsShort(alokasiKet)}
+                                      </div>
+
+                                      {/* Col 4 */}
+                                      <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                        Rp {formatMillionsShort(realisasiKet)}
+                                      </div>
+                                    </div>
+
+                                    {/* Approved Reimbursements list under this Keterangan */}
+                                    {isKetOpen && approvedReimbs.map((reimb: any) => {
+                                      const itemDate = reimb.createdAt || reimb.timestamp || new Date();
+                                      const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                      const nominalReimb = reimb.nominal || 0;
+
+                                      return (
+                                        <div key={reimb.id} style={{
+                                          display: 'grid',
+                                          gridTemplateColumns: '384px 180px 150px 150px',
+                                          alignItems: 'center',
+                                          padding: '4px 12px',
+                                          background: 'rgba(0, 145, 98, 0.02)'
+                                        }}>
+                                          {/* Col 1 */}
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 72 }}>
+                                            <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textTransform: 'uppercase' }}>
+                                              Reimb
+                                            </span>
+                                            <span style={{ color: '#9A948B', fontSize: 11.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '400', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                              · {reimb.user?.nama || 'Karyawan'} · {formattedDate}
+                                            </span>
+                                            <span style={{
+                                              padding: '2px 8px',
+                                              background: 'rgba(0, 145, 98, 0.12)',
+                                              borderRadius: 999,
+                                              color: '#005836',
+                                              fontSize: 10,
+                                              fontFamily: 'Plus Jakarta Sans',
+                                              fontWeight: '600'
+                                            }}>
+                                              Dicairkan
+                                            </span>
+                                          </div>
+
+                                          {/* Col 2 */}
+                                          <div />
+
+                                          {/* Col 3 */}
+                                          <div />
+
+                                          {/* Col 4 */}
+                                          <div style={{ color: '#6A6660', fontSize: 11, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
+                                            Rp {formatMillionsShort(nominalReimb)}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
                       </div>
-                      {formError && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-3.5 py-2.5 rounded-xl text-[11px] font-medium flex items-center gap-2">
-                          <X size={13} />
-                          <span>{formError}</span>
-                        </div>
-                      )}
-                      {success && (
-                        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3.5 py-2.5 rounded-xl text-[11px] font-medium flex items-center gap-2">
-                          <Check size={13} />
-                          <span>{success}</span>
-                        </div>
-                      )}
-                    </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ padding: '60px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12 }}>
+                    <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Data Anggaran Kosong</div>
+                    <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Belum ada data nilai proyek atau pos anggaran yang diinisialisasi.</div>
                   </div>
                 )}
               </div>
 
-                {/* Footer Modal */}
-            <div className="p-4 border-t border-stone-100 bg-white flex gap-3 flex-shrink-0">
-              <button type="button"
-                onClick={() => { setIsDirectEdit(false); setEditMode(true); }}
-                className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5">
-                <Settings size={15} className="stroke-[1.8]" />
-                Edit Proyek
-              </button>
-              {(currentStatus?.toUpperCase() === "CANCELED" || currentStatus?.toUpperCase() === "DONE") && (
+              {/* Footer */}
+              <div style={{
+                padding: '14px 28px',
+                borderTop: '0.80px #E6E1D4 solid',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                flexShrink: 0,
+                background: 'white'
+              }}>
                 <button
-                  onClick={handleReactivateProject}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                  type="button"
+                  onClick={() => setShowDetailBudgetModal(false)}
+                  style={{
+                    padding: '9px 24px',
+                    background: 'black',
+                    borderRadius: 12,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: 'white',
+                    textAlign: 'center',
+                  }}
+                  className="hover:opacity-80 transition"
                 >
-                  Aktifkan Kembali
+                  Tutup
                 </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* --- POP-UP MODAL: PENGAJUAN PM PENDING --- */}
+      {showPendingPmModal && (() => {
+        const submissions = detailedProjectInfo?.pendingReimbursements || [];
+        const mainAnggaranList = detailedProjectInfo?.budget?.mainAnggaran || [];
+
+        // Checkbox states
+        const anySelected = submissions.some((r: any) => selectedPendingIds[r.id]);
+        const selectedCount = submissions.filter((r: any) => selectedPendingIds[r.id]).length;
+
+        const handleToggleAllSelect = () => {
+          const next: Record<number, boolean> = {};
+          const setTo = !anySelected;
+          submissions.forEach((r: any) => {
+            next[r.id] = setTo;
+          });
+          setSelectedPendingIds(next);
+        };
+
+        const handleBulkApprove = async () => {
+          const selectedIds = Object.keys(selectedPendingIds)
+            .map(Number)
+            .filter(id => selectedPendingIds[id]);
+          if (selectedIds.length === 0) return;
+          await handleBulkProcess(selectedIds, 'APPROVE');
+        };
+
+        return (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: 'rgba(20, 18, 14, 0.60)' }}>
+            <div style={{
+              width: 820,
+              height: 680,
+              maxHeight: '85vh',
+              background: 'white',
+              boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
+              borderRadius: 22,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease',
+            }}>
+
+              {/* Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '0.80px #E6E1D4 solid',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Pengajuan Pos PM</div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#6A6660', lineHeight: '18.75px' }}>{detailedProjectInfo?.nama || 'Nama Proyek'}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPendingPmModal(false)}
+                  style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="hover:bg-stone-100 transition"
+                >
+                  <X size={16} color="#2C2A24" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {submissions.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {/* Toggle All Select / "Batalkan Semua (n)" */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                      <button
+                        type="button"
+                        onClick={handleToggleAllSelect}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: 7,
+                          border: '1px solid #009162',
+                          background: anySelected ? 'rgba(0, 145, 98, 0.05)' : 'white',
+                          display: 'inline-flex',
+                          cursor: 'pointer',
+                          fontFamily: "'Plus Jakarta Sans', sans-serif",
+                          fontWeight: 600,
+                          fontSize: 11.5,
+                          color: '#005836'
+                        }}
+                        className="hover:opacity-80 transition"
+                      >
+                        {anySelected ? `Batalkan Semua (${selectedCount})` : `Pilih Semua (${submissions.length})`}
+                      </button>
+                    </div>
+
+                    {/* Hierarchy table container */}
+                    <div style={{ borderRadius: 10, border: '1px solid #E6E1D4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                      {mainAnggaranList.map((main: any, gi: number) => {
+                        // Filter pending submissions belonging to this MAIN category
+                        const mainPending = submissions.filter((r: any) => {
+                          const rMainId = r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.id
+                            || r.subAnggaran?.mainAnggaran?.id
+                            || r.posAnggaran?.id;
+                          return rMainId === main.id;
+                        });
+
+                        const subAnggarans = main.subAnggaran || [];
+
+                        // If this main has no sub budgets AND no pending submissions, we don't display it to keep clean
+                        if (subAnggarans.length === 0 && mainPending.length === 0) return null;
+
+                        return (
+                          <div key={main.id} style={{ borderBottom: gi < mainAnggaranList.length - 1 ? '1px solid #E6E1D4' : 'none' }}>
+                            {/* Group Header (MAIN) */}
+                            <div style={{
+                              padding: '9px 12px',
+                              background: 'white',
+                              borderBottom: '1px solid #E6E1D4',
+                              fontFamily: "'Plus Jakarta Sans', sans-serif",
+                              fontWeight: 700,
+                              fontSize: 12.5,
+                              color: '#14130F',
+                            }}>
+                              {main.namaMain}
+                            </div>
+
+                            {/* Render existing sub budgets tree first */}
+                            {subAnggarans.map((sub: any) => {
+                              // Find any pending keterangan item under this existing sub
+                              const childPendingKets = mainPending.filter((r: any) => {
+                                return r.keteranganAnggaran?.subAnggaranId === sub.id && !!r.keteranganAnggaran;
+                              });
+
+                              const subKey = `modal-sub-${sub.id}`;
+                              const isSubOpen = expandedSub[subKey] !== false;
+
+                              return (
+                                <div key={sub.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                                  {/* Existing subbudget row */}
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      padding: '7px 12px 7px 14px',
+                                      borderBottom: (childPendingKets.length > 0 && isSubOpen) ? '1px solid #E6E1D4' : 'none',
+                                      background: 'white',
+                                      cursor: 'pointer',
+                                      userSelect: 'none',
+                                    }}
+                                    onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
+                                    className="hover:bg-stone-50 transition"
+                                  >
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 10 10"
+                                      fill="none"
+                                      style={{
+                                        marginRight: 8,
+                                        flexShrink: 0,
+                                        transition: 'transform 0.15s ease',
+                                        transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
+                                      }}
+                                    >
+                                      <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    <span style={{ flex: 1, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 12, color: '#14130F' }}>
+                                      {sub.namaSub}
+                                    </span>
+                                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 400, fontSize: 11, color: '#9A948B' }}>
+                                      Rp {Number(sub.nominalAlokasi).toLocaleString('id-ID')}
+                                    </span>
+                                  </div>
+
+                                  {/* Render child pending items (KETERANGAN BARU) under this subbudget if it is expanded */}
+                                  {isSubOpen && childPendingKets.map((r: any) => {
+                                    const isChecked = !!selectedPendingIds[r.id];
+                                    const itemDate = r.createdAt || r.timestamp || new Date();
+                                    const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                    const submitterName = r.user?.nama || 'Karyawan';
+                                    const nominal = r.nominal || 0;
+
+                                    return (
+                                      <div key={r.id} style={{
+                                        background: isChecked ? '#D5F4E3' : 'white',
+                                        borderBottom: '1px solid #E6E1D4',
+                                        padding: '7px 12px 7px 34px', // further indented
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 8,
+                                        transition: 'background-color 0.2s ease',
+                                      }}>
+                                        {/* Checkbox */}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
+                                          }}
+                                          style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                        >
+                                          <div style={{
+                                            width: 14,
+                                            height: 14,
+                                            borderRadius: 4,
+                                            background: isChecked ? '#009162' : 'white',
+                                            border: isChecked ? 'none' : '1.20px solid #E6E1D4',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                          }}>
+                                            {isChecked && (
+                                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                                <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </button>
+
+                                        {/* Info */}
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                            <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                              KETERANGAN BARU
+                                            </span>
+                                            <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                              {r.keteranganAnggaran?.keterangan || r.deskripsi}
+                                            </span>
+                                            <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                              MENUNGGU
+                                            </span>
+                                          </div>
+                                          {r.keterangan && r.keterangan !== 'N/A' && (
+                                            <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
+                                              &ldquo;{r.keterangan}&rdquo;
+                                            </div>
+                                          )}
+                                          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                            Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                                          </div>
+                                        </div>
+
+                                        {/* Nominal */}
+                                        <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                          Rp {Number(nominal).toLocaleString('id-ID')}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+
+                            {/* Render pending categories that are SUB BARU directly under Main header */}
+                            {mainPending.filter((r: any) => !r.keteranganAnggaran && r.subAnggaran).map((r: any) => {
+                              const isChecked = !!selectedPendingIds[r.id];
+                              const subName = r.subAnggaran?.namaSub || 'Sub Baru';
+                              const itemDate = r.createdAt || r.timestamp || new Date();
+                              const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                              const submitterName = r.user?.nama || 'Karyawan';
+                              const nominal = r.nominal || 0;
+
+                              return (
+                                <div key={r.id} style={{
+                                  background: isChecked ? '#D5F4E3' : 'white',
+                                  borderBottom: '1px solid #E6E1D4',
+                                  padding: '7px 12px 7px 14px',
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: 8,
+                                  transition: 'background-color 0.2s ease',
+                                }}>
+                                  {/* Checkbox */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                  >
+                                    <div style={{
+                                      width: 14,
+                                      height: 14,
+                                      borderRadius: 4,
+                                      background: isChecked ? '#009162' : 'white',
+                                      border: isChecked ? 'none' : '1.20px solid #E6E1D4',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}>
+                                      {isChecked && (
+                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                          <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                  </button>
+
+                                  {/* Info */}
+                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                      <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                        SUB BARU
+                                      </span>
+                                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                        {subName}
+                                      </span>
+                                      <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                        MENUNGGU
+                                      </span>
+                                    </div>
+                                    {r.keterangan && r.keterangan !== 'N/A' && (
+                                      <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
+                                        &ldquo;{r.keterangan}&rdquo;
+                                      </div>
+                                    )}
+                                    <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                      Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                                    </div>
+                                  </div>
+
+                                  {/* Nominal */}
+                                  <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                    Rp {Number(nominal).toLocaleString('id-ID')}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '48px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12 }}>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Tidak Ada Pengajuan PM Pending</div>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan yang menunggu persetujuan Project Manager.</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom bulk selected summary bar */}
+              {selectedCount > 0 && (
+                <div style={{
+                  alignSelf: 'stretch',
+                  background: '#D5F4E3',
+                  padding: '12px 24px',
+                  borderTop: '0.80px #E6E1D4 solid',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexShrink: 0
+                }}>
+                  <div style={{ color: '#005836', fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                    {selectedCount} pos dipilih
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const itemsToReject = submissions.filter((r: any) => selectedPendingIds[r.id]);
+                        setRejectingReimbursement(itemsToReject); // pass list of items to reject
+                        setRejectionReason("");
+                      }}
+                      style={{
+                        padding: '9px 14px',
+                        background: 'white',
+                        border: '0.80px solid #E6E1D4',
+                        borderRadius: 12,
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: '#14130F',
+                        cursor: 'pointer'
+                      }}
+                      className="hover:bg-stone-50 transition"
+                    >
+                      Tolak Terpilih ({selectedCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBulkApprove}
+                      style={{
+                        padding: '9px 14px',
+                        background: 'black',
+                        border: 'none',
+                        borderRadius: 12,
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: 'white',
+                        cursor: 'pointer'
+                      }}
+                      className="hover:opacity-80 transition"
+                    >
+                      Setujui Terpilih ({selectedCount})
+                    </button>
+                  </div>
+                </div>
               )}
-              <button type="button"
-                onClick={() => { setShowProjectDetail(null); setActiveTab("ringkasan"); }}
-                className="flex-1 py-2.5 bg-black hover:bg-stone-900 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center">
-                Tutup
-              </button>
-            </div>
-          </div>
-            )}
-        </div>
-        </div>
-  )
-}
 
-{
-  editMode && (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
-          <h3 className="font-bold text-[15px] text-stone-900">Edit Proyek</h3>
-          <button type="button" onClick={handleCloseEdit} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition">
-            <X size={16} />
-          </button>
-        </div>
+              {/* Footer */}
+              <div style={{
+                padding: '14px 24px',
+                borderTop: '0.80px #E6E1D4 solid',
+                display: 'flex',
+                gap: 8,
+                flexShrink: 0,
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPendingPmModal(false)}
+                  style={{
+                    flex: 1,
+                    padding: '9px 14px',
+                    background: 'white',
+                    borderRadius: 12,
+                    border: '0.80px solid #E6E1D4',
+                    cursor: 'pointer',
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: '#14130F',
+                    textAlign: 'center',
+                  }}
+                  className="hover:bg-stone-50 transition"
+                >
+                  Tutup
+                </button>
+              </div>
 
-        <form onSubmit={handleUpdateProject} className="p-6 space-y-4 text-left">
-          <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek *</label>
-            <input type="text" required value={editForm.nama} onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30" />
-          </div>
-          <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Deskripsi Proyek</label>
-            <textarea rows={3} value={editForm.deskripsi} onChange={(e) => setEditForm({ ...editForm, deskripsi: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white resize-none focus:outline-none" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
-              <input type="date" required value={editForm.tanggalMulai} onChange={(e) => setEditForm({ ...editForm, tanggalMulai: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
-            </div>
-            <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai</label>
-              <input type="date" value={editForm.tanggalSelesai} onChange={(e) => setEditForm({ ...editForm, tanggalSelesai: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {[{ value: "AKTIF", label: "Active" }, { value: "PLANNING", label: "Planning" }, { value: "DONE", label: "Done" }, { value: "CANCELED", label: "Canceled" }].map((statusItem) => {
-                const isSelected = editForm.status === statusItem.value;
+              {/* Tolak Pengajuan Confirmation Overlay Modal */}
+              {rejectingReimbursement && (() => {
+                const isArray = Array.isArray(rejectingReimbursement);
+                const itemsList = isArray ? rejectingReimbursement : [rejectingReimbursement];
+
+                // Construct displaying subtitle
+                let subtitle = "";
+                if (itemsList.length === 1) {
+                  const singleItem = itemsList[0];
+                  const subName = singleItem.keteranganAnggaran?.subAnggaran?.namaSub
+                    || singleItem.subAnggaran?.namaSub
+                    || null;
+                  const ketName = singleItem.keteranganAnggaran?.keterangan
+                    || singleItem.deskripsi
+                    || 'N/A';
+                  const isNewSub = !singleItem.keteranganAnggaran && singleItem.subAnggaran && !singleItem.subAnggaran.id;
+                  const isNewKet = !!singleItem.keteranganAnggaran && !singleItem.keteranganAnggaran.id;
+                  subtitle = isNewSub ? subName : isNewKet ? ketName : (ketName !== 'N/A' ? ketName : subName);
+                } else {
+                  subtitle = `${itemsList.length} pengajuan terpilih`;
+                }
+
                 return (
-                  <button key={statusItem.value} type="button" onClick={() => setEditForm({ ...editForm, status: statusItem.value })}
-                    className={`px-3.5 py-1.5 text-[12px] font-semibold rounded-xl border transition-all ${isSelected ? "border-[#2d6a4f] bg-[#e8f5e9] text-[#1b4332]" : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"}`}
-                  >
-                    {statusItem.label}
-                  </button>
+                  <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: 'rgba(20, 18, 14, 0.60)' }}>
+                    <div style={{
+                      width: 560,
+                      background: 'white',
+                      boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
+                      borderRadius: 22,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                      animation: 'fadeIn 0.2s ease',
+                      textAlign: 'left'
+                    }}>
+                      {/* Header */}
+                      <div style={{
+                        padding: '20px 24px',
+                        borderBottom: '0.80px #E6E1D4 solid',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Tolak Pengajuan</div>
+                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#6A6660', lineHeight: '18.75px' }}>{subtitle}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setRejectingReimbursement(null)}
+                          style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          className="hover:bg-stone-100 transition"
+                        >
+                          <X size={16} color="#2C2A24" />
+                        </button>
+                      </div>
+
+                      {/* Content */}
+                      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 13, color: '#14130F' }}>
+                          Alasan <span style={{ color: '#D36C66' }}>*</span>
+                        </label>
+                        <textarea
+                          placeholder="Jelaskan alasan penolakan..."
+                          value={rejectionReason}
+                          onChange={(e) => setRejectionReason(e.target.value)}
+                          style={{
+                            width: '100%',
+                            height: 120,
+                            padding: 12,
+                            border: '1.20px solid #E6E1D4',
+                            borderRadius: 12,
+                            fontFamily: "'Plus Jakarta Sans', sans-serif",
+                            fontSize: 13,
+                            color: '#14130F',
+                            resize: 'none',
+                            outline: 'none',
+                          }}
+                          className="focus:border-stone-500 transition"
+                        />
+                      </div>
+
+                      {/* Footer */}
+                      <div style={{
+                        padding: '14px 24px',
+                        borderTop: '0.80px #E6E1D4 solid',
+                        display: 'flex',
+                        gap: 8,
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => setRejectingReimbursement(null)}
+                          style={{
+                            flex: 1,
+                            padding: '9px 14px',
+                            background: 'white',
+                            borderRadius: 12,
+                            border: '0.80px solid #E6E1D4',
+                            cursor: 'pointer',
+                            fontFamily: "'Plus Jakarta Sans', sans-serif",
+                            fontWeight: 600,
+                            fontSize: 13,
+                            color: '#14130F',
+                            textAlign: 'center',
+                          }}
+                          className="hover:bg-stone-50 transition"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!rejectionReason.trim()) {
+                              alert("Alasan penolakan wajib diisi");
+                              return;
+                            }
+                            const ids = itemsList.map((item: any) => item.id);
+                            await handleBulkProcess(ids, 'REJECT', rejectionReason);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '9px 14px',
+                            background: 'black',
+                            borderRadius: 12,
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontFamily: "'Plus Jakarta Sans', sans-serif",
+                            fontWeight: 600,
+                            fontSize: 13,
+                            color: 'white',
+                            textAlign: 'center',
+                          }}
+                          className="hover:opacity-80 transition"
+                        >
+                          Kirim Penolakan
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
                 );
-              })}
+              })()}
+
             </div>
           </div>
-
-          {formError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2">
-              <X size={14} />
-              {formError}
-            </div>
-          )}
-
-          <div className="flex gap-3 pt-3 border-t border-stone-100">
-            <button type="button" onClick={handleCloseEdit} className="flex-1 py-2.5 border border-stone-200 rounded-xl text-[13px] font-semibold text-stone-600 hover:bg-stone-50 transition">Batal</button>
-            <button type="submit" disabled={submitting} className="flex-1 py-2.5 bg-stone-900 text-white text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-2">
-              {submitting && <Loader2 size={13} className="animate-spin" />}
-              Simpan Perubahan
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-    </main >
+        );
+      })()}
+    </main>
   );
 }
