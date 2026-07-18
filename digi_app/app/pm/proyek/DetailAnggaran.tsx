@@ -4,6 +4,33 @@ import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Settings, X } from "lucide-react";
 import { formatShort } from "./page";
 
+function formatReimbursementDate(r: any): string {
+  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'tanggal' in r.ocrData ? (r.ocrData as any).tanggal : null;
+  if (ocrTanggal) {
+    const d = new Date(ocrTanggal);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
+  }
+  const ocrSubmitted = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
+  const rawDate = r.createdAt || r.timestamp || ocrSubmitted;
+  if (rawDate) {
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
+  }
+  return "-";
+}
+
 type KeteranganPos = {
   id: number;
   nama: string;
@@ -41,6 +68,7 @@ const STATUS_BADGE: Record<string, string> = {
   "Menunggu PM": "bg-amber-100 text-amber-700",
   "SUBMITTED": "bg-amber-100 text-amber-700",
   "Verifikasi Keuangan": "bg-blue-100 text-blue-700",
+  "APPROVED_BY_PM": "bg-blue-100 text-blue-700",
   "Ditolak": "bg-red-100 text-red-700",
   "REJECTED": "bg-red-100 text-red-700",
   "PENDING": "bg-blue-100 text-blue-700",
@@ -52,6 +80,7 @@ function statusLabel(s: string): string {
     "SUBMITTED": "Menunggu PM",
     "REJECTED": "Ditolak",
     "PENDING": "Verifikasi Keuangan",
+    "APPROVED_BY_PM": "Verifikasi Keuangan",
   };
   return map[s] || s;
 }
@@ -178,19 +207,15 @@ export default function DetailAnggaranModal({
         const ketReimbs = reimbs
           .filter((r: any) => r.keteranganAnggaran?.id === ket.id)
           .map((r: any) => {
-            const nama = r.user?.nama || "";
+            const ocrMerchant = r.ocrData && typeof r.ocrData === 'object' && 'merchant' in r.ocrData ? (r.ocrData as any).merchant : null;
+            const ocrKeterangan = r.ocrData && typeof r.ocrData === 'object' && 'keterangan' in r.ocrData ? (r.ocrData as any).keterangan : null;
+            const nama = ocrMerchant || ocrKeterangan || 'Reimbursement';
             const words = nama.split(" ");
             const inisial =
               words.length >= 2
                 ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
                 : nama.slice(0, 2).toUpperCase();
-            const dateStr = r.createdAt
-              ? new Date(r.createdAt).toLocaleDateString("id-ID", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })
-              : r.tanggal ?? "-";
+            const dateStr = formatReimbursementDate(r);
             return {
               id: r.id,
               inisial,

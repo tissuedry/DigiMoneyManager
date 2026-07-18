@@ -37,6 +37,33 @@ type Member = {
   divisi: string | null;
 };
 
+function formatReimbursementDate(r: any): string {
+  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'tanggal' in r.ocrData ? (r.ocrData as any).tanggal : null;
+  if (ocrTanggal) {
+    const d = new Date(ocrTanggal);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
+  }
+  const ocrSubmitted = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
+  const rawDate = r.createdAt || r.timestamp || ocrSubmitted;
+  if (rawDate) {
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
+  }
+  return "-";
+}
+
 export default function KelolaProyekPage() {
   const [activeStatus, setActiveStatus] = useState('Semua');
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,7 +83,7 @@ export default function KelolaProyekPage() {
   const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
   const [showDetailBudgetModal, setShowDetailBudgetModal] = useState(false);
   const [showPendingPmModal, setShowPendingPmModal] = useState(false);
-  const [rejectingReimbursement, setRejectingReimbursement] = useState<any | null>(null);
+  const [rejectingPengajuan, setRejectingPengajuan] = useState<any | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<Record<number, boolean>>({});
   const [rejectionReason, setRejectionReason] = useState("");
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
@@ -155,7 +182,17 @@ export default function KelolaProyekPage() {
     try {
       const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran?status=PENDING`);
       const data = await res.json();
-      setPendingPengajuan(data.pengajuan || []);
+      const list = data.pengajuan || [];
+      setPendingPengajuan(list);
+
+      // Automatically select all items
+      const initial: Record<number, boolean> = {};
+      list.forEach((prop: any) => {
+        (prop.items || []).forEach((it: any) => {
+          initial[it.id] = true;
+        });
+      });
+      setSelectedPendingIds(initial);
     } catch {
       setPendingPengajuan([]);
     } finally {
@@ -164,32 +201,54 @@ export default function KelolaProyekPage() {
   };
 
 
-  const handleBulkProcess = async (ids: number[], action: 'APPROVE' | 'REJECT', catatan?: string) => {
-    if (!detailedProjectInfo || ids.length === 0) return;
+  const handleBulkReview = async (action: 'APPROVE' | 'REJECT', catatan?: string) => {
+    if (!detailedProjectInfo) return;
+
+    // Gather all selected item IDs
+    const selectedItemIds = Object.keys(selectedPendingIds)
+      .map(Number)
+      .filter(id => selectedPendingIds[id]);
+
+    if (selectedItemIds.length === 0) return;
+
+    // Flatten all items from pendingPengajuan to find corresponding proposal IDs
+    const proposalsToProcess = new Set<number>();
+    (pendingPengajuan || []).forEach((prop: any) => {
+      const hasSelectedChild = (prop.items || []).some((it: any) => selectedItemIds.includes(it.id));
+      if (hasSelectedChild) {
+        proposalsToProcess.add(prop.id);
+      }
+    });
+
+    const proposalIds = Array.from(proposalsToProcess);
+    if (proposalIds.length === 0) return;
+
     setLoadingDetail(true);
     setFormError("");
     setSuccess("");
+
     try {
+      // Process each proposal in series/parallel
       const results = await Promise.all(
-        ids.map(id =>
-          fetch(`/api/reimbursements/${id}/approve`, {
-            method: "POST",
+        proposalIds.map(propId =>
+          fetch(`/api/pengajuan-anggaran/${propId}/review`, {
+            method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, catatan }),
+            body: JSON.stringify({ status: action, catatan }),
           })
         )
       );
 
       const allOk = results.every(res => res.ok);
       if (allOk) {
-        alert(action === 'APPROVE' ? `Berhasil menyetujui ${ids.length} pengajuan!` : `Berhasil menolak ${ids.length} pengajuan.`);
+        alert(action === 'APPROVE' ? `Berhasil menyetujui ${proposalIds.length} pengajuan!` : `Berhasil menolak ${proposalIds.length} pengajuan.`);
 
         // Reset rejection states
-        setRejectingReimbursement(null);
+        setRejectingPengajuan(null);
         setRejectionReason("");
         setShowPendingPmModal(false);
 
-        // Refresh detail modal
+        // Refresh detail
         const detailRes = await fetch(`/api/proyek/${detailedProjectInfo.id}`);
         const detailData = await detailRes.json();
         if (detailRes.ok && detailData.project) {
@@ -2085,7 +2144,6 @@ export default function KelolaProyekPage() {
                                   Rp {formatMillionsShort(terpakaiSub)}
                                 </div>
                               </div>
-
                               {/* KET Rows - only if sub is expanded */}
                               {isSubOpen && sub.keterangan.map((ket: any, idxKet: number) => {
                                 const alokasiKet = parseFloat(ket.nominalAlokasi) || 0;
@@ -2093,7 +2151,13 @@ export default function KelolaProyekPage() {
                                 const pctKet = alokasiKet > 0 ? ((realisasiKet / alokasiKet) * 100).toFixed(1) : '0.0';
 
                                 const childReimbursements = ket.reimbursements || [];
-                                const approvedReimbs = childReimbursements.filter((r: any) => r.status === 'APPROVED' || r.status === 'PAID' || r.status === 'DISBURSED');
+                                const approvedReimbs = childReimbursements.filter((r: any) =>
+                                  r.status === 'APPROVED' ||
+                                  r.status === 'APPROVED_BY_PM' ||
+                                  r.status === 'SUBMITTED' ||
+                                  r.status === 'PAID' ||
+                                  r.status === 'DISBURSED'
+                                );
                                 const hasReimbs = approvedReimbs.length > 0;
                                 const ketKey = `${subKey}-${idxKet}`;
                                 const isKetOpen = hasReimbs && expandedKet[ketKey] !== false;
@@ -2161,9 +2225,32 @@ export default function KelolaProyekPage() {
 
                                     {/* Approved Reimbursements list under this Keterangan */}
                                     {isKetOpen && approvedReimbs.map((reimb: any) => {
-                                      const itemDate = reimb.createdAt || reimb.timestamp || new Date();
-                                      const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                      const formattedDate = formatReimbursementDate(reimb);
                                       const nominalReimb = reimb.nominal || 0;
+
+                                      // Dynamic badge style and text
+                                      const getStatusBadgeStyles = (status: string) => {
+                                        if (status === 'APPROVED' || status === 'PAID' || status === 'DISBURSED') {
+                                          return { background: 'rgba(0, 145, 98, 0.12)', color: '#005836' };
+                                        }
+                                        if (status === 'APPROVED_BY_PM') {
+                                          return { background: 'rgba(29, 99, 184, 0.12)', color: '#1D63B8' };
+                                        }
+                                        return { background: 'rgba(216, 149, 61, 0.12)', color: '#894C06' };
+                                      };
+
+                                      const getStatusLabelText = (status: string) => {
+                                        if (status === 'APPROVED' || status === 'PAID' || status === 'DISBURSED') {
+                                          return 'Dicairkan';
+                                        }
+                                        if (status === 'APPROVED_BY_PM') {
+                                          return 'Verifikasi Keuangan';
+                                        }
+                                        return 'Menunggu PM';
+                                      };
+
+                                      const badgeStyle = getStatusBadgeStyles(reimb.status);
+                                      const statusLabel = getStatusLabelText(reimb.status);
 
                                       return (
                                         <div key={reimb.id} style={{
@@ -2179,18 +2266,17 @@ export default function KelolaProyekPage() {
                                               Reimb
                                             </span>
                                             <span style={{ color: '#9A948B', fontSize: 11.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '400', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                              · {reimb.user?.nama || 'Karyawan'} · {formattedDate}
+                                              · {(reimb.ocrData as any)?.merchant || (reimb.ocrData as any)?.keterangan || 'Reimbursement'} · {formattedDate}
                                             </span>
                                             <span style={{
                                               padding: '2px 8px',
-                                              background: 'rgba(0, 145, 98, 0.12)',
                                               borderRadius: 999,
-                                              color: '#005836',
                                               fontSize: 10,
                                               fontFamily: 'Plus Jakarta Sans',
-                                              fontWeight: '600'
+                                              fontWeight: '600',
+                                              ...badgeStyle
                                             }}>
-                                              Dicairkan
+                                              {statusLabel}
                                             </span>
                                           </div>
 
@@ -2261,8 +2347,37 @@ export default function KelolaProyekPage() {
 
       {/* --- POP-UP MODAL: PENGAJUAN PM PENDING --- */}
       {showPendingPmModal && (() => {
-        const submissions = detailedProjectInfo?.pendingReimbursements || [];
         const mainAnggaranList = detailedProjectInfo?.budget?.mainAnggaran || [];
+
+        // Flatten all items from pending proposals into submissions
+        const submissions: any[] = [];
+        (pendingPengajuan || []).forEach((prop: any) => {
+          (prop.items || []).forEach((it: any) => {
+            const isSub = it.tipe === 'SUB_ANGGARAN';
+            submissions.push({
+              id: it.id,
+              pengajuanId: prop.id,
+              judul: prop.judul,
+              deskripsi: prop.deskripsi,
+              user: prop.pengaju,
+              createdAt: prop.createdAt,
+              nominal: it.nominalAlokasi != null ? Number(it.nominalAlokasi) : 0,
+              tipe: it.tipe,
+              aksi: it.aksi,
+              nama: it.nama,
+              parentId: it.parentId,
+              targetId: it.targetId,
+              subAnggaran: isSub ? {
+                namaSub: it.nama,
+                mainAnggaran: { id: it.parentId }
+              } : null,
+              keteranganAnggaran: !isSub ? {
+                keterangan: it.nama,
+                subAnggaranId: it.parentId
+              } : null,
+            });
+          });
+        });
 
         // Checkbox states
         const anySelected = submissions.some((r: any) => selectedPendingIds[r.id]);
@@ -2278,11 +2393,7 @@ export default function KelolaProyekPage() {
         };
 
         const handleBulkApprove = async () => {
-          const selectedIds = Object.keys(selectedPendingIds)
-            .map(Number)
-            .filter(id => selectedPendingIds[id]);
-          if (selectedIds.length === 0) return;
-          await handleBulkProcess(selectedIds, 'APPROVE');
+          await handleBulkReview('APPROVE');
         };
 
         return (
@@ -2355,10 +2466,19 @@ export default function KelolaProyekPage() {
                       {mainAnggaranList.map((main: any, gi: number) => {
                         // Filter pending submissions belonging to this MAIN category
                         const mainPending = submissions.filter((r: any) => {
-                          const rMainId = r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.id
-                            || r.subAnggaran?.mainAnggaran?.id
-                            || r.posAnggaran?.id;
-                          return rMainId === main.id;
+                          if (r.tipe === 'SUB_ANGGARAN') {
+                            return Number(r.parentId) === Number(main.id);
+                          } else {
+                            // 1. Check if parent is an existing sub category under this main
+                            const isChildOfExistingSub = (main.subAnggaran || []).some((s: any) => Number(s.id) === Number(r.parentId));
+                            if (isChildOfExistingSub) return true;
+
+                            // 2. Check if parent is a pending sub category under this main
+                            const parentPendingSub = submissions.find((sub: any) => sub.tipe === 'SUB_ANGGARAN' && Number(sub.targetId) === Number(r.parentId));
+                            if (parentPendingSub && Number(parentPendingSub.parentId) === Number(main.id)) return true;
+
+                            return false;
+                          }
                         });
 
                         const subAnggarans = main.subAnggaran || [];
@@ -2385,11 +2505,12 @@ export default function KelolaProyekPage() {
                             {subAnggarans.map((sub: any) => {
                               // Find any pending keterangan item under this existing sub
                               const childPendingKets = mainPending.filter((r: any) => {
-                                return r.keteranganAnggaran?.subAnggaranId === sub.id && !!r.keteranganAnggaran;
+                                return r.tipe === 'KETERANGAN' && Number(r.parentId) === Number(sub.id);
                               });
 
                               const subKey = `modal-sub-${sub.id}`;
                               const isSubOpen = expandedSub[subKey] !== false;
+                              const hasChildren = (sub.keterangan?.length > 0) || (childPendingKets.length > 0);
 
                               return (
                                 <div key={sub.id} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -2399,7 +2520,7 @@ export default function KelolaProyekPage() {
                                       display: 'flex',
                                       alignItems: 'center',
                                       padding: '7px 12px 7px 14px',
-                                      borderBottom: (childPendingKets.length > 0 && isSubOpen) ? '1px solid #E6E1D4' : 'none',
+                                      borderBottom: (hasChildren && isSubOpen) ? '1px solid #E6E1D4' : 'none',
                                       background: 'white',
                                       cursor: 'pointer',
                                       userSelect: 'none',
@@ -2429,43 +2550,254 @@ export default function KelolaProyekPage() {
                                     </span>
                                   </div>
 
-                                  {/* Render child pending items (KETERANGAN BARU) under this subbudget if it is expanded */}
-                                  {isSubOpen && childPendingKets.map((r: any) => {
-                                    const isChecked = !!selectedPendingIds[r.id];
-                                    const itemDate = r.createdAt || r.timestamp || new Date();
-                                    const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                                    const submitterName = r.user?.nama || 'Karyawan';
-                                    const nominal = r.nominal || 0;
+                                  {/* Render child items (existing & pending) under this subbudget if it is expanded */}
+                                  {isSubOpen && (
+                                    <>
+                                      {/* Existing Keterangans */}
+                                      {(sub.keterangan || []).map((ket: any) => {
+                                        const alokasi = Number(ket.nominalAlokasi) || 0;
+                                        return (
+                                          <div key={`existing-ket-${ket.id}`} style={{
+                                            background: 'white',
+                                            borderBottom: '1px solid #E6E1D4',
+                                            padding: '7px 12px 7px 34px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                          }}>
+                                            <div style={{ width: 22 }} />
+                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                              <span style={{ color: '#9A948B', fontSize: 10, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                                KET
+                                              </span>
+                                              <span style={{ color: '#6A6660', fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                                {ket.keterangan}
+                                              </span>
+                                            </div>
+                                            <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: "'IBM Plex Mono', monospace" }}>
+                                              Rp {alokasi.toLocaleString('id-ID')}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+
+                                      {/* Pending Keterangans */}
+                                      {childPendingKets.map((r: any) => {
+                                        const isChecked = !!selectedPendingIds[r.id];
+                                        const itemDate = r.createdAt || new Date();
+                                        const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                        const submitterName = r.user?.nama || 'Project Manager';
+                                        const nominal = r.nominal || 0;
+
+                                        return (
+                                          <div key={`pending-ket-${r.id}`} style={{
+                                            background: isChecked ? '#D5F4E3' : 'white',
+                                            borderBottom: '1px solid #E6E1D4',
+                                            padding: '7px 12px 7px 34px',
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: 8,
+                                            transition: 'background-color 0.2s ease',
+                                          }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
+                                              }}
+                                              style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                            >
+                                              <div style={{
+                                                width: 14,
+                                                height: 14,
+                                                borderRadius: 4,
+                                                background: isChecked ? '#009162' : 'white',
+                                                border: isChecked ? 'none' : '1.20px solid #E6E1D4',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                              }}>
+                                                {isChecked && (
+                                                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                                    <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                  </svg>
+                                                )}
+                                              </div>
+                                            </button>
+
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                                <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                                  KETERANGAN BARU
+                                                </span>
+                                                <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                                  {r.nama}
+                                                </span>
+                                                <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                                  MENUNGGU
+                                                </span>
+                                              </div>
+                                              {r.deskripsi && r.deskripsi !== 'N/A' && (
+                                                <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
+                                                  &ldquo;{r.deskripsi}&rdquo;
+                                                </div>
+                                              )}
+                                              <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                                Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                                              </div>
+                                            </div>
+
+                                            <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                              Rp {Number(nominal).toLocaleString('id-ID')}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* Render pending categories that are SUB BARU directly under Main header */}
+                            {mainPending.filter((r: any) => r.tipe === 'SUB_ANGGARAN' && Number(r.parentId) === Number(main.id)).map((r: any) => {
+                              const isChecked = !!selectedPendingIds[r.id];
+                              const subName = r.nama || 'Sub Baru';
+                              const itemDate = r.createdAt || new Date();
+                              const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                              const submitterName = r.user?.nama || 'Project Manager';
+                              const nominal = r.nominal || 0;
+
+                              const subKey = `modal-sub-pending-${r.id}`;
+                              const isSubOpen = expandedSub[subKey] !== false;
+
+                              // Find any pending child keterangan items proposed under this pending subbudget
+                              const childPendingKets = mainPending.filter((c: any) => {
+                                return c.tipe === 'KETERANGAN' && Number(c.parentId) === Number(r.targetId);
+                              });
+
+                              const hasChildren = childPendingKets.length > 0;
+
+                              return (
+                                <div key={r.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                                  {/* Pending subbudget row — chevron (expand) + checkbox (select) */}
+                                  <div
+                                    style={{
+                                      background: isChecked ? '#D5F4E3' : 'white',
+                                      borderTop: '1px solid #E6E1D4',
+                                      padding: '7px 12px 7px 14px',
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      gap: 6,
+                                      transition: 'background-color 0.2s ease',
+                                    }}
+                                  >
+                                    {/* Chevron toggle expand/collapse */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
+                                      style={{ background: 'transparent', border: 'none', padding: '4px 2px', cursor: hasChildren ? 'pointer' : 'default', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                                    >
+                                      <svg
+                                        width="10"
+                                        height="10"
+                                        viewBox="0 0 10 10"
+                                        fill="none"
+                                        style={{
+                                          transition: 'transform 0.15s ease',
+                                          transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                                          opacity: hasChildren ? 1 : 0,
+                                        }}
+                                      >
+                                        <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                    </button>
+
+                                    {/* Checkbox */}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }))
+                                      }
+                                      style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                                    >
+                                      <div style={{
+                                        width: 14,
+                                        height: 14,
+                                        borderRadius: 4,
+                                        background: isChecked ? '#009162' : 'white',
+                                        border: isChecked ? 'none' : '1px solid #6A6660',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                      }}>
+                                        {isChecked && (
+                                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                            <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                          </svg>
+                                        )}
+                                      </div>
+                                    </button>
+
+                                    {/* Info */}
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                        <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
+                                          SUB BARU
+                                        </span>
+                                        <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                          {subName}
+                                        </span>
+                                        <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                          MENUNGGU
+                                        </span>
+                                      </div>
+                                      <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", paddingTop: 2 }}>
+                                        Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                                      </div>
+                                    </div>
+
+                                    {/* Nominal */}
+                                    <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                      Rp {Number(nominal).toLocaleString('id-ID')}
+                                    </div>
+                                  </div>
+
+                                  {/* Render child KETERANGAN BARU — hanya tampil ketika di-expand */}
+                                  {isSubOpen && childPendingKets.map((c: any) => {
+                                    const isChildChecked = !!selectedPendingIds[c.id];
+                                    const cDate = c.createdAt || new Date();
+                                    const cFormattedDate = new Date(cDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                    const cSubmitterName = c.user?.nama || 'Project Manager';
+                                    const cNominal = c.nominal || 0;
 
                                     return (
-                                      <div key={r.id} style={{
-                                        background: isChecked ? '#D5F4E3' : 'white',
-                                        borderBottom: '1px solid #E6E1D4',
-                                        padding: '7px 12px 7px 34px', // further indented
+                                      <div key={c.id} style={{
+                                        background: isChildChecked ? '#D5F4E3' : 'white',
+                                        borderTop: '1px solid #E6E1D4',
+                                        padding: '7px 12px 7px 44px',
                                         display: 'flex',
                                         alignItems: 'flex-start',
                                         gap: 8,
                                         transition: 'background-color 0.2s ease',
                                       }}>
-                                        {/* Checkbox */}
                                         <button
                                           type="button"
-                                          onClick={() => {
-                                            setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
-                                          }}
-                                          style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                          onClick={() =>
+                                            setSelectedPendingIds(prev => ({ ...prev, [c.id]: !prev[c.id] }))
+                                          }
+                                          style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
                                         >
                                           <div style={{
                                             width: 14,
                                             height: 14,
                                             borderRadius: 4,
-                                            background: isChecked ? '#009162' : 'white',
-                                            border: isChecked ? 'none' : '1.20px solid #E6E1D4',
+                                            background: isChildChecked ? '#009162' : 'white',
+                                            border: isChildChecked ? 'none' : '1px solid #6A6660',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                           }}>
-                                            {isChecked && (
+                                            {isChildChecked && (
                                               <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                                                 <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                               </svg>
@@ -2473,112 +2805,29 @@ export default function KelolaProyekPage() {
                                           </div>
                                         </button>
 
-                                        {/* Info */}
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                            <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                            <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
                                               KETERANGAN BARU
                                             </span>
                                             <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                              {r.keteranganAnggaran?.keterangan || r.deskripsi}
+                                              {c.nama}
                                             </span>
                                             <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
                                               MENUNGGU
                                             </span>
                                           </div>
-                                          {r.keterangan && r.keterangan !== 'N/A' && (
-                                            <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
-                                              &ldquo;{r.keterangan}&rdquo;
-                                            </div>
-                                          )}
-                                          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                            Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                                          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", paddingTop: 2 }}>
+                                            Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{cSubmitterName}</span> · {cFormattedDate}
                                           </div>
                                         </div>
 
-                                        {/* Nominal */}
                                         <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                          Rp {Number(nominal).toLocaleString('id-ID')}
+                                          Rp {Number(cNominal).toLocaleString('id-ID')}
                                         </div>
                                       </div>
                                     );
                                   })}
-                                </div>
-                              );
-                            })}
-
-                            {/* Render pending categories that are SUB BARU directly under Main header */}
-                            {mainPending.filter((r: any) => !r.keteranganAnggaran && r.subAnggaran).map((r: any) => {
-                              const isChecked = !!selectedPendingIds[r.id];
-                              const subName = r.subAnggaran?.namaSub || 'Sub Baru';
-                              const itemDate = r.createdAt || r.timestamp || new Date();
-                              const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                              const submitterName = r.user?.nama || 'Karyawan';
-                              const nominal = r.nominal || 0;
-
-                              return (
-                                <div key={r.id} style={{
-                                  background: isChecked ? '#D5F4E3' : 'white',
-                                  borderBottom: '1px solid #E6E1D4',
-                                  padding: '7px 12px 7px 14px',
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: 8,
-                                  transition: 'background-color 0.2s ease',
-                                }}>
-                                  {/* Checkbox */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
-                                    }}
-                                    style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                  >
-                                    <div style={{
-                                      width: 14,
-                                      height: 14,
-                                      borderRadius: 4,
-                                      background: isChecked ? '#009162' : 'white',
-                                      border: isChecked ? 'none' : '1.20px solid #E6E1D4',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                    }}>
-                                      {isChecked && (
-                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                          <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                  </button>
-
-                                  {/* Info */}
-                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                      <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        SUB BARU
-                                      </span>
-                                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        {subName}
-                                      </span>
-                                      <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        MENUNGGU
-                                      </span>
-                                    </div>
-                                    {r.keterangan && r.keterangan !== 'N/A' && (
-                                      <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
-                                        &ldquo;{r.keterangan}&rdquo;
-                                      </div>
-                                    )}
-                                    <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                      Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
-                                    </div>
-                                  </div>
-
-                                  {/* Nominal */}
-                                  <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                    Rp {Number(nominal).toLocaleString('id-ID')}
-                                  </div>
                                 </div>
                               );
                             })}
@@ -2589,10 +2838,10 @@ export default function KelolaProyekPage() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ padding: '48px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12 }}>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Tidak Ada Pengajuan PM Pending</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan yang menunggu persetujuan Project Manager.</div>
-                  </div>
+                  <div style={{ padding: '48px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12, background: 'white' }}>
+                                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Tidak Ada Pengajuan PM Pending</div>
+                                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan pos anggaran yang menunggu persetujuan Direktur.</div>
+                                  </div>
                 )}
               </div>
 
@@ -2616,7 +2865,7 @@ export default function KelolaProyekPage() {
                       type="button"
                       onClick={() => {
                         const itemsToReject = submissions.filter((r: any) => selectedPendingIds[r.id]);
-                        setRejectingReimbursement(itemsToReject); // pass list of items to reject
+                        setRejectingPengajuan(itemsToReject); // pass list of items to reject
                         setRejectionReason("");
                       }}
                       style={{
@@ -2661,18 +2910,18 @@ export default function KelolaProyekPage() {
                 padding: '14px 24px',
                 borderTop: '0.80px #E6E1D4 solid',
                 display: 'flex',
-                gap: 8,
+                justifyContent: 'flex-end',
                 flexShrink: 0,
+                background: 'white'
               }}>
                 <button
                   type="button"
                   onClick={() => setShowPendingPmModal(false)}
                   style={{
-                    flex: 1,
                     padding: '9px 14px',
                     background: 'white',
                     borderRadius: 12,
-                    border: '0.80px solid #E6E1D4',
+                    border: '1px solid #E6E1D4',
                     cursor: 'pointer',
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
                     fontWeight: 600,
@@ -2687,23 +2936,14 @@ export default function KelolaProyekPage() {
               </div>
 
               {/* Tolak Pengajuan Confirmation Overlay Modal */}
-              {rejectingReimbursement && (() => {
-                const isArray = Array.isArray(rejectingReimbursement);
-                const itemsList = isArray ? rejectingReimbursement : [rejectingReimbursement];
+              {rejectingPengajuan && (() => {
+                const isArray = Array.isArray(rejectingPengajuan);
+                const itemsList = isArray ? rejectingPengajuan : [rejectingPengajuan];
 
                 // Construct displaying subtitle
                 let subtitle = "";
                 if (itemsList.length === 1) {
-                  const singleItem = itemsList[0];
-                  const subName = singleItem.keteranganAnggaran?.subAnggaran?.namaSub
-                    || singleItem.subAnggaran?.namaSub
-                    || null;
-                  const ketName = singleItem.keteranganAnggaran?.keterangan
-                    || singleItem.deskripsi
-                    || 'N/A';
-                  const isNewSub = !singleItem.keteranganAnggaran && singleItem.subAnggaran && !singleItem.subAnggaran.id;
-                  const isNewKet = !!singleItem.keteranganAnggaran && !singleItem.keteranganAnggaran.id;
-                  subtitle = isNewSub ? subName : isNewKet ? ketName : (ketName !== 'N/A' ? ketName : subName);
+                  subtitle = itemsList[0]?.nama || '1 pengajuan';
                 } else {
                   subtitle = `${itemsList.length} pengajuan terpilih`;
                 }
@@ -2735,7 +2975,7 @@ export default function KelolaProyekPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setRejectingReimbursement(null)}
+                          onClick={() => setRejectingPengajuan(null)}
                           style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           className="hover:bg-stone-100 transition"
                         >
@@ -2777,7 +3017,7 @@ export default function KelolaProyekPage() {
                       }}>
                         <button
                           type="button"
-                          onClick={() => setRejectingReimbursement(null)}
+                          onClick={() => setRejectingPengajuan(null)}
                           style={{
                             flex: 1,
                             padding: '9px 14px',
@@ -2802,8 +3042,7 @@ export default function KelolaProyekPage() {
                               alert("Alasan penolakan wajib diisi");
                               return;
                             }
-                            const ids = itemsList.map((item: any) => item.id);
-                            await handleBulkProcess(ids, 'REJECT', rejectionReason);
+                            await handleBulkReview('REJECT', rejectionReason);
                           }}
                           style={{
                             flex: 1,
