@@ -313,7 +313,6 @@ export default function ModalPendingPm({
                                           </span>
                                         </div>
 
-                                        {/* BREAKDOWN MINI DARI KELOMPOK DAFTAR KETERANGAN YANG DIKIRIM KARYAWAN */}
                                         <div style={{ background: '#F9F8F6', padding: '8px 12px', borderRadius: 8, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4, border: '1px solid #EBE7DD' }}>
                                           {r.allItems.map((subItem: any, sIdx: number) => (
                                             <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#4A4740' }}>

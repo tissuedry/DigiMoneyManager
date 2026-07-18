@@ -65,7 +65,7 @@ export default function ModalDetailBudget({
           <button
             type="button"
             onClick={() => setShowDetailBudgetModal(false)}
-            style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifycontent: 'center' }}
+            style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             className="hover:bg-stone-100 transition"
           >
             <X size={16} color="#2C2A24" />
@@ -100,9 +100,6 @@ export default function ModalDetailBudget({
           {posAnggaran.length > 0 ? (
             posAnggaran.map((pos: any, idxPos: number) => {
               
-              // ==========================================
-              // 1. HITUNG AGREGASI UNTUK SUB DAN MAIN
-              // ==========================================
               let totalAlokasiMainDariSub = 0;
               let totalTerpakaiMainDariSub = 0;
 
@@ -110,13 +107,11 @@ export default function ModalDetailBudget({
                 let totalAlokasiSubDariKet = 0;
                 let totalTerpakaiSubDariKet = 0;
 
-                // Sum dari Keterangan ke Sub
                 (sub.keterangan || []).forEach((ket: any) => {
                   totalAlokasiSubDariKet += parseFloat(ket.nominalAlokasi) || 0;
-                  totalTerpakaiSubDariKet += parseFloat(ket.nominalRealisasi) || 0; // Keterangan nominalRealisasi tetap sama
+                  totalTerpakaiSubDariKet += parseFloat(ket.nominalRealisasi) || 0; 
                 });
 
-                // Akumulasikan ke Main
                 totalAlokasiMainDariSub += totalAlokasiSubDariKet;
                 totalTerpakaiMainDariSub += totalTerpakaiSubDariKet;
 
@@ -127,7 +122,6 @@ export default function ModalDetailBudget({
                 };
               });
 
-              // Jika data subAnggaran kosong, fallback ke nilai default Main bawaannya
               const alokasiPos = pos.subAnggaran && pos.subAnggaran.length > 0 ? totalAlokasiMainDariSub : (parseFloat(pos.nominalAlokasi) || 0);
               const terpakaiPos = pos.subAnggaran && pos.subAnggaran.length > 0 ? totalTerpakaiMainDariSub : (parseFloat(pos.nominalTerpakai) || 0);
               
@@ -143,7 +137,6 @@ export default function ModalDetailBudget({
 
               return (
                 <div key={pos.id || idxPos} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {/* BAR MAIN */}
                   <div
                     style={{
                       display: 'grid',
@@ -205,9 +198,7 @@ export default function ModalDetailBudget({
                     </div>
                   </div>
 
-                  {/* KELOMPOK SUB (DARI DATA AGREGASI PROCESSED) */}
                   {isMainOpen && processedSubs.map((sub: any, idxSub: number) => {
-                    // Gunakan data hasil hitungan kalkulasi (Sum dari Keterangan)
                     const alokasiSub = sub.keterangan && sub.keterangan.length > 0 ? sub.calculatedAlokasi : (parseFloat(sub.nominalAlokasi) || 0);
                     const terpakaiSub = sub.keterangan && sub.keterangan.length > 0 ? sub.calculatedTerpakai : (parseFloat(sub.nominalTerpakai) || 0);
                     
@@ -224,7 +215,6 @@ export default function ModalDetailBudget({
 
                     return (
                       <div key={sub.id || idxSub} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        {/* BAR SUB */}
                         <div
                           style={{
                             display: 'grid',
@@ -286,7 +276,6 @@ export default function ModalDetailBudget({
                           </div>
                         </div>
                         
-                        {/* KELOMPOK KETERANGAN */}
                         {isSubOpen && sub.keterangan.map((ket: any, idxKet: number) => {
                           const alokasiKet = parseFloat(ket.nominalAlokasi) || 0;
                           const realisasiKet = parseFloat(ket.nominalRealisasi) || 0; // Tetap menggunakan nominalRealisasi bawaan keterangan
@@ -305,7 +294,6 @@ export default function ModalDetailBudget({
 
                           return (
                             <div key={ket.id || idxKet} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              {/* BAR KETERANGAN */}
                               <div
                                 style={{
                                   display: 'grid',
@@ -360,7 +348,6 @@ export default function ModalDetailBudget({
                                 </div>
                               </div>
 
-                              {/* REIMBURSEMENT ITEM (BREAKDOWN DETAIL) */}
                               {isKetOpen && approvedReimbs.map((reimb: any) => {
                                 const formattedDate = formatReimbursementDate(reimb);
                                 const nominalReimb = reimb.nominal || 0;
