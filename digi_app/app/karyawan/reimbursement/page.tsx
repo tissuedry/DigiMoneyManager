@@ -1,4 +1,4 @@
-'use client';
+  'use client';
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -16,6 +16,96 @@ import {
   Loader2
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
+
+interface PosAnggaranOption {
+  id: string;
+  label: string;
+  disabled?: boolean;
+  disabledNote?: string;
+}
+
+function PosAnggaranDropdown({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  options: PosAnggaranOption[];
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selected = options.find((o) => o.id === value);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen((prev) => !prev)}
+        disabled={disabled}
+        className={`w-full flex items-center justify-between gap-2 bg-white border border-stone-200 rounded-xl pl-3 pr-3 py-3 font-medium text-left transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] disabled:bg-stone-50 disabled:text-stone-400 disabled:cursor-not-allowed ${!selected ? 'text-stone-400' : 'text-stone-800'}`}
+      >
+        <span className="truncate">{selected ? selected.label : placeholder}</span>
+        <ChevronDown size={14} className={`text-stone-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="absolute z-20 mt-1.5 w-full bg-white border border-stone-200 rounded-xl shadow-lg shadow-stone-900/5 overflow-hidden max-h-64 overflow-y-auto py-1">
+          {options.length === 0 && (
+            <div className="px-3 py-2.5 text-stone-400 text-xs font-medium">Tidak ada pilihan</div>
+          )}
+          {options.map((opt) => {
+            const isSelected = opt.id === value;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                disabled={opt.disabled}
+                onClick={() => {
+                  if (opt.disabled) return;
+                  onChange(opt.id);
+                  setIsOpen(false);
+                }}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-xs transition-colors ${
+                  opt.disabled
+                    ? 'text-stone-300 cursor-not-allowed'
+                    : isSelected
+                    ? 'bg-emerald-50 text-emerald-700 font-bold'
+                    : 'text-stone-700 hover:bg-stone-50 font-medium cursor-pointer'
+                }`}
+              >
+                <span className="truncate">{opt.label}</span>
+                {opt.disabled && opt.disabledNote && (
+                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-400">
+                    {opt.disabledNote}
+                  </span>
+                )}
+                {!opt.disabled && isSelected && (
+                  <Check size={13} className="text-emerald-600 shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AjukanReimbursementContent() {
   const searchParams = useSearchParams();
@@ -37,8 +127,22 @@ function AjukanReimbursementContent() {
 
   // Auto-select project when data loads
   const [proyekId, setProyekId] = useState('');
-  const [posAnggaranId, setPosAnggaranId] = useState('');
+  const [mainAnggaranId, setMainAnggaranId] = useState('');
+  const [subAnggaranId, setSubAnggaranId] = useState('');
+  const [posAnggaranId, setPosAnggaranId] = useState(''); // holds the selected KeteranganAnggaran (leaf) id
   const [isLoading, setIsLoading] = useState(false);
+
+  // Lightweight Main > Sub > Keterangan name tree for the selected project's
+  // budget (id + name only, no financial data) — same ids the backend
+  // validates reimbursements against.
+  const { data: posAnggaranData } = useApi<any>(proyekId ? `/api/proyek/${proyekId}/pos-anggaran` : null);
+  const mainAnggaranList = posAnggaranData?.posAnggaran ?? [];
+  const subAnggaranList = mainAnggaranList.find((m: any) => String(m.id) === mainAnggaranId)?.subAnggaran ?? [];
+  const keteranganList = subAnggaranList.find((s: any) => String(s.id) === subAnggaranId)?.keterangan ?? [];
+  const selectedMainNama = mainAnggaranList.find((m: any) => String(m.id) === mainAnggaranId)?.namaMain ?? '';
+  const selectedSubNama = subAnggaranList.find((s: any) => String(s.id) === subAnggaranId)?.namaSub ?? '';
+  const selectedKeteranganNama = keteranganList.find((k: any) => String(k.id) === posAnggaranId)?.keterangan ?? '';
+  const isPosAnggaranSelected = !!(mainAnggaranId && subAnggaranId && posAnggaranId);
 
   // Form states - Reimbursement fields
   const [merchant, setMerchant] = useState("");
@@ -61,9 +165,6 @@ function AjukanReimbursementContent() {
         : projects[0];
 
       setProyekId(String(selectedProj.id));
-      if (selectedProj.budget?.posAnggaran?.length > 0) {
-        setPosAnggaranId(String(selectedProj.budget.posAnggaran[0].id));
-      }
     }
   }, [projects, meData, resubmitId, proyekId]);
 
@@ -78,7 +179,9 @@ function AjukanReimbursementContent() {
     }
 
     setProyekId(String(original.proyekId));
-    setPosAnggaranId(String(original.posAnggaranId));
+    setMainAnggaranId(String(original.keteranganAnggaran?.subAnggaran?.mainAnggaranId ?? ''));
+    setSubAnggaranId(String(original.keteranganAnggaran?.subAnggaranId ?? ''));
+    setPosAnggaranId(String(original.keteranganAnggaranId ?? ''));
     setMerchant(original.ocrData?.merchant || '');
     setTanggal(original.ocrData?.tanggal || '');
     setNominal(original.nominal != null ? String(Number(original.nominal)) : '');
@@ -90,18 +193,27 @@ function AjukanReimbursementContent() {
     setIsResubmitLoading(false);
   }, [resubmitId, reimbData]);
 
-  const handleProjectChange = (id: string) => {
-    setProyekId(id);
-    const proj = projects.find((p: any) => String(p.id) === id);
-    if (proj?.budget?.posAnggaran?.length > 0) {
-      setPosAnggaranId(String(proj.budget.posAnggaran[0].id));
-    } else {
-      setPosAnggaranId('');
-    }
+  const handleMainAnggaranChange = (id: string) => {
+    setMainAnggaranId(id);
+    setSubAnggaranId('');
+    setPosAnggaranId('');
+  };
+
+  const handleSubAnggaranChange = (id: string) => {
+    setSubAnggaranId(id);
+    setPosAnggaranId('');
   };
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleUploadTrigger = () => {
+    if (!isPosAnggaranSelected) {
+      alert('Pilih pos anggaran (Main, Sub, dan Keterangan) terlebih dahulu');
+      return;
+    }
+    triggerFileInput();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,7 +267,7 @@ function AjukanReimbursementContent() {
 
     const formData = new FormData();
     formData.append('proyekId', proyekId);
-    formData.append('posAnggaranId', posAnggaranId);
+    formData.append('keteranganAnggaranId', posAnggaranId);
 
     // Clean nominal string (e.g. "450.000" -> "450000")
     const cleanNominal = nominal.replace(/\./g, '').replace(/,/g, '.');
@@ -306,37 +418,96 @@ function AjukanReimbursementContent() {
 
           {/* STATE 1: UPLOAD STRUK */}
           {currentState === 'upload' && (
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept="image/*,application/pdf"
-              />
-              <div className="md:col-span-6 space-y-4">
-                <h2 className="text-lg font-bold text-stone-900">Upload foto struk atau nota</h2>
-                <p className="text-xs text-stone-400 leading-relaxed">
-                  Pastikan struk terlihat jelas, tidak terlipat, dan seluruh informasi (merchant, tanggal, total) terbaca. Format yang didukung: JPG, PNG, HEIC, atau PDF dengan ukuran maksimal 10MB.
-                </p>
-                <div className="flex items-center gap-2.5 pt-2">
-                  <button onClick={triggerFileInput} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#008F5D] hover:bg-[#007A4F] text-white text-xs font-bold rounded-xl transition shadow-sm">
-                    <Camera size={14} /> Ambil foto
-                  </button>
-                  <button onClick={triggerFileInput} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-xs font-bold rounded-xl transition shadow-sm">
-                    <Upload size={14} /> Unggah File
-                  </button>
+            <>
+              {/* PILIH POS ANGGARAN */}
+              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold text-stone-900">Pilih pos anggaran</h2>
+                  <p className="text-xs text-stone-400">
+                    Tentukan dulu pengeluaran ini masuk ke pos mana, sebelum upload struk.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold text-stone-700">
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-stone-500 font-bold">Main <span className="text-red-500">*</span></label>
+                    <PosAnggaranDropdown
+                      value={mainAnggaranId}
+                      onChange={handleMainAnggaranChange}
+                      placeholder="Pilih main..."
+                      options={mainAnggaranList.map((m: any) => ({
+                        id: String(m.id),
+                        label: m.namaMain,
+                        disabled: (m.subAnggaran?.length ?? 0) === 0,
+                        disabledNote: 'Belum ada sub',
+                      }))}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-stone-500 font-bold">Sub <span className="text-red-500">*</span></label>
+                    <PosAnggaranDropdown
+                      value={subAnggaranId}
+                      onChange={handleSubAnggaranChange}
+                      placeholder="Pilih sub..."
+                      disabled={!mainAnggaranId}
+                      options={subAnggaranList.map((s: any) => ({
+                        id: String(s.id),
+                        label: s.namaSub,
+                        disabled: (s.keterangan?.length ?? 0) === 0,
+                        disabledNote: 'Belum ada keterangan',
+                      }))}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-stone-500 font-bold">Keterangan <span className="text-red-500">*</span></label>
+                    <PosAnggaranDropdown
+                      value={posAnggaranId}
+                      onChange={setPosAnggaranId}
+                      placeholder="Pilih keterangan..."
+                      disabled={!subAnggaranId}
+                      options={keteranganList.map((k: any) => ({
+                        id: String(k.id),
+                        label: k.keterangan,
+                      }))}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div onClick={triggerFileInput} className="md:col-span-6 border-2 border-dashed border-stone-200 hover:border-emerald-500 bg-stone-50/50 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition group">
-                <div className="w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:text-emerald-600 shadow-sm transition">
-                  <Upload size={16} />
+              <div className={`bg-white border border-stone-200 rounded-2xl p-6 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center transition-opacity ${!isPosAnggaranSelected ? 'opacity-60' : ''}`}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept="image/*,application/pdf"
+                />
+                <div className="md:col-span-6 space-y-4">
+                  <h2 className="text-lg font-bold text-stone-900">Upload foto struk atau nota</h2>
+                  <p className="text-xs text-stone-400 leading-relaxed">
+                    Pastikan struk terlihat jelas, tidak terlipat, dan seluruh informasi (merchant, tanggal, total) terbaca. Format yang didukung: JPG, PNG, HEIC, atau PDF dengan ukuran maksimal 10MB.
+                  </p>
+                  <div className="flex items-center gap-2.5 pt-2">
+                    <button onClick={handleUploadTrigger} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#008F5D] hover:bg-[#007A4F] text-white text-xs font-bold rounded-xl transition shadow-sm">
+                      <Camera size={14} /> Ambil foto
+                    </button>
+                    <button onClick={handleUploadTrigger} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-xs font-bold rounded-xl transition shadow-sm">
+                      <Upload size={14} /> Unggah File
+                    </button>
+                  </div>
                 </div>
-                <span className="text-xs font-bold text-stone-700">Klik atau drop struk di sini</span>
-                <span className="text-[10px] text-stone-400">JPG, PNG, HEIC, PDF maks. 10MB</span>
+
+                <div onClick={handleUploadTrigger} className="md:col-span-6 border-2 border-dashed border-stone-200 hover:border-emerald-500 bg-stone-50/50 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition group">
+                  <div className="w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:text-emerald-600 shadow-sm transition">
+                    <Upload size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-stone-700">Klik atau drop struk di sini</span>
+                  <span className="text-[10px] text-stone-400">JPG, PNG, HEIC, PDF maks. 10MB</span>
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* STATE 2: AI OCR SEDANG MEMPROSES */}
@@ -399,6 +570,19 @@ function AjukanReimbursementContent() {
                   <div className="inline-block px-2.5 py-0.5 bg-[#DDF2E8] text-[#198754] text-[10px] font-bold rounded-md">
                     Data berhasil diekstrak
                   </div>
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs pt-1">
+                    <span className="font-bold text-stone-400 tracking-wide">MAIN</span>
+                    <span className="text-stone-300">·</span>
+                    <span className="font-bold text-stone-900">{selectedMainNama || '-'}</span>
+                    <span className="text-stone-300 px-1">—</span>
+                    <span className="font-bold text-stone-400 tracking-wide">SUB</span>
+                    <span className="text-stone-300">·</span>
+                    <span className="font-bold text-stone-900">{selectedSubNama || '-'}</span>
+                    <span className="text-stone-300 px-1">—</span>
+                    <span className="font-bold text-stone-400 tracking-wide">KET</span>
+                    <span className="text-stone-300">·</span>
+                    <span className="font-medium text-stone-500">{selectedKeteranganNama || '-'}</span>
+                  </div>
                   <h2 className="text-xl font-extrabold text-stone-900">Review & lengkapi data</h2>
                   <p className="text-xs text-stone-400">
                     Periksa data yang dibaca AI. Field yang ditandai dapat kamu ubah jika ada yang tidak sesuai.
@@ -409,43 +593,7 @@ function AjukanReimbursementContent() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 text-left">
-                      <label className="text-stone-500 font-bold">Proyek</label>
-                      <div className="relative">
-                        <select
-                          value={proyekId}
-                          onChange={(e) => handleProjectChange(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
-                        >
-                          {projects.map((p: any) => (
-                            <option key={p.id} value={String(p.id)}>{p.nama}</option>
-                          ))}
-                        </select>
-                        <ChevronDown size={14} className="absolute right-3 top-4 text-stone-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 text-left">
-                      <label className="text-stone-500 font-bold">Pos anggaran</label>
-                      <div className="relative">
-                        <select
-                          value={posAnggaranId}
-                          onChange={(e) => setPosAnggaranId(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
-                        >
-                          {projects.find((p: any) => String(p.id) === proyekId)?.budget?.posAnggaran?.map((pos: any) => (
-                            <option key={pos.id} value={String(pos.id)}>{pos.namaPos}</option>
-                          )) || <option value="">Tidak ada pos anggaran</option>}
-                        </select>
-                        <ChevronDown size={14} className="absolute right-3 top-4 text-stone-400 pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5 text-left">
-                      <div className="flex items-center gap-2">
-                        <label className="text-stone-500 font-bold">Merchant</label>
-                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
-                      </div>
+                      <label className="text-stone-500 font-bold">Nama Reimbursement</label>
                       <input
                         type="text"
                         value={merchant}

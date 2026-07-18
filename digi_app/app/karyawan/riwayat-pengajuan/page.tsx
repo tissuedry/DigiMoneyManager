@@ -348,9 +348,11 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Detail Pengajuan</p>
           <div className="rounded-xl border border-stone-200 bg-white overflow-hidden">
             {[
-              { label: "Pos Anggaran", value: raw.posAnggaran?.deskripsi || "N/A" },
+              { label: "Main", value: raw.posAnggaran?.namaPos || "N/A" },
+              { label: "Sub", value: raw.posAnggaran?.subAnggaran?.namaSub || "N/A" },
+              { label: "Keterangan", value: raw.posAnggaran?.keterangan || raw.posAnggaran?.deskripsi || "N/A" },
               { label: "Tanggal Transaksi", value: tanggal },
-              { label: "Merchant", value: raw.ocrData?.merchant || "N/A" },
+              { label: "Nama Reimbursement", value: raw.ocrData?.merchant || "N/A" },
               { label: "Anti-Fraud", value: raw.antiFraud || "Aman" },
             ].map((row, i, arr) => (
               <div key={row.label} className={`flex justify-between items-center px-4 py-3 ${i < arr.length - 1 ? "border-b border-stone-100" : ""}`}>
@@ -621,7 +623,11 @@ export default function RiwayatPengajuanPage() {
     setActionLoading(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/reimbursements/${selectedItem.id}/cancel`, { method: 'POST' });
+      const res = await fetch(`/api/reimbursements/${selectedItem.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
       const data = await res.json();
       if (!res.ok) {
         setActionError(data.message || 'Gagal membatalkan pengajuan');
