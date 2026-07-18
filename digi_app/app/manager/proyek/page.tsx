@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import { FolderPlus, Loader2, Check, X, Calendar, Briefcase, DollarSign, Plus, Trash2, Settings, ArrowUpRight, ArrowDownLeft, Receipt, Eye, ClipboardList } from "lucide-react";
@@ -163,43 +163,6 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const handleProcessPengajuan = async (ids: number[], action: 'APPROVE' | 'REJECT', catatan?: string) => {
-    if (!detailedProjectInfo || ids.length === 0) return;
-    setLoadingDetail(true);
-    setFormError("");
-    setSuccess("");
-    try {
-      const res = await fetch(`/api/reimbursements/${reimbursementId}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, catatan }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert(action === 'APPROVE' ? "Pengajuan reimbursement berhasil disetujui!" : "Pengajuan reimbursement ditolak.");
-
-        // Reset rejection states
-        setRejectingReimbursement(null);
-        setRejectionReason("");
-
-        // Refresh detail modal
-        const detailRes = await fetch(`/api/proyek/${detailedProjectInfo.id}`);
-        const detailData = await detailRes.json();
-        if (detailRes.ok && detailData.project) {
-          setDetailedProjectInfo(detailData.project);
-        }
-        fetchData();
-      } else {
-        alert(data.message || "Gagal memproses pengajuan");
-        setFormError(data.message || "Gagal memproses pengajuan");
-      }
-    } catch {
-      alert("Terjadi kesalahan koneksi saat memproses pengajuan");
-      setFormError("Terjadi kesalahan koneksi");
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
 
   const handleBulkProcess = async (ids: number[], action: 'APPROVE' | 'REJECT', catatan?: string) => {
     if (!detailedProjectInfo || ids.length === 0) return;
@@ -2772,7 +2735,7 @@ export default function KelolaProyekPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setRejectingPengajuan(null)}
+                          onClick={() => setRejectingReimbursement(null)}
                           style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           className="hover:bg-stone-100 transition"
                         >
@@ -2814,7 +2777,7 @@ export default function KelolaProyekPage() {
                       }}>
                         <button
                           type="button"
-                          onClick={() => setRejectingPengajuan(null)}
+                          onClick={() => setRejectingReimbursement(null)}
                           style={{
                             flex: 1,
                             padding: '9px 14px',
