@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
-  Download, Zap, X
+  Download, Zap, X, Check
 } from "lucide-react";
 
 import Sidebar from '@/components/sidebar';
@@ -147,6 +147,67 @@ function PencairanContent() {
 
   const pmApproval = selectedItem?.approvals?.find((a: any) => a.level === 'PM');
   const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN');
+
+  // ponytail: local StepIcon copied inline instead of extracting a shared component — extract when third page needs it
+  const StepIcon = ({ state, number }: { state: "done" | "active" | "pending" | "rejected"; number: number }) => {
+    if (state === "done")
+      return (
+        <div className="w-7 h-7 rounded-full bg-[#2d6a4f] flex items-center justify-center flex-shrink-0">
+          <Check size={14} className="text-white" strokeWidth={2.5} />
+        </div>
+      );
+    if (state === "rejected")
+      return (
+        <div className="w-7 h-7 rounded-full bg-[#be123c] flex items-center justify-center flex-shrink-0">
+          <X size={14} className="text-white" strokeWidth={2.5} />
+        </div>
+      );
+    if (state === "active")
+      return (
+        <div className="w-7 h-7 rounded-full bg-[#b46b2b] flex items-center justify-center flex-shrink-0">
+          <span className="text-[11px] font-bold text-white">{number}</span>
+        </div>
+      );
+    return (
+      <div className="w-7 h-7 rounded-full border-2 border-stone-200 bg-white flex items-center justify-center flex-shrink-0">
+        <span className="text-[11px] font-semibold text-stone-400">{number}</span>
+      </div>
+    );
+  };
+
+  // Build approval steps matching PM page logic
+  const approvalSteps = selectedItem ? [
+    {
+      label: "Pengajuan dikirim",
+      sublabel: `${selectedItem.user?.nama || 'Karyawan'} • ${selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}`,
+      state: "done" as const
+    },
+    {
+      label: "Validasi Project Manager",
+      sublabel: pmApproval
+        ? `${pmApproval.approver?.nama || 'Project Manager'} • ${new Date(pmApproval.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
+        : (selectedItem.status === 'SUBMITTED' ? "Menunggu" : "Menunggu • –"),
+      state: pmApproval
+        ? (pmApproval.status === 'REJECTED' ? "rejected" as const : "done" as const)
+        : (selectedItem.status === 'SUBMITTED' ? "active" as const : "pending" as const)
+    },
+    {
+      label: "Verifikasi Tim Keuangan",
+      sublabel: financeApproval
+        ? `${financeApproval.approver?.nama || 'Tim Keuangan'} • ${new Date(financeApproval.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
+        : (selectedItem.status === 'APPROVED_BY_PM' ? "Menunggu" : "Menunggu • –"),
+      state: financeApproval
+        ? (financeApproval.status === 'REJECTED' ? "rejected" as const : "done" as const)
+        : (selectedItem.status === 'APPROVED_BY_PM' ? "active" as const : "pending" as const)
+    },
+    {
+      label: "Dicairkan",
+      sublabel: selectedItem.status === 'APPROVED'
+        ? `Jurnal otomatis • ${financeApproval ? new Date(financeApproval.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}`
+        : "Jurnal otomatis • –",
+      state: selectedItem.status === 'APPROVED' ? "done" as const : "pending" as const
+    }
+  ] : [];
 
   return (
     <div className="flex h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
@@ -306,8 +367,16 @@ function PencairanContent() {
                         <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.proyek?.nama}</span>
                       </div>
                       <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Pos Anggaran</span>
-                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.posAnggaran?.deskripsi}</span>
+                        <span className="text-stone-400">Main</span>
+                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.posAnggaran?.namaPos}</span>
+                      </div>
+                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
+                        <span className="text-stone-400">Sub</span>
+                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.posAnggaran?.subAnggaran?.namaSub}</span>
+                      </div>
+                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
+                        <span className="text-stone-400">Keterangan</span>
+                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.posAnggaran?.keterangan}</span>
                       </div>
                       <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
                         <span className="text-stone-400">Tanggal Transaksi</span>
@@ -454,99 +523,35 @@ function PencairanContent() {
                       </div>
                     )}
 
-                    {/* Alur Approval Stepper */}
-                    <div className="space-y-3 pt-2">
-                      <label className="text-[12px] font-bold text-stone-800">Alur Approval</label>
-                      <div className="relative pl-[26px] mt-2 space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-stone-200">
-                        
-                        {/* Step 1 */}
-                        <div className="relative flex items-start gap-3">
-                          <div className="absolute -left-[30px] bg-[#008f5d] rounded-full w-[20px] h-[20px] flex items-center justify-center z-10 border-[3px] border-white ring-1 ring-white/50">
-                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    {/* Alur Approval */}
+                    <div>
+                      <p className="text-[13px] font-bold text-stone-800 mb-4">Alur Approval</p>
+                      <div className="flex flex-col gap-0">
+                        {approvalSteps.map((step, i) => (
+                          <div key={i} className="flex gap-3">
+                            <div className="flex flex-col items-center">
+                              <StepIcon state={step.state} number={i + 1} />
+                              {i < approvalSteps.length - 1 && (
+                                <div
+                                  className={`w-px flex-1 my-1 ${
+                                    step.state === "done" ? "bg-[#2d6a4f]" : "bg-stone-200"
+                                  }`}
+                                  style={{ minHeight: "20px" }}
+                                />
+                              )}
+                            </div>
+                            <div className="pb-4">
+                              <p
+                                className={`text-[13px] font-semibold ${
+                                  step.state === "pending" ? "text-stone-400" : "text-stone-800"
+                                }`}
+                              >
+                                {step.label}
+                              </p>
+                              <p className="text-[11px] text-stone-400 mt-0.5">{step.sublabel}</p>
+                            </div>
                           </div>
-                          <div className="text-[12px] leading-tight mt-0.5">
-                            <p className="font-medium text-stone-800">Pengajuan dikirim</p>
-                            <p className="text-[10px] text-stone-400 mt-1">
-                              {selectedItem.user?.nama} · {selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Step 2 */}
-                        <div className="relative flex items-start gap-3">
-                          <div className={`absolute -left-[30px] rounded-full w-[20px] h-[20px] flex items-center justify-center z-10 border-[3px] border-white ring-1 ring-white/50 ${
-                            pmApproval 
-                              ? (pmApproval.status === 'REJECTED' ? "bg-[#be123c]" : "bg-[#008f5d]") 
-                              : "bg-stone-200"
-                          }`}>
-                            {pmApproval ? (
-                              pmApproval.status === 'REJECTED' ? (
-                                <svg className="w-2 h-2 text-white" viewBox="0 0 12 12" fill="none">
-                                  <path d="M2 2L10 10M10 2L2 10" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                                </svg>
-                              ) : (
-                                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                              )
-                            ) : null}
-                          </div>
-                          <div className="text-[12px] leading-tight mt-0.5">
-                            <p className={`font-medium ${pmApproval ? "text-stone-800" : "text-stone-500"}`}>
-                              {pmApproval?.status === 'REJECTED' ? "Ditolak oleh Project Manager" : "Validasi Project Manager"}
-                            </p>
-                            <p className="text-[10px] text-stone-400 mt-1">
-                              {pmApproval ? `${pmApproval.approver?.nama} · ${new Date(pmApproval.timestamp).toLocaleDateString('id-ID')}` : 'Menunggu · -'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Step 3 */}
-                        <div className="relative flex items-start gap-3">
-                          <div className={`absolute -left-[30px] rounded-full w-[20px] h-[20px] flex items-center justify-center z-10 border-[3px] border-white ring-1 ring-white/50 ${
-                            selectedItem.status === 'APPROVED_BY_PM' ? 'bg-[#f59e0b]' :
-                            financeApproval 
-                              ? (financeApproval.status === 'REJECTED' ? 'bg-[#be123c]' : 'bg-[#008f5d]') 
-                              : 'bg-stone-200'
-                          }`}>
-                            {financeApproval ? (
-                              financeApproval.status === 'REJECTED' ? (
-                                <svg className="w-2 h-2 text-white" viewBox="0 0 12 12" fill="none">
-                                  <path d="M2 2L10 10M10 2L2 10" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                                </svg>
-                              ) : (
-                                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                              )
-                            ) : selectedItem.status === 'APPROVED_BY_PM' ? (
-                              <span className="text-[10px] font-bold text-white">3</span>
-                            ) : null}
-                          </div>
-                          <div className="text-[12px] leading-tight mt-0.5">
-                            <p className={`font-medium ${selectedItem.status === 'APPROVED_BY_PM' || financeApproval ? 'text-stone-800' : 'text-stone-500'}`}>
-                              {financeApproval?.status === 'REJECTED' ? "Ditolak oleh Tim Keuangan" : "Verifikasi Tim Keuangan"}
-                            </p>
-                            <p className="text-[10px] text-stone-400 mt-1">
-                              {financeApproval ? `${financeApproval.approver?.nama} · ${new Date(financeApproval.timestamp).toLocaleDateString('id-ID')}` :
-                               selectedItem.status === 'APPROVED_BY_PM' ? 'Menunggu · -' : 'Dilewati / Ditolak'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Step 4 */}
-                        <div className="relative flex items-start gap-3">
-                          <div className={`absolute -left-[30px] rounded-full w-[20px] h-[20px] flex items-center justify-center z-10 border-[3px] border-white ring-1 ring-white/50 ${
-                            selectedItem.status === 'APPROVED' ? 'bg-[#008f5d]' : 'bg-stone-200'
-                          }`}>
-                            {selectedItem.status === 'APPROVED' ? (
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                            ) : null}
-                          </div>
-                          <div className="text-[12px] leading-tight mt-0.5">
-                            <p className={`font-medium ${selectedItem.status === 'APPROVED' ? 'text-stone-800' : 'text-stone-500'}`}>Dicairkan</p>
-                            <p className="text-[10px] text-stone-400 mt-1">
-                              {selectedItem.status === 'APPROVED' ? 'Jurnal otomatis generated' : '-'}
-                            </p>
-                          </div>
-                        </div>
-
+                        ))}
                       </div>
                     </div>
                   </div>
