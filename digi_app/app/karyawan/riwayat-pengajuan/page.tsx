@@ -213,7 +213,7 @@ function StepIcon({ status, number }: { status: StepStatus; number: number }) {
   );
 }
 
-function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResubmit, onViewRelated, actionLoading, actionError }: {
+function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResubmit, onViewRelated, onOpenImage, actionLoading, actionError }: {
   raw: any;
   displayId: string;
   allRaw: any[];
@@ -221,6 +221,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
   onRequestCancel: () => void;
   onResubmit: () => void;
   onViewRelated: (dbId: number, displayId: string) => void;
+  onOpenImage: (url: string) => void;
   actionLoading: boolean;
   actionError: string | null;
 }) {
@@ -416,13 +417,16 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
                   <img
                     src={raw.strukUrl}
                     alt="Bukti Struk"
-                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => onOpenImage(raw.strukUrl)}
                     onError={(e) => { (e.target as HTMLImageElement).src = "/bukti_struk.png"; }}
                   />
                 ) : (
                   <img
                     src="/bukti_struk.png"
                     alt="Bukti Struk"
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                 )}
@@ -520,6 +524,8 @@ export default function RiwayatPengajuanPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState("");
 
   const fetchReimbursements = async () => {
     setIsLoading(true);
@@ -895,6 +901,7 @@ export default function RiwayatPengajuanPage() {
               onViewRelated={handleViewRelated}
               actionLoading={actionLoading}
               actionError={actionError}
+              onOpenImage={(url) => { setSelectedImageUrl(url); setShowImageModal(true); }}
             />
           </>
         )}
@@ -934,6 +941,29 @@ export default function RiwayatPengajuanPage() {
                 {actionLoading ? "Membatalkan..." : "Ya, batalkan"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Modal */}
+      {showImageModal && selectedImageUrl && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowImageModal(false)}
+        >
+          <div className="relative w-[480px] max-h-[85vh] flex items-center justify-center">
+            <img
+              src={selectedImageUrl}
+              alt="Bukti Struk"
+              loading="lazy"
+              className="w-full h-auto max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+            />
+            <button
+              onClick={() => setShowImageModal(false)}
+              className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition cursor-pointer"
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
       )}

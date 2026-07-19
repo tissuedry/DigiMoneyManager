@@ -401,9 +401,10 @@ function PencairanContent() {
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-medium text-stone-500">Bukti Struk</label>
                         <div className="border border-stone-200 rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center">
-                          <img 
-                            src={selectedItem.strukUrl} 
-                            alt="Bukti Struk" 
+                          <img
+                            src={selectedItem.strukUrl}
+                            alt="Bukti Struk"
+                            loading="lazy"
                             className="w-full h-auto object-contain max-h-48 rounded-lg"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = '/bukti_struk.png';
