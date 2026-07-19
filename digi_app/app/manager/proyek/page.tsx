@@ -203,6 +203,7 @@ export default function KelolaProyekPage() {
 
   const handleBulkReview = async (action: 'APPROVE' | 'REJECT', catatan?: string) => {
     if (!detailedProjectInfo) return;
+    if (loadingDetail) return;
 
     // Gather all selected item IDs
     const selectedItemIds = Object.keys(selectedPendingIds)
@@ -2886,6 +2887,7 @@ export default function KelolaProyekPage() {
                     <button
                       type="button"
                       onClick={handleBulkApprove}
+                      disabled={loadingDetail}
                       style={{
                         padding: '9px 14px',
                         background: 'black',
@@ -2895,11 +2897,12 @@ export default function KelolaProyekPage() {
                         fontWeight: 600,
                         fontSize: 13,
                         color: 'white',
-                        cursor: 'pointer'
+                        cursor: loadingDetail ? 'not-allowed' : 'pointer',
+                        opacity: loadingDetail ? 0.6 : 1
                       }}
                       className="hover:opacity-80 transition"
                     >
-                      Setujui Terpilih ({selectedCount})
+                      {loadingDetail ? 'Memproses...' : `Setujui Terpilih (${selectedCount})`}
                     </button>
                   </div>
                 </div>
@@ -3037,6 +3040,7 @@ export default function KelolaProyekPage() {
                         </button>
                         <button
                           type="button"
+                          disabled={loadingDetail}
                           onClick={async () => {
                             if (!rejectionReason.trim()) {
                               alert("Alasan penolakan wajib diisi");
@@ -3050,7 +3054,8 @@ export default function KelolaProyekPage() {
                             background: 'black',
                             borderRadius: 12,
                             border: 'none',
-                            cursor: 'pointer',
+                            cursor: loadingDetail ? 'not-allowed' : 'pointer',
+                            opacity: loadingDetail ? 0.6 : 1,
                             fontFamily: "'Plus Jakarta Sans', sans-serif",
                             fontWeight: 600,
                             fontSize: 13,
@@ -3059,7 +3064,7 @@ export default function KelolaProyekPage() {
                           }}
                           className="hover:opacity-80 transition"
                         >
-                          Kirim Penolakan
+                          {loadingDetail ? 'Memproses...' : 'Kirim Penolakan'}
                         </button>
                       </div>
 
