@@ -17,6 +17,12 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
 
+function formatRupiah(value: string): string {
+  const digitsOnly = value.replace(/\D/g, '');
+  if (!digitsOnly) return '';
+  return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 interface PosAnggaranOption {
   id: string;
   label: string;
@@ -184,7 +190,7 @@ function AjukanReimbursementContent() {
     setPosAnggaranId(String(original.keteranganAnggaranId ?? ''));
     setMerchant(original.ocrData?.merchant || '');
     setTanggal(original.ocrData?.tanggal || '');
-    setNominal(original.nominal != null ? String(Number(original.nominal)) : '');
+    setNominal(original.nominal != null ? formatRupiah(String(Number(original.nominal))) : '');
     setKategoriBukti(original.ocrData?.kategoriBukti || 'Struk Pembelian');
     setKeterangan(original.ocrData?.keterangan || '');
     setFilePreview(original.strukUrl || '/bukti_struk.png');
@@ -240,7 +246,7 @@ function AjukanReimbursementContent() {
       if (data.success) {
         setMerchant(data.data.merchant);
         setTanggal(data.data.tanggal);
-        setNominal(data.data.nominal.toString());
+        setNominal(formatRupiah(data.data.nominal.toString()));
         setKategoriBukti(data.data.kategoriBukti);
         setKeterangan(data.data.keterangan);
         setCurrentState('review');
@@ -628,7 +634,8 @@ function AjukanReimbursementContent() {
                         <input
                           type="text"
                           value={nominal}
-                          onChange={(e) => setNominal(e.target.value)}
+                          onChange={(e) => setNominal(formatRupiah(e.target.value))}
+                          placeholder="0"
                           className="w-full bg-white border border-stone-200 rounded-xl pl-9 pr-3 py-3 font-medium text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
                         />
                       </div>
