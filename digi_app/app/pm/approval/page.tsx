@@ -23,7 +23,9 @@ type Submission = {
   submittedAt: string; // waktu pengajuan untuk alur approval
   merchant: string;
   project: string;
-  pos: string;
+  main: string;
+  sub: string;
+  ket: string;
   amount: string;
   amountRaw: number;
   status: ApprovalStatus;
@@ -142,7 +144,7 @@ export default function AntrianApprovalPage() {
     const steps: ApprovalStep[] = [
       {
         label: "Pengajuan dikirim",
-        sublabel: `${r.user?.nama || 'Karyawan'} • ${r.createdAt ? formatDateTime(r.createdAt) : '-'}`,
+        sublabel: `${r.user?.nama || 'Karyawan'} • ${r.ocrData?.tanggal ? formatTanggal(r.ocrData?.tanggal) : '-'}`,
         state: "done"
       },
       {
@@ -198,7 +200,9 @@ export default function AntrianApprovalPage() {
       submittedAt: r.createdAt ? formatDateTime(r.createdAt) : 'N/A',
       merchant: r.ocrData?.merchant || 'N/A',
       project: r.proyek?.nama || 'N/A',
-      pos: r.posAnggaran?.deskripsi || r.posAnggaran?.namaPos || 'N/A',
+      main: r.posAnggaran?.namaPos || 'N/A',
+      sub: r.posAnggaran?.subAnggaran?.namaSub || 'N/A',
+      ket: r.posAnggaran?.keterangan || r.posAnggaran?.deskripsi || 'N/A',
       amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
       amountRaw: Number(r.nominal),
       status: displayStatus,
@@ -341,11 +345,44 @@ export default function AntrianApprovalPage() {
           {/* Layout dua kolom */}
           <div className="flex gap-5 items-start">
             {/* ── Kolom Kiri: Daftar ── */}
-            <div className="w-[340px] flex-shrink-0 flex flex-col gap-3">
+            <div className="w-[500px] flex-shrink-0 flex flex-col gap-3">
               {isLoading ? (
-                <div className="bg-white border border-stone-200 rounded-2xl px-6 py-10 text-center text-stone-400 text-[13px]">
-                  Memuat data pengajuan...
-                </div>
+                <>
+                  {/* Skeleton project groups */}
+                  {[1, 2].map((g) => (
+                    <div key={g} className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between px-3.5 py-3.5 bg-white border border-stone-200 rounded-2xl">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-xl bg-stone-200 animate-pulse" />
+                          <div className="flex flex-col gap-1.5">
+                            <div className="h-3 w-28 rounded bg-stone-200 animate-pulse" />
+                            <div className="h-2.5 w-16 rounded bg-stone-200/60 animate-pulse" />
+                          </div>
+                        </div>
+                        <div className="h-5 w-20 rounded-lg bg-stone-200 animate-pulse" />
+                      </div>
+                      <div className="flex flex-col gap-1.5 pl-2">
+                        {[1, 2].map((item) => (
+                          <div key={item} className="bg-white border border-stone-200 rounded-2xl px-4 py-3.5">
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse flex-shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0 flex flex-col gap-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
+                                  <div className="h-3 w-20 rounded bg-stone-200 animate-pulse" />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
+                                  <div className="h-5 w-24 rounded-full bg-stone-200/60 animate-pulse" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </>
               ) : filteredData.length === 0 ? (
                 <div className="bg-white border border-stone-200 rounded-2xl px-6 py-10 text-center text-stone-400 text-[13px]">
                   Tidak ada data.
@@ -368,7 +405,7 @@ export default function AntrianApprovalPage() {
                             <Briefcase size={13} className="text-amber-600" />
                           </div>
                           <div className="min-w-0">
-                            <h3 className="text-xs font-bold text-stone-800 truncate max-w-[160px] leading-tight">
+                            <h3 className="text-xs font-bold text-stone-800 truncate max-w-[200px] leading-tight">
                               {projectName}
                             </h3>
                             <span className="text-[10px] text-stone-400 font-medium">
@@ -378,7 +415,7 @@ export default function AntrianApprovalPage() {
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-lg font-mono">
+                          <span className="text-[12px] font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded-lg">
                             {formattedTotal}
                           </span>
                           {isCollapsed ? (
@@ -450,7 +487,67 @@ export default function AntrianApprovalPage() {
             </div>
 
             {/* ── Kolom Kanan: Detail ── */}
-            {selected && (
+            {isLoading ? (
+              <div className="flex-1 bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+                {/* Header skeleton */}
+                <div className="px-6 pt-6 pb-4 border-b border-stone-100">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="h-3 w-20 rounded bg-stone-200 animate-pulse" />
+                    <div className="h-5 w-28 rounded-full bg-stone-200 animate-pulse" />
+                  </div>
+                  <div className="h-6 w-48 rounded bg-stone-200 animate-pulse mb-2" />
+                  <div className="h-3.5 w-64 rounded bg-stone-200/60 animate-pulse" />
+                </div>
+
+                <div className="px-6 py-5 flex flex-col gap-5">
+                  {/* Nominal skeleton */}
+                  <div className="bg-[#f5f4ef] rounded-xl px-5 py-6 text-center">
+                    <div className="h-3 w-28 mx-auto rounded bg-stone-200 animate-pulse mb-3" />
+                    <div className="h-8 w-40 mx-auto rounded bg-stone-200 animate-pulse" />
+                  </div>
+
+                  {/* Info baris skeleton */}
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="h-3.5 w-24 rounded bg-stone-200 animate-pulse" />
+                      <div className="h-3.5 w-36 rounded bg-stone-200/60 animate-pulse" />
+                    </div>
+                  ))}
+
+                  {/* Keterangan skeleton */}
+                  <div>
+                    <div className="h-3.5 w-40 rounded bg-stone-200 animate-pulse mb-2" />
+                    <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-4">
+                      <div className="h-3 w-full rounded bg-stone-200/60 animate-pulse mb-2" />
+                      <div className="h-3 w-3/4 rounded bg-stone-200/60 animate-pulse" />
+                    </div>
+                  </div>
+
+                  {/* Alur approval skeleton */}
+                  <div>
+                    <div className="h-4 w-28 rounded bg-stone-200 animate-pulse mb-4" />
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="flex gap-3 mb-1">
+                        <div className="w-7 h-7 rounded-full bg-stone-200 animate-pulse flex-shrink-0" />
+                        <div className="flex flex-col gap-1 pb-3">
+                          <div className="h-3.5 w-40 rounded bg-stone-200 animate-pulse" />
+                          <div className="h-3 w-52 rounded bg-stone-200/60 animate-pulse" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tombol aksi skeleton */}
+                  <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                    <div className="h-8 w-36 rounded-full bg-stone-200 animate-pulse" />
+                    <div className="flex gap-2">
+                      <div className="h-8 w-20 rounded-full bg-stone-200 animate-pulse" />
+                      <div className="h-8 w-40 rounded-full bg-stone-200 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : selected && (
               <div className="flex-1 bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
                 {/* Header detail */}
                 <div className="px-6 pt-6 pb-4 border-b border-stone-100">
@@ -468,7 +565,7 @@ export default function AntrianApprovalPage() {
                   <p className="text-[13px] text-stone-400 mt-0.5">
                     oleh{" "}
                     <span className="font-semibold text-stone-600">{selected.pengaju}</span> ·{" "}
-                    {selected.submittedAt}
+                    {selected.date}
                   </p>
                 </div>
 
@@ -482,19 +579,24 @@ export default function AntrianApprovalPage() {
                   </div>
 
                   {/* Info baris */}
-                  {[
-                    { label: "Proyek", value: selected.project },
-                    { label: "Pos Anggaran", value: selected.pos },
-                    { label: "Tanggal Transaksi", value: selected.date },
-                    { label: "Pengaju", value: selected.pengaju },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex items-center justify-between text-[13px]">
-                      <span className="text-stone-400">{label}</span>
-                      <span className="font-semibold text-stone-800 text-right max-w-[60%]">
-                        {value}
-                      </span>
-                    </div>
-                  ))}
+                  <div className="divide-y divide-stone-200">
+                    {[
+                      { label: "Proyek", value: selected.project },
+                      { label: "Main", value: selected.main },
+                      { label: "Sub", value: selected.sub },
+                      { label: "Keterangan", value: selected.ket },
+                      { label: "Tanggal Transaksi", value: selected.date },
+                      { label: "Pengaju", value: selected.pengaju },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex items-center justify-between text-[13px] py-2.5 first:pt-0 last:pb-0">
+                        <span className="text-stone-400">{label}</span>
+                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                    <hr className="border-stone-50" />
+                  </div>
 
                   {/* Keterangan */}
                   <div>
