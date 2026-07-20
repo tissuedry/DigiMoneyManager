@@ -481,13 +481,15 @@ export default function AjukanPosModal({
                                       {/* Budget summary for this Sub */}
                                       {(() => {
                                         const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
-                                        const sisaKet = sub.alokasi - totalKet;
+                                        const inputVal = parseFloat(newKetAlokasi.replace(/[^0-9]/g, "")) || 0;
+                                        const liveTotalKet = totalKet + inputVal;
+                                        const sisaKet = sub.alokasi - liveTotalKet;
                                         const isOverKet = sisaKet < 0;
                                         return (
                                           <div className="grid grid-cols-2 gap-3">
                                             <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
                                               <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
-                                              <p className="text-[12px] font-bold text-stone-800">{formatShort(totalKet)}</p>
+                                              <p className="text-[12px] font-bold text-stone-800">{formatShort(liveTotalKet)}</p>
                                             </div>
                                             {isOverKet ? (
                                               <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: '#FDF3F2', borderColor: '#E8B6B8' }}>
@@ -562,13 +564,15 @@ export default function AjukanPosModal({
                             {/* Budget summary for this Main */}
                             {(() => {
                               const totalSub = main.subPos.reduce((s, sub) => s + sub.alokasi, 0);
-                              const sisaSub = main.alokasi - totalSub;
+                              const inputVal = parseFloat(newSubAlokasi.replace(/[^0-9]/g, "")) || 0;
+                              const liveTotalSub = totalSub + inputVal;
+                              const sisaSub = main.alokasi - liveTotalSub;
                               const isOverSub = sisaSub < 0;
                               return (
                                 <div className="grid grid-cols-2 gap-3">
                                   <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
                                     <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Total MAIN · {main.nama} Teralokasi</p>
-                                    <p className="text-[12px] font-bold text-stone-800">{formatShort(totalSub)}</p>
+                                    <p className="text-[12px] font-bold text-stone-800">{formatShort(liveTotalSub)}</p>
                                   </div>
                                   {isOverSub ? (
                                     <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: '#FDF3F2', borderColor: '#E8B6B8' }}>
