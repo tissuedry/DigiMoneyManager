@@ -1,68 +1,18 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { FolderPlus, Loader2, Check, X, Calendar, Briefcase, DollarSign, Plus, Trash2, Settings, ArrowUpRight, ArrowDownLeft, Receipt, Eye, ClipboardList } from "lucide-react";
+import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
-type Project = {
-  id: number;
-  nama: string;
-  deskripsi: string | null;
-  status: string;
-  tanggalMulai: string;
-  tanggalSelesai: string | null;
-  budget?: {
-    id: number;
-    rabTotal: string;
-    totalPengeluaran: string;
-    totalReimbursement: string;
-    sisaBudget: string;
-    posAnggaran: { id: number; namaPos: string; nominalAlokasi: string; deskripsi?: string }[];
-  } | null;
-};
+import { Project, LogAktivitas, Member } from "./types";
+import { formatRupiah, ribuanToNumber, getStatusStyles } from "./utils";
 
-type LogAktivitas = {
-  id: number;
-  tanggal: string;
-  tipe: "INFLOW" | "OUTFLOW";
-  keterangan: string;
-  nominal: number;
-  kategori: string;
-};
-
-type Member = {
-  id: number;
-  nama: string;
-  email: string;
-  role: string;
-  divisi: string | null;
-};
-
-function formatReimbursementDate(r: any): string {
-  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'tanggal' in r.ocrData ? (r.ocrData as any).tanggal : null;
-  if (ocrTanggal) {
-    const d = new Date(ocrTanggal);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    }
-  }
-  const ocrSubmitted = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
-  const rawDate = r.createdAt || r.timestamp || ocrSubmitted;
-  if (rawDate) {
-    const d = new Date(rawDate);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    }
-  }
-  return "-";
-}
+import AddProjectModal from "./AddProjectModal";
+import AssignMembersModal from "./AssignMembersModal";
+import EditProjectModal from "./EditProjectModal";
+import InitBudgetModal from "./InitBudgetModal";
+import ProjectDetailSidebar from "./ProjectDetailSidebar";
+import DetailBudgetModal from "./DetailBudgetModal";
+import PendingPmModal from "./PendingPmModal";
 
 export default function KelolaProyekPage() {
   const [activeStatus, setActiveStatus] = useState('Semua');
@@ -95,7 +45,6 @@ export default function KelolaProyekPage() {
   // Pengajuan anggaran pending (Direktur review)
   const [pendingPengajuan, setPendingPengajuan] = useState<any[]>([]);
   const [loadingPengajuan, setLoadingPengajuan] = useState(false);
-  const [expandedPengajuan, setExpandedPengajuan] = useState<Record<number, boolean>>({});
 
   const detailTotalRAB = parseFloat(detailedProjectInfo?.budget?.rabTotal) || 0;
   const detailTotalTerpakai = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
@@ -185,7 +134,6 @@ export default function KelolaProyekPage() {
       const list = data.pengajuan || [];
       setPendingPengajuan(list);
 
-      // Automatically select all items
       const initial: Record<number, boolean> = {};
       list.forEach((prop: any) => {
         (prop.items || []).forEach((it: any) => {
@@ -200,18 +148,20 @@ export default function KelolaProyekPage() {
     }
   };
 
-
   const handleBulkReview = async (action: 'APPROVE' | 'REJECT', catatan?: string) => {
     if (!detailedProjectInfo) return;
 
-    // Gather all selected item IDs
     const selectedItemIds = Object.keys(selectedPendingIds)
       .map(Number)
       .filter(id => selectedPendingIds[id]);
 
     if (selectedItemIds.length === 0) return;
 
+<<<<<<< Updated upstream
     // Flatten all items from pendingPengajuan to find corresponding proposal IDs
+=======
+    const itemIdsByProposal = new Map<number, number[]>();
+>>>>>>> Stashed changes
     const proposalsToProcess = new Set<number>();
     (pendingPengajuan || []).forEach((prop: any) => {
       const hasSelectedChild = (prop.items || []).some((it: any) => selectedItemIds.includes(it.id));
@@ -243,12 +193,10 @@ export default function KelolaProyekPage() {
       if (allOk) {
         alert(action === 'APPROVE' ? `Berhasil menyetujui ${proposalIds.length} pengajuan!` : `Berhasil menolak ${proposalIds.length} pengajuan.`);
 
-        // Reset rejection states
         setRejectingPengajuan(null);
         setRejectionReason("");
         setShowPendingPmModal(false);
 
-        // Refresh detail
         const detailRes = await fetch(`/api/proyek/${detailedProjectInfo.id}`);
         const detailData = await detailRes.json();
         if (detailRes.ok && detailData.project) {
@@ -414,9 +362,9 @@ export default function KelolaProyekPage() {
 
       setSuccess(`Proyek "${editForm.nama}" berhasil diperbarui!`);
       setEditMode(false);
-      setShowProjectDetail(null); // UBAH DISINI: Reset agar sidebar detail tidak otomatis terbuka
+      setShowProjectDetail(null);
       setIsDirectEdit(false);
-      fetchData(); // Refresh data grid utama
+      fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
     } finally {
@@ -457,36 +405,43 @@ export default function KelolaProyekPage() {
   };
 
   const handleSaveMembers = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showAssignMembers) return;
-    setFormError("");
-    setSuccess("");
-    setSubmitting(true);
+  e.preventDefault();
+  if (!showAssignMembers) return;
+  setFormError("");
+  setSuccess("");
+  setSubmitting(true);
 
-    try {
-      const res = await fetch(`/api/manager/proyek/${showAssignMembers.id}/members`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          members: selectedProjectMembers,
-        }),
-      });
+  try {
+    // 1. Ambil token dari storage (sesuaikan "token" dengan nama key kamu)
+    const token = localStorage.getItem("token"); 
 
-      const data = await res.json();
-      if (!res.ok) {
-        setFormError(data.message || "Gagal mengatur anggota proyek");
-        return;
-      }
+    const res = await fetch(`/api/manager/proyek/${showAssignMembers.id}/members`, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json",
+        // 2. Tambahkan baris ini:
+        "Authorization": `Bearer ${token}` 
+      },
+      body: JSON.stringify({
+        members: selectedProjectMembers,
+      }),
+    });
 
-      setSuccess(`Anggota proyek untuk "${showAssignMembers.nama}" berhasil disimpan!`);
-      setShowAssignMembers(null);
-      fetchData();
-    } catch {
-      setFormError("Terjadi kesalahan koneksi");
-    } finally {
-      setSubmitting(false);
+    const data = await res.json();
+    if (!res.ok) {
+      setFormError(data.message || "Gagal mengatur anggota proyek");
+      return;
     }
-  };
+
+    setSuccess(`Anggota proyek untuk "${showAssignMembers.nama}" berhasil disimpan!`);
+    setShowAssignMembers(null);
+    fetchData();
+  } catch {
+    setFormError("Terjadi kesalahan koneksi");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleAddTeamRow = () => {
     const newId = `row-new-${Date.now()}`;
@@ -642,55 +597,6 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const formatRupiah = (valStr: string | number | undefined) => {
-    if (!valStr) return "Rp 0";
-    const num = typeof valStr === "string" ? parseFloat(valStr) : valStr;
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }).format(num);
-  };
-
-  const formatSummaryRupiah = (num: number) => {
-    if (num >= 1e9) return `Rp ${(num / 1e9).toFixed(2)} M`;
-    if (num >= 1e6) return `Rp ${(num / 1e6).toFixed(2)} jt`;
-    if (num >= 1e3) return `Rp ${(num / 1e3).toFixed(2)} rb`;
-    return `Rp ${num.toFixed(2)}`;
-  };
-
-  const formatRibuan = (value: string) => {
-    // 1. Buang semua karakter selain angka
-    const angkaMurni = value.replace(/[^0-9]/g, "");
-
-    // 2. Jika kosong, langsung kembalikan string kosong
-    if (!angkaMurni) return "";
-
-    // 3. Regex otomatis: Menyisipkan titik setiap kelipatan 3 digit dari belakang (jika di atas 999)
-    return angkaMurni.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
-
-  const ribuanToNumber = (stringRibuan: string) => {
-    if (!stringRibuan) return 0;
-    // Menghapus tanda titik agar kembali menjadi angka biasa (e.g. "2.500.000" -> 2500000)
-    return parseFloat(stringRibuan.replace(/\./g, "")) || 0;
-  };
-
-  const getStatusStyles = (status: string) => {
-    switch (status.toUpperCase()) {
-      case "PLANNING":
-        return "bg-[#f5ebd7] text-[#935a16] border-transparent";
-      case "AKTIF":
-      case "ACTIVE":
-        return "bg-[#d8f3dc] text-[#1b4332] border-transparent";
-      case "CANCELED":
-        return "bg-rose-50 text-rose-700 border-rose-100";
-      case "DONE":
-        return "bg-purple-50 text-purple-700 border-purple-100";
-      default:
-        return "bg-stone-50 text-stone-500 border-stone-100";
-    }
-  };
   const currentStatus = detailedProjectInfo?.status || showProjectDetail?.status;
   const masterBudgetOptions = Array.from(
     new Set(
@@ -700,6 +606,7 @@ export default function KelolaProyekPage() {
         .filter(Boolean)
     )
   ) as string[];
+
   return (
     <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
       {/* Header */}
@@ -876,6 +783,7 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
+<<<<<<< Updated upstream
       {/* MODAL: TAMBAH PROYEK */}
       {showAddProject && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -3072,6 +2980,123 @@ export default function KelolaProyekPage() {
           </div>
         );
       })()}
+=======
+      {/* Pop-up Dialogs & Modals */}
+      <AddProjectModal
+        show={showAddProject}
+        onClose={() => setShowAddProject(false)}
+        onSubmit={handleAddProject}
+        projectForm={projectForm}
+        setProjectForm={setProjectForm}
+        formError={formError}
+        submitting={submitting}
+      />
+
+      <AssignMembersModal
+        showAssignMembers={showAssignMembers}
+        onClose={() => setShowAssignMembers(null)}
+        members={members}
+        selectedProjectMembers={selectedProjectMembers}
+        setSelectedProjectMembers={setSelectedProjectMembers}
+        formError={formError}
+        submitting={submitting}
+        onSave={handleSaveMembers}
+      />
+
+      <InitBudgetModal
+        showInitBudget={showInitBudget}
+        onClose={() => setShowInitBudget(null)}
+        onSubmit={handleInitBudget}
+        detailedProjectInfo={detailedProjectInfo}
+        rabTotal={rabTotal}
+        setRabTotal={setRabTotal}
+        posAnggaranList={posAnggaranList}
+        setPosAnggaranList={setPosAnggaranList}
+        formError={formError}
+        submitting={submitting}
+      />
+
+      <ProjectDetailSidebar
+        showProjectDetail={showProjectDetail}
+        editMode={editMode}
+        isDirectEdit={isDirectEdit}
+        onClose={() => setShowProjectDetail(null)}
+        loadingDetail={loadingDetail}
+        detailedProjectInfo={detailedProjectInfo}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        timeFilter={timeFilter}
+        setTimeFilter={setTimeFilter}
+        activeCashFlow={activeCashFlow}
+        inflowNominal={inflowNominal}
+        outflowNominal={outflowNominal}
+        netCashNominal={netCashNominal}
+        sudahReimburseNominal={sudahReimburseNominal}
+        belumReimburseNominal={belumReimburseNominal}
+        detailTotalRAB={detailTotalRAB}
+        detailTotalTerpakai={detailTotalTerpakai}
+        detailPercentUsed={detailPercentUsed}
+        detailBarWidth={detailBarWidth}
+        setSelectedPendingIds={setSelectedPendingIds}
+        setShowPendingPmModal={setShowPendingPmModal}
+        fetchPendingPengajuan={fetchPendingPengajuan}
+        setRabTotal={setRabTotal}
+        setPosAnggaranList={setPosAnggaranList}
+        setShowInitBudget={setShowInitBudget}
+        setShowDetailBudgetModal={setShowDetailBudgetModal}
+        teamRows={teamRows}
+        setTeamRows={setTeamRows}
+        members={members}
+        handleAddTeamRow={handleAddTeamRow}
+        handleRemoveTeamRow={handleRemoveTeamRow}
+        handleSaveTeamRows={handleSaveTeamRows}
+        submitting={submitting}
+        formError={formError}
+        success={success}
+        setIsDirectEdit={setIsDirectEdit}
+        setEditMode={setEditMode}
+        handleReactivateProject={handleReactivateProject}
+        currentStatus={currentStatus}
+      />
+
+      <EditProjectModal
+        editMode={editMode}
+        onClose={handleCloseEdit}
+        onSubmit={handleUpdateProject}
+        editForm={editForm}
+        setEditForm={setEditForm}
+        formError={formError}
+        submitting={submitting}
+      />
+
+      <DetailBudgetModal
+        showDetailBudgetModal={showDetailBudgetModal}
+        onClose={() => setShowDetailBudgetModal(false)}
+        detailedProjectInfo={detailedProjectInfo}
+        expandedMain={expandedMain}
+        setExpandedMain={setExpandedMain}
+        expandedSub={expandedSub}
+        setExpandedSub={setExpandedSub}
+        expandedKet={expandedKet}
+        setExpandedKet={setExpandedKet}
+      />
+
+      <PendingPmModal
+        showPendingPmModal={showPendingPmModal}
+        onClose={() => setShowPendingPmModal(false)}
+        detailedProjectInfo={detailedProjectInfo}
+        pendingPengajuan={pendingPengajuan}
+        selectedPendingIds={selectedPendingIds}
+        setSelectedPendingIds={setSelectedPendingIds}
+        expandedSub={expandedSub}
+        setExpandedSub={setExpandedSub}
+        rejectingPengajuan={rejectingPengajuan}
+        setRejectingPengajuan={setRejectingPengajuan}
+        rejectionReason={rejectionReason}
+        setRejectionReason={setRejectionReason}
+        handleBulkReview={handleBulkReview}
+      />
+>>>>>>> Stashed changes
     </main>
   );
 }
