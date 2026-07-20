@@ -33,17 +33,12 @@ export default function InitBudgetModal({
   formError,
   submitting,
 }: Props) {
-  // 1. EARLY RETURN DULUAN JIKA CONDITIONAL RENDER
-  if (!showInitBudget) return null;
-
-  // 2. Deklarasi State
+  // Declare hooks FIRST
   const [mainOptions, setMainOptions] = useState<MainOption[]>([]);
   const [loadingOptions, setLoadingOptions] = useState<boolean>(false);
 
-  // 3. Safe useEffect dengan IsMounted Check
   useEffect(() => {
-    let isMounted = true; // Flag cegah update state jika unmounted
-
+    let isMounted = true;
     async function fetchMasterMain() {
       setLoadingOptions(true);
       try {
@@ -58,13 +53,14 @@ export default function InitBudgetModal({
         if (isMounted) setLoadingOptions(false);
       }
     }
-
     fetchMasterMain();
-
     return () => {
-      isMounted = false; // Cleanup flag
+      isMounted = false;
     };
-  }, [showInitBudget?.id]); // Gunakan ID proyek spesifik sebagai acuan trigger
+  }, [showInitBudget?.id]);
+
+  // THEN do the early return
+  if (!showInitBudget) return null;
 
   const totalVal = ribuanToNumber(rabTotal) || 0;
   const terpakaiVal = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
