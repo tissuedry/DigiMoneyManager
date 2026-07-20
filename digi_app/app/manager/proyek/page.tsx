@@ -150,6 +150,7 @@ export default function KelolaProyekPage() {
 
   const handleBulkReview = async (action: 'APPROVE' | 'REJECT', catatan?: string) => {
     if (!detailedProjectInfo) return;
+    if (loadingDetail) return;
 
     const selectedItemIds = Object.keys(selectedPendingIds)
       .map(Number)
@@ -160,34 +161,34 @@ export default function KelolaProyekPage() {
     const itemIdsByProposal = new Map<number, number[]>();
     const proposalsToProcess = new Set<number>();
     (pendingPengajuan || []).forEach((prop: any) => {
-      const hasSelectedChild = (prop.items || []).some((it: any) => selectedItemIds.includes(it.id));
-      if (hasSelectedChild) {
-        proposalsToProcess.add(prop.id);
+      const idsInProp = (prop.items || [])
+        .map((it: any) => it.id)
+        .filter((id: number) => selectedItemIds.includes(id));
+      if (idsInProp.length > 0) {
+        itemIdsByProposal.set(prop.id, idsInProp);
       }
     });
 
-    const proposalIds = Array.from(proposalsToProcess);
-    if (proposalIds.length === 0) return;
+    if (itemIdsByProposal.size === 0) return;
 
     setLoadingDetail(true);
     setFormError("");
     setSuccess("");
 
     try {
-      // Process each proposal in series/parallel
       const results = await Promise.all(
-        proposalIds.map(propId =>
+        Array.from(itemIdsByProposal.entries()).map(([propId, itemIds]) =>
           fetch(`/api/pengajuan-anggaran/${propId}/review`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: action, catatan }),
+            body: JSON.stringify({ status: action, catatan, itemIds }),
           })
         )
       );
 
       const allOk = results.every(res => res.ok);
       if (allOk) {
-        alert(action === 'APPROVE' ? `Berhasil menyetujui ${proposalIds.length} pengajuan!` : `Berhasil menolak ${proposalIds.length} pengajuan.`);
+        alert(action === 'APPROVE' ? `Berhasil menyetujui ${selectedItemIds.length} item pengajuan!` : `Berhasil menolak ${selectedItemIds.length} item pengajuan.`);
 
         setRejectingPengajuan(null);
         setRejectionReason("");
@@ -200,8 +201,13 @@ export default function KelolaProyekPage() {
         }
         fetchData();
       } else {
-        alert("Beberapa pengajuan gagal diproses.");
-        setFormError("Beberapa pengajuan gagal diproses.");
+        const failedBodies = await Promise.all(
+          results.filter(res => !res.ok).map(res => res.json().catch(() => ({})))
+        );
+        const messages = failedBodies.map((b: any) => b.message).filter(Boolean);
+        const errorText = messages.length > 0 ? messages.join(' ') : "Beberapa item gagal diproses.";
+        alert(errorText);
+        setFormError(errorText);
       }
     } catch {
       alert("Terjadi kesalahan koneksi saat memproses pengajuan");

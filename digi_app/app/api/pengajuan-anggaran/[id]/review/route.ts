@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
 // PUT: Direktur review pengajuan (setujui / tolak)
+// Body: { status: 'APPROVE'|'REJECT', catatan?: string, itemIds?: number[] }
+// itemIds opsional — kalau diisi, hanya item tsb yang diproses; sisanya tetap PENDING
+// di pengajuan yang sama. Pengajuan baru ditandai DISETUJUI/REJECT kalau semua itemnya sudah habis diproses.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -14,14 +17,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const pengajuanId = parseInt(pengajuanIdStr, 10);
 
     const body = await req.json();
-    const { status: targetStatus, catatan } = body;
+    const { status: targetStatus, catatan, itemIds } = body;
 
     if (!['APPROVE', 'REJECT'].includes(targetStatus)) {
       return NextResponse.json({ message: 'status must be APPROVE or REJECT' }, { status: 400 });
     }
 
-    // ℹ️ Atomic check-and-set: cuma update kalau status masih PENDING.
-    // Ini mencegah race condition — dua Direktur approve bersamaan.
     const pengajuan = await prisma.pengajuanAnggaran.findUnique({
       where: { id: pengajuanId },
       include: { items: true, proyek: { select: { id: true, nama: true, budget: { select: { id: true, rabTotal: true, sisaBudget: true } } } } },
@@ -34,38 +35,120 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Pengajuan already processed' }, { status: 400 });
     }
 
-    // DITOLAK — cukup update status + notif
+    // Kalau itemIds diisi, hanya proses item yang diminta. Kalau kosong/tidak ada, proses semua item (backward compatible).
+    const targetItems = Array.isArray(itemIds) && itemIds.length > 0
+      ? pengajuan.items.filter((i) => itemIds.includes(i.id))
+      : pengajuan.items;
+
+    if (targetItems.length === 0) {
+      return NextResponse.json({ message: 'Tidak ada item yang cocok untuk diproses' }, { status: 400 });
+    }
+
+    const targetItemIds = targetItems.map((i) => i.id);
+    const isPartial = targetItems.length < pengajuan.items.length;
+
+    const userId = req.headers.get('x-user-id');
+    const approverId = userId ? parseInt(userId, 10) : 0;
+
+    // DITOLAK — hapus item yang ditolak; tutup pengajuan hanya kalau sudah tidak ada item tersisa
     if (targetStatus === 'REJECT') {
-      const updated = await prisma.pengajuanAnggaran.update({
-        where: { id: pengajuanId },
-        data: { status: 'REJECT', catatan: catatan?.trim() || null, processedAt: new Date() },
-        include: { items: true, pengaju: { select: { id: true, nama: true } }, proyek: { select: { nama: true } } },
+      let closed: { status: string } | null = null;
+
+      // Kalau yang ditolak adalah SUB BARU (draft, aksi TAMBAH) yang belum pernah ada di DB, keterangan
+      // yang masih pending di bawahnya otomatis ikut ditolak — parentId draft-nya tidak akan pernah valid.
+      const cascadeIds = new Set<number>();
+      targetItems.forEach((item) => {
+        if (item.tipe === 'SUB_ANGGARAN' && item.aksi === 'TAMBAH' && item.targetId) {
+          pengajuan.items.forEach((i) => {
+            if (i.tipe === 'KETERANGAN' && i.parentId === item.targetId) {
+              cascadeIds.add(i.id);
+            }
+          });
+        }
       });
+      const deleteIds = Array.from(new Set([...targetItemIds, ...cascadeIds]));
+
+      await prisma.$transaction(async (tx) => {
+        const current = await tx.pengajuanAnggaran.findUnique({ where: { id: pengajuanId }, select: { status: true } });
+        if (!current || current.status !== 'PENDING') {
+          throw new Error('RACE_CONDITION');
+        }
+
+        await tx.pengajuanAnggaranItem.deleteMany({ where: { id: { in: deleteIds } } });
+
+        const remaining = await tx.pengajuanAnggaranItem.count({ where: { pengajuanId } });
+        if (remaining === 0) {
+          await tx.pengajuanAnggaran.update({
+            where: { id: pengajuanId },
+            data: { status: 'REJECT', catatan: catatan?.trim() || null, processedAt: new Date() },
+          });
+          closed = { status: 'REJECT' };
+        }
+      });
+
+      const cascadeNote = cascadeIds.size > 0 ? ` (beserta ${cascadeIds.size} keterangan turunannya)` : '';
 
       await prisma.notification.create({
         data: {
           userId: pengajuan.pengajuId,
           tipe: 'PENGAJUAN_DITOLAK',
-          pesan: `Pengajuan "${pengajuan.judul}" untuk proyek ${updated.proyek.nama} ditolak.${catatan ? ` Alasan: ${catatan}` : ''}`,
+          pesan: closed
+            ? `Pengajuan "${pengajuan.judul}" untuk proyek ${pengajuan.proyek.nama} ditolak.${catatan ? ` Alasan: ${catatan}` : ''}`
+            : `${targetItems.length} item${cascadeNote} dari pengajuan "${pengajuan.judul}" untuk proyek ${pengajuan.proyek.nama} ditolak.${catatan ? ` Alasan: ${catatan}` : ''} Sisa item lain masih menunggu review.`,
         },
       });
 
-      return NextResponse.json({ message: 'Pengajuan ditolak', pengajuan: updated });
-    }
+      if (approverId) {
+        const itemSummary = targetItems.map((i) => `${i.aksi} ${i.tipe} ${i.nama || ''}`).join(', ');
+        await prisma.auditTrail.create({
+          data: {
+            userId: approverId,
+            aksi: 'review_pengajuan_anggaran',
+            detail: `Direktur menolak ${isPartial ? `sebagian item (${targetItems.length})${cascadeNote}` : 'seluruh item'} pada pengajuan "${pengajuan.judul}" untuk proyek ${pengajuan.proyek.nama}. Items: ${itemSummary}`,
+          },
+        });
+      }
 
-    const userId = req.headers.get('x-user-id');
-    const approverId = userId ? parseInt(userId, 10) : 0;
+      const final = await prisma.pengajuanAnggaran.findUnique({
+        where: { id: pengajuanId },
+        include: { items: true, pengaju: { select: { id: true, nama: true } }, proyek: { select: { nama: true } } },
+      });
+
+      clearCache('proyek:');
+      clearCache('dashboard:');
+      return NextResponse.json({
+        message: closed ? 'Pengajuan ditolak' : 'Item terpilih ditolak, sisa item masih menunggu review',
+        pengajuan: final,
+      });
+    }
 
     // DISETUJUI — eksekusi perubahan dalam transaction.
     // Process SUB_ANGGARAN first agar real ID tersedia untuk KETERANGAN yg reference draft subs.
-    type Item = { tipe: string; aksi: string; targetId: number | null; parentId: number | null; nama: string | null; nominalAlokasi: number | null };
+    type Item = { id: number; tipe: string; aksi: string; targetId: number | null; parentId: number | null; nama: string | null; nominalAlokasi: number | null };
 
-    const subItems = pengajuan.items.filter((i) => i.tipe === 'SUB_ANGGARAN') as Item[];
-    const ketItems = pengajuan.items.filter((i) => i.tipe === 'KETERANGAN') as Item[];
+    const subItems = targetItems.filter((i) => i.tipe === 'SUB_ANGGARAN') as Item[];
+    const ketItems = targetItems.filter((i) => i.tipe === 'KETERANGAN') as Item[];
+
+    // Guard: KETERANGAN yang parent-nya masih berupa SUB BARU (draft, belum punya ID asli) wajib
+    // disetujui bersamaan dengan parent-nya dalam batch yang sama, karena resolving parentId hanya
+    // mungkin kalau parent SUB_ANGGARAN turut diproses sekarang.
+    const missingParentKet = ketItems.find((ket) => {
+      const parentDraftSub = pengajuan.items.find(
+        (i) => i.tipe === 'SUB_ANGGARAN' && i.aksi === 'TAMBAH' && i.targetId === ket.parentId,
+      );
+      return parentDraftSub && !targetItemIds.includes(parentDraftSub.id);
+    });
+    if (missingParentKet) {
+      return NextResponse.json(
+        { message: `Item "${missingParentKet.nama}" membutuhkan SUB BARU induknya untuk disetujui dalam batch yang sama` },
+        { status: 400 },
+      );
+    }
 
     let totalNewAlokasi = 0;
     // Map untuk resolve draft parentId: Date.now()→real DB id
     const subIdMap = new Map<number, number>();
+    let closed = false;
 
     await prisma.$transaction(async (tx) => {
       // 1. Re-verify belum diproses (atomic guard)
@@ -111,6 +194,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           }
           await tx.subAnggaran.delete({ where: { id: item.targetId } });
         }
+      }
+
+      // 2.5. Item lain yang masih pending (belum ikut disetujui sekarang) tapi merujuk salah satu
+      // draft sub yang baru saja dibuat harus di-repoint ke ID asli, supaya tidak jadi orphan
+      // begitu draft ID-nya sudah tidak ada artinya.
+      for (const [draftId, realId] of subIdMap.entries()) {
+        await tx.pengajuanAnggaranItem.updateMany({
+          where: { pengajuanId, parentId: draftId, id: { notIn: targetItemIds } },
+          data: { parentId: realId },
+        });
       }
 
       // 3. Process KETERANGAN — resolve draft parentIds
@@ -166,11 +259,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         });
       }
 
-      // 5. Mark as approved
-      await tx.pengajuanAnggaran.update({
-        where: { id: pengajuanId },
-        data: { status: 'DISETUJUI', catatan: catatan?.trim() || null, processedAt: new Date() },
-      });
+      // 5. Item yang sudah diproses dihapus dari daftar pending (sudah masuk ke tabel budget asli)
+      await tx.pengajuanAnggaranItem.deleteMany({ where: { id: { in: targetItemIds } } });
+
+      // 6. Tutup pengajuan hanya kalau sudah tidak ada item tersisa
+      const remaining = await tx.pengajuanAnggaranItem.count({ where: { pengajuanId } });
+      if (remaining === 0) {
+        await tx.pengajuanAnggaran.update({
+          where: { id: pengajuanId },
+          data: { status: 'DISETUJUI', catatan: catatan?.trim() || null, processedAt: new Date() },
+        });
+        closed = true;
+      }
     });
 
     // Notify PM
@@ -178,7 +278,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       data: {
         userId: pengajuan.pengajuId,
         tipe: 'PENGAJUAN_DISETUJUI',
-        pesan: `Pengajuan "${pengajuan.judul}" telah disetujui oleh Direktur`,
+        pesan: closed
+          ? `Pengajuan "${pengajuan.judul}" telah disetujui oleh Direktur`
+          : `${targetItems.length} item dari pengajuan "${pengajuan.judul}" telah disetujui oleh Direktur. Sisa item lain masih menunggu review.`,
       },
     });
 
@@ -189,7 +291,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         data: {
           userId: approverId,
           aksi: 'review_pengajuan_anggaran',
-          detail: `Direktur menyetujui pengajuan "${pengajuan.judul}" untuk proyek ${pengajuan.proyek.nama}. Items: ${itemSummary}`,
+          detail: `Direktur menyetujui ${isPartial ? `sebagian item (${targetItems.length})` : 'seluruh item'} pada pengajuan "${pengajuan.judul}" untuk proyek ${pengajuan.proyek.nama}. Items: ${itemSummary}`,
         },
       });
     }
@@ -201,7 +303,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     clearCache('proyek:');
     clearCache('dashboard:');
-    return NextResponse.json({ message: 'Pengajuan disetujui dan perubahan telah diterapkan', pengajuan: final });
+    return NextResponse.json({
+      message: closed ? 'Pengajuan disetujui dan perubahan telah diterapkan' : 'Item terpilih disetujui, sisa item masih menunggu review',
+      pengajuan: final,
+    });
   } catch (error) {
     console.error('Review pengajuan error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
