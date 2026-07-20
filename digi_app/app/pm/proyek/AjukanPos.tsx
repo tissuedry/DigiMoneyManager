@@ -86,108 +86,6 @@ export default function AjukanPosModal({
   const [newKetName, setNewKetName] = useState("");
   const [newKetAlokasi, setNewKetAlokasi] = useState("");
 
-  // Master data states for dropdowns
-  const [masterMainList, setMasterMainList] = useState<any[]>([]);
-  const [subOptions, setSubOptions] = useState<Record<number, any[]>>({}); // mainId -> MasterSub[]
-  const [loadingSubOptions, setLoadingSubOptions] = useState<Record<number, boolean>>({});
-  const [ketOptions, setKetOptions] = useState<Record<number, any[]>>({}); // subId -> MasterKeterangan[]
-  const [loadingKetOptions, setLoadingKetOptions] = useState<Record<number, boolean>>({});
-
-  useEffect(() => {
-    const fetchMasterMain = async () => {
-      try {
-        const res = await fetch("/api/master");
-        if (res.ok) {
-          const data = await res.json();
-          setMasterMainList(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch master main:", err);
-      }
-    };
-    fetchMasterMain();
-  }, []);
-
-  const loadSubOptions = async (mainId: number, mainNama: string) => {
-    if (subOptions[mainId]) return;
-    setLoadingSubOptions((prev) => ({ ...prev, [mainId]: true }));
-    try {
-      let mainList = masterMainList;
-      if (mainList.length === 0) {
-        const res = await fetch("/api/master");
-        if (res.ok) {
-          mainList = await res.json();
-          setMasterMainList(mainList);
-        }
-      }
-      const matchingMain = mainList.find(
-        (m) => m.nama.toUpperCase().trim() === mainNama.toUpperCase().trim()
-      );
-      if (matchingMain) {
-        const res = await fetch(`/api/master?mainId=${matchingMain.id}`);
-        if (res.ok) {
-          const subs = await res.json();
-          setSubOptions((prev) => ({ ...prev, [mainId]: subs }));
-          setNewSubName("");
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load sub options:", err);
-    } finally {
-      setLoadingSubOptions((prev) => ({ ...prev, [mainId]: false }));
-    }
-  };
-
-  const loadKetOptions = async (subId: number, subNama: string) => {
-    if (ketOptions[subId]) return;
-    setLoadingKetOptions((prev) => ({ ...prev, [subId]: true }));
-    try {
-      const parentMain = data.find((m) => m.subPos.some((s) => s.id === subId));
-      if (!parentMain) return;
-
-      let mainList = masterMainList;
-      if (mainList.length === 0) {
-        const res = await fetch("/api/master");
-        if (res.ok) {
-          mainList = await res.json();
-          setMasterMainList(mainList);
-        }
-      }
-
-      const matchingMain = mainList.find(
-        (m) => m.nama.toUpperCase().trim() === parentMain.nama.toUpperCase().trim()
-      );
-      if (!matchingMain) return;
-
-      let subs = subOptions[parentMain.id];
-      if (!subs) {
-        const res = await fetch(`/api/master?mainId=${matchingMain.id}`);
-        if (res.ok) {
-          subs = await res.json();
-          setSubOptions((prev) => ({ ...prev, [parentMain.id]: subs }));
-        }
-      }
-
-      if (subs) {
-        const matchingSub = subs.find(
-          (s) => s.nama.toUpperCase().trim() === subNama.toUpperCase().trim()
-        );
-        if (matchingSub) {
-          const res = await fetch(`/api/master?subId=${matchingSub.id}`);
-          if (res.ok) {
-            const kets = await res.json();
-            setKetOptions((prev) => ({ ...prev, [subId]: kets }));
-            setNewKetName("");
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load ket options:", err);
-    } finally {
-      setLoadingKetOptions((prev) => ({ ...prev, [subId]: false }));
-    }
-  };
-
   const toggleMain = (id: number) => setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
   const toggleSub = (id: number) => setExpandedSub((p) => ({ ...p, [id]: !p[id] }));
 
@@ -197,14 +95,6 @@ export default function AjukanPosModal({
       return;
     }
     const alokasiVal = parseFloat(newSubAlokasi.replace(/[^0-9]/g, "")) || 0;
-
-    const main = data.find((m) => m.id === mainId);
-    if (!main) return;
-    const currentTotal = main.subPos.reduce((sum, s) => sum + s.alokasi, 0);
-    if (currentTotal + alokasiVal > main.alokasi) {
-      alert("Total alokasi Sub Pos melebihi batas alokasi Main Pos parent!");
-      return;
-    }
 
     setData((prev) =>
       prev.map((main) => {
@@ -234,21 +124,6 @@ export default function AjukanPosModal({
       return;
     }
     const alokasiVal = parseFloat(newKetAlokasi.replace(/[^0-9]/g, "")) || 0;
-
-    let parentSub: AjukanSub | undefined;
-    for (const m of data) {
-      const found = m.subPos.find((s) => s.id === subId);
-      if (found) {
-        parentSub = found;
-        break;
-      }
-    }
-    if (!parentSub) return;
-    const currentTotal = parentSub.keterangan.reduce((sum, k) => sum + k.alokasi, 0);
-    if (currentTotal + alokasiVal > parentSub.alokasi) {
-      alert("Total alokasi Keterangan melebihi batas alokasi Sub Pos parent!");
-      return;
-    }
 
     setData((prev) =>
       prev.map((main) => ({
@@ -478,73 +353,27 @@ export default function AjukanPosModal({
                                 <div className="pt-1">
                                   {addingKetSubId === sub.id ? (
                                     <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3 mt-1 mr-2 shadow-inner">
-                                      {/* Budget summary for this Sub */}
-                                      {(() => {
-                                        const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
-                                        const sisaKet = sub.alokasi - totalKet;
-                                        const isOverKet = sisaKet < 0;
-                                        return (
-                                          <div className="grid grid-cols-2 gap-3">
-                                            <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
-                                              <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
-                                              <p className="text-[12px] font-bold text-stone-800">{formatShort(totalKet)}</p>
-                                            </div>
-                                            {isOverKet ? (
-                                              <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: '#FDF3F2', borderColor: '#E8B6B8' }}>
-                                                <p className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: '#902F33' }}>Kelebihan Alokasi (Overbudget)</p>
-                                                <p className="text-[12px] font-bold" style={{ color: '#902F33' }}>{formatShort(sisaKet)}</p>
-                                              </div>
-                                            ) : (
-                                              <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
-                                                <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Sisa SUB · {sub.nama} Belum Dialokasikan</p>
-                                                <p className="text-[12px] font-bold text-stone-600">{formatShort(sisaKet)}</p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                           <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Keterangan Baru:</label>
-                                          {loadingKetOptions[sub.id] ? (
-                                            <div className="flex items-center gap-2 text-xs text-stone-500 py-2">
-                                              <Loader2 size={12} className="animate-spin" />
-                                              Memuat pilihan...
-                                            </div>
-                                          ) : (
-                                            <select
-                                              value={newKetName}
-                                              onChange={(e) => setNewKetName(e.target.value)}
-                                              className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850"
-                                              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                                            >
-                                              {(ketOptions[sub.id] || []).length > 0 ? (
-                                                <>
-                                                  <option value="">Pilih Keterangan</option>
-                                                  {(ketOptions[sub.id] || []).map((opt: any) => (
-                                                    <option key={opt.id} value={opt.nama}>
-                                                      {opt.nama}
-                                                    </option>
-                                                  ))}
-                                                </>
-                                              ) : (
-                                                <option value="">Tidak ada pilihan keterangan</option>
-                                              )}
-                                            </select>
-                                          )}
+                                          <input type="text" value={newKetName} onChange={(e) => setNewKetName(e.target.value)} placeholder="Contoh: Batu Bata Tipe A" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850" />
                                         </div>
                                         <div>
                                           <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Nominal:</label>
                                           <input type="text" value={newKetAlokasi} onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))} placeholder="Rp 0" className="w-full text-xs border border-stone-255 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800" />
                                         </div>
                                       </div>
+                                      {/* <div>
+                                        <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Alasan:</label>
+                                        <input type="text" value={newKetReason} onChange={(e) => setNewKetReason(e.target.value)} placeholder="Contoh: buat disimpan" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850" />
+                                      </div> */}
                                       <div className="flex flex-wrap items-center gap-3 pt-1">
-                                        <button onClick={() => handleAddKet(sub.id)} disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer disabled:opacity-50">Simpan Draft</button>
+                                        <button onClick={() => handleAddKet(sub.id)} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer">Simpan Draft</button>
                                         <button onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer">Batal</button>
                                       </div>
                                     </div>
                                   ) : (
-                                    <button onClick={() => { setAddingKetSubId(sub.id); loadKetOptions(sub.id, sub.nama); }} className="inline-flex items-center gap-1 text-[11px] font-bold text-[#005D8D] hover:underline cursor-pointer">
+                                    <button onClick={() => setAddingKetSubId(sub.id)} className="inline-flex items-center gap-1 text-[11px] font-bold text-[#005D8D] hover:underline cursor-pointer">
                                       <Plus size={11} /> Tambah Keterangan
                                     </button>
                                   )}
@@ -559,73 +388,27 @@ export default function AjukanPosModal({
                       <div className="pt-1">
                         {addingSubMainId === main.id ? (
                           <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3 mt-1 mr-2 shadow-inner">
-                            {/* Budget summary for this Main */}
-                            {(() => {
-                              const totalSub = main.subPos.reduce((s, sub) => s + sub.alokasi, 0);
-                              const sisaSub = main.alokasi - totalSub;
-                              const isOverSub = sisaSub < 0;
-                              return (
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
-                                    <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Total MAIN · {main.nama} Teralokasi</p>
-                                    <p className="text-[12px] font-bold text-stone-800">{formatShort(totalSub)}</p>
-                                  </div>
-                                  {isOverSub ? (
-                                    <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: '#FDF3F2', borderColor: '#E8B6B8' }}>
-                                      <p className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: '#902F33' }}>Kelebihan Alokasi (Overbudget)</p>
-                                      <p className="text-[12px] font-bold" style={{ color: '#902F33' }}>{formatShort(sisaSub)}</p>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
-                                      <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Sisa MAIN · {main.nama} Belum Dialokasikan</p>
-                                      <p className="text-[12px] font-bold text-stone-600">{formatShort(sisaSub)}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div>
                                 <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Sub Pos Baru:</label>
-                                {loadingSubOptions[main.id] ? (
-                                  <div className="flex items-center gap-2 text-xs text-stone-500 py-2">
-                                    <Loader2 size={12} className="animate-spin" />
-                                    Memuat pilihan...
-                                  </div>
-                                ) : (
-                                  <select
-                                    value={newSubName}
-                                    onChange={(e) => setNewSubName(e.target.value)}
-                                    className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850"
-                                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                                  >
-                                    {(subOptions[main.id] || []).length > 0 ? (
-                                      <>
-                                        <option value="">Pilih Sub Pos</option>
-                                        {(subOptions[main.id] || []).map((opt: any) => (
-                                          <option key={opt.id} value={opt.nama}>
-                                            {opt.nama}
-                                          </option>
-                                        ))}
-                                      </>
-                                    ) : (
-                                      <option value="">Tidak ada pilihan sub pos</option>
-                                    )}
-                                  </select>
-                                )}
+                                <input type="text" value={newSubName} onChange={(e) => setNewSubName(e.target.value)} placeholder="Contoh: Batu Bata" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850" />
                               </div>
                               <div>
                                 <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Alokasi Anggaran:</label>
                                 <input type="text" value={newSubAlokasi} onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))} placeholder="Rp 0" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800" />
                               </div>
                             </div>
+                            {/* <div>
+                              <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Alasan Pengajuan:</label>
+                              <input type="text" value={newSubReason} onChange={(e) => setNewSubReason(e.target.value)} placeholder="Contoh: buat dilempar" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850" />
+                            </div> */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
-                              <button onClick={() => handleAddSub(main.id)} disabled={loadingSubOptions[main.id] || (subOptions[main.id] || []).length === 0} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0 disabled:opacity-50">Simpan Draft</button>
+                              <button onClick={() => handleAddSub(main.id)} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0">Simpan Draft</button>
                               <button onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer shrink-0">Batal</button>
                             </div>
                           </div>
                         ) : (
-                          <button onClick={() => { setAddingSubMainId(main.id); loadSubOptions(main.id, main.nama); }} className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer">
+                          <button onClick={() => setAddingSubMainId(main.id)} className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer">
                             <Plus size={11} /> Tambah Sub
                           </button>
                         )}

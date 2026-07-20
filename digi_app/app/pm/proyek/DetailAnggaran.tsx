@@ -88,8 +88,8 @@ function statusLabel(s: string): string {
 // ponytail: shared row layout — name grows, rest are fixed-width
 const COL_CLASS =
   "flex items-center gap-3 px-6 py-3 hover:bg-stone-50 transition";
-const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[380px]";
-const CELL_STYLE: React.CSSProperties = { width: 120, flexShrink: 0 };
+const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-md";
+const CELL_STYLE: React.CSSProperties = { width: 100, flexShrink: 0 };
 
 // ─── Shared row wrapper ───────────────────────────────────────────────────
 
@@ -102,44 +102,28 @@ function Row({
   indent?: number;
   className?: string;
 }) {
-  const childrenArray = React.Children.toArray(children);
-  const firstChild = childrenArray[0];
-  const restChildren = childrenArray.slice(1);
-
-  const modifiedFirstChild = React.isValidElement(firstChild)
-    ? React.cloneElement(firstChild as React.ReactElement<any>, {
-        style: {
-          ...((firstChild as React.ReactElement<any>).props?.style || {}),
-          paddingLeft: indent * 24,
-        },
-      })
-    : firstChild;
-
   return (
     <div
       className={`${COL_CLASS} ${className}`}
-      style={{ paddingLeft: 24 }}
+      style={{ paddingLeft: 24 + indent * 24 }}
     >
-      {modifiedFirstChild}
-      {restChildren}
+      {children}
     </div>
   );
 }
 
 function ProgressCell({ pct }: { pct: number }) {
   return (
-    <div className="flex items-center shrink-0" style={{ width: 180 }}>
-      <div className="flex items-center gap-2 w-[120px] shrink-0">
-        <div className="flex-1 bg-stone-100 h-1.5 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-[#008f5d] rounded-full"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="text-[11px] font-bold tabular-nums w-9 text-right shrink-0" style={{ color: "#005836" }}>
-          {pct.toFixed(1)}%
-        </span>
+    <div className="flex items-center gap-2 shrink-0" style={{ width: 120 }}>
+      <div className="flex-1 bg-stone-100 h-1.5 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-[#008f5d] rounded-full"
+          style={{ width: `${pct}%` }}
+        />
       </div>
+      <span className="text-[11px] font-bold text-stone-600 tabular-nums w-9 text-right">
+        {pct.toFixed(1)}%
+      </span>
     </div>
   );
 }
@@ -155,8 +139,8 @@ function Cell({
 }) {
   return (
     <span
-      className={`text-[12px] text-stone-800 shrink-0 text-left ${bold ? "font-bold" : ""}`}
-      style={{ width: 120, ...style }}
+      className={`text-[12px] text-stone-800 shrink-0 text-right ${bold ? "font-bold" : ""}`}
+      style={{ width: 100, ...style }}
     >
       {children}
     </span>
@@ -171,7 +155,7 @@ function AksiButton({
   style?: React.CSSProperties;
 }) {
   return (
-    <div className="flex justify-start shrink-0" style={{ width: 120 }}>
+    <div className="flex justify-end shrink-0" style={{ width: 100 }}>
       <button
         className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg transition cursor-pointer whitespace-nowrap hover:opacity-80"
         style={style}
@@ -296,33 +280,28 @@ export default function DetailAnggaranModal({
 
         {/* Column headers */}
         <div className="flex items-center gap-3 px-6 py-3 bg-stone-50 border-b border-stone-100 shrink-0">
-          <span className="flex-1 min-w-0 max-w-[380px] text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+          <span className="flex-1 min-w-0 max-w-md text-[10px] font-bold text-stone-400 uppercase tracking-wider">
             MAIN · SUB · KETERANGAN
           </span>
           <span
             className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0"
-            style={{ width: 180 }}
+            style={{ width: 120 }}
           >
             PROGRESS
           </span>
           <span
-            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-left"
-            style={{ width: 120 }}
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-right"
+            style={{ width: 100 }}
           >
             ALOKASI
           </span>
           <span
-            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-left"
-            style={{ width: 120 }}
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-right"
+            style={{ width: 100 }}
           >
             REALISASI
           </span>
-          <span
-            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-left"
-            style={{ width: 120 }}
-          >
-            AKSI
-          </span>
+          <div className="shrink-0" style={{ width: 100 }} />
         </div>
 
         {/* Scrollable rows */}
@@ -470,7 +449,7 @@ export default function DetailAnggaranModal({
                                           {ket.nama}
                                         </span>
                                       </div>
-                                      <div style={{ width: 180, flexShrink: 0 }} />
+                                      <div style={{ width: 120, flexShrink: 0 }} />
                                       <Cell style={{ color: "#78716C" }}>
                                         {formatShort(ket.alokasi)}
                                       </Cell>
@@ -525,8 +504,8 @@ export default function DetailAnggaranModal({
                                                   {rb.status}
                                                 </span>
                                               </div>
-                                              <div style={{ width: 180, flexShrink: 0 }} />
                                               <div style={{ width: 120, flexShrink: 0 }} />
+                                              <div style={{ width: 100, flexShrink: 0 }} />
                                               <Cell style={{ color: "#78716C" }}>
                                                 {formatShort(rb.nominal)}
                                               </Cell>

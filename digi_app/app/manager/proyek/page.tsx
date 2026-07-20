@@ -203,6 +203,7 @@ export default function KelolaProyekPage() {
 
   const handleBulkReview = async (action: 'APPROVE' | 'REJECT', catatan?: string) => {
     if (!detailedProjectInfo) return;
+    if (loadingDetail) return;
 
     // Gather all selected item IDs
     const selectedItemIds = Object.keys(selectedPendingIds)
@@ -211,37 +212,38 @@ export default function KelolaProyekPage() {
 
     if (selectedItemIds.length === 0) return;
 
-    // Flatten all items from pendingPengajuan to find corresponding proposal IDs
-    const proposalsToProcess = new Set<number>();
+    // Group selected item IDs by their parent proposal — only the checked items get sent,
+    // so unchecked siblings in the same proposal stay PENDING instead of being approved wholesale.
+    const itemIdsByProposal = new Map<number, number[]>();
     (pendingPengajuan || []).forEach((prop: any) => {
-      const hasSelectedChild = (prop.items || []).some((it: any) => selectedItemIds.includes(it.id));
-      if (hasSelectedChild) {
-        proposalsToProcess.add(prop.id);
+      const idsInProp = (prop.items || [])
+        .map((it: any) => it.id)
+        .filter((id: number) => selectedItemIds.includes(id));
+      if (idsInProp.length > 0) {
+        itemIdsByProposal.set(prop.id, idsInProp);
       }
     });
 
-    const proposalIds = Array.from(proposalsToProcess);
-    if (proposalIds.length === 0) return;
+    if (itemIdsByProposal.size === 0) return;
 
     setLoadingDetail(true);
     setFormError("");
     setSuccess("");
 
     try {
-      // Process each proposal in series/parallel
       const results = await Promise.all(
-        proposalIds.map(propId =>
+        Array.from(itemIdsByProposal.entries()).map(([propId, itemIds]) =>
           fetch(`/api/pengajuan-anggaran/${propId}/review`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: action, catatan }),
+            body: JSON.stringify({ status: action, catatan, itemIds }),
           })
         )
       );
 
       const allOk = results.every(res => res.ok);
       if (allOk) {
-        alert(action === 'APPROVE' ? `Berhasil menyetujui ${proposalIds.length} pengajuan!` : `Berhasil menolak ${proposalIds.length} pengajuan.`);
+        alert(action === 'APPROVE' ? `Berhasil menyetujui ${selectedItemIds.length} item pengajuan!` : `Berhasil menolak ${selectedItemIds.length} item pengajuan.`);
 
         // Reset rejection states
         setRejectingPengajuan(null);
@@ -256,8 +258,13 @@ export default function KelolaProyekPage() {
         }
         fetchData();
       } else {
-        alert("Beberapa pengajuan gagal diproses.");
-        setFormError("Beberapa pengajuan gagal diproses.");
+        const failedBodies = await Promise.all(
+          results.filter(res => !res.ok).map(res => res.json().catch(() => ({})))
+        );
+        const messages = failedBodies.map((b: any) => b.message).filter(Boolean);
+        const errorText = messages.length > 0 ? messages.join(' ') : "Beberapa item gagal diproses.";
+        alert(errorText);
+        setFormError(errorText);
       }
     } catch {
       alert("Terjadi kesalahan koneksi saat memproses pengajuan");
@@ -2716,7 +2723,15 @@ export default function KelolaProyekPage() {
                                     <button
                                       type="button"
                                       onClick={() =>
-                                        setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }))
+                                        setSelectedPendingIds(prev => {
+                                          const next = { ...prev, [r.id]: !prev[r.id] };
+                                          if (!next[r.id]) {
+                                            // Uncheck SUB BARU -> ikut uncheck semua KETERANGAN BARU di bawahnya,
+                                            // karena keterangan itu butuh sub-nya ada dulu (tidak bisa disetujui sendirian).
+                                            childPendingKets.forEach((c: any) => { next[c.id] = false; });
+                                          }
+                                          return next;
+                                        })
                                       }
                                       style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
                                     >
@@ -2783,7 +2798,15 @@ export default function KelolaProyekPage() {
                                         <button
                                           type="button"
                                           onClick={() =>
-                                            setSelectedPendingIds(prev => ({ ...prev, [c.id]: !prev[c.id] }))
+                                            setSelectedPendingIds(prev => {
+                                              const next = { ...prev, [c.id]: !prev[c.id] };
+                                              if (next[c.id]) {
+                                                // Centang KETERANGAN BARU -> ikut centang SUB BARU induknya,
+                                                // karena keduanya wajib disetujui bersamaan.
+                                                next[r.id] = true;
+                                              }
+                                              return next;
+                                            })
                                           }
                                           style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
                                         >
@@ -2886,6 +2909,7 @@ export default function KelolaProyekPage() {
                     <button
                       type="button"
                       onClick={handleBulkApprove}
+                      disabled={loadingDetail}
                       style={{
                         padding: '9px 14px',
                         background: 'black',
@@ -2895,11 +2919,12 @@ export default function KelolaProyekPage() {
                         fontWeight: 600,
                         fontSize: 13,
                         color: 'white',
-                        cursor: 'pointer'
+                        cursor: loadingDetail ? 'not-allowed' : 'pointer',
+                        opacity: loadingDetail ? 0.6 : 1
                       }}
                       className="hover:opacity-80 transition"
                     >
-                      Setujui Terpilih ({selectedCount})
+                      {loadingDetail ? 'Memproses...' : `Setujui Terpilih (${selectedCount})`}
                     </button>
                   </div>
                 </div>
@@ -3037,6 +3062,7 @@ export default function KelolaProyekPage() {
                         </button>
                         <button
                           type="button"
+                          disabled={loadingDetail}
                           onClick={async () => {
                             if (!rejectionReason.trim()) {
                               alert("Alasan penolakan wajib diisi");
@@ -3050,7 +3076,8 @@ export default function KelolaProyekPage() {
                             background: 'black',
                             borderRadius: 12,
                             border: 'none',
-                            cursor: 'pointer',
+                            cursor: loadingDetail ? 'not-allowed' : 'pointer',
+                            opacity: loadingDetail ? 0.6 : 1,
                             fontFamily: "'Plus Jakarta Sans', sans-serif",
                             fontWeight: 600,
                             fontSize: 13,
@@ -3059,7 +3086,7 @@ export default function KelolaProyekPage() {
                           }}
                           className="hover:opacity-80 transition"
                         >
-                          Kirim Penolakan
+                          {loadingDetail ? 'Memproses...' : 'Kirim Penolakan'}
                         </button>
                       </div>
 
