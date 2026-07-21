@@ -52,12 +52,10 @@ export default function AddProjectModal({
               placeholder="Detail mengenai target..."
               className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white resize-none"
             />
-          </div> 
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
-                Tanggal Mulai <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
               <input
                 type="date"
                 required
@@ -66,14 +64,10 @@ export default function AddProjectModal({
                 className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white"
               />
             </div>
-
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
-                Tanggal Selesai <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai</label>
               <input
                 type="date"
-                required
                 value={projectForm.tanggalSelesai}
                 onChange={(e) => setProjectForm({ ...projectForm, tanggalSelesai: e.target.value })}
                 className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white"
@@ -84,7 +78,7 @@ export default function AddProjectModal({
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
             <div className="flex flex-wrap gap-3 mt-1">
               {[
-                { value: "ACTIVE", label: "Active" },
+                { value: "AKTIF", label: "Active" },
                 { value: "PLANNING", label: "Planning" }
               ].map((statusItem) => {
                 const isSelected = projectForm.status === statusItem.value;

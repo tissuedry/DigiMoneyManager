@@ -79,7 +79,7 @@ export function formatStatusLabel(status?: string): string {
   if (upper === 'PLANNING') return 'Planning';
   if (upper === 'DONE') return 'Done';
   if (upper === 'CANCELED' || upper === 'CANCELLED') return 'Canceled';
-  return status;
+  return status; 
 }
 
 export function calculateTotalTerpakai(detailedProjectInfo: any, fallbackValue: number = 0): number {
