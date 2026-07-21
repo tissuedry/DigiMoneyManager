@@ -62,6 +62,12 @@ export default function InitBudgetModal({
   // THEN do the early return
   if (!showInitBudget) return null;
 
+  // Cek jika ada opsi/deskripsi pos anggaran yang duplikat
+  const selectedDeskripsi = posAnggaranList
+    .map((item) => item.deskripsi)
+    .filter((desk) => desk !== "");
+  const hasDuplicateOptions = new Set(selectedDeskripsi).size !== selectedDeskripsi.length;
+
   const totalVal = ribuanToNumber(rabTotal) || 0;
   const terpakaiVal = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
   const pctVal = totalVal > 0 ? Math.round((terpakaiVal / totalVal) * 100) : 0;
@@ -75,6 +81,12 @@ export default function InitBudgetModal({
       return `${(val / 1_000_000_000).toFixed(1)} M`;
     }
     return `${(val / 1_000_000).toFixed(1)} jt`;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (hasDuplicateOptions) return; // Mencegah submit jika ada opsi duplikat
+    onSubmit(e);
   };
 
   return (
@@ -114,7 +126,7 @@ export default function InitBudgetModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={onSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
             {/* Total Nilai Proyek (Rupiah) */}
@@ -318,6 +330,27 @@ export default function InitBudgetModal({
               </div>
             </div>
 
+            {hasDuplicateOptions && (
+              <div 
+                style={{
+                  background: '#FDF2F2',
+                  border: '1px solid #FCD3D3',
+                  borderRadius: 16,
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  color: '#9E2A2B',
+                  fontSize: 13,
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: 600,
+                }}
+              >
+                <X size={15} color="#9E2A2B" />
+                <span>Pos Anggaran tidak boleh ada yang sama</span>
+              </div>
+            )}
+
             {formError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2" style={{ fontFamily: 'Plus Jakarta Sans' }}>
                 <X size={14} />
@@ -358,18 +391,18 @@ export default function InitBudgetModal({
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || hasDuplicateOptions}
               style={{
                 flex: 1,
                 padding: '9px 14px',
-                background: 'black',
+                background: hasDuplicateOptions ? '#A1A1AA' : 'black',
                 border: 'none',
                 borderRadius: 12,
                 fontFamily: 'Plus Jakarta Sans',
                 fontWeight: '600',
                 fontSize: 13,
                 color: 'white',
-                cursor: 'pointer',
+                cursor: hasDuplicateOptions ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
