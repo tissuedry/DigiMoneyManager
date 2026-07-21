@@ -78,9 +78,14 @@ const getStatusBadgeStyle = (statusStr?: string) => {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export const formatShort = (v: number): string => {
-  if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1)} M`;
-  if (v >= 1_000_000) return `Rp ${(v / 1_000_000).toFixed(1)} jt`;
-  if (v >= 1_000) return `Rp ${(v / 1_000).toFixed(0)} rb`;
+  const abs = Math.abs(v);
+  if (abs >= 100_000_000_000_000) {
+    const triliun = Math.floor(abs / 1_000_000_000_000);
+    return v < 0 ? `-${triliun} T` : `${triliun} T`;
+  }
+  if (v < 0) {
+    return `-Rp ${abs.toLocaleString("id-ID")}`;
+  }
   return `Rp ${v.toLocaleString("id-ID")}`;
 };
 

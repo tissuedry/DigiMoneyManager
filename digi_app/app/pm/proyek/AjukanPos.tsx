@@ -196,7 +196,7 @@ export default function AjukanPosModal({
       alert("Harap isi semua kolom untuk mengajukan Sub baru!");
       return;
     }
-    const alokasiVal = parseFloat(newSubAlokasi.replace(/[^0-9]/g, "")) || 0;
+    const alokasiVal = parseRupiahInput(newSubAlokasi);
 
     const main = data.find((m) => m.id === mainId);
     if (!main) return;
@@ -233,7 +233,7 @@ export default function AjukanPosModal({
       alert("Harap isi semua kolom untuk mengajukan Keterangan baru!");
       return;
     }
-    const alokasiVal = parseFloat(newKetAlokasi.replace(/[^0-9]/g, "")) || 0;
+    const alokasiVal = parseRupiahInput(newKetAlokasi);
 
     let parentSub: AjukanSub | undefined;
     for (const m of data) {
@@ -350,10 +350,23 @@ export default function AjukanPosModal({
     }
   };
 
+  const parseRupiahInput = (val: string): number => {
+    if (!val) return 0;
+    if (val.includes("T")) {
+      const num = parseFloat(val.replace(/[^0-9.]/g, "")) || 0;
+      return num * 1_000_000_000_000;
+    }
+    return parseFloat(val.replace(/[^0-9]/g, "")) || 0;
+  };
+
   const formatInputRupiah = (val: string) => {
-    const num = val.replace(/[^0-9]/g, "");
-    if (!num) return "";
-    return "Rp " + parseInt(num, 10).toLocaleString("id-ID");
+    const raw = parseRupiahInput(val);
+    if (!raw) return "";
+    const n = Math.min(raw, 100_000_000_000_000);
+    if (n >= 100_000_000_000_000) {
+      return "100 T";
+    }
+    return "Rp " + n.toLocaleString("id-ID");
   };
 
   let pendingCount = 0;
@@ -481,7 +494,7 @@ export default function AjukanPosModal({
                                       {/* Budget summary for this Sub */}
                                       {(() => {
                                         const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
-                                        const inputVal = parseFloat(newKetAlokasi.replace(/[^0-9]/g, "")) || 0;
+                                        const inputVal = parseRupiahInput(newKetAlokasi);
                                         const liveTotalKet = totalKet + inputVal;
                                         const sisaKet = sub.alokasi - liveTotalKet;
                                         const isOverKet = sisaKet < 0;
@@ -564,7 +577,7 @@ export default function AjukanPosModal({
                             {/* Budget summary for this Main */}
                             {(() => {
                               const totalSub = main.subPos.reduce((s, sub) => s + sub.alokasi, 0);
-                              const inputVal = parseFloat(newSubAlokasi.replace(/[^0-9]/g, "")) || 0;
+                              const inputVal = parseRupiahInput(newSubAlokasi);
                               const liveTotalSub = totalSub + inputVal;
                               const sisaSub = main.alokasi - liveTotalSub;
                               const isOverSub = sisaSub < 0;
