@@ -191,7 +191,7 @@ export default function BudgetProyek() {
   const mappedReimbursements = projectReimbursements.map((r: any) => {
     const initials = r.user?.nama ? r.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'KY';
     const statusText = r.status === 'SUBMITTED' ? 'Menunggu PM' :
-                       r.status === 'APPROVED_BY_PM' ? 'Verifikasi Keuangan' :
+                       r.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
                        r.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak';
     const statusColor = r.status === 'SUBMITTED' ? 'bg-[#FCEFD9] text-[#A76F28]' :
                         r.status === 'APPROVED_BY_PM' ? 'bg-[#E3F2FD] text-[#1D63B8]' :

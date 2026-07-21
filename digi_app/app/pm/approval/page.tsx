@@ -8,7 +8,7 @@ import { useApi, useMutate, useInvalidate } from '@/lib/use-api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ApprovalStatus = "Menunggu PM" | "Verifikasi Keuangan" | "Dicairkan" | "Ditolak";
+type ApprovalStatus = "Menunggu PM" | "Menunggu Keuangan" | "Dicairkan" | "Ditolak";
 
 type ApprovalStep = {
   label: string;
@@ -68,7 +68,7 @@ const getStatusBadge = (status: ApprovalStatus) => {
   switch (status) {
     case "Menunggu PM":
       return "bg-[#fdf3e6] text-[#b46b2b]";
-    case "Verifikasi Keuangan":
+    case "Menunggu Keuangan":
       return "bg-[#e1f5fe] text-[#0277bd]";
     case "Dicairkan":
       return "bg-[#e2f1eb] text-[#117a5b]";
@@ -176,7 +176,7 @@ export default function AntrianApprovalPage() {
 
     // Map DB status to display status
     let displayStatus: ApprovalStatus = "Menunggu PM";
-    if (r.status === 'APPROVED_BY_PM') displayStatus = "Verifikasi Keuangan";
+    if (r.status === 'APPROVED_BY_PM') displayStatus = "Menunggu Keuangan";
     else if (r.status === 'APPROVED') displayStatus = "Dicairkan";
     else if (r.status === 'REJECTED') {
       displayStatus = "Ditolak";
@@ -217,7 +217,7 @@ export default function AntrianApprovalPage() {
   // Filter data berdasarkan tab
   const filteredData = mappedSubmissions.filter((item: any) => {
     if (activeTab === "Menunggu Saya") return item.status === "Menunggu PM";
-    if (activeTab === "Diteruskan") return item.status === "Verifikasi Keuangan";
+    if (activeTab === "Diteruskan") return item.status === "Menunggu Keuangan";
     if (activeTab === "Selesai") return item.status === "Dicairkan" || item.status === "Ditolak";
     return false;
   });
@@ -288,7 +288,7 @@ export default function AntrianApprovalPage() {
 
   const tabCounts: Record<Tab, number> = {
     "Menunggu Saya": mappedSubmissions.filter((s: any) => s.status === "Menunggu PM").length,
-    Diteruskan: mappedSubmissions.filter((s: any) => s.status === "Verifikasi Keuangan").length,
+    Diteruskan: mappedSubmissions.filter((s: any) => s.status === "Menunggu Keuangan").length,
     Selesai: mappedSubmissions.filter((s: any) => s.status === "Dicairkan" || s.status === "Ditolak").length,
   };
 

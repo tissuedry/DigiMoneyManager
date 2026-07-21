@@ -390,13 +390,14 @@ export default function DetailBudgetModal({
                                     return 'Dicairkan';
                                   }
                                   if (status === 'APPROVED_BY_PM') {
-                                    return 'Verifikasi Keuangan';
+                                    return 'Menunggu Keuangan';
                                   }
                                   return 'Menunggu PM';
                                 };
 
                                 const badgeStyle = getStatusBadgeStyles(reimb.status);
                                 const statusLabel = getStatusLabelText(reimb.status);
+                                const reimbName = (reimb.ocrData as any)?.merchant || (reimb.ocrData as any)?.keterangan || 'Reimbursement';
 
                                 return (
                                   <div key={reimb.id} style={{
@@ -406,12 +407,44 @@ export default function DetailBudgetModal({
                                     padding: '4px 12px',
                                     background: 'rgba(0, 145, 98, 0.02)'
                                   }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 72 }}>
-                                      <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textTransform: 'uppercase' }}>
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      paddingLeft: 72,
+                                      overflow: 'hidden'
+                                    }}>
+                                      <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', textTransform: 'uppercase', flexShrink: 0 }}>
                                         Reimb
                                       </span>
-                                      <span style={{ color: '#9A948B', fontSize: 11.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '400', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                        · {(reimb.ocrData as any)?.merchant || (reimb.ocrData as any)?.keterangan || 'Reimbursement'} · {formattedDate}
+                                      <span style={{ color: '#9A948B', fontSize: 11.50, fontFamily: 'Plus Jakarta Sans', flexShrink: 0 }}>
+                                        ·
+                                      </span>
+                                      <span style={{
+                                        color: '#9A948B',
+                                        fontSize: 11.50,
+                                        fontFamily: 'Plus Jakarta Sans',
+                                        fontWeight: '400',
+                                        textOverflow: 'ellipsis',
+                                        overflow: 'hidden',
+                                        whiteSpace: 'nowrap',
+                                        maxWidth: 140,
+                                        flexShrink: 1
+                                      }} title={reimbName}>
+                                        {reimbName}
+                                      </span>
+                                      <span style={{ color: '#9A948B', fontSize: 11.50, fontFamily: 'Plus Jakarta Sans', flexShrink: 0 }}>
+                                        ·
+                                      </span>
+                                      <span style={{
+                                        color: '#9A948B',
+                                        fontSize: 11.50,
+                                        fontFamily: 'Plus Jakarta Sans',
+                                        fontWeight: '400',
+                                        whiteSpace: 'nowrap',
+                                        flexShrink: 0
+                                      }}>
+                                        {formattedDate}
                                       </span>
                                       <span style={{
                                         padding: '2px 8px',
@@ -419,6 +452,8 @@ export default function DetailBudgetModal({
                                         fontSize: 10,
                                         fontFamily: 'Plus Jakarta Sans',
                                         fontWeight: '600',
+                                        whiteSpace: 'nowrap',
+                                        flexShrink: 0,
                                         ...badgeStyle
                                       }}>
                                         {statusLabel}

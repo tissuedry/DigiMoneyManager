@@ -34,7 +34,7 @@ const getStatusBadge = (status: string): StatusBadge => {
     case "SUBMITTED":
       return { text: "Menunggu PM", className: "bg-[#fdf3e6] text-[#b46b2b]" };
     case "APPROVED_BY_PM":
-      return { text: "Verifikasi Keuangan", className: "bg-[#e1f5fe] text-[#0277bd]" };
+      return { text: "Menunggu Keuangan", className: "bg-[#e1f5fe] text-[#0277bd]" };
     case "APPROVED":
       return { text: "Dicairkan", className: "bg-[#e2f1eb] text-[#117a5b]" };
     case "REJECTED":

@@ -319,7 +319,7 @@ function PencairanContent() {
                             item.status === 'APPROVED' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' :
                             'text-red-700 bg-red-50 border-red-200'
                           }`}>
-                            {item.status === 'APPROVED_BY_PM' ? 'Verifikasi Keuangan' :
+                            {item.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
                              item.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
                           </span>
                         </div>
@@ -355,7 +355,7 @@ function PencairanContent() {
                         selectedItem.status === 'APPROVED' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' :
                         'text-red-700 bg-red-50 border-red-200'
                       }`}>
-                        {selectedItem.status === 'APPROVED_BY_PM' ? 'Verifikasi Keuangan' :
+                        {selectedItem.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
                          selectedItem.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
                       </span>
                     </div>

@@ -307,7 +307,7 @@ export default function LaporanPage() {
       const reimbRows = reimbursements.map((r: any) => {
         let displayStatus = r.status;
         if (r.status === 'SUBMITTED') displayStatus = 'Menunggu PM';
-        else if (r.status === 'APPROVED_BY_PM') displayStatus = 'Verifikasi Keuangan';
+        else if (r.status === 'APPROVED_BY_PM') displayStatus = 'Menunggu Keuangan';
         else if (r.status === 'APPROVED') displayStatus = 'Dicairkan';
         else if (r.status === 'REJECTED') displayStatus = 'Ditolak';
 

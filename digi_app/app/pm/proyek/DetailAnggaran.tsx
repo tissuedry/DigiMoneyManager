@@ -67,7 +67,7 @@ const STATUS_BADGE: Record<string, string> = {
   "APPROVED": "bg-emerald-100 text-emerald-700",
   "Menunggu PM": "bg-amber-100 text-amber-700",
   "SUBMITTED": "bg-amber-100 text-amber-700",
-  "Verifikasi Keuangan": "bg-blue-100 text-blue-700",
+  "Menunggu Keuangan": "bg-blue-100 text-blue-700",
   "APPROVED_BY_PM": "bg-blue-100 text-blue-700",
   "Ditolak": "bg-red-100 text-red-700",
   "REJECTED": "bg-red-100 text-red-700",
@@ -79,8 +79,8 @@ function statusLabel(s: string): string {
     "APPROVED": "Dicairkan",
     "SUBMITTED": "Menunggu PM",
     "REJECTED": "Ditolak",
-    "PENDING": "Verifikasi Keuangan",
-    "APPROVED_BY_PM": "Verifikasi Keuangan",
+    "PENDING": "Menunggu Keuangan",
+    "APPROVED_BY_PM": "Menunggu Keuangan",
   };
   return map[s] || s;
 }

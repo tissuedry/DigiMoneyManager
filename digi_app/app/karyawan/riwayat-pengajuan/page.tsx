@@ -15,7 +15,7 @@ type Submission = {
   project: string;
   pos: string;
   amount: string;
-  status: "Menunggu PM" | "Verifikasi Keuangan" | "Dicairkan" | "Ditolak";
+  status: "Menunggu PM" | "Menunggu Keuangan" | "Dicairkan" | "Ditolak";
   isResubmit: boolean;
   isResubmitted: boolean;
 };
@@ -52,7 +52,7 @@ const getStatusBadge = (status: Submission["status"]) => {
   switch (status) {
     case "Menunggu PM":
       return "bg-[#fdf3e6] text-[#b46b2b]";
-    case "Verifikasi Keuangan":
+    case "Menunggu Keuangan":
       return "bg-[#e1f5fe] text-[#0277bd]";
     case "Dicairkan":
       return "bg-[#e2f1eb] text-[#117a5b]";
@@ -228,7 +228,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
   const status = raw.status;
   const uiStatus =
     status === "SUBMITTED" ? "Menunggu PM" :
-    status === "APPROVED_BY_PM" ? "Verifikasi Keuangan" :
+    status === "APPROVED_BY_PM" ? "Menunggu Keuangan" :
     status === "APPROVED" ? "Dicairkan" :
     raw.ocrData?.resubmitFrom ? "Pengajuan Ulang Ditolak" : "Ditolak";
 
@@ -551,7 +551,7 @@ export default function RiwayatPengajuanPage() {
           pos: r.posAnggaran?.deskripsi || r.posAnggaran?.namaPos || 'N/A',
           amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
           status: (r.status === 'SUBMITTED' ? 'Menunggu PM' :
-                  r.status === 'APPROVED_BY_PM' ? 'Verifikasi Keuangan' :
+                  r.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
                   r.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak') as Submission["status"],
           isResubmit: !!r.ocrData?.resubmitFrom,
           isResubmitted: data.reimbursements.some((other: any) => other.ocrData?.resubmitFrom === r.id),
@@ -577,7 +577,7 @@ export default function RiwayatPengajuanPage() {
     .filter((item) => {
       // 1. Tab filter
       if (activeTab !== "Semua") {
-        if (activeTab === "Menunggu Keuangan" && item.status !== "Verifikasi Keuangan") return false;
+        if (activeTab === "Menunggu Keuangan" && item.status !== "Menunggu Keuangan") return false;
         if (activeTab !== "Menunggu Keuangan" && item.status !== activeTab) return false;
       }
       // 2. Project filter
