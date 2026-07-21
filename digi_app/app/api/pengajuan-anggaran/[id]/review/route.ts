@@ -145,7 +145,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    let totalNewAlokasi = 0;
     // Map untuk resolve draft parentId: Date.now()→real DB id
     const subIdMap = new Map<number, number>();
     let closed = false;
@@ -170,12 +169,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           });
           // Map draft ID (dari frontend Date.now()) → real DB id
           if (item.targetId) subIdMap.set(item.targetId, created.id);
-          // ponytail: Number() wajib — item.nominalAlokasi adalah Prisma Decimal (string/Decimal.js),
-          // tanpa ini `+=` jadi string concatenation → total membesar tak terhingga → numeric overflow.
-          totalNewAlokasi += Number(item.nominalAlokasi ?? 0);
         } else if (item.aksi === 'UBAH') {
           if (!item.targetId) continue;
-          const existing = await tx.subAnggaran.findUnique({ where: { id: item.targetId }, select: { nominalAlokasi: true } });
           await tx.subAnggaran.update({
             where: { id: item.targetId },
             data: {
@@ -183,9 +178,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               ...(item.nominalAlokasi != null && { nominalAlokasi: item.nominalAlokasi }),
             },
           });
-          if (existing && item.nominalAlokasi != null) {
-            totalNewAlokasi += item.nominalAlokasi - Number(existing.nominalAlokasi);
-          }
         } else if (item.aksi === 'HAPUS') {
           if (!item.targetId) continue;
           const hasKeterangan = await tx.keteranganAnggaran.count({ where: { subAnggaranId: item.targetId } });
@@ -223,12 +215,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               nominalAlokasi: item.nominalAlokasi ?? 0,
             },
           });
-          // ponytail: Number() wajib — item.nominalAlokasi adalah Prisma Decimal (string/Decimal.js),
-          // tanpa ini `+=` jadi string concatenation → total membesar tak terhingga → numeric overflow.
-          totalNewAlokasi += Number(item.nominalAlokasi ?? 0);
         } else if (item.aksi === 'UBAH') {
           if (!item.targetId) continue;
-          const existing = await tx.keteranganAnggaran.findUnique({ where: { id: item.targetId }, select: { nominalAlokasi: true } });
           await tx.keteranganAnggaran.update({
             where: { id: item.targetId },
             data: {
@@ -236,9 +224,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               ...(item.nominalAlokasi != null && { nominalAlokasi: item.nominalAlokasi }),
             },
           });
-          if (existing && item.nominalAlokasi != null) {
-            totalNewAlokasi += item.nominalAlokasi - Number(existing.nominalAlokasi);
-          }
         } else if (item.aksi === 'HAPUS') {
           if (!item.targetId) continue;
           const hasReimbs = await tx.reimbursement.count({ where: { keteranganAnggaranId: item.targetId } });
@@ -249,20 +234,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         }
       }
 
-      // 4. Update budget totals kalau ada perubahan alokasi
-      if (totalNewAlokasi !== 0 && pengajuan.proyek.budget) {
-        const newRab = Number(pengajuan.proyek.budget.rabTotal) + totalNewAlokasi;
-        const newSisa = Math.max(0, Number(pengajuan.proyek.budget.sisaBudget) + totalNewAlokasi);
-        await tx.budget.update({
-          where: { id: pengajuan.proyek.budget.id },
-          data: { rabTotal: newRab, sisaBudget: newSisa },
-        });
-      }
-
-      // 5. Item yang sudah diproses dihapus dari daftar pending (sudah masuk ke tabel budget asli)
+      // 4. Item yang sudah diproses dihapus dari daftar pending (sudah masuk ke tabel budget asli)
       await tx.pengajuanAnggaranItem.deleteMany({ where: { id: { in: targetItemIds } } });
 
-      // 6. Tutup pengajuan hanya kalau sudah tidak ada item tersisa
+      // 5. Tutup pengajuan hanya kalau sudah tidak ada item tersisa
       const remaining = await tx.pengajuanAnggaranItem.count({ where: { pengajuanId } });
       if (remaining === 0) {
         await tx.pengajuanAnggaran.update({
