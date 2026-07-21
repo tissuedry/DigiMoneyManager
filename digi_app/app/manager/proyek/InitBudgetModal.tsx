@@ -233,6 +233,7 @@ export default function InitBudgetModal({
                 </button>
               </div>
 
+              {/* Real-time Summary Cards */}
               <div style={{
                 alignSelf: 'stretch',
                 display: 'grid',
