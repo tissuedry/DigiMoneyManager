@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import { formatShort } from "./page";
+import { Preahvihear } from "next/font/google";
 
 type AjukanKet = {
   id: number;
@@ -554,8 +555,11 @@ export default function AjukanPosModal({
                                         </div>
                                       </div>
                                       <div className="flex flex-wrap items-center gap-3 pt-1">
-                                        <button onClick={() => handleAddKet(sub.id)} disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer disabled:opacity-50">Simpan Draft</button>
+                                        <button onClick={() => handleAddKet(sub.id)} disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0 || (!!newKetName && sub.keterangan.some(k => k.nama === newKetName))} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer disabled:opacity-50">Simpan Draft</button>
                                         <button onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer">Batal</button>
+                                        {newKetName && sub.keterangan.some(k => k.nama === newKetName) && (
+                                          <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah pernah ditambahkan atau diajukan</span>
+                                        )}
                                       </div>
                                     </div>
                                   ) : (
@@ -637,8 +641,11 @@ export default function AjukanPosModal({
                               </div>
                             </div>
                             <div className="flex flex-wrap items-center gap-3 pt-1">
-                              <button onClick={() => handleAddSub(main.id)} disabled={loadingSubOptions[main.id] || (subOptions[main.id] || []).length === 0} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0 disabled:opacity-50">Simpan Draft</button>
+                              <button onClick={() => handleAddSub(main.id)} disabled={loadingSubOptions[main.id] || (subOptions[main.id] || []).length === 0 || (!!newSubName && main.subPos.some(s => s.nama === newSubName))} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0 disabled:opacity-50">Simpan Draft</button>
                               <button onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer shrink-0">Batal</button>
+                              {newSubName && main.subPos.some(s => s.nama === newSubName) && (
+                                <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah pernah ditambahkan atau diajukan</span>
+                              )}
                             </div>
                           </div>
                         ) : (
