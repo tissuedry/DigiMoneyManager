@@ -307,11 +307,7 @@ export default function ProjectDetailSidebar({
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    const initial: Record<number, boolean> = {};
-                                                    (detailedProjectInfo?.pendingReimbursements || []).forEach((r: any) => {
-                                                        initial[r.id] = true;
-                                                    });
-                                                    setSelectedPendingIds(initial);
+                                                    setSelectedPendingIds({});
                                                     setShowPendingPmModal(true);
                                                     if (detailedProjectInfo?.id) {
                                                         fetchPendingPengajuan(detailedProjectInfo.id);

@@ -77,6 +77,41 @@ export default function PendingPmModal({
     setSelectedPendingIds(next);
   };
 
+  const handleToggleItem = (itemId: number, type: 'SUB' | 'KET', parentIdOrTargetId?: number) => {
+    setSelectedPendingIds(prev => {
+      const next = { ...prev };
+      const currentVal = !prev[itemId];
+      next[itemId] = currentVal;
+
+      if (type === 'SUB') {
+        const subItem = submissions.find(s => s.id === itemId);
+        if (subItem && subItem.tipe === 'SUB_ANGGARAN') {
+          // Only uncheck children when the parent sub-budget is unchecked.
+          // If parent is checked, children remain in their current state (unchecked by default).
+          if (!currentVal) {
+            const childKets = submissions.filter(
+              c => c.tipe === 'KETERANGAN' && Number(c.parentId) === Number(subItem.targetId)
+            );
+            childKets.forEach(c => {
+              next[c.id] = false;
+            });
+          }
+        }
+      } else if (type === 'KET') {
+        if (currentVal && parentIdOrTargetId != null) {
+          const parentSub = submissions.find(
+            s => s.tipe === 'SUB_ANGGARAN' && Number(s.targetId) === Number(parentIdOrTargetId)
+          );
+          if (parentSub) {
+            next[parentSub.id] = true;
+          }
+        }
+      }
+
+      return next;
+    });
+  };
+
   const handleBulkApprove = async () => {
     await handleBulkReview('APPROVE');
   };
@@ -272,9 +307,7 @@ export default function PendingPmModal({
                                     }}>
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }));
-                                        }}
+                                        onClick={() => handleToggleItem(r.id, 'KET')}
                                         style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                       >
                                         <div style={{
@@ -381,9 +414,7 @@ export default function PendingPmModal({
 
                               <button
                                 type="button"
-                                onClick={() =>
-                                  setSelectedPendingIds(prev => ({ ...prev, [r.id]: !prev[r.id] }))
-                                }
+                                onClick={() => handleToggleItem(r.id, 'SUB')}
                                 style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
                               >
                                 <div style={{
@@ -445,9 +476,7 @@ export default function PendingPmModal({
                                 }}>
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      setSelectedPendingIds(prev => ({ ...prev, [c.id]: !prev[c.id] }))
-                                    }
+                                    onClick={() => handleToggleItem(c.id, 'KET', r.targetId)}
                                     style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
                                   >
                                     <div style={{
@@ -509,10 +538,10 @@ export default function PendingPmModal({
         </div>
 
         {/* Bottom bulk selected summary bar */}
-        {selectedCount > 0 && (
+        {submissions.length > 0 && (
           <div style={{
             alignSelf: 'stretch',
-            background: '#D5F4E3',
+            background: selectedCount > 0 ? '#D5F4E3' : '#F5F4F0',
             padding: '12px 24px',
             borderTop: '0.80px #E6E1D4 solid',
             display: 'flex',
@@ -520,12 +549,18 @@ export default function PendingPmModal({
             alignItems: 'center',
             flexShrink: 0
           }}>
-            <div style={{ color: '#005836', fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-              {selectedCount} pos dipilih
+            <div style={{
+              color: selectedCount > 0 ? '#005836' : '#6A6660',
+              fontSize: 13,
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700
+            }}>
+              {selectedCount > 0 ? `${selectedCount} pos dipilih` : 'Pilih pos anggaran untuk disetujui/ditolak'}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
+                disabled={selectedCount === 0}
                 onClick={() => {
                   const itemsToReject = submissions.filter((r: any) => selectedPendingIds[r.id]);
                   setRejectingPengajuan(itemsToReject);
@@ -539,28 +574,31 @@ export default function PendingPmModal({
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontWeight: 600,
                   fontSize: 13,
-                  color: '#14130F',
-                  cursor: 'pointer'
+                  color: selectedCount > 0 ? '#14130F' : '#9A948B',
+                  cursor: selectedCount > 0 ? 'pointer' : 'not-allowed',
+                  opacity: selectedCount > 0 ? 1 : 0.6
                 }}
-                className="hover:bg-stone-50 transition"
+                className={selectedCount > 0 ? "hover:bg-stone-50 transition" : ""}
               >
                 Tolak Terpilih ({selectedCount})
               </button>
               <button
                 type="button"
+                disabled={selectedCount === 0}
                 onClick={handleBulkApprove}
                 style={{
                   padding: '9px 14px',
-                  background: 'black',
+                  background: selectedCount > 0 ? 'black' : '#E6E1D4',
                   border: 'none',
                   borderRadius: 12,
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontWeight: 600,
                   fontSize: 13,
-                  color: 'white',
-                  cursor: 'pointer'
+                  color: selectedCount > 0 ? 'white' : '#9A948B',
+                  cursor: selectedCount > 0 ? 'pointer' : 'not-allowed',
+                  opacity: selectedCount > 0 ? 1 : 0.6
                 }}
-                className="hover:opacity-80 transition"
+                className={selectedCount > 0 ? "hover:opacity-80 transition" : ""}
               >
                 Setujui Terpilih ({selectedCount})
               </button>
