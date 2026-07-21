@@ -103,16 +103,9 @@ export default function DetailBudgetModal({
               const isMainOpen = hasSub && expandedMain[idxPos] !== false;
 
               // --- 1. KALKULASI PADA TINGKAT MAIN ---
-              // Alokasi MAIN: Jika ada Sub maka jumlahkan Alokasi Sub, jika tidak pakai nominalAlokasi bawaan
-              const alokasiPos = hasSub
-                ? pos.subAnggaran.reduce((accSub: number, sub: any) => {
-                    const hasKet = sub.keterangan && sub.keterangan.length > 0;
-                    const subAlokasi = hasKet
-                      ? sub.keterangan.reduce((accKet: number, k: any) => accKet + (parseFloat(k.nominalAlokasi) || 0), 0)
-                      : parseFloat(sub.nominalAlokasi) || 0;
-                    return accSub + subAlokasi;
-                  }, 0)
-                : parseFloat(pos.nominalAlokasi) || 0;
+              // Alokasi MAIN selalu pakai nominalAlokasi milik MAIN sendiri — Sub/Keterangan adalah
+              // subdivisi dari alokasi ini, bukan penjumlahan yang menggantikannya.
+              const alokasiPos = parseFloat(pos.nominalAlokasi) || 0;
 
               // Realisasi MAIN: Akumulasi seluruh realisasi dari anak-anaknya
               const terpakaiPos = hasSub
@@ -208,11 +201,10 @@ export default function DetailBudgetModal({
                     const subKey = `${idxPos}-${idxSub}`;
                     const isSubOpen = hasKet && expandedSub[subKey] !== false;
 
-                    // --- 2. KALKULASI PADA TINGKAT SUB (Sub sum) ---
-                    // Alokasi Sub = Sum Alokasi Keterangan
-                    const alokasiSub = hasKet
-                      ? sub.keterangan.reduce((acc: number, k: any) => acc + (parseFloat(k.nominalAlokasi) || 0), 0)
-                      : parseFloat(sub.nominalAlokasi) || 0;
+                    // --- 2. KALKULASI PADA TINGKAT SUB ---
+                    // Alokasi Sub selalu pakai nominalAlokasi milik Sub sendiri — Keterangan adalah
+                    // subdivisi dari alokasi ini, bukan penjumlahan yang menggantikannya.
+                    const alokasiSub = parseFloat(sub.nominalAlokasi) || 0;
 
                     // Realisasi Sub = Sum Realisasi Keterangan
                     const terpakaiSub = hasKet
