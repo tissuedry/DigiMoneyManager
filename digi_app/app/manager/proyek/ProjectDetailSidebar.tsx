@@ -1,13 +1,14 @@
 import React from "react";
 import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check } from "lucide-react";
 import { Project, Member } from "./types";
-import { 
-  formatRupiah, 
-  formatSummaryRupiah, 
-  getStatusStyles, 
-  formatRibuan,
-  calculateTotalTerpakai,    // <-- Import fungsi dari utils
-  calculateBudgetProgress   // <-- Import fungsi dari utils
+import {
+    formatRupiah,
+    formatSummaryRupiah,
+    getStatusStyles,
+    formatRibuan,
+    calculateTotalTerpakai,
+    calculateBudgetProgress, 
+    formatStatusLabel
 } from "./utils";
 
 type Props = {
@@ -141,26 +142,31 @@ export default function ProjectDetailSidebar({
                                     <div className="grid grid-cols-2 gap-y-4 gap-x-6 pt-2 text-left">
                                         <div>
                                             <span className="text-[11px] text-stone-400 block font-medium">Status</span>
-                                            <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border mt-1 ${getStatusStyles(detailedProjectInfo?.status || showProjectDetail.status)}`}>
-                                                {detailedProjectInfo?.status || showProjectDetail.status}
-                                            </span>
+                                            {(() => {
+                                                const rawStatus = detailedProjectInfo?.status || showProjectDetail.status;
+                                                return (
+                                                    <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border mt-1 ${getStatusStyles(rawStatus)}`}>
+                                                        {formatStatusLabel(rawStatus)}
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
                                         <div>
                                             <span className="text-[11px] text-stone-400 block font-medium">Project Manager</span>
                                             <span className="text-[13px] font-bold text-stone-800 block mt-1 truncate">
-                                                {detailedProjectInfo?.users?.find((u: any) => u.roleInProyek === 'Project Manager')?.nama || "Muhammad Zaini"}
+                                                {detailedProjectInfo?.users?.find((u: any) => u.roleInProyek === 'Project Manager')?.nama || "-"}
                                             </span>
                                         </div>
                                         <div>
                                             <span className="text-[11px] text-stone-400 block font-medium">Tanggal Mulai</span>
                                             <span className="text-[13px] font-bold text-stone-800 block mt-0.5">
-                                                {detailedProjectInfo?.tanggalMulai ? new Date(detailedProjectInfo.tanggalMulai).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "12 Januari 2026"}
+                                                {detailedProjectInfo?.tanggalMulai ? new Date(detailedProjectInfo.tanggalMulai).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
                                             </span>
                                         </div>
                                         <div>
                                             <span className="text-[11px] text-stone-400 block font-medium">Tanggal Selesai</span>
                                             <span className="text-[13px] font-bold text-stone-800 block mt-0.5">
-                                                {detailedProjectInfo?.tanggalSelesai ? new Date(detailedProjectInfo.tanggalSelesai).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "30 September 2026"}
+                                                {detailedProjectInfo?.tanggalSelesai ? new Date(detailedProjectInfo.tanggalSelesai).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
                                             </span>
                                         </div>
                                     </div>
@@ -246,7 +252,7 @@ export default function ProjectDetailSidebar({
                                         </div>
 
                                         <div className="bg-white border border-stone-100 rounded-2xl p-4 shadow-[0_4px_12px_rgba(0,0,0,0.01)] space-y-4">
-                                            <div className="h-28 flex items-end gap-3 px-2 pt-2 border-b border-stone-100">
+                                            <div className="h-28 flex items-end gap-2 px-3 pt-2 border-b border-stone-100 overflow-x-auto scrollbar-none">
                                                 {activeCashFlow.length === 0 ? (
                                                     <div className="flex-1 flex items-center justify-center text-xs text-stone-400 pb-4">
                                                         Tidak ada data arus kas untuk periode ini
@@ -259,20 +265,24 @@ export default function ProjectDetailSidebar({
                                                             const outflowHeight = Math.min(100, Math.round(((bar.outflow || 0) / maxVal) * 100));
 
                                                             return (
-                                                                <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
+                                                                /* Tambahkan min-w-0 di sini agar flex-1 bisa shrink dengan pas */
+                                                                <div key={idx} className="flex-1 min-w-0 flex flex-col items-center justify-end h-full gap-1">
                                                                     <div className="w-full flex justify-center items-end gap-0.5 h-full">
                                                                         <div
-                                                                            className="w-2.5 bg-[#2d6a4f] rounded-t-sm transition-all duration-500 ease-out"
+                                                                            className="w-2 sm:w-2.5 bg-[#2d6a4f] rounded-t-sm transition-all duration-500 ease-out"
                                                                             style={{ height: `${inflowHeight}%` }}
                                                                             title={`Inflow: ${formatRupiah(bar.inflow)}`}
                                                                         />
                                                                         <div
-                                                                            className="w-2.5 bg-[#d4a373] rounded-t-sm transition-all duration-500 ease-out"
+                                                                            className="w-2 sm:w-2.5 bg-[#d4a373] rounded-t-sm transition-all duration-500 ease-out"
                                                                             style={{ height: `${outflowHeight}%` }}
                                                                             title={`Outflow: ${formatRupiah(bar.outflow)}`}
                                                                         />
                                                                     </div>
-                                                                    <span className="text-[9px] font-medium text-stone-400 mt-1 block">{bar.bulan}</span>
+                                                                    {/* Tambahkan truncate jika teks bulan terlalu lebar */}
+                                                                    <span className="text-[9px] font-medium text-stone-400 mt-1 block truncate w-full text-center">
+                                                                        {bar.bulan}
+                                                                    </span>
                                                                 </div>
                                                             );
                                                         });

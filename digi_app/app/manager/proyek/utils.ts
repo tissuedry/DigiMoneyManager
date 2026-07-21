@@ -69,6 +69,19 @@ export const getStatusStyles = (status: string) => {
   }
 };
 
+export const PROJECT_STATUSES = ['Active', 'Planning', 'Done', 'Canceled'] as const;
+
+// Helper untuk format teks status tampilan
+export function formatStatusLabel(status?: string): string {
+  if (!status) return 'Active';
+  const upper = status.toUpperCase();
+  if (upper === 'ACTIVE' || upper === 'AKTIF') return 'Active';
+  if (upper === 'PLANNING') return 'Planning';
+  if (upper === 'DONE') return 'Done';
+  if (upper === 'CANCELED' || upper === 'CANCELLED') return 'Canceled';
+  return status;
+}
+
 export function calculateTotalTerpakai(detailedProjectInfo: any, fallbackValue: number = 0): number {
   if (!detailedProjectInfo?.budget?.posAnggaran) {
     return fallbackValue;
