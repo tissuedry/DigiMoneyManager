@@ -58,12 +58,34 @@ type ProyekListResponse = { projects: ProyekData[] };
 type UsersResponse = { users: { id: number; nama: string }[] };
 type MeResponse = { user?: { proyekId?: number } };
 
+const getStatusBadgeStyle = (statusStr?: string) => {
+  const status = statusStr?.toUpperCase();
+  if (status === 'AKTIF' || status === 'ACTIVE') {
+    return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+  }
+  if (status === 'DONE' || status === 'SELESAI') {
+    return 'bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]';
+  }
+  if (status === 'PLANNING') {
+    return 'bg-[#fbf0e4] text-[#854d0e] border-[#f5e1ce]';
+  }
+  if (status === 'CANCELLED' || status === 'CANCELED' || status === 'DIBATALKAN') {
+    return 'bg-rose-50 text-rose-800 border-rose-100';
+  }
+  return 'bg-stone-100 text-stone-600 border-stone-200';
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export const formatShort = (v: number): string => {
-  if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1)} M`;
-  if (v >= 1_000_000) return `Rp ${(v / 1_000_000).toFixed(1)} jt`;
-  if (v >= 1_000) return `Rp ${(v / 1_000).toFixed(0)} rb`;
+  const abs = Math.abs(v);
+  if (abs >= 100_000_000_000_000) {
+    const triliun = Math.floor(abs / 1_000_000_000_000);
+    return v < 0 ? `-${triliun} T` : `${triliun} T`;
+  }
+  if (v < 0) {
+    return `-Rp ${abs.toLocaleString("id-ID")}`;
+  }
   return `Rp ${v.toLocaleString("id-ID")}`;
 };
 
@@ -450,8 +472,9 @@ export default function KelolaProyekPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-3 flex-wrap">
                 <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
-                <span className="text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                  {proyek.status}
+                <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
+                  { proyek.status == "AKTIF" ? "Active"
+                   : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
                 </span>
                 <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
               </div>
