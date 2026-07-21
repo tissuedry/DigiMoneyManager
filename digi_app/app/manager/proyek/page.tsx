@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
 import { Project, LogAktivitas, Member } from "./types";
-import { formatRupiah, ribuanToNumber, getStatusStyles } from "./utils";
+import { formatRupiah, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
 
 import AddProjectModal from "./AddProjectModal";
 import AssignMembersModal from "./AssignMembersModal";
@@ -83,7 +83,7 @@ export default function KelolaProyekPage() {
     deskripsi: "",
     tanggalMulai: "",
     tanggalSelesai: "",
-    status: "AKTIF",
+    status: "Active",
   });
 
   const [editForm, setEditForm] = useState({
@@ -91,7 +91,7 @@ export default function KelolaProyekPage() {
     deskripsi: "",
     tanggalMulai: "",
     tanggalSelesai: "",
-    status: "AKTIF",
+    status: "Active",
   });
 
   // Assign members state
@@ -174,7 +174,6 @@ export default function KelolaProyekPage() {
     setSuccess("");
 
     try {
-      // Process each proposal in series/parallel
       const results = await Promise.all(
         proposalIds.map(propId =>
           fetch(`/api/pengajuan-anggaran/${propId}/review`, {
@@ -250,7 +249,7 @@ export default function KelolaProyekPage() {
       }
 
       setSuccess(`Proyek "${projectForm.nama}" berhasil dibuat!`);
-      setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "", status: "AKTIF" });
+      setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "", status: "Active" });
       setShowAddProject(false);
       fetchData();
     } catch {
@@ -382,7 +381,7 @@ export default function KelolaProyekPage() {
           deskripsi: editForm.deskripsi,
           tanggalMulai: editForm.tanggalMulai,
           tanggalSelesai: editForm.tanggalSelesai || null,
-          status: "AKTIF",
+          status: "Active",
         }),
       });
       const data = await res.json();
@@ -401,41 +400,41 @@ export default function KelolaProyekPage() {
   };
 
   const handleSaveMembers = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!showAssignMembers) return;
-  setFormError("");
-  setSuccess("");
-  setSubmitting(true);
+    e.preventDefault();
+    if (!showAssignMembers) return;
+    setFormError("");
+    setSuccess("");
+    setSubmitting(true);
 
-  try {
-    const token = localStorage.getItem("token"); 
+    try {
+      const token = localStorage.getItem("token");
 
-    const res = await fetch(`/api/manager/proyek/${showAssignMembers.id}/members`, {
-      method: "PUT",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}` 
-      },
-      body: JSON.stringify({
-        members: selectedProjectMembers,
-      }),
-    });
+      const res = await fetch(`/api/manager/proyek/${showAssignMembers.id}/members`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          members: selectedProjectMembers,
+        }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setFormError(data.message || "Gagal mengatur anggota proyek");
-      return;
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(data.message || "Gagal mengatur anggota proyek");
+        return;
+      }
+
+      setSuccess(`Anggota proyek untuk "${showAssignMembers.nama}" berhasil disimpan!`);
+      setShowAssignMembers(null);
+      fetchData();
+    } catch {
+      setFormError("Terjadi kesalahan koneksi");
+    } finally {
+      setSubmitting(false);
     }
-
-    setSuccess(`Anggota proyek untuk "${showAssignMembers.nama}" berhasil disimpan!`);
-    setShowAssignMembers(null);
-    fetchData();
-  } catch {
-    setFormError("Terjadi kesalahan koneksi");
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   const handleAddTeamRow = () => {
     const newId = `row-new-${Date.now()}`;
@@ -592,14 +591,6 @@ export default function KelolaProyekPage() {
   };
 
   const currentStatus = detailedProjectInfo?.status || showProjectDetail?.status;
-  const masterBudgetOptions = Array.from(
-    new Set(
-      projects
-        .flatMap((p) => p.budget?.posAnggaran ?? [])
-        .map((pos) => pos.namaPos || pos.deskripsi)
-        .filter(Boolean)
-    )
-  ) as string[];
 
   return (
     <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
@@ -695,7 +686,7 @@ export default function KelolaProyekPage() {
                       PRJ-{String(project.id).padStart(3, "0")}
                     </span>
                     <span className={`text-[12px] font-bold px-3 py-1.5 rounded-2xl ${getStatusStyles(project.status)}`}>
-                      {project.status === "AKTIF" ? "Active" : project.status}
+                      {formatStatusLabel(project.status)}
                     </span>
                   </div>
 
