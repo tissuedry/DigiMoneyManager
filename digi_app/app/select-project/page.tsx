@@ -19,6 +19,23 @@ type UserProfile = {
   assignments?: ProjectAssignment[];
 };
 
+const getStatusBadgeStyle = (statusStr?: string) => {
+  const status = statusStr?.toUpperCase();
+  if (status === 'AKTIF' || status === 'ACTIVE') {
+    return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+  }
+  if (status === 'DONE' || status === 'SELESAI') {
+    return 'bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]';
+  }
+  if (status === 'PLANNING') {
+    return 'bg-[#fbf0e4] text-[#854d0e] border-[#f5e1ce]';
+  }
+  if (status === 'CANCELLED' || status === 'CANCELED' || status === 'DIBATALKAN') {
+    return 'bg-rose-50 text-rose-800 border-rose-100';
+  }
+  return 'bg-stone-100 text-stone-600 border-stone-200';
+};
+
 export default function SelectProjectPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -202,12 +219,10 @@ export default function SelectProjectPage() {
                         }`}>
                           <Briefcase size={18} />
                         </div>
-                        <span className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full border ${
-                          assignment.status === 'AKTIF' 
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                            : 'bg-stone-100 text-stone-500 border-stone-200'
-                        }`}>
-                          {assignment.status}
+                        <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${getStatusBadgeStyle(assignment.status)}`}>
+                          {assignment.status == 'AKTIF' ? 'Active'
+                            : assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1).toLowerCase()
+                            }
                         </span>
                       </div>
 
