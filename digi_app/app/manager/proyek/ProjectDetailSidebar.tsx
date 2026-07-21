@@ -364,16 +364,9 @@ export default function ProjectDetailSidebar({
                                             {detailedProjectInfo.budget.posAnggaran.map((pos: any, index: number) => {
                                                 const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
 
-                                                // KALKULASI DINAMIS ALOKASI
-                                                const nominalAlokasi = hasSub
-                                                    ? pos.subAnggaran.reduce((accSub: number, sub: any) => {
-                                                        const hasKet = sub.keterangan && sub.keterangan.length > 0;
-                                                        const subAlokasi = hasKet
-                                                            ? sub.keterangan.reduce((accKet: number, k: any) => accKet + (parseFloat(k.nominalAlokasi) || 0), 0)
-                                                            : parseFloat(sub.nominalAlokasi) || 0;
-                                                        return accSub + subAlokasi;
-                                                    }, 0)
-                                                    : parseFloat(pos.nominalAlokasi) || 0;
+                                                // Alokasi MAIN selalu pakai nominalAlokasi milik MAIN sendiri — Sub/Keterangan
+                                                // adalah subdivisi dari alokasi ini, bukan penjumlahan yang menggantikannya.
+                                                const nominalAlokasi = parseFloat(pos.nominalAlokasi) || 0;
 
                                                 // KALKULASI DINAMIS REALISASI (TERPAKAI)
                                                 const terpakaiVal = hasSub
