@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Settings, X } from "lucide-react";
-import { formatShort } from "./page";
+
+function formatFullCurrency(num: number): string {
+  const n = Number(num) || 0;
+  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+}
 
 function formatReimbursementDate(r: any): string {
   const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'tanggal' in r.ocrData ? (r.ocrData as any).tanggal : null;
@@ -88,8 +92,7 @@ function statusLabel(s: string): string {
 // ponytail: shared row layout — name grows, rest are fixed-width
 const COL_CLASS =
   "flex items-center gap-3 px-6 py-3 hover:bg-stone-50 transition";
-const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[380px]";
-const CELL_STYLE: React.CSSProperties = { width: 120, flexShrink: 0 };
+const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[320px]";
 
 // ─── Shared row wrapper ───────────────────────────────────────────────────
 
@@ -128,15 +131,15 @@ function Row({
 
 function ProgressCell({ pct }: { pct: number }) {
   return (
-    <div className="flex items-center shrink-0" style={{ width: 180 }}>
-      <div className="flex items-center gap-2 w-[120px] shrink-0">
-        <div className="flex-1 bg-stone-100 h-1.5 rounded-full overflow-hidden">
+    <div className="flex items-center shrink-0" style={{ width: 200 }}>
+      <div className="flex items-center gap-2.5 w-full pr-4 shrink-0">
+        <div className="flex-1 bg-stone-100 h-2 rounded-full overflow-hidden">
           <div
             className="h-full bg-[#008f5d] rounded-full"
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className="text-[11px] font-bold tabular-nums w-9 text-right shrink-0" style={{ color: "#005836" }}>
+        <span className="text-[11px] font-bold tabular-nums w-10 text-left shrink-0" style={{ color: "#005836" }}>
           {pct.toFixed(1)}%
         </span>
       </div>
@@ -155,8 +158,8 @@ function Cell({
 }) {
   return (
     <span
-      className={`text-[12px] text-stone-800 shrink-0 text-left ${bold ? "font-bold" : ""}`}
-      style={{ width: 120, ...style }}
+      className={`text-[12px] text-stone-800 shrink-0 text-center whitespace-nowrap ${bold ? "font-bold" : ""}`}
+      style={{ width: 210, ...style }}
     >
       {children}
     </span>
@@ -171,7 +174,7 @@ function AksiButton({
   style?: React.CSSProperties;
 }) {
   return (
-    <div className="flex justify-start shrink-0" style={{ width: 120 }}>
+    <div className="flex justify-center shrink-0" style={{ width: 120 }}>
       <button
         className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg transition cursor-pointer whitespace-nowrap hover:opacity-80"
         style={style}
@@ -273,7 +276,7 @@ export default function DetailAnggaranModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-[1040px] max-h-[85vh] flex flex-col overflow-hidden text-left"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[1140px] max-h-[85vh] flex flex-col overflow-hidden text-left"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -296,29 +299,29 @@ export default function DetailAnggaranModal({
 
         {/* Column headers */}
         <div className="flex items-center gap-3 px-6 py-3 bg-stone-50 border-b border-stone-100 shrink-0">
-          <span className="flex-1 min-w-0 max-w-[380px] text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+          <span className="flex-1 min-w-0 max-w-[320px] text-[10px] font-bold text-stone-400 uppercase tracking-wider">
             MAIN · SUB · KETERANGAN
           </span>
           <span
-            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0"
-            style={{ width: 180 }}
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center"
+            style={{ width: 200 }}
           >
             PROGRESS
           </span>
           <span
-            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-left"
-            style={{ width: 120 }}
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center"
+            style={{ width: 210 }}
           >
             ALOKASI
           </span>
           <span
-            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-left"
-            style={{ width: 120 }}
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center"
+            style={{ width: 210 }}
           >
             REALISASI
           </span>
           <span
-            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-left"
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center"
             style={{ width: 120 }}
           >
             AKSI
@@ -359,8 +362,8 @@ export default function DetailAnggaranModal({
                     </span>
                   </div>
                   <ProgressCell pct={mainPct} />
-                  <Cell bold>{formatShort(main.alokasi)}</Cell>
-                  <Cell bold>{formatShort(main.realisasi)}</Cell>
+                  <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
+                  <Cell bold>{formatFullCurrency(main.realisasi)}</Cell>
                   <AksiButton
                     style={{ color: "#005D8D", backgroundColor: "#F0F7FB" }}
                   >
@@ -417,8 +420,8 @@ export default function DetailAnggaranModal({
                                 </span>
                               </div>
                               <ProgressCell pct={subPct} />
-                              <Cell>{formatShort(sub.alokasi)}</Cell>
-                              <Cell>{formatShort(sub.realisasi)}</Cell>
+                              <Cell>{formatFullCurrency(sub.alokasi)}</Cell>
+                              <Cell>{formatFullCurrency(sub.realisasi)}</Cell>
                               <AksiButton
                                 style={{
                                   color: "#005D8D",
@@ -470,12 +473,12 @@ export default function DetailAnggaranModal({
                                           {ket.nama}
                                         </span>
                                       </div>
-                                      <div style={{ width: 180, flexShrink: 0 }} />
+                                      <div style={{ width: 200, flexShrink: 0 }} />
                                       <Cell style={{ color: "#78716C" }}>
-                                        {formatShort(ket.alokasi)}
+                                        {formatFullCurrency(ket.alokasi)}
                                       </Cell>
                                       <Cell style={{ color: "#78716C" }}>
-                                        {formatShort(ket.realisasi)}
+                                        {formatFullCurrency(ket.realisasi)}
                                       </Cell>
                                       <AksiButton
                                         style={{
@@ -525,10 +528,10 @@ export default function DetailAnggaranModal({
                                                   {rb.status}
                                                 </span>
                                               </div>
-                                              <div style={{ width: 180, flexShrink: 0 }} />
-                                              <div style={{ width: 120, flexShrink: 0 }} />
+                                              <div style={{ width: 200, flexShrink: 0 }} />
+                                              <div style={{ width: 210, flexShrink: 0 }} />
                                               <Cell style={{ color: "#78716C" }}>
-                                                {formatShort(rb.nominal)}
+                                                {formatFullCurrency(rb.nominal)}
                                               </Cell>
                                               <AksiButton
                                                 style={{
