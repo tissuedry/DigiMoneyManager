@@ -124,6 +124,12 @@ export async function GET(req: NextRequest) {
           },
           orderBy: { timestamp: 'desc' },
         },
+        jurnalAkuntansi: {
+          include: {
+            akunDebit: true,
+            akunKredit: true,
+          },
+        },
       },
       orderBy: { id: 'desc' },
     });

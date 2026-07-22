@@ -3,21 +3,41 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
-  Download, Zap, X, Check
+  Download, Zap, X, Check, Filter, ZoomIn
 } from "lucide-react";
 
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
-import { useApi, useMutate, useInvalidate } from '@/lib/use-api';
+import { useApi, useInvalidate } from '@/lib/use-api';
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
   const parts = iso.split("-");
   if (parts.length < 3) return iso;
   const [y, m, d] = parts;
-  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
   const mIdx = parseInt(m) - 1;
   return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+}
+
+function formatTanggalWaktu(isoStr: string | null | undefined) {
+  if (!isoStr) return "-";
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) {
+      return `${formatTanggal(isoStr)}, 07:00`;
+    }
+    const day = d.getDate();
+    const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+    const month = bulan[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    const timeDisplay = (hours === '00' && mins === '00') ? '07:00' : `${hours}:${mins}`;
+    return `${day} ${month} ${year}, ${timeDisplay}`;
+  } catch {
+    return isoStr;
+  }
 }
 
 function PencairanContent() {
@@ -30,6 +50,7 @@ function PencairanContent() {
   const [activeTab, setActiveTab] = useState<'diteruskan' | 'selesai'>('diteruskan');
   const [selectedId, setSelectedId] = useState<string | null>(idParam);
   const [isAllSelected, setIsAllSelected] = useState(selectParam === 'all');
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
 
   const handleSelect = (id: string | null, all = false) => {
     setIsAllSelected(all);
@@ -42,6 +63,7 @@ function PencairanContent() {
       router.replace(pathname, { scroll: false });
     }
   };
+
   const [debitAccount, setDebitAccount] = useState("");
   const [creditAccount, setCreditAccount] = useState("");
   const [catatan, setCatatan] = useState("");
@@ -49,7 +71,6 @@ function PencairanContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const invalidate = useInvalidate();
 
-  // ponytail: two useApi calls replace Promise.all + useEffect + useState
   const { data: rData, isLoading } = useApi<any>("/api/reimbursements");
   const { data: cData } = useApi<any>("/api/coa");
   const reimbursements = rData?.reimbursements ?? [];
@@ -57,14 +78,14 @@ function PencairanContent() {
 
   // Filter list based on active tab
   const filteredList = reimbursements.filter((item: any) => {
-    const matchesTab = activeTab === 'diteruskan' 
+    const matchesTab = activeTab === 'diteruskan'
       ? item.status === 'APPROVED_BY_PM'
       : (item.status === 'APPROVED' || item.status === 'REJECTED');
-    
-    const matchesSearch = searchQuery 
+
+    const matchesSearch = searchQuery
       ? (item.user?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         item.proyek?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         String(item.id).toLowerCase().includes(searchQuery.toLowerCase()))
+        item.proyek?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(item.id).toLowerCase().includes(searchQuery.toLowerCase()))
       : true;
 
     return matchesTab && matchesSearch;
@@ -77,7 +98,6 @@ function PencairanContent() {
   // Selected item
   const selectedItem = filteredList.find((item: any) => String(item.id) === String(selectedId)) || filteredList[0] || null;
 
-  // Update selectedId if selectedItem is not in the filtered list
   useEffect(() => {
     if (selectedItem && String(selectedItem.id) !== String(selectedId)) {
       setSelectedId(String(selectedItem.id));
@@ -89,7 +109,6 @@ function PencairanContent() {
     if (selectedItem && selectedItem.status === 'APPROVED_BY_PM') {
       setCreditAccount("10000");
 
-      // Guess debit account based on posAnggaran name
       const posName = selectedItem.posAnggaran?.deskripsi?.toLowerCase() || "";
       if (posName.includes("perlengkapan") || posName.includes("atk")) {
         setDebitAccount("50001");
@@ -145,47 +164,20 @@ function PencairanContent() {
     }
   };
 
-  const pmApproval = selectedItem?.approvals?.find((a: any) => a.level === 'PM');
-  const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN');
+  const pmApproval = selectedItem?.approvals?.find((a: any) => a.level === 'PM' || a.approver?.role === 'Project Manager');
+  const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN' || a.approver?.role === 'Tim Keuangan');
 
-  // ponytail: local StepIcon copied inline instead of extracting a shared component — extract when third page needs it
-  const StepIcon = ({ state, number }: { state: "done" | "active" | "pending" | "rejected"; number: number }) => {
-    if (state === "done")
-      return (
-        <div className="w-7 h-7 rounded-full bg-[#2d6a4f] flex items-center justify-center flex-shrink-0">
-          <Check size={14} className="text-white" strokeWidth={2.5} />
-        </div>
-      );
-    if (state === "rejected")
-      return (
-        <div className="w-7 h-7 rounded-full bg-[#be123c] flex items-center justify-center flex-shrink-0">
-          <X size={14} className="text-white" strokeWidth={2.5} />
-        </div>
-      );
-    if (state === "active")
-      return (
-        <div className="w-7 h-7 rounded-full bg-[#b46b2b] flex items-center justify-center flex-shrink-0">
-          <span className="text-[11px] font-bold text-white">{number}</span>
-        </div>
-      );
-    return (
-      <div className="w-7 h-7 rounded-full border-2 border-stone-200 bg-white flex items-center justify-center flex-shrink-0">
-        <span className="text-[11px] font-semibold text-stone-400">{number}</span>
-      </div>
-    );
-  };
-
-  // Build approval steps matching PM page logic
+  // Approval timeline steps matching Figma exact layout
   const approvalSteps = selectedItem ? [
     {
       label: "Pengajuan dikirim",
-      sublabel: `${selectedItem.user?.nama || 'Karyawan'} • ${selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}`,
+      sublabel: `${selectedItem.user?.nama || 'Karyawan'} • ${formatTanggalWaktu(selectedItem.createdAt || selectedItem.ocrData?.tanggal)}`,
       state: "done" as const
     },
     {
       label: "Validasi Project Manager",
       sublabel: pmApproval
-        ? `${pmApproval.approver?.nama || 'Project Manager'} • ${new Date(pmApproval.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
+        ? `${pmApproval.approver?.nama || 'Project Manager'} • ${formatTanggalWaktu(pmApproval.timestamp)}`
         : (selectedItem.status === 'SUBMITTED' ? "Menunggu" : "Menunggu • –"),
       state: pmApproval
         ? (pmApproval.status === 'REJECTED' ? "rejected" as const : "done" as const)
@@ -194,8 +186,8 @@ function PencairanContent() {
     {
       label: "Verifikasi Tim Keuangan",
       sublabel: financeApproval
-        ? `${financeApproval.approver?.nama || 'Tim Keuangan'} • ${new Date(financeApproval.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
-        : (selectedItem.status === 'APPROVED_BY_PM' ? "Menunggu" : "Menunggu • –"),
+        ? `${financeApproval.approver?.nama || 'Tim Keuangan'} • ${formatTanggalWaktu(financeApproval.timestamp)}`
+        : (selectedItem.status === 'APPROVED_BY_PM' ? "Menunggu • -" : "Menunggu • –"),
       state: financeApproval
         ? (financeApproval.status === 'REJECTED' ? "rejected" as const : "done" as const)
         : (selectedItem.status === 'APPROVED_BY_PM' ? "active" as const : "pending" as const)
@@ -203,126 +195,130 @@ function PencairanContent() {
     {
       label: "Dicairkan",
       sublabel: selectedItem.status === 'APPROVED'
-        ? `Jurnal otomatis • ${financeApproval ? new Date(financeApproval.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}`
+        ? `Jurnal otomatis • ${financeApproval ? formatTanggalWaktu(financeApproval.timestamp) : ''}`
         : "Jurnal otomatis • –",
       state: selectedItem.status === 'APPROVED' ? "done" as const : "pending" as const
     }
   ] : [];
 
   return (
-    <div className="flex h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
-      
+    <div className="flex h-screen w-full bg-[#F6F4EF] text-[#14130F] overflow-hidden font-sans">
+
       {/* Sidebar */}
-      <Sidebar 
-        isSidebarOpen={isSidebarOpen} 
+      <Sidebar
+        isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         userRole="Tim Keuangan"
       />
 
-      {/* ================= AREA KONTEN (KANAN) ================= */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
-
-        {/* Header dipindah ke sini, di dalam kolom kanan */}
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col min-w-0 bg-[#F6F4EF] overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
-        {/* Halaman Utama */}
         <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-8 py-6">
-          
-          {/* Bagian Judul & Filter (Lebar Penuh) */}
+
+          {/* Header Title & Subtitle */}
           <div className="shrink-0 mb-6">
             <h1 className="text-2xl font-bold text-[#14130F]">Antrian Pencairan</h1>
-            <p className="text-[13px] text-stone-500 mt-1.5">
+            <p className="text-[13px] text-[#6A6660] mt-1.5">
               Pengajuan yang telah divalidasi PM dan siap dicairkan. Jurnal Debit-Kredit akan ter-generate otomatis.
             </p>
 
-            <div className="flex items-center gap-2 mt-6">
-              <div className="flex bg-white rounded-full border border-stone-200/80 p-1 shadow-sm">
-                <button 
+            {/* Filter & Tab Switcher Bar */}
+            <div className="flex items-center justify-between gap-4 mt-6">
+              <div className="flex bg-[#F1EEE6] rounded-2xl p-1 border border-[#E6E1D4] items-center gap-1">
+                <button
                   onClick={() => { setActiveTab('diteruskan'); handleSelect(null); }}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${
-                    activeTab === 'diteruskan' 
-                      ? "bg-stone-100 text-stone-800 shadow-sm" 
-                      : "text-stone-400 hover:text-stone-600"
-                  }`}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-xl transition ${activeTab === 'diteruskan'
+                    ? "bg-white text-[#14130F] shadow-sm"
+                    : "text-[#6A6660] hover:text-[#14130F]"
+                    }`}
                 >
                   Diteruskan ({countDiteruskan})
                 </button>
-                <button 
+                <button
                   onClick={() => { setActiveTab('selesai'); handleSelect(null); }}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${
-                    activeTab === 'selesai' 
-                      ? "bg-stone-100 text-stone-800 shadow-sm" 
-                      : "text-stone-400 hover:text-stone-600"
-                  }`}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-xl transition ${activeTab === 'selesai'
+                    ? "bg-white text-[#14130F] shadow-sm"
+                    : "text-[#6A6660] hover:text-[#14130F]"
+                    }`}
                 >
                   Selesai ({countSelesai})
                 </button>
               </div>
 
-              <input
-                type="text"
-                placeholder="Cari nama pengaju atau proyek..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="ml-auto px-4 py-1.5 text-xs font-medium bg-white border border-stone-200 rounded-full shadow-sm outline-none focus:border-stone-400 transition w-48 sm:w-64"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Cari nama pengaju atau proyek..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="px-3.5 py-1.5 text-xs bg-white border border-[#E4E0D9] rounded-xl outline-none focus:border-stone-400 transition w-48 sm:w-64"
+                />
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 bg-white border border-[#E4E0D9] text-[#14130F] rounded-xl px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-stone-50 transition"
+                >
+                  <Filter size={14} />
+                  <span>Filter</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Kolom Flex Bawah (List dan Detail) */}
+          {/* List and Detail Split Layout */}
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
-            
-            {/* === KOLOM KIRI: DAFTAR ANTRIAN === */}
-            <div className="w-full lg:w-[45%] flex flex-col gap-3 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
+
+            {/* LEFT COLUMN: ITEM LIST */}
+            <div className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
               {isLoading ? (
-                <div className="text-center py-8 text-xs font-semibold text-stone-400">Memuat antrian pencairan...</div>
+                <div className="text-center py-8 text-xs font-semibold text-[#6A6660]">Memuat antrian pencairan...</div>
               ) : filteredList.length === 0 ? (
-                <div className="text-center py-8 text-xs font-semibold text-stone-400">Tidak ada pengajuan.</div>
+                <div className="text-center py-8 text-xs font-semibold text-[#6A6660]">Tidak ada pengajuan pencairan.</div>
               ) : (
                 filteredList.map((item: any) => {
-                  const initials = item.user?.nama ? item.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'KY';
+                  const initials = item.user?.nama ? item.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'AI';
                   const active = isAllSelected || String(selectedItem?.id) === String(item.id);
-                  const formattedNominal = `Rp ${Number(item.nominal).toLocaleString('id-ID')}`;
-                  
-                  // Get project desc
-                  const projectDesc = `${item.proyek?.nama || 'Proyek'} · ${item.posAnggaran?.deskripsi || 'Kategori'}`;
+                  const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
+                  const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
+                  const vendorTitle = item.ocrData?.namaVendor || item.ocrData?.keterangan || item.posAnggaran?.deskripsi || 'Pengajuan Reimbursement';
+                  const projectTitle = item.proyek?.nama || 'Proyek';
 
                   return (
                     <div
                       key={item.id}
                       onClick={() => handleSelect(String(item.id))}
-                      className={`p-4 rounded-xl border flex flex-col gap-2 transition cursor-pointer ${
-                        active
-                          ? "bg-[#e2f1eb] border-[#b8e0d0] shadow-sm"
-                          : "bg-white border-stone-200 hover:border-stone-300 shadow-sm"
-                      }`}
+                      className={`p-3.5 rounded-xl border flex justify-between items-center transition cursor-pointer ${active
+                        ? "bg-[#B2DCCD] border-[#E6E1D4] shadow-sm"
+                        : "bg-white border-[#E6E1D4] hover:border-stone-300 shadow-sm"
+                        }`}
                     >
-                      <div className="flex justify-between items-start">
-                        <div className="flex gap-3">
-                          <div className={`w-8 h-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 ${
-                            active ? "bg-[#b8e0d0] text-[#117a5b]" : "bg-[#e0e0e0] text-stone-600"
-                          }`}>
-                            {initials}
-                          </div>
-                          <div className="mt-0.5">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[13px] font-bold text-stone-900">{item.user?.nama || 'Karyawan'}</span>
-                              <span className="text-[11px] text-stone-400">· {String(item.id).substring(0, 8).toUpperCase()}</span>
-                            </div>
-                            <p className="text-[11px] text-stone-500 mt-0.5">{projectDesc}</p>
-                          </div>
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-full bg-[#D1E9E1] text-[#005836] font-bold text-xs flex items-center justify-center shrink-0">
+                          {initials}
                         </div>
-                        <div className="flex flex-col items-end gap-1.5">
-                          <span className="text-sm font-bold text-stone-900">{formattedNominal}</span>
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
-                            item.status === 'APPROVED_BY_PM' ? 'text-[#0277bd] bg-[#e1f5fe] border-[#b3e5fc]' :
-                            item.status === 'APPROVED' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' :
-                            'text-red-700 bg-red-50 border-red-200'
-                          }`}>
-                            {item.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
-                             item.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
-                          </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate">
+                            <span className="text-[13px] font-bold text-[#14130F]">{item.user?.nama || 'Karyawan'}</span>
+                            <span className="text-[11px] text-[#6A6660] ml-1">· {itemCode}</span>
+                          </div>
+                          <p className="text-[11px] text-[#6A6660] truncate mt-0.5">
+                            {vendorTitle} · {projectTitle}
+                          </p>
                         </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                        <div className="text-[13px] font-bold font-mono text-[#14130F]">
+                          <span className="text-[#6A6660] text-[11px]">Rp </span>{formattedNominal}
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${item.status === 'APPROVED_BY_PM' ? 'text-[#005D8D] bg-[#E2F1F8] border-sky-100' :
+                          item.status === 'APPROVED' ? 'text-[#005836] bg-[#D1E9E1] border-emerald-100' :
+                            'text-[#902F33] bg-rose-50 border-rose-100'
+                          }`}>
+                          {item.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
+                            item.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
+                        </span>
                       </div>
                     </div>
                   );
@@ -330,257 +326,350 @@ function PencairanContent() {
               )}
             </div>
 
-            {/* === KOLOM KANAN: DETAIL PENGAJUAN === */}
-            <div className="flex-1 flex flex-col bg-white border border-stone-200/80 rounded-2xl shadow-sm overflow-hidden h-full">
+            {/* RIGHT COLUMN: DETAIL VIEW */}
+            <div className="flex-1 flex flex-col bg-white border border-[#E4E0D9] rounded-2xl shadow-sm overflow-hidden h-full">
               {!selectedItem ? (
-                <div className="flex-1 flex items-center justify-center text-stone-400 font-semibold text-xs">
+                <div className="flex-1 flex items-center justify-center text-[#6A6660] font-semibold text-xs">
                   Pilih pengajuan dari daftar antrian untuk melihat detail
                 </div>
               ) : (
                 <>
-                  {/* Body Detail (Scrollable) */}
-                  <div className="flex-1 overflow-y-auto p-7 space-y-6">
-                    
+                  {/* Scrollable Detail Body */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
                     {/* Header Detail */}
-                    <div className="flex justify-between items-start border-b border-stone-100 pb-5">
+                    <div className="flex justify-between items-start border-b border-[#E6E1D4] pb-4">
                       <div>
-                        <span className="text-[11px] text-stone-400 font-mono tracking-wider">{selectedItem.id}</span>
-                        <h2 className="text-2xl font-bold text-stone-900 mt-1">{selectedItem.proyek?.nama}</h2>
-                        <p className="text-[11px] text-stone-500 mt-1.5">
-                          oleh <span className="font-semibold text-stone-800">{selectedItem.user?.nama}</span> · {selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}
+                        <span className="text-[11px] text-[#6A6660] font-mono tracking-wider">
+                          RB-{String(selectedItem.id).padStart(4, '0')}
+                        </span>
+                        <h2 className="text-xl font-bold text-[#14130F] mt-0.5 leading-tight">
+                          {selectedItem.ocrData?.namaVendor || selectedItem.ocrData?.keterangan || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama}
+                        </h2>
+                        <p className="text-[11px] text-[#6A6660] mt-1">
+                          diajukan oleh <span className="font-semibold text-[#14130F]">{selectedItem.user?.nama}</span> pada {formatTanggalWaktu(selectedItem.createdAt || selectedItem.ocrData?.submittedAt || selectedItem.ocrData?.tanggal)}
                         </p>
                       </div>
-                      <span className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border ${
-                        selectedItem.status === 'APPROVED_BY_PM' ? 'text-[#0277bd] bg-[#e1f5fe] border-[#b3e5fc]' :
-                        selectedItem.status === 'APPROVED' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' :
-                        'text-red-700 bg-red-50 border-red-200'
-                      }`}>
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border ${selectedItem.status === 'APPROVED_BY_PM' ? 'text-[#005D8D] bg-[#E2F1F8] border-sky-100' :
+                        selectedItem.status === 'APPROVED' ? 'text-[#005836] bg-[#D1E9E1] border-emerald-100' :
+                          'text-[#902F33] bg-rose-50 border-rose-100'
+                        }`}>
                         {selectedItem.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
-                         selectedItem.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
+                          selectedItem.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
                       </span>
                     </div>
 
-                    {/* Tabel Informasi */}
-                    <div className="space-y-0.5 text-[12px]">
-                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Proyek</span>
-                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.proyek?.nama}</span>
+                    {/* Table Properties */}
+                    <div className="space-y-0 text-[12px]">
+                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                        <span className="text-[#6A6660]">Proyek</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.proyek?.nama}</span>
                       </div>
-                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Main</span>
-                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.posAnggaran?.namaPos}</span>
+                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                        <span className="text-[#6A6660]">Pos Anggaran</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.posAnggaran?.namaPos || selectedItem.posAnggaran?.deskripsi}</span>
                       </div>
-                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Sub</span>
-                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.posAnggaran?.subAnggaran?.namaSub}</span>
+                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                        <span className="text-[#6A6660]">Tanggal Transaksi</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}</span>
                       </div>
-                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Keterangan</span>
-                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.posAnggaran?.keterangan}</span>
+                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                        <span className="text-[#6A6660]">Pengaju</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.user?.nama}</span>
                       </div>
-                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Tanggal Transaksi</span>
-                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}</span>
+                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                        <span className="text-[#6A6660]">Divalidasi PM</span>
+                        <span className="font-medium text-[#14130F] text-right">{pmApproval?.approver?.nama || '-'}</span>
                       </div>
-                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Pengaju</span>
-                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{selectedItem.user?.nama}</span>
-                      </div>
-                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Divalidasi PM</span>
-                        <span className="col-span-2 font-medium text-stone-800 text-right md:text-left">{pmApproval?.approver?.nama || '-'}</span>
-                      </div>
-                      <div className="grid grid-cols-3 py-2.5 border-b border-stone-100">
-                        <span className="text-stone-400">Nominal</span>
-                        <span className="col-span-2 font-bold text-stone-900 text-right md:text-left">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
+                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                        <span className="text-[#6A6660]">Nominal</span>
+                        <span className="font-bold font-mono text-[#14130F] text-right">
+                          <span className="text-[#9A948B] font-normal">Rp </span>{Number(selectedItem.nominal).toLocaleString('id-ID')}
+                        </span>
                       </div>
                     </div>
 
                     {/* Preview Struk Upload */}
                     {selectedItem.strukUrl && (
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-stone-500">Bukti Struk</label>
-                        <div className="border border-stone-200 rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-[#14130F]">Bukti Struk</label>
+                        <div
+                          onClick={() => setZoomImageUrl(selectedItem.strukUrl)}
+                          className="border border-[#E4E0D9] rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
+                        >
                           <img
                             src={selectedItem.strukUrl}
                             alt="Bukti Struk"
                             loading="lazy"
-                            className="w-full h-auto object-contain max-h-48 rounded-lg"
+                            className="w-full h-auto object-contain max-h-48 rounded-lg group-hover:opacity-90 transition"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = '/bukti_struk.png';
                             }}
                           />
+                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                            <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                              <ZoomIn size={14} /> Klik untuk Memperbesar
+                            </span>
+                          </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Box Jurnal Akuntansi */}
-                    <div className="bg-[#f9f8f6] border border-stone-200/80 rounded-xl p-4">
-                      <div className="flex justify-between items-center text-[10px] text-stone-400 mb-3">
-                        <span>Preview Jurnal Akuntansi (Auto-generated)</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-[13px] font-bold text-stone-800 bg-stone-200/50 px-2 py-0.5 rounded font-mono">
-                          {selectedItem.jurnalAkuntansi?.[0] ? `JE-${String(selectedItem.jurnalAkuntansi[0].id).substring(0, 8).toUpperCase()}` : 'JE-DRAFT'}
-                        </h4>
-                        <span className="text-[11px] text-stone-400">
-                          {selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-stone-500 mb-4 mt-2">
-                        Pencairan reimbursement {selectedItem.user?.nama} - {selectedItem.posAnggaran?.deskripsi}
-                      </p>
-                      
-                      {selectedItem.status === 'APPROVED_BY_PM' ? (
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">
-                              Akun Debit (Dr) - Beban Proyek
-                            </label>
-                            <select
-                              value={debitAccount}
-                              onChange={(e) => setDebitAccount(e.target.value)}
-                              className="w-full text-xs font-mono bg-white border border-stone-200 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-                            >
-                              <option value="">-- Pilih Akun Debit --</option>
-                              {coaList.map((coa: any) => (
-                                <option key={coa.nomorAkun} value={coa.nomorAkun}>
-                                  {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">
-                              Akun Kredit (Cr) - Kas & Bank
-                            </label>
-                            <select
-                              value={creditAccount}
-                              onChange={(e) => setCreditAccount(e.target.value)}
-                              className="w-full text-xs font-mono bg-white border border-stone-200 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-                            >
-                              <option value="">-- Pilih Akun Kredit --</option>
-                              {coaList.map((coa: any) => (
-                                <option key={coa.nomorAkun} value={coa.nomorAkun}>
-                                  {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                    {/* Preview Jurnal Akuntansi (Auto-generated) */}
+                    <div className="space-y-1.5">
+                      <div className="text-[12px] font-semibold text-[#14130F]">Preview Jurnal Akuntansi (Auto-generated)</div>
+                      <div className="bg-gradient-to-b from-[#FEFCF6] to-[#F7F3E8] border border-[#E4E0D9] rounded-xl p-3.5 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono text-[#9A948B] text-[12px] font-bold">
+                            {selectedItem.jurnalAkuntansi?.[0] ? `JE-${String(selectedItem.jurnalAkuntansi[0].id).substring(0, 8).toUpperCase()}` : `JE-2026-${String(selectedItem.id).padStart(4, '0')}`}
+                          </span>
                         </div>
-                      ) : (
-                        <div className="space-y-2 text-[11px] font-mono">
-                          {selectedItem.jurnalAkuntansi && selectedItem.jurnalAkuntansi.length > 0 ? (
-                            selectedItem.jurnalAkuntansi.map((j: any) => (
-                              <React.Fragment key={j.id}>
+                        <div className="text-[#14130F] font-medium text-[11px]">
+                          Pencairan reimbursement {selectedItem.user?.nama} - {selectedItem.posAnggaran?.deskripsi || selectedItem.posAnggaran?.namaPos}
+                        </div>
+
+                        {selectedItem.status === 'APPROVED_BY_PM' ? (
+                          <div className="space-y-2 pt-1 border-t border-[#E4E0D9]/60">
+                            <div className="flex items-center justify-between gap-2 text-[11px]">
+                              <span className="text-[#005836] font-bold shrink-0">Dr</span>
+                              <select
+                                value={debitAccount}
+                                onChange={(e) => setDebitAccount(e.target.value)}
+                                className="flex-1 text-[11px] font-mono bg-white border border-[#E4E0D9] rounded-md p-1 outline-none focus:ring-1 focus:ring-emerald-500"
+                              >
+                                <option value="">-- Pilih Akun Debit (Beban) --</option>
+                                {coaList
+                                  .filter((coa: any) => {
+                                    const t = (coa.tipe || '').toLowerCase();
+                                    return t === 'beban' || t === 'expense';
+                                  })
+                                  .map((coa: any) => (
+                                    <option key={coa.nomorAkun} value={coa.nomorAkun}>
+                                      {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
+                                    </option>
+                                  ))}
+                              </select>
+                              <span className="font-mono text-[#14130F] text-[12px] shrink-0 font-bold">
+                                Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 text-[11px] pl-3">
+                              <span className="text-[#902F33] font-bold shrink-0">Cr</span>
+                              <select
+                                value={creditAccount}
+                                onChange={(e) => setCreditAccount(e.target.value)}
+                                className="flex-1 text-[11px] font-mono bg-white border border-[#E4E0D9] rounded-md p-1 outline-none focus:ring-1 focus:ring-emerald-500"
+                              >
+                                <option value="">-- Pilih Akun Kredit (Kas/Bank) --</option>
+                                {coaList
+                                  .filter((coa: any) => {
+                                    const t = (coa.tipe || '').toLowerCase();
+                                    return t === 'aset' || t === 'asset';
+                                  })
+                                  .map((coa: any) => (
+                                    <option key={coa.nomorAkun} value={coa.nomorAkun}>
+                                      {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
+                                    </option>
+                                  ))}
+                              </select>
+                              <span className="font-mono text-[#14130F] text-[12px] shrink-0 font-bold">
+                                Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1 pt-1 border-t border-[#E4E0D9]/60 text-[11px]">
+                            {selectedItem.jurnalAkuntansi && selectedItem.jurnalAkuntansi.length > 0 ? (
+                              selectedItem.jurnalAkuntansi.map((j: any) => (
+                                <React.Fragment key={j.id}>
+                                  <div className="flex justify-between items-center">
+                                    <span>
+                                      <span className="text-[#005836] font-bold mr-1">Dr</span>
+                                      <span className="text-[#6A6660]"> {j.noAkunDebit} {j.akunDebit?.namaAkun || coaList.find((c: any) => c.nomorAkun === j.noAkunDebit)?.namaAkun || 'Beban Material Proyek'}</span>
+                                    </span>
+                                    <span className="font-mono text-[#14130F] font-bold">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center pl-3">
+                                    <span>
+                                      <span className="text-[#902F33] font-bold mr-1">Cr</span>
+                                      <span className="text-[#6A6660]"> {j.noAkunKredit} {j.akunKredit?.namaAkun || coaList.find((c: any) => c.nomorAkun === j.noAkunKredit)?.namaAkun || 'Bank BCA - Operasional'}</span>
+                                    </span>
+                                    <span className="font-mono text-[#14130F] font-bold">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                  </div>
+                                </React.Fragment>
+                              ))
+                            ) : (
+                              <React.Fragment>
                                 <div className="flex justify-between items-center">
-                                  <span className="text-stone-600">
-                                    <span className="text-emerald-600 font-bold mr-1">Dr</span> {j.noAkunDebit} - {coaList.find((c: any) => c.nomorAkun === j.noAkunDebit)?.namaAkun || 'Beban'}
+                                  <span>
+                                    <span className="text-[#005836] font-bold mr-1">Dr</span>
+                                    <span className="text-[#6A6660]"> 5-5101 Beban Material Proyek</span>
                                   </span>
-                                  <span className="text-stone-800 font-medium">Rp {Number(j.nominal).toLocaleString('id-ID')}</span>
+                                  <span className="font-mono text-[#14130F] font-bold">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
                                 </div>
-                                <div className="flex justify-between items-center pl-4">
-                                  <span className="text-stone-600">
-                                    <span className="text-red-600 font-bold mr-1">Cr</span> {j.noAkunKredit} - {coaList.find((c: any) => c.nomorAkun === j.noAkunKredit)?.namaAkun || 'Kas/Bank'}
+                                <div className="flex justify-between items-center pl-3">
+                                  <span>
+                                    <span className="text-[#902F33] font-bold mr-1">Cr</span>
+                                    <span className="text-[#6A6660]"> 1-1102 Bank BCA - Operasional</span>
                                   </span>
-                                  <span className="text-stone-800 font-medium">Rp {Number(j.nominal).toLocaleString('id-ID')}</span>
+                                  <span className="font-mono text-[#14130F] font-bold">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
                                 </div>
                               </React.Fragment>
-                            ))
-                          ) : (
-                            <div className="text-stone-400 italic text-[11px]">Tidak ada rincian jurnal.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Keterangan */}
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-medium text-stone-500">Keterangan dari pengaju</label>
-                      <div className="bg-[#fcfbf9] border border-stone-200 rounded-xl p-3.5 text-[12px] text-stone-600 italic leading-relaxed">
-                        &quot;{selectedItem.ocrData?.keterangan || selectedItem.ocrData?.raw || '-'}&quot;
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Catatan PM */}
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-medium text-stone-500">Catatan dari Project Manager ({pmApproval?.approver?.nama || 'PM'})</label>
-                      <div className="bg-[#fcfbf9] border border-stone-200 rounded-xl p-3.5 text-[12px] text-stone-500">
+                    {/* Keterangan dari pengaju */}
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-medium text-stone-500">Keterangan dari pengaju</div>
+                      <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
+                        “{selectedItem.ocrData?.keterangan || selectedItem.ocrData?.raw || 'Pembelian kertas A4, log book, dan papan klip untuk kebutuhan administrasi site'}”.
+                      </div>
+                    </div>
+
+                    {/* Catatan dari PM */}
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-medium text-stone-500">Catatan dari Project Manager ({pmApproval?.approver?.nama || 'Project Manager'})</div>
+                      <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
                         {pmApproval?.catatan || '-'}
                       </div>
                     </div>
 
-                    {/* Catatan / Keterangan Keuangan (Input) */}
-                    {selectedItem.status === 'APPROVED_BY_PM' && (
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-stone-500">Catatan Keuangan (Opsional)</label>
+                    {/* Catatan Keuangan */}
+                    {selectedItem.status === 'APPROVED_BY_PM' ? (
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-medium text-stone-500">Catatan Keuangan (Opsional)</div>
                         <textarea
                           placeholder="Tambahkan catatan jika ada..."
                           value={catatan}
                           onChange={(e) => setCatatan(e.target.value)}
-                          className="w-full bg-[#fcfbf9] border border-stone-200 rounded-xl p-3.5 text-[12px] text-stone-800 focus:outline-none focus:border-stone-400 transition resize-none h-20"
+                          className="w-full bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] focus:outline-none border border-[#E4E0D9] transition resize-none h-18"
                         />
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-medium text-stone-500">Catatan Keuangan ({financeApproval?.approver?.nama || 'Tim Keuangan'})</div>
+                        <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
+                          {financeApproval?.catatan || '-'}
+                        </div>
                       </div>
                     )}
 
+                    <div className="border-b border-[#E6E1D4] pt-1" />
+
                     {/* Alur Approval */}
-                    <div>
-                      <p className="text-[13px] font-bold text-stone-800 mb-4">Alur Approval</p>
-                      <div className="flex flex-col gap-0">
-                        {approvalSteps.map((step, i) => (
-                          <div key={i} className="flex gap-3">
-                            <div className="flex flex-col items-center">
-                              <StepIcon state={step.state} number={i + 1} />
-                              {i < approvalSteps.length - 1 && (
-                                <div
-                                  className={`w-px flex-1 my-1 ${
-                                    step.state === "done" ? "bg-[#2d6a4f]" : "bg-stone-200"
-                                  }`}
-                                  style={{ minHeight: "20px" }}
-                                />
-                              )}
-                            </div>
-                            <div className="pb-4">
-                              <p
-                                className={`text-[13px] font-semibold ${
-                                  step.state === "pending" ? "text-stone-400" : "text-stone-800"
-                                }`}
-                              >
-                                {step.label}
-                              </p>
-                              <p className="text-[11px] text-stone-400 mt-0.5">{step.sublabel}</p>
-                            </div>
+                    <div className="space-y-2.5">
+                      <div className="text-[13px] font-bold text-stone-800">Alur Approval</div>
+                      <div className="relative flex flex-col gap-2.5 pl-0.5">
+                        {/* Connecting Line */}
+                        <div className="absolute left-[13px] top-[12px] bottom-[12px] w-[1px] bg-[#E4E0D9]" />
+
+                        {/* Step 1 */}
+                        <div className="flex items-center gap-2.5 z-10">
+                          <div className="w-[26px] h-[26px] rounded-full bg-[#009162] flex items-center justify-center shrink-0">
+                            <Check size={13} className="text-white" strokeWidth={2.5} />
                           </div>
-                        ))}
+                          <div>
+                            <p className="text-[13px] font-semibold text-stone-800">Pengajuan dikirim</p>
+                            <p className="text-[11px] text-stone-400 mt-0.5">
+                              {approvalSteps[0]?.sublabel || `${selectedItem.user?.nama || 'Karyawan'} • -`}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="flex items-center gap-2.5 z-10">
+                          {approvalSteps[1]?.state === 'done' ? (
+                            <div className="w-[26px] h-[26px] rounded-full bg-[#009162] flex items-center justify-center shrink-0">
+                              <Check size={13} className="text-white" strokeWidth={2.5} />
+                            </div>
+                          ) : (
+                            <div className="w-[26px] h-[26px] rounded-full bg-[#F6F4EF] border border-[#E4E0D9] text-[#9A948B] font-semibold text-[12px] flex items-center justify-center shrink-0">
+                              2
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-[13px] font-semibold text-stone-800">Validasi Project Manager</p>
+                            <p className="text-[11px] text-stone-400 mt-0.5">
+                              {approvalSteps[1]?.sublabel || 'Menunggu • -'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="flex items-center gap-2.5 z-10">
+                          {approvalSteps[2]?.state === 'done' ? (
+                            <div className="w-[26px] h-[26px] rounded-full bg-[#009162] flex items-center justify-center shrink-0">
+                              <Check size={13} className="text-white" strokeWidth={2.5} />
+                            </div>
+                          ) : approvalSteps[2]?.state === 'active' ? (
+                            <div className="w-[26px] h-[26px] rounded-full bg-[#D8953D] ring-2 ring-[#F5E4CE] text-white font-semibold text-[12px] flex items-center justify-center shrink-0">
+                              3
+                            </div>
+                          ) : (
+                            <div className="w-[26px] h-[26px] rounded-full bg-[#F6F4EF] border border-[#E4E0D9] text-[#9A948B] font-semibold text-[12px] flex items-center justify-center shrink-0">
+                              3
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-[13px] font-semibold text-stone-800">Verifikasi Tim Keuangan</p>
+                            <p className="text-[11px] text-stone-400 mt-0.5">
+                              {approvalSteps[2]?.sublabel || 'Menunggu • -'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div className="flex items-center gap-2.5 z-10">
+                          {approvalSteps[3]?.state === 'done' ? (
+                            <div className="w-[26px] h-[26px] rounded-full bg-[#009162] flex items-center justify-center shrink-0">
+                              <Check size={13} className="text-white" strokeWidth={2.5} />
+                            </div>
+                          ) : (
+                            <div className="w-[26px] h-[26px] rounded-full bg-[#F6F4EF] border border-[#E4E0D9] text-[#9A948B] font-semibold text-[12px] flex items-center justify-center shrink-0">
+                              4
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-[13px] font-semibold text-stone-800">Dicairkan</p>
+                            <p className="text-[11px] text-stone-400 mt-0.5">
+                              {approvalSteps[3]?.sublabel || 'Jurnal otomatis • -'}
+                            </p>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
+
                   </div>
 
                   {/* Action Footer (Fixed di bawah) */}
-                  <div className="border-t border-stone-200 px-7 py-4 bg-white flex items-center justify-between shrink-0">
-                    <a 
-                      href={selectedItem.strukUrl} 
-                      target="_blank" 
+                  <div className="border-t border-[#E6E1D4] px-6 py-3.5 bg-white flex items-center justify-between shrink-0">
+                    <a
+                      href={selectedItem.strukUrl}
+                      target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-xs font-semibold text-stone-700 bg-white hover:bg-stone-50 transition px-3 py-2 rounded-lg border border-stone-200"
+                      className="flex items-center gap-1.5 text-xs font-semibold text-[#14130F] bg-white hover:bg-stone-50 transition px-3.5 py-2 rounded-lg border border-[#E4E0D9]"
                     >
                       <Download size={14} />
-                      <span>Lihat bukti</span>
+                      <span>Download bukti</span>
                     </a>
 
                     {selectedItem.status === 'APPROVED_BY_PM' && (
-                      <div className="flex gap-2">
-                        <button 
+                      <div className="flex items-center gap-2">
+                        <button
                           onClick={() => handleProcess('REJECT')}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#9c3131] hover:bg-[#832626] transition px-5 py-2.5 rounded-lg shadow-sm cursor-pointer"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#902F33] hover:bg-[#782528] transition px-4 py-2 rounded-lg shadow-sm cursor-pointer"
                         >
                           <X size={14} strokeWidth={2.5} />
                           <span>Tolak</span>
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleProcess('APPROVE')}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#008f5d] hover:bg-[#00754c] transition px-5 py-2.5 rounded-lg shadow-sm cursor-pointer"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#009162] hover:bg-[#007b53] transition px-4 py-2 rounded-lg shadow-sm cursor-pointer"
                         >
                           <Zap size={14} fill="currentColor" className="text-white" />
                           <span>Cairkan & Generate Jurnal</span>
@@ -594,6 +683,39 @@ function PencairanContent() {
           </div>
         </main>
       </div>
+
+      {/* Modal Zoom Gambar Struk */}
+      {zoomImageUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setZoomImageUrl(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2 flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex justify-between items-center px-4 py-2.5 border-b border-stone-200">
+              <span className="text-xs font-bold text-stone-800">Prinjauan Struk / Bukti Transaksi</span>
+              <button
+                onClick={() => setZoomImageUrl(null)}
+                className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto max-h-[80vh] flex items-center justify-center bg-stone-50 rounded-b-xl w-full">
+              <img
+                src={zoomImageUrl}
+                alt="Zoom Bukti Struk"
+                className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-md"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/bukti_struk.png';
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -601,8 +723,8 @@ function PencairanContent() {
 export default function PencairanPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#f6f4f0]">
-        <div className="text-stone-400 font-medium text-xs">Memuat halaman...</div>
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#F6F4EF]">
+        <div className="text-[#6A6660] font-medium text-xs">Memuat halaman...</div>
       </div>
     }>
       <PencairanContent />

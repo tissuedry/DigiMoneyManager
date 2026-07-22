@@ -153,13 +153,13 @@ export async function proxy(req: NextRequest) {
     if (roles.includes('Tim Keuangan')) {
       return NextResponse.redirect(new URL('/keuangan', req.url));
     }
-    if (payload.proyekId === undefined || payload.proyekId === null) {
-      return NextResponse.redirect(new URL('/select-project', req.url));
-    }
-    if (role === 'Project Manager') {
+    if (role === 'Project Manager' || roles.includes('Project Manager')) {
       return NextResponse.redirect(new URL('/pm', req.url));
     }
     if (role === 'Karyawan') {
+      if (payload.proyekId === undefined || payload.proyekId === null) {
+        return NextResponse.redirect(new URL('/select-project', req.url));
+      }
       return NextResponse.redirect(new URL('/karyawan', req.url));
     }
     return NextResponse.redirect(new URL('/select-project', req.url));
@@ -172,11 +172,14 @@ export async function proxy(req: NextRequest) {
     if (roles.includes('Tim Keuangan')) {
       return NextResponse.redirect(new URL('/keuangan', req.url));
     }
+    if (roles.includes('Project Manager') && (payload.proyekId !== undefined && payload.proyekId !== null)) {
+      return NextResponse.redirect(new URL('/pm', req.url));
+    }
   }
 
-  const isRegularMember = roles.includes('Karyawan') || roles.includes('Project Manager');
-  if (isRegularMember && (payload.proyekId === undefined || payload.proyekId === null)) {
-    if (pathname.startsWith('/karyawan') || pathname.startsWith('/pm')) {
+  // Hanya role Karyawan yang diwajibkan memiliki proyek spesifik yang terpilih di session
+  if (role === 'Karyawan' && (payload.proyekId === undefined || payload.proyekId === null)) {
+    if (pathname.startsWith('/karyawan')) {
       return NextResponse.redirect(new URL('/select-project', req.url));
     }
   }
