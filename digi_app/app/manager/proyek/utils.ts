@@ -36,10 +36,28 @@ export const formatRupiah = (valStr: string | number | undefined) => {
 };
 
 export const formatSummaryRupiah = (num: number) => {
-  if (num >= 1e9) return `Rp ${(num / 1e9).toFixed(2)} M`;
-  if (num >= 1e6) return `Rp ${(num / 1e6).toFixed(2)} jt`;
-  if (num >= 1e3) return `Rp ${(num / 1e3).toFixed(2)} rb`;
-  return `Rp ${num.toFixed(2)}`;
+  if (!num || num === 0) return "Rp 0";
+  const abs = Math.abs(num);
+  const sign = num < 0 ? "-" : "";
+
+  let formatted = "";
+  if (abs >= 1_000_000_000_000) {
+    const v = Math.round(abs / 1_000_000_000_000);
+    formatted = `${v} t`;
+  } else if (abs >= 1_000_000_000) {
+    const v = Math.round(abs / 1_000_000_000);
+    formatted = `${v} m`;
+  } else if (abs >= 1_000_000) {
+    const v = Math.round(abs / 1_000_000);
+    formatted = `${v} jt`;
+  } else if (abs >= 1_000) {
+    const v = Math.round(abs / 1_000);
+    formatted = `${v} rb`;
+  } else {
+    formatted = Math.round(abs).toLocaleString("id-ID");
+  }
+
+  return `${sign}Rp ${formatted}`;
 };
 
 export const formatRibuan = (value: string) => {
