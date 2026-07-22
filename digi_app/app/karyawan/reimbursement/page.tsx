@@ -257,7 +257,6 @@ function AjukanReimbursementContent() {
       });
       const data = await res.json();
       if (data.success) {
-        setMerchant(data.data.merchant);
         setTanggal(data.data.tanggal);
         setNominal(formatRupiah(data.data.nominal.toString()));
         setKategoriBukti(data.data.kategoriBukti);
@@ -580,6 +579,7 @@ function AjukanReimbursementContent() {
                         type="text"
                         value={merchant}
                         onChange={(e) => setMerchant(e.target.value)}
+                        placeholder="Ketik nama reimbursement..."
                         className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
                       />
                     </div>
