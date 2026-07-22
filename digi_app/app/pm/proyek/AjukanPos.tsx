@@ -57,6 +57,7 @@ export default function AjukanPosModal({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [pendingItems, setPendingItems] = useState<any[]>([]);
 
   useEffect(() => {
     const mapped: AjukanMain[] = posAnggaran.map((main) => ({
@@ -103,6 +104,25 @@ export default function AjukanPosModal({
   const [loadingSubOptions, setLoadingSubOptions] = useState<Record<number, boolean>>({});
   const [ketOptions, setKetOptions] = useState<Record<number, any[]>>({}); // subId -> MasterKeterangan[]
   const [loadingKetOptions, setLoadingKetOptions] = useState<Record<number, boolean>>({});
+
+  // Fetch pending pengajuan items untuk cek duplikasi
+  useEffect(() => {
+    const fetchPendingItems = async () => {
+      try {
+        const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran?status=PENDING`);
+        if (res.ok) {
+          const result = await res.json();
+          const allItems = (result.pengajuan || []).flatMap((p: any) =>
+            (p.items || []).map((item: any) => ({ ...item, pengajuanId: p.id, judul: p.judul }))
+          );
+          setPendingItems(allItems);
+        }
+      } catch (err) {
+        console.error("Failed to fetch pending items:", err);
+      }
+    };
+    fetchPendingItems();
+  }, [proyekId]);
 
   useEffect(() => {
     const fetchMasterMain = async () => {
@@ -361,6 +381,39 @@ export default function AjukanPosModal({
     }
   };
 
+  const isSubInPending = (mainId: number, subName: string) =>
+    pendingItems.some((item) =>
+      item.tipe === "SUB_ANGGARAN" &&
+      item.parentId === mainId &&
+      item.nama?.toUpperCase().trim() === subName.toUpperCase().trim()
+    );
+
+  const isKetInPending = (sub: AjukanSub, mainId: number, ketName: string) => {
+    const name = ketName.toUpperCase().trim();
+    // Direct: ket under existing sub by parentId
+    if (pendingItems.some((item) =>
+      item.tipe === "KETERANGAN" &&
+      item.parentId === sub.id &&
+      item.nama?.toUpperCase().trim() === name
+    )) return true;
+    // Draft sub: cari SUB_ANGGARAN pending dgn nama+main yg sama,
+    // lalu cocokkan parentId = targetId sub draft
+    const pendingSub = pendingItems.find((item) =>
+      item.tipe === "SUB_ANGGARAN" &&
+      item.parentId === mainId &&
+      item.nama?.toUpperCase().trim() === sub.nama.toUpperCase().trim()
+    );
+    if (pendingSub) {
+      return pendingItems.some((item) =>
+        item.tipe === "KETERANGAN" &&
+        item.pengajuanId === pendingSub.pengajuanId &&
+        item.parentId === pendingSub.targetId &&
+        item.nama?.toUpperCase().trim() === name
+      );
+    }
+    return false;
+  };
+
   const parseRupiahInput = (val: string): number => {
     if (!val) return 0;
     if (val.includes("T")) {
@@ -565,10 +618,13 @@ export default function AjukanPosModal({
                                         </div>
                                       </div>
                                       <div className="flex flex-wrap items-center gap-3 pt-1">
-                                        <button onClick={() => handleAddKet(sub.id)} disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0 || (!!newKetName && sub.keterangan.some(k => k.nama === newKetName))} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer disabled:opacity-50">Simpan Draft</button>
+                                        <button onClick={() => handleAddKet(sub.id)} disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0 || (!!newKetName && (sub.keterangan.some(k => k.nama === newKetName) || isKetInPending(sub, main.id, newKetName)))} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer disabled:opacity-50">Simpan Draft</button>
                                         <button onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer">Batal</button>
                                         {newKetName && sub.keterangan.some(k => k.nama === newKetName) && (
                                           <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah pernah ditambahkan atau diajukan</span>
+                                        )}
+                                        {newKetName && !sub.keterangan.some(k => k.nama === newKetName) && isKetInPending(sub, main.id, newKetName) && (
+                                          <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah diajukan dan menunggu persetujuan Direktur</span>
                                         )}
                                       </div>
                                     </div>
@@ -650,11 +706,14 @@ export default function AjukanPosModal({
                                 <input type="text" value={newSubAlokasi} onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))} placeholder="Rp 0" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800" />
                               </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-3 pt-1">
-                              <button onClick={() => handleAddSub(main.id)} disabled={loadingSubOptions[main.id] || (subOptions[main.id] || []).length === 0 || (!!newSubName && main.subPos.some(s => s.nama === newSubName))} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0 disabled:opacity-50">Simpan Draft</button>
+                              <div className="flex flex-wrap items-center gap-3 pt-1">
+                              <button onClick={() => handleAddSub(main.id)} disabled={loadingSubOptions[main.id] || (subOptions[main.id] || []).length === 0 || (!!newSubName && (main.subPos.some(s => s.nama === newSubName) || isSubInPending(main.id, newSubName)))} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0 disabled:opacity-50">Simpan Draft</button>
                               <button onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer shrink-0">Batal</button>
                               {newSubName && main.subPos.some(s => s.nama === newSubName) && (
                                 <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah pernah ditambahkan atau diajukan</span>
+                              )}
+                              {newSubName && !main.subPos.some(s => s.nama === newSubName) && isSubInPending(main.id, newSubName) && (
+                                <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah diajukan dan menunggu persetujuan Direktur</span>
                               )}
                             </div>
                           </div>
