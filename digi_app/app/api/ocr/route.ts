@@ -1,19 +1,94 @@
 import { NextResponse, NextRequest } from 'next/server';
 import Groq from 'groq-sdk';
 
-// POST: Proses pemindaian dokumen (Struk & Invoice) dengan AI Vision Model
+// Helper function untuk memanggil Google Gemini Vision REST API (Zero dependency)
+async function scanWithGemini(base64Image: string, mimeType: string, promptInstruksi: string, geminiKey: string): Promise<string> {
+  // 1. Coba Endpoint Terbaru: v1alpha Interactions API (gemini-3.6-flash)
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1alpha/interactions?key=${geminiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gemini-3.6-flash',
+        input: [
+          { type: 'text', text: promptInstruksi },
+          { type: 'image', data: base64Image, mime_type: mimeType }
+        ]
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const text = data.outputs?.[0]?.text || data.output_text || '';
+      if (text) return text;
+    }
+  } catch (e: any) {
+    console.warn('Gemini Interactions API fallback to generateContent:', e.message);
+  }
+
+  // 2. Coba Endpoint Standar: v1beta generateContent API (gemini-2.0-flash / gemini-2.5-flash)
+  const modelsToTry = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite'];
+  let lastError = '';
+
+  for (const modelName of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: promptInstruksi },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Image,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            response_mime_type: 'application/json',
+            temperature: 0.1,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        lastError = `Model ${modelName} HTTP ${response.status}: ${errText}`;
+        continue;
+      }
+
+      const resJson = await response.json();
+      const rawText = resJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (rawText) return rawText;
+    } catch (e: any) {
+      lastError = e.message;
+    }
+  }
+
+  throw new Error(lastError || 'Seluruh model Gemini gagal merespon.');
+}
+
+// POST: Proses pemindaian dokumen (Struk & Invoice) dengan AI Vision Model (Groq + Gemini Fallback)
 export async function POST(req: NextRequest) {
   try {
-    // 1. Validasi keberadaan API Key di Server Environment
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
+    const groqKey = process.env.GROQ_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+
+    if (!groqKey && !geminiKey) {
       return NextResponse.json(
-        { success: false, message: 'GROQ_API_KEY belum dikonfigurasi di file .env.local' },
+        { success: false, message: 'API Key AI (GROQ_API_KEY atau GEMINI_API_KEY) belum dikonfigurasi di file .env' },
         { status: 500 }
       );
     }
 
-    // 2. Ambil file gambar dari FormData request Frontend
+    // 1. Ambil file gambar dari FormData request Frontend
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     if (!file) {
@@ -23,57 +98,88 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Konversi file gambar mentah ke Base64 Data URI
+    // 2. Konversi file gambar mentah ke Base64 (Lossless / Uncompressed)
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Image = buffer.toString('base64');
     const mimeType = file.type || 'image/png';
     const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
-    // 4. Inisialisasi Groq Client
-    const client = new Groq({ apiKey });
+    // 3. Susun instruksi Prompt Fleksibel & Akurat untuk Struk Thermal, EDC, BRI Link, Kuitansi, maupun Invoice / Faktur
+    const promptInstruksi = `Bertindaklah sebagai OCR Dokumen Keuangan profesional berakurasi sangat tinggi.
+Tugas Anda adalah membaca gambar dokumen transaksi (struk thermal, struk transfer BRI LINK/EDC, nota toko, kuitansi, atau invoice tagihan) dan mengekstrak informasi kunci:
 
-    // 5. Susun instruksi Prompt Fleksibel untuk Struk mau pun Invoice / Faktur
-    const promptInstruksi = `Bertindaklah sebagai parser dokumen keuangan profesional (struk belanjaan, invoice, faktur tagihan, kuitansi, nota) berakurasi tinggi.
-Tugas Anda adalah membaca gambar dokumen transaksi yang diberikan, lalu mengekstrak informasi berikut:
-1. 'merchant': Nama toko/vendor/perusahaan pengeluar dokumen (string).
-2. 'tanggal': Tanggal transaksi/invoice dengan format standard ISO 'YYYY-MM-DD'.
-   *PENTING*: Perhatikan format tanggal Indonesia/Internasional. Jika tertulis '10 May 19' atau '10/05/2019', ubah menjadi format YYYY-MM-DD ('2019-05-10').
-3. 'nominal': Total nominal akhir/grand total tagihan yang harus dibayarkan (integer murni, hilangkan simbol Rp, $, koma, atau titik).
-4. 'kategoriBukti': Tentukan kategori dokumen hanya dari pilihan ini: "Struk Pembelian", "Kuitansi Resmi", "Invoice / Faktur", atau "Nota Kontan".
-5. 'keterangan': Rangkuman deskripsi singkat mengenai barang/jasa/item pekerjaan apa saja yang tercantum pada invoice/struk tersebut.
+1. 'merchant': Nama toko/vendor/agen pengeluar dokumen (string). Contoh: "JIHAD BRILINK", "Indomaret", "PT SYAFTRACO".
+2. 'tanggal': Tanggal transaksi dengan format standard ISO 'YYYY-MM-DD'.
+   *PENTING*: Perhatikan format tanggal Indonesia (DD-MM-YYYY / DD/MM/YYYY). Contoh: '16-09-2023 10:56:51' ubah menjadi '2023-09-16'.
+3. 'nominal': Total nominal pembayaran / grand total akhir yang dibayarkan (integer murni tanpa huruf/simbol).
+   *PENTING*: Cari baris "Total", "Total Bayar", "Jumlah Bayar", "Grand Total", atau angka akhir transaksi. Contoh jika tertulis "Total : Rp 638.000", hasilnya adalah 638000.
+4. 'kategoriBukti': Tentukan kategori dokumen hanya dari pilihan berikut:
+   - "Struk Pembelian" (jika berupa struk thermal, struk belanjaan, atau struk EDC/transfer)
+   - "Invoice / Faktur" (jika berupa faktur tagihan resmi / bill)
+   - "Kuitansi Resmi" (jika berupa kuitansi pembayaran)
+   - "Nota Kontan" (jika berupa nota manual/toko)
+5. 'keterangan': Ringkasan singkat mengenai transaksi/layanan yang dibayarkan (misal: "Pembayaran Briva PT SYAFTRACO a/n JUMIAH").
 
-WAJIB: Kembalikan HANYA berupa satu objek JSON valid persis dengan struktur berikut tanpa teks pembuka/penutup lainnya:
+WAJIB: Kembalikan HANYA berupa satu objek JSON valid persis dengan struktur berikut tanpa teks lain:
 {
-  "merchant": "Nama Vendor / Perusahaan",
-  "tanggal": "2026-05-18",
-  "nominal": 450000,
-  "kategoriBukti": "Invoice / Faktur",
-  "keterangan": "Pembelian material/jasa sesuai dokumen pendukung site."
+  "merchant": "JIHAD BRILINK",
+  "tanggal": "2023-09-16",
+  "nominal": 638000,
+  "kategoriBukti": "Struk Pembelian",
+  "keterangan": "Pembayaran Briva PT SYAFTRACO"
 }`;
 
-    // 6. Request ke Model Groq Vision (qwen/qwen3.6-27b) tanpa response_format kaku untuk menghindari json_validate_failed
     let rawResponse = '';
-    try {
-      const chatCompletion = await client.chat.completions.create({
-        model: 'qwen/qwen3.6-27b',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: promptInstruksi },
-              {
-                type: 'image_url',
-                image_url: { url: dataUrl },
-              },
-            ],
-          },
-        ],
-        temperature: 0.1,
-      });
-      rawResponse = chatCompletion.choices[0]?.message?.content || '';
-    } catch (apiErr: any) {
-      console.error('Groq Vision model error:', apiErr?.message);
+    let providerUsed = '';
+
+    // 4. Coba Primary Provider: Groq Vision (qwen/qwen3.6-27b)
+    if (groqKey) {
+      try {
+        const client = new Groq({ apiKey: groqKey });
+        const chatCompletion = await client.chat.completions.create({
+          model: 'qwen/qwen3.6-27b',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: promptInstruksi },
+                {
+                  type: 'image_url',
+                  image_url: { url: dataUrl },
+                },
+              ],
+            },
+          ],
+          temperature: 0.1,
+        });
+        rawResponse = chatCompletion.choices[0]?.message?.content || '';
+        if (rawResponse) providerUsed = 'Groq Vision (Qwen)';
+      } catch (groqErr: any) {
+        console.warn('Groq Vision primary error/rate-limited:', groqErr?.status, groqErr?.message);
+      }
+    }
+
+    // 5. Coba Secondary Provider: Google Gemini Vision API (bila Groq gagal/rate limit)
+    if (!rawResponse && geminiKey) {
+      try {
+        console.log('Menggunakan Secondary AI Provider: Google Gemini 2.0 Flash...');
+        rawResponse = await scanWithGemini(base64Image, mimeType, promptInstruksi, geminiKey);
+        if (rawResponse) providerUsed = 'Google Gemini 2.0 Flash';
+      } catch (geminiErr: any) {
+        console.error('Gemini Vision fallback error:', geminiErr?.message);
+      }
+    }
+
+    // 6. Jika kedua provider gagal
+    if (!rawResponse) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Layanan AI Vision sedang mencapai batas kuota harian atau mengalami gangguan. Silakan periksa API Key atau isi detail pengajuan secara manual.' 
+        },
+        { status: 429 }
+      );
     }
 
     // 7. Sanitasi & Parsing JSON Respons
@@ -111,35 +217,24 @@ WAJIB: Kembalikan HANYA berupa satu objek JSON valid persis dengan struktur beri
       }
     }
 
-    // Fallback jika pemindaian AI menghasilkan data kosong/tidak terbaca
     if (!dataJson || typeof dataJson !== 'object') {
-      dataJson = {
-        merchant: "Vendor Dokumen",
-        tanggal: new Date().toISOString().split('T')[0],
-        nominal: 0,
-        kategoriBukti: "Invoice / Faktur",
-        keterangan: "Dokumen berhasil diunggah. Harap periksa dan sesuaikan data jika diperlukan."
-      };
+      return NextResponse.json({
+        success: false,
+        message: 'Vision AI tidak dapat mengekstrak data dari dokumen ini. Silakan periksa atau isi data secara manual.',
+      }, { status: 422 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Model berhasil mengekstrak data dokumen secara riil',
+      message: `Berhasil mengekstrak data menggunakan ${providerUsed}`,
       data: dataJson,
     });
 
   } catch (error: any) {
     console.error('OCR Endpoint error:', error);
     return NextResponse.json({
-      success: true,
-      message: 'Menggunakan fallback data dokumen',
-      data: {
-        merchant: "Vendor Dokumen",
-        tanggal: new Date().toISOString().split('T')[0],
-        nominal: 0,
-        kategoriBukti: "Invoice / Faktur",
-        keterangan: "Dokumen berhasil diunggah."
-      }
-    });
+      success: false,
+      message: `Terjadi kesalahan server: ${error?.message || 'Error tidak diketahui'}`,
+    }, { status: 500 });
   }
 }
