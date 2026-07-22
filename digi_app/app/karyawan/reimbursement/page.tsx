@@ -638,7 +638,7 @@ function AjukanReimbursementContent() {
 
                   <div className="space-y-1.5 text-left">
                     <div className="flex items-center gap-2">
-                      <label className="text-stone-500 font-bold">Keterangan</label>
+                      <label className="text-stone-500 font-bold">Catatan</label>
                       <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                     </div>
                     <textarea
