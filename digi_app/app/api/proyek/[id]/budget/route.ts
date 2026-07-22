@@ -76,6 +76,34 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               },
             });
           } else {
+            // Cascade delete subAnggaran, keteranganAnggaran, and reimbursements before deleting mainAnggaran
+            const subs = await tx.subAnggaran.findMany({
+              where: { mainAnggaranId: ext.id },
+              select: { id: true },
+            });
+            const subIds = subs.map((s) => s.id);
+
+            if (subIds.length > 0) {
+              const kets = await tx.keteranganAnggaran.findMany({
+                where: { subAnggaranId: { in: subIds } },
+                select: { id: true },
+              });
+              const ketIds = kets.map((k) => k.id);
+
+              if (ketIds.length > 0) {
+                await tx.reimbursement.deleteMany({
+                  where: { keteranganAnggaranId: { in: ketIds } },
+                });
+                await tx.keteranganAnggaran.deleteMany({
+                  where: { id: { in: ketIds } },
+                });
+              }
+
+              await tx.subAnggaran.deleteMany({
+                where: { mainAnggaranId: ext.id },
+              });
+            }
+
             await tx.mainAnggaran.delete({
               where: { id: ext.id },
             });
@@ -99,11 +127,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           }
         }
 
-        const totalPengeluaran = Number(existingBudget.totalPengeluaran);
+        const approvedReimbursements = await tx.reimbursement.findMany({
+          where: {
+            proyekId: parseInt(proyekId, 10),
+            status: 'APPROVED',
+          },
+          select: { nominal: true },
+        });
+        const totalPengeluaran = approvedReimbursements.reduce(
+          (sum, r) => sum + Number(r.nominal),
+          0
+        );
+
         const updatedBudget = await tx.budget.update({
           where: { id: existingBudget.id },
           data: {
             rabTotal,
+            totalPengeluaran,
             sisaBudget: Number(rabTotal) - totalPengeluaran,
           },
           include: {
