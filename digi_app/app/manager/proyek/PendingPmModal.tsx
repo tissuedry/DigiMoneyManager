@@ -456,7 +456,7 @@ export default function PendingPmModal({
                                   </span>
                                   <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 500 }}>
                                     {subName}
-                                  </span>
+                                  </span> 
                                   <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
                                     MENUNGGU
                                   </span>

@@ -72,7 +72,7 @@ export default function KelolaProyekPage() {
 
   const [projectForm, setProjectForm] = useState({
     nama: "",
-    deskripsi: "",
+    deskripsi: "", 
     tanggalMulai: "",
     tanggalSelesai: "",
     status: "Active",
