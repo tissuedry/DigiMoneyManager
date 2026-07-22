@@ -170,20 +170,49 @@ function Cell({
   );
 }
 
+type AksiVariant = "main" | "sub" | "ket";
+
+const VARIANT_STYLES: Record<AksiVariant, { bg: string; border: string; text: string }> = {
+  main: {
+    bg: "#f0f7fc",
+    border: "#327c9e",
+    text: "#1d6186",
+  },
+  sub: {
+    bg: "#f1f7f4",
+    border: "#388863",
+    text: "#1f6245",
+  },
+  ket: {
+    bg: "#fdf7f2",
+    border: "#b38355",
+    text: "#8d5423",
+  },
+};
+
 function AksiButton({
   children,
-  style,
+  variant = "main",
+  onClick,
 }: {
   children: React.ReactNode;
-  style?: React.CSSProperties;
+  variant?: AksiVariant;
+  onClick?: () => void;
 }) {
+  const styles = VARIANT_STYLES[variant] || VARIANT_STYLES.main;
+
   return (
     <div className="flex justify-center shrink-0" style={{ width: 120 }}>
       <button
-        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg transition cursor-pointer whitespace-nowrap hover:opacity-80"
-        style={style}
+        onClick={onClick}
+        className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-sm"
+        style={{
+          backgroundColor: styles.bg,
+          borderColor: styles.border,
+          color: styles.text,
+        }}
       >
-        <Settings size={11} />
+        <Settings size={13} style={{ color: styles.text }} />
         {children}
       </button>
     </div>
@@ -372,9 +401,7 @@ export default function DetailAnggaranModal({
                   <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
                   <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
                   <Cell bold>{formatFullCurrency(main.realisasi)}</Cell>
-                  <AksiButton
-                    style={{ color: "#005D8D", backgroundColor: "#F0F7FB" }}
-                  >
+                  <AksiButton variant="main">
                     Edit Alokasi
                   </AksiButton>
                 </Row>
@@ -431,12 +458,7 @@ export default function DetailAnggaranModal({
                               <ProgressCell pct={subPct} exactPctText={subPctExact} />
                               <Cell>{formatFullCurrency(sub.alokasi)}</Cell>
                               <Cell>{formatFullCurrency(sub.realisasi)}</Cell>
-                              <AksiButton
-                                style={{
-                                  color: "#005D8D",
-                                  backgroundColor: "#F0F7FB",
-                                }}
-                              >
+                              <AksiButton variant="sub">
                                 Edit Alokasi
                               </AksiButton>
                             </Row>
@@ -494,12 +516,7 @@ export default function DetailAnggaranModal({
                                       <Cell style={{ color: "#78716C" }}>
                                         {formatFullCurrency(ket.realisasi)}
                                       </Cell>
-                                      <AksiButton
-                                        style={{
-                                          color: "#005D8D",
-                                          backgroundColor: "#F0F7FB",
-                                        }}
-                                      >
+                                      <AksiButton variant="ket">
                                         Edit Alokasi
                                       </AksiButton>
                                     </Row>
@@ -557,14 +574,7 @@ export default function DetailAnggaranModal({
                                               <Cell style={{ color: "#78716C" }}>
                                                 {formatFullCurrency(Number(reimb.nominal) || 0)}
                                               </Cell>
-                                              <AksiButton
-                                                style={{
-                                                  color: "#005836",
-                                                  backgroundColor: "#EEF6F2",
-                                                }}
-                                              >
-                                                Edit Realisasi
-                                              </AksiButton>
+                                              <div style={{ width: 120, flexShrink: 0 }} />
                                             </Row>
                                             );
                                           })
