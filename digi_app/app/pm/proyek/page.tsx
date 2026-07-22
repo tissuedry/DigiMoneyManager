@@ -16,6 +16,7 @@ import {
   Settings,
   X,
   Loader2,
+  Check,
 } from "lucide-react";
 import { useApi, useMutate, useInvalidate } from "@/lib/use-api";
 
@@ -285,32 +286,40 @@ export default function KelolaProyekPage() {
     }
   }, [proyek]);
 
-  useEffect(() => {
-    if (!dirtyTim || !proyek) return;
-    const timer = setTimeout(async () => {
-      setSavingTim(true);
-      try {
-        const members: { userId: number; role: string; divisi: string | null }[] = editableRows
-          .filter((r) => r.userId > 0)
-          .map((r) => ({ userId: r.userId, role: "Anggota Lapangan", divisi: r.divisi || null }));
+  const handleSaveTim = async () => {
+    if (!proyek) return;
+    setSavingTim(true);
+    try {
+      const members: { userId: number; role: string; divisi: string | null }[] = editableRows
+        .filter((r) => r.userId > 0)
+        .map((r) => ({ userId: r.userId, role: "Anggota Lapangan", divisi: r.divisi || null }));
 
-        // Always include PM
-        const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
-        if (pmMember) {
-          members.push({ userId: pmMember.id, role: "Project Manager", divisi: pmMember.divisi || null });
-        }
+      // Always include PM
+      const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
+      if (pmMember) {
+        members.push({ userId: pmMember.id, role: "Project Manager", divisi: pmMember.divisi || null });
+      }
 
-        await fetch(`/api/proyek/${proyek.id}/members`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ members }),
-        });
+      const res = await fetch(`/api/proyek/${proyek.id}/members`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ members }),
+      });
+      if (res.ok) {
+        setDirtyTim(false);
         invalidate("/api/pm/proyek");
-      } catch { /* silent */ }
-      finally { setSavingTim(false); setDirtyTim(false); }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [dirtyTim, proyek, invalidate, editableRows]);
+        alert("Anggota tim proyek berhasil disimpan!");
+      } else {
+        const data = await res.json();
+        alert(data.message || "Gagal menyimpan anggota tim");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan koneksi saat menyimpan anggota tim");
+    } finally {
+      setSavingTim(false);
+    }
+  };
 
   const addTimRow = () => {
     setEditableRows((prev) => [...prev, { userId: 0, nama: "", divisi: "" }]);
@@ -610,7 +619,10 @@ export default function KelolaProyekPage() {
                         className="flex-1 min-w-0 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
                       />
                       <MemberSelect
-                        users={allUsers}
+                        users={allUsers.filter((u) => {
+                          const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
+                          return !pmMember || u.id !== pmMember.id;
+                        })}
                         selectedUserId={row.userId}
                         onSelect={(uid) => updateTimRow(idx, "userId", uid)}
                       />
@@ -626,21 +638,33 @@ export default function KelolaProyekPage() {
                   ))}
                 </div>
                
-                <button
-                  onClick={addTimRow}
-                  className="inline-flex items-center mt-2 gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
-                >
-                  <Plus size={13} />
-                  Tambah Anggota
-                </button>
-
-                {/* Saving indicator */}
-                {savingTim && (
-                  <p className="text-[10px] text-stone-400 font-medium mt-2 flex items-center gap-1">
-                    <Loader2 size={10} className="animate-spin" />
-                    Menyimpan...
-                  </p>
-                )}
+                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-100">
+                  <button
+                    type="button"
+                    onClick={addTimRow}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-white border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                  >
+                    <Plus size={13} />
+                    Tambah Anggota
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveTim}
+                    disabled={savingTim || !dirtyTim}
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-bold text-white px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm ${
+                      savingTim || !dirtyTim
+                        ? "bg-stone-300 cursor-not-allowed text-stone-500"
+                        : "bg-[#008f5d] hover:bg-[#00754c]"
+                    }`}
+                  >
+                    {savingTim ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    Simpan Anggota
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">

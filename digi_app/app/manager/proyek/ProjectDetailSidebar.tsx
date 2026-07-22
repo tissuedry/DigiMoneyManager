@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check } from "lucide-react";
 import { Project, Member } from "./types";
 import {
@@ -96,6 +96,16 @@ export default function ProjectDetailSidebar({
     handleReactivateProject,
     currentStatus,
 }: Props) {
+    const [initialTeamRowsStr, setInitialTeamRowsStr] = useState<string>("");
+
+    useEffect(() => {
+        if (detailedProjectInfo) {
+            setInitialTeamRowsStr(JSON.stringify(teamRows));
+        }
+    }, [detailedProjectInfo]);
+
+    const isDirty = JSON.stringify(teamRows) !== initialTeamRowsStr;
+
     // 1. Pengecekan guard clause
     if (!showProjectDetail || editMode || isDirectEdit) return null;
 
@@ -486,9 +496,17 @@ export default function ProjectDetailSidebar({
                                                         className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
                                                     >
                                                         <option value="" disabled hidden>Pilih nama...</option>
-                                                        {members.map((member) => (
-                                                            <option key={member.id} value={member.id}>{member.nama}</option>
-                                                        ))}
+                                                        {members
+                                                             .filter((member) => {
+                                                                 if (row.id === "row-pm") return true;
+                                                                 const pmRow = teamRows.find((r) => r.id === "row-pm");
+                                                                 const selectedPmUserId = pmRow ? pmRow.userId : "";
+                                                                 return String(member.id) !== String(selectedPmUserId);
+                                                             })
+                                                             .map((member) => (
+                                                                 <option key={member.id} value={member.id}>{member.nama}</option>
+                                                             ))
+                                                         }
                                                     </select>
                                                 </div>
                                                 {!row.isLocked && (
@@ -519,10 +537,18 @@ export default function ProjectDetailSidebar({
                                             <button
                                                 type="button"
                                                 onClick={handleSaveTeamRows}
-                                                disabled={submitting}
-                                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2d6a4f] text-white text-[12px] font-bold rounded-xl shadow-sm hover:bg-[#1e5038] transition cursor-pointer"
+                                                disabled={submitting || !isDirty}
+                                                className={`inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-bold rounded-xl shadow-sm transition cursor-pointer text-white ${
+                                                    submitting || !isDirty
+                                                        ? "bg-stone-300 cursor-not-allowed text-stone-500"
+                                                        : "bg-[#008f5d] hover:bg-[#00754c]"
+                                                }`}
                                             >
-                                                {submitting && <Loader2 size={12} className="animate-spin" />}
+                                                {submitting ? (
+                                                    <Loader2 size={12} className="animate-spin" />
+                                                ) : (
+                                                    <Check size={12} />
+                                                )}
                                                 Simpan Penugasan Tim
                                             </button>
                                         </div>
