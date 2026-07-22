@@ -65,14 +65,6 @@ export default function KelolaProyekPage() {
   const outflowNominal = activeCashFlow.reduce((sum: number, c: any) => sum + (c.outflow || 0), 0);
   const netCashNominal = inflowNominal - outflowNominal;
 
-  // Mock Data Log Aktivitas Uang Proyek
-  const [activityLogs] = useState<LogAktivitas[]>([
-    { id: 1, tanggal: "2026-06-15", tipe: "OUTFLOW", keterangan: "Pembelian Lisensi Software Audit", nominal: 12500000, kategori: "Perlengkapan & ATK" },
-    { id: 2, tanggal: "2026-06-20", tipe: "OUTFLOW", keterangan: "Tiket Pesawat Tim Evaluator ke Site", nominal: 4800000, kategori: "Akomodasi & Transportasi" },
-    { id: 3, tanggal: "2026-07-02", tipe: "INFLOW", keterangan: "Termin 1 Pembayaran Klien", nominal: 3600000000, kategori: "Pendapatan Proyek" },
-    { id: 4, tanggal: "2026-07-05", tipe: "OUTFLOW", keterangan: "Konsumsi Rapat Pleno Evaluasi", nominal: 735000, kategori: "Konsumsi" },
-  ]);
-
   // Forms state
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
@@ -584,11 +576,6 @@ export default function KelolaProyekPage() {
       setSuccess(`Budget Proyek untuk "${showInitBudget.nama}" berhasil diinisialisasi!`);
       setShowInitBudget(null);
       setRabTotal("");
-      setPosAnggaranList([
-        { deskripsi: "Akomodasi & Transportasi", nominalAlokasi: "" },
-        { deskripsi: "Konsumsi", nominalAlokasi: "" },
-        { deskripsi: "Perlengkapan & ATK", nominalAlokasi: "" },
-      ]);
       fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
