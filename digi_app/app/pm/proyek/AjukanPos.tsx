@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
-import { formatShort } from "./page";
-import { Preahvihear } from "next/font/google";
 
 type AjukanKet = {
   id: number;
@@ -25,6 +23,18 @@ type AjukanMain = {
   nama: string;
   alokasi: number;
   subPos: AjukanSub[];
+};
+
+const formatShort = (v: number): string => {
+  const abs = Math.abs(v);
+  if (abs >= 100_000_000_000_000) {
+    const triliun = Math.floor(abs / 1_000_000_000_000);
+    return v < 0 ? `-${triliun} T` : `${triliun} T`;
+  }
+  if (v < 0) {
+    return `-Rp ${abs.toLocaleString("id-ID")}`;
+  }
+  return `Rp ${v.toLocaleString("id-ID")}`;
 };
 
 export default function AjukanPosModal({
