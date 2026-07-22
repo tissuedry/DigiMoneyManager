@@ -4,7 +4,7 @@ import { Project } from "./types";
 import { formatRibuan, ribuanToNumber } from "./utils";
 
 type MainOption = {
-  id: number;
+  id: number; 
   nama: string;
 };
 

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
-import { Project, LogAktivitas, Member } from "./types";
+import { Project, LogAktivitas, Member } from "./types"; 
 import { formatRupiah, formatSummaryRupiah, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
 
 import AddProjectModal from "./AddProjectModal";
@@ -582,7 +582,7 @@ export default function KelolaProyekPage() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }; 
 
   const currentStatus = detailedProjectInfo?.status || showProjectDetail?.status;
 
