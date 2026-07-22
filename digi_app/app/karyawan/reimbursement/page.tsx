@@ -610,7 +610,10 @@ function AjukanReimbursementContent() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 text-left">
-                      <label className="text-stone-500 font-bold">Nama Reimbursement <span className="text-red-500">*</span></label>
+                      <div className="flex items-center gap-2">
+                        <label className="text-stone-500 font-bold">Nama Reimbursement <span className="text-red-500">*</span></label>
+                        <span aria-hidden="true" className="opacity-0 pointer-events-none bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
+                      </div>
                       <input
                         type="text"
                         value={merchant}
