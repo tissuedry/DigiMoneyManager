@@ -617,7 +617,10 @@ function AjukanReimbursementContent() {
                       </div>
                     </div>
                     <div className="space-y-1.5 text-left">
-                      <label className="text-stone-500 font-bold">Kategori Bukti</label>
+                      <div className="flex items-center gap-2">
+                        <label className="text-stone-500 font-bold">Kategori Bukti</label>
+                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
+                      </div>
                       <div className="relative">
                         <select
                           value={kategoriBukti}
