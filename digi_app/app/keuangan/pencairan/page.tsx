@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
-  Download, Zap, X, Check, Filter, ZoomIn
+  Download, Zap, X, Check, Filter, ZoomIn, ZoomOut, RotateCcw, RotateCw
 } from "lucide-react";
 
 import Sidebar from '@/components/sidebar';
@@ -51,6 +51,31 @@ function PencairanContent() {
   const [selectedId, setSelectedId] = useState<string | null>(idParam);
   const [isAllSelected, setIsAllSelected] = useState(selectParam === 'all');
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [zoomScale, setZoomScale] = useState<number>(1);
+  const [panPos, setPanPos] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const resetZoomAndPan = () => {
+    setZoomScale(1);
+    setPanPos({ x: 0, y: 0 });
+    setIsDragging(false);
+  };
+
+  // Lock body scroll when zoom modal is open
+  useEffect(() => {
+    if (zoomImageUrl) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [zoomImageUrl]);
+
+  const handleOpenZoom = (url: string) => {
+    setZoomImageUrl(url);
+    resetZoomAndPan();
+  };
 
   const handleSelect = (id: string | null, all = false) => {
     setIsAllSelected(all);
@@ -394,7 +419,7 @@ function PencairanContent() {
                       <div className="space-y-1">
                         <label className="text-[11px] font-medium text-[#14130F]">Bukti Struk</label>
                         <div
-                          onClick={() => setZoomImageUrl(selectedItem.strukUrl)}
+                          onClick={() => handleOpenZoom(selectedItem.strukUrl)}
                           className="border border-[#E4E0D9] rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
                         >
                           <img
@@ -684,35 +709,74 @@ function PencairanContent() {
         </main>
       </div>
 
-      {/* Modal Zoom Gambar Struk */}
+      {/* Modal Zoom Gambar Struk Simple */}
       {zoomImageUrl && (
-        <div
-          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setZoomImageUrl(null)}
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            setZoomImageUrl(null);
+            resetZoomAndPan();
+          }}
         >
-          <div
-            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2 flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
+          {/* Tombol Tutup Floating di Pojok Kanan Atas */}
+          <button 
+            type="button"
+            onClick={() => {
+              setZoomImageUrl(null);
+              resetZoomAndPan();
+            }}
+            className="absolute top-5 right-5 z-50 p-2.5 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 transition cursor-pointer shadow-xl"
+            title="Tutup"
           >
-            <div className="w-full flex justify-between items-center px-4 py-2.5 border-b border-stone-200">
-              <span className="text-xs font-bold text-stone-800">Prinjauan Struk / Bukti Transaksi</span>
-              <button
-                onClick={() => setZoomImageUrl(null)}
-                className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="p-4 overflow-auto max-h-[80vh] flex items-center justify-center bg-stone-50 rounded-b-xl w-full">
-              <img
-                src={zoomImageUrl}
-                alt="Zoom Bukti Struk"
-                className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-md"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/bukti_struk.png';
-                }}
-              />
-            </div>
+            <X size={20} />
+          </button>
+
+          {/* Kontainer Gambar — Drag & Pan dengan Klik Kiri */}
+          <div 
+            className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${
+              zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              if (e.deltaY < 0) {
+                setZoomScale((prev) => Math.min(prev + 0.25, 4));
+              } else {
+                setZoomScale((prev) => {
+                  const next = Math.max(prev - 0.25, 1);
+                  if (next === 1) setPanPos({ x: 0, y: 0 });
+                  return next;
+                });
+              }
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 0) {
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - panPos.x, y: e.clientY - panPos.y });
+              }
+            }}
+            onMouseMove={(e) => {
+              if (isDragging) {
+                setPanPos({
+                  x: e.clientX - dragStart.x,
+                  y: e.clientY - dragStart.y,
+                });
+              }
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
+          >
+            <img 
+              src={zoomImageUrl} 
+              alt="Bukti Struk" 
+              draggable={false}
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
+              style={{
+                transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${zoomScale})`,
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/bukti_struk.png';
+              }}
+            />
           </div>
         </div>
       )}

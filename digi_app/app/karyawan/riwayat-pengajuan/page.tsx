@@ -526,6 +526,26 @@ export default function RiwayatPengajuanPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState("");
+  const [imageModalZoomScale, setImageModalZoomScale] = useState<number>(1);
+  const [imgPanPos, setImgPanPos] = useState({ x: 0, y: 0 });
+  const [isImgDragging, setIsImgDragging] = useState(false);
+  const [imgDragStart, setImgDragStart] = useState({ x: 0, y: 0 });
+
+  const resetImgZoomAndPan = () => {
+    setImageModalZoomScale(1);
+    setImgPanPos({ x: 0, y: 0 });
+    setIsImgDragging(false);
+  };
+
+  // Lock body scroll when image modal is open
+  useEffect(() => {
+    if (showImageModal) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [showImageModal]);
 
   const fetchReimbursements = async () => {
     setIsLoading(true);
@@ -948,22 +968,72 @@ export default function RiwayatPengajuanPage() {
       {/* Image Modal */}
       {showImageModal && selectedImageUrl && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setShowImageModal(false)}
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => {
+            setShowImageModal(false);
+            resetImgZoomAndPan();
+          }}
         >
-          <div className="relative w-[480px] max-h-[85vh] flex items-center justify-center">
+          {/* Tombol Tutup Floating di Pojok Kanan Atas */}
+          <button 
+            type="button"
+            onClick={() => {
+              setShowImageModal(false);
+              resetImgZoomAndPan();
+            }}
+            className="absolute top-5 right-5 z-50 p-2.5 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 transition cursor-pointer shadow-xl"
+            title="Tutup"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Kontainer Gambar — Drag & Pan dengan Klik Kiri */}
+          <div 
+            className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${
+              imageModalZoomScale > 1 ? (isImgDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              if (e.deltaY < 0) {
+                setImageModalZoomScale((prev) => Math.min(prev + 0.25, 4));
+              } else {
+                setImageModalZoomScale((prev) => {
+                  const next = Math.max(prev - 0.25, 1);
+                  if (next === 1) setImgPanPos({ x: 0, y: 0 });
+                  return next;
+                });
+              }
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 0) {
+                setIsImgDragging(true);
+                setImgDragStart({ x: e.clientX - imgPanPos.x, y: e.clientY - imgPanPos.y });
+              }
+            }}
+            onMouseMove={(e) => {
+              if (isImgDragging) {
+                setImgPanPos({
+                  x: e.clientX - imgDragStart.x,
+                  y: e.clientY - imgDragStart.y,
+                });
+              }
+            }}
+            onMouseUp={() => setIsImgDragging(false)}
+            onMouseLeave={() => setIsImgDragging(false)}
+          >
             <img
               src={selectedImageUrl}
               alt="Bukti Struk"
               loading="lazy"
-              className="w-full h-auto max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+              draggable={false}
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
+              style={{
+                transform: `translate(${imgPanPos.x}px, ${imgPanPos.y}px) scale(${imageModalZoomScale})`,
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/bukti_struk.png';
+              }}
             />
-            <button
-              onClick={() => setShowImageModal(false)}
-              className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition cursor-pointer"
-            >
-              <X size={16} />
-            </button>
           </div>
         </div>
       )}

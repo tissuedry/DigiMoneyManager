@@ -15,7 +15,8 @@ import {
   ArrowLeft,
   RefreshCw,
   Loader2,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
 
@@ -122,6 +123,26 @@ function AjukanReimbursementContent() {
   const [isResubmitLoading, setIsResubmitLoading] = useState(!!resubmitId);
   const [resubmitStrukUrl, setResubmitStrukUrl] = useState<string | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewZoomScale, setPreviewZoomScale] = useState<number>(1);
+  const [panPos, setPanPos] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const resetZoomAndPan = () => {
+    setPreviewZoomScale(1);
+    setPanPos({ x: 0, y: 0 });
+    setIsDragging(false);
+  };
+
+  // Lock body scroll when preview modal is open to prevent background scrolling
+  useEffect(() => {
+    if (isPreviewModalOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isPreviewModalOpen]);
 
   // ponytail: TanStack Query deduplicates /api/auth/me across Header, Sidebar, and this page
   const { data: meData } = useApi<any>("/api/auth/me");
@@ -277,20 +298,25 @@ function AjukanReimbursementContent() {
         body: formData,
       });
       const data = await res.json();
-      if (data.success) {
-        setTanggal(data.data.tanggal);
-        setNominal(formatRupiah(data.data.nominal.toString()));
-        setKategoriBukti(data.data.kategoriBukti);
-        setKeterangan(data.data.keterangan);
+      if (data.success && data.data) {
+        setTanggal(data.data.tanggal || new Date().toISOString().split('T')[0]);
+        setNominal(formatRupiah((data.data.nominal || 0).toString()));
+        setKategoriBukti(data.data.kategoriBukti || "Struk Pembelian");
+        setKeterangan(data.data.keterangan || "");
         setCurrentState('review');
       } else {
-        alert('VLM failed: ' + (data.message || 'Unknown error'));
-        setCurrentState('upload');
+        alert(data.message || 'Pemindaian AI Vision gagal. Silakan isi detail pengajuan secara manual.');
+        // Tetap lanjut ke langkah review agar pengguna bisa mengisi data secara manual tanpa harus mengunggah ulang file
+        setTanggal(new Date().toISOString().split('T')[0]);
+        setNominal('');
+        setKategoriBukti("Struk Pembelian");
+        setKeterangan("");
+        setCurrentState('review');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error connecting to VLM API');
-      setCurrentState('upload');
+      alert('Gagal menghubungkan ke layanan AI Vision: ' + (err?.message || 'Error jaringan'));
+      setCurrentState('review');
     }
   };
 
@@ -785,28 +811,71 @@ function AjukanReimbursementContent() {
       </div>
       {isPreviewModalOpen && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
-          onClick={() => setIsPreviewModalOpen(false)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => {
+            setIsPreviewModalOpen(false);
+            resetZoomAndPan();
+          }}
         >
-          <div
-            className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white p-1.5 shadow-2xl"
-            onClick={(e) => e.stopPropagation()} // Mencegah modal tertutup jika area gambar yang di-klik
+          {/* Tombol Tutup Floating di Pojok Kanan Atas */}
+          <button 
+            type="button"
+            onClick={() => {
+              setIsPreviewModalOpen(false);
+              resetZoomAndPan();
+            }}
+            className="absolute top-5 right-5 z-50 p-2.5 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 transition cursor-pointer shadow-xl"
+            title="Tutup"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Kontainer Gambar — Drag & Pan dengan Klik Kiri */}
+          <div 
+            className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${
+              previewZoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              if (e.deltaY < 0) {
+                setPreviewZoomScale((prev) => Math.min(prev + 0.25, 4));
+              } else {
+                setPreviewZoomScale((prev) => {
+                  const next = Math.max(prev - 0.25, 1);
+                  if (next === 1) setPanPos({ x: 0, y: 0 });
+                  return next;
+                });
+              }
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 0) {
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - panPos.x, y: e.clientY - panPos.y });
+              }
+            }}
+            onMouseMove={(e) => {
+              if (isDragging) {
+                setPanPos({
+                  x: e.clientX - dragStart.x,
+                  y: e.clientY - dragStart.y,
+                });
+              }
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
           >
             <img
               src={filePreview}
               alt="Bukti Struk Full Preview"
-              className="max-w-full max-h-[82vh] object-contain rounded-xl"
+              draggable={false}
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
+              style={{
+                transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${previewZoomScale})`,
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/bukti_struk.png';
+              }}
             />
-            <div className="flex justify-between items-center px-2 py-2 bg-stone-50 rounded-b-xl border-t border-stone-100">
-              <span className="text-[11px] font-semibold text-stone-500">Pratinjau Dokumen Bukti</span>
-              <button
-                type="button"
-                className="px-3 py-1 bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-bold rounded-lg transition"
-                onClick={() => setIsPreviewModalOpen(false)}
-              >
-                Tutup
-              </button>
-            </div>
           </div>
         </div>
       )}
