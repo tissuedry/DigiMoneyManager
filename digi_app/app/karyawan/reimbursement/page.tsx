@@ -171,6 +171,7 @@ function AjukanReimbursementContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState('/bukti_struk.png');
+  const [isDragActive, setIsDragActive] = useState(false);
 
   useEffect(() => {
     if (projects.length > 0 && !proyekId && !resubmitId) {
@@ -226,7 +227,18 @@ function AjukanReimbursementContent() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    await processFile(file);
+  };
 
+  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  const processFile = async (file: File) => {
     setSelectedFile(file);
 
     // Create object URL for preview
@@ -449,8 +461,19 @@ function AjukanReimbursementContent() {
                   </div>
                 </div>
 
-                <div onClick={handleUploadTrigger} className="md:col-span-6 border-2 border-dashed border-stone-200 hover:border-emerald-500 bg-stone-50/50 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition group">
-                  <div className="w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:text-emerald-600 shadow-sm transition">
+                <div
+                  onClick={handleUploadTrigger}
+                  onDragEnter={(e) => { e.preventDefault(); setIsDragActive(true); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDragActive(false); }}
+                  onDrop={handleFileDrop}
+                  className={`md:col-span-6 border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition group ${
+                    isDragActive ? 'border-emerald-500 bg-emerald-50/50' : 'border-stone-200 hover:border-emerald-500 bg-stone-50/50'
+                  }`}
+                >
+                  <div className={`w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center shadow-sm transition ${
+                    isDragActive ? 'text-emerald-600' : 'text-stone-400 group-hover:text-emerald-600'
+                  }`}>
                     <Upload size={16} />
                   </div>
                   <span className="text-xs font-bold text-stone-700">Klik atau drop struk di sini</span>
