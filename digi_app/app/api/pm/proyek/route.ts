@@ -106,12 +106,10 @@ export async function GET(req: NextRequest) {
               ocrData: r.ocrData,
               fraudFlag: r.fraudFlag,
               status: r.status,
-              createdAt: r.createdAt,
               approvals: r.approvals.map((a) => ({
                 id: a.id,
                 level: a.level,
                 status: a.status,
-                createdAt: a.createdAt,
               })),
             })),
           })),

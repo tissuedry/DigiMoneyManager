@@ -9,7 +9,7 @@ function formatFullCurrency(num: number): string {
 }
 
 function formatReimbursementDate(r: any): string {
-  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'tanggal' in r.ocrData ? (r.ocrData as any).tanggal : null;
+  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
   if (ocrTanggal) {
     const d = new Date(ocrTanggal);
     if (!isNaN(d.getTime())) {
@@ -21,7 +21,7 @@ function formatReimbursementDate(r: any): string {
     }
   }
   const ocrSubmitted = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
-  const rawDate = r.createdAt || r.timestamp || ocrSubmitted;
+  const rawDate = r.timestamp || ocrSubmitted;
   if (rawDate) {
     const d = new Date(rawDate);
     if (!isNaN(d.getTime())) {
