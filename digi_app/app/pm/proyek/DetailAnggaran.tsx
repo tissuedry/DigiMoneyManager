@@ -9,7 +9,7 @@ function formatFullCurrency(num: number): string {
 }
 
 function formatReimbursementDate(r: any): string {
-  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'tanggal' in r.ocrData ? (r.ocrData as any).tanggal : null;
+  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
   if (ocrTanggal) {
     const d = new Date(ocrTanggal);
     if (!isNaN(d.getTime())) {
@@ -21,7 +21,7 @@ function formatReimbursementDate(r: any): string {
     }
   }
   const ocrSubmitted = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
-  const rawDate = r.createdAt || r.timestamp || ocrSubmitted;
+  const rawDate = r.timestamp || ocrSubmitted;
   if (rawDate) {
     const d = new Date(rawDate);
     if (!isNaN(d.getTime())) {
@@ -129,7 +129,7 @@ function Row({
   );
 }
 
-function ProgressCell({ pct }: { pct: number }) {
+function ProgressCell({ pct, exactPctText }: { pct: number; exactPctText?: string }) {
   return (
     <div className="flex items-center shrink-0" style={{ width: 200 }}>
       <div className="flex items-center gap-2.5 w-full pr-4 shrink-0">
@@ -139,7 +139,11 @@ function ProgressCell({ pct }: { pct: number }) {
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className="text-[11px] font-bold tabular-nums w-10 text-left shrink-0" style={{ color: "#005836" }}>
+        <span
+          className="text-[11px] font-bold tabular-nums w-10 text-left shrink-0"
+          style={{ color: "#005836" }}
+          title={exactPctText ? `${exactPctText}%` : undefined}
+        >
           {pct.toFixed(1)}%
         </span>
       </div>
@@ -166,20 +170,49 @@ function Cell({
   );
 }
 
+type AksiVariant = "main" | "sub" | "ket";
+
+const VARIANT_STYLES: Record<AksiVariant, { bg: string; border: string; text: string }> = {
+  main: {
+    bg: "#f0f7fc",
+    border: "#327c9e",
+    text: "#1d6186",
+  },
+  sub: {
+    bg: "#f1f7f4",
+    border: "#388863",
+    text: "#1f6245",
+  },
+  ket: {
+    bg: "#fdf7f2",
+    border: "#b38355",
+    text: "#8d5423",
+  },
+};
+
 function AksiButton({
   children,
-  style,
+  variant = "main",
+  onClick,
 }: {
   children: React.ReactNode;
-  style?: React.CSSProperties;
+  variant?: AksiVariant;
+  onClick?: () => void;
 }) {
+  const styles = VARIANT_STYLES[variant] || VARIANT_STYLES.main;
+
   return (
     <div className="flex justify-center shrink-0" style={{ width: 120 }}>
       <button
-        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg transition cursor-pointer whitespace-nowrap hover:opacity-80"
-        style={style}
+        onClick={onClick}
+        className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-sm"
+        style={{
+          backgroundColor: styles.bg,
+          borderColor: styles.border,
+          color: styles.text,
+        }}
       >
-        <Settings size={11} />
+        <Settings size={13} style={{ color: styles.text }} />
         {children}
       </button>
     </div>
@@ -200,14 +233,6 @@ export default function DetailAnggaranModal({
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
   const [expandedKet, setExpandedKet] = useState<Record<number, boolean>>({});
-  const [reimbs, setReimbs] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetch(`/api/proyek/${proyekId}`)
-      .then((r) => r.json())
-      .then((d) => setReimbs(d.project?.pendingReimbursements || []))
-      .catch(() => {});
-  }, [proyekId]);
 
   const toggleMain = (id: number) =>
     setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
@@ -216,51 +241,62 @@ export default function DetailAnggaranModal({
   const toggleKet = (id: number) =>
     setExpandedKet((p) => ({ ...p, [id]: !p[id] }));
 
-  const mapped: MainPosItem[] = posAnggaran.map((main) => ({
-    id: main.id,
-    nama: main.nama,
-    alokasi: main.alokasi,
-    realisasi: main.terpakai,
-    subPos: (main.subAnggaran || []).map((sub: any) => {
-      const ketData = (sub.keterangan || []).map((ket: any) => {
-        const ketReimbs = reimbs
-          .filter((r: any) => r.keteranganAnggaran?.id === ket.id)
-          .map((r: any) => {
-            const ocrMerchant = r.ocrData && typeof r.ocrData === 'object' && 'merchant' in r.ocrData ? (r.ocrData as any).merchant : null;
-            const ocrKeterangan = r.ocrData && typeof r.ocrData === 'object' && 'keterangan' in r.ocrData ? (r.ocrData as any).keterangan : null;
-            const nama = ocrMerchant || ocrKeterangan || 'Reimbursement';
-            const words = nama.split(" ");
-            const inisial =
-              words.length >= 2
-                ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
-                : nama.slice(0, 2).toUpperCase();
-            const dateStr = formatReimbursementDate(r);
-            return {
-              id: r.id,
-              inisial,
-              nama,
-              tanggal: dateStr,
-              status: statusLabel(r.status),
-              nominal: Number(r.nominal),
-            };
-          });
+  // ─── Kalkulasi cascade bottom-up: Ket → Sub → Main ───
+  // Realisasi Ket = sum reimbursement APPROVED (dicairkan keuangan)
+  // Realisasi Sub = sum realisasi seluruh Ket di bawahnya
+  // Realisasi Main = sum realisasi seluruh Sub di bawahnya
+  const mapped: MainPosItem[] = posAnggaran.map((main) => {
+    const subPos = (main.subAnggaran || []).map((sub: any) => {
+      const keterangan = (sub.keterangan || []).map((ket: any) => {
+        // Reimbursement dari data posAnggaran (embedded)
+        const childReimbursements = ket.reimbursements || [];
+
+        // Filter display: hanya reimbursement dengan status yang relevan (sama seperti manager)
+        const approvedReimbs = childReimbursements.filter((r: any) =>
+          ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+        );
+        const hasReimbs = approvedReimbs.length > 0;
+
+        // Ket realisasi = sum reimbursement dengan status APPROVED (dicairkan)
+        const disbursedReimbs = childReimbursements.filter((r: any) =>
+          ['APPROVED'].includes(r.status)
+        );
+        const ketRealisasi = hasReimbs
+          ? disbursedReimbs.reduce((acc: number, r: any) => acc + (parseFloat(r.nominal) || 0), 0)
+          : (parseFloat(ket.nominalRealisasi) || parseFloat(ket.realisasi) || 0);
+
         return {
           id: ket.id,
           nama: ket.nama,
           alokasi: ket.alokasi,
-          realisasi: ket.realisasi,
-          reimbs: ketReimbs,
+          realisasi: ketRealisasi,
+          reimbs: approvedReimbs,
         };
       });
+
+      // Sub realisasi = sum seluruh Ket di bawahnya
+      const subRealisasi = keterangan.reduce((acc: any, k: any) => acc + (Number(k.realisasi) || 0), 0);
+
       return {
         id: sub.id,
         nama: sub.nama,
         alokasi: sub.alokasi,
-        realisasi: sub.terpakai,
-        keterangan: ketData,
+        realisasi: subRealisasi,
+        keterangan,
       };
-    }),
-  }));
+    });
+
+    // Main realisasi = sum seluruh Sub di bawahnya
+    const mainRealisasi = subPos.reduce((acc: any, s: any) => acc + (Number(s.realisasi) || 0), 0);
+
+    return {
+      id: main.id,
+      nama: main.nama,
+      alokasi: main.alokasi,
+      realisasi: mainRealisasi,
+      subPos,
+    };
+  });
 
   useEffect(() => {
     if (mapped.length > 0 && Object.keys(expandedMain).length === 0) {
@@ -335,6 +371,7 @@ export default function DetailAnggaranModal({
               main.alokasi > 0
                 ? Math.min((main.realisasi / main.alokasi) * 100, 100)
                 : 0;
+            const mainPctExact = main.alokasi > 0 ? ((main.realisasi / main.alokasi) * 100).toFixed(5) : '0.00000';
             const isMainOpen = expandedMain[main.id] ?? true;
             return (
               <div key={main.id}>
@@ -361,12 +398,10 @@ export default function DetailAnggaranModal({
                       {main.nama}
                     </span>
                   </div>
-                  <ProgressCell pct={mainPct} />
+                  <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
                   <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
                   <Cell bold>{formatFullCurrency(main.realisasi)}</Cell>
-                  <AksiButton
-                    style={{ color: "#005D8D", backgroundColor: "#F0F7FB" }}
-                  >
+                  <AksiButton variant="main">
                     Edit Alokasi
                   </AksiButton>
                 </Row>
@@ -387,6 +422,7 @@ export default function DetailAnggaranModal({
                                 100
                               )
                             : 0;
+                        const subPctExact = sub.alokasi > 0 ? ((sub.realisasi / sub.alokasi) * 100).toFixed(5) : '0.00000';
                         const isSubOpen = expandedSub[sub.id] ?? false;
                         return (
                           <div key={sub.id}>
@@ -419,15 +455,10 @@ export default function DetailAnggaranModal({
                                   {sub.nama}
                                 </span>
                               </div>
-                              <ProgressCell pct={subPct} />
+                              <ProgressCell pct={subPct} exactPctText={subPctExact} />
                               <Cell>{formatFullCurrency(sub.alokasi)}</Cell>
                               <Cell>{formatFullCurrency(sub.realisasi)}</Cell>
-                              <AksiButton
-                                style={{
-                                  color: "#005D8D",
-                                  backgroundColor: "#F0F7FB",
-                                }}
-                              >
+                              <AksiButton variant="sub">
                                 Edit Alokasi
                               </AksiButton>
                             </Row>
@@ -435,6 +466,7 @@ export default function DetailAnggaranModal({
                             {/* KET rows */}
                             {isSubOpen &&
                               sub.keterangan.map((ket) => {
+                                const hasKetReimbs = ket.reimbs && ket.reimbs.length > 0;
                                 const isKetOpen =
                                   expandedKet[ket.id] ?? false;
                                 return (
@@ -445,24 +477,28 @@ export default function DetailAnggaranModal({
                                       className="hover:bg-stone-100/60"
                                     >
                                       <div className={NAME_CLASS}>
-                                        <button
-                                          onClick={() =>
-                                            toggleKet(ket.id)
-                                          }
-                                          className="p-0.5 hover:bg-stone-200 rounded transition cursor-pointer shrink-0"
-                                        >
-                                          {isKetOpen ? (
-                                            <ChevronDown
-                                              size={12}
-                                              className="text-stone-400"
-                                            />
-                                          ) : (
-                                            <ChevronRight
-                                              size={12}
-                                              className="text-stone-400"
-                                            />
-                                          )}
-                                        </button>
+                                        {hasKetReimbs ? (
+                                          <button
+                                            onClick={() =>
+                                              toggleKet(ket.id)
+                                            }
+                                            className="p-0.5 hover:bg-stone-200 rounded transition cursor-pointer shrink-0"
+                                          >
+                                            {isKetOpen ? (
+                                              <ChevronDown
+                                                size={12}
+                                                className="text-stone-400"
+                                              />
+                                            ) : (
+                                              <ChevronRight
+                                                size={12}
+                                                className="text-stone-400"
+                                              />
+                                            )}
+                                          </button>
+                                        ) : (
+                                          <div style={{ width: 21 }} />
+                                        )}
                                         <span
                                           className="text-[9px] font-bold uppercase shrink-0"
                                           style={{ color: "#9A948B" }}
@@ -480,12 +516,7 @@ export default function DetailAnggaranModal({
                                       <Cell style={{ color: "#78716C" }}>
                                         {formatFullCurrency(ket.realisasi)}
                                       </Cell>
-                                      <AksiButton
-                                        style={{
-                                          color: "#005D8D",
-                                          backgroundColor: "#F0F7FB",
-                                        }}
-                                      >
+                                      <AksiButton variant="ket">
                                         Edit Alokasi
                                       </AksiButton>
                                     </Row>
@@ -498,9 +529,19 @@ export default function DetailAnggaranModal({
                                             Belum ada realisasi.
                                           </p>
                                         ) : (
-                                          ket.reimbs.map((rb) => (
+                                          ket.reimbs.map((reimb: any) => {
+                                            const reimbName = reimb.ocrData && typeof reimb.ocrData === 'object' ? ((reimb.ocrData as any).merchant || (reimb.ocrData as any).keterangan) : null;
+                                            const displayName = reimbName || 'Reimbursement';
+                                            const words = displayName.split(" ");
+                                            const inisial =
+                                              words.length >= 2
+                                                ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+                                                : displayName.slice(0, 2).toUpperCase();
+                                            const dateStr = formatReimbursementDate(reimb);
+                                            const displayStatus = statusLabel(reimb.status);
+                                            return (
                                             <Row
-                                              key={rb.id}
+                                              key={reimb.id}
                                               indent={3}
                                             >
                                               <div className={NAME_CLASS}>
@@ -511,38 +552,32 @@ export default function DetailAnggaranModal({
                                                   REIMB
                                                 </span>
                                                 <div className="w-4 h-4 rounded-full bg-blue-100 text-[7px] font-bold flex items-center justify-center shrink-0 text-blue-700">
-                                                  {rb.inisial}
+                                                  {inisial}
                                                 </div>
-                                                <span className="text-[11px] text-stone-700 font-medium truncate">
-                                                  {rb.nama}
+                                                <span className="text-[11px] text-stone-700 font-medium truncate" title={displayName}>
+                                                  {displayName}
                                                 </span>
                                                 <span className="text-[10px] text-stone-400 shrink-0">
-                                                  {rb.tanggal}
+                                                  {dateStr}
                                                 </span>
                                                 <span
                                                   className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                                                    STATUS_BADGE[rb.status] ??
+                                                    STATUS_BADGE[displayStatus] ??
                                                     "bg-stone-100 text-stone-500"
                                                   }`}
                                                 >
-                                                  {rb.status}
+                                                  {displayStatus}
                                                 </span>
                                               </div>
                                               <div style={{ width: 200, flexShrink: 0 }} />
                                               <div style={{ width: 210, flexShrink: 0 }} />
                                               <Cell style={{ color: "#78716C" }}>
-                                                {formatFullCurrency(rb.nominal)}
+                                                {formatFullCurrency(Number(reimb.nominal) || 0)}
                                               </Cell>
-                                              <AksiButton
-                                                style={{
-                                                  color: "#005836",
-                                                  backgroundColor: "#EEF6F2",
-                                                }}
-                                              >
-                                                Edit Realisasi
-                                              </AksiButton>
+                                              <div style={{ width: 120, flexShrink: 0 }} />
                                             </Row>
-                                          ))
+                                            );
+                                          })
                                         )}
                                       </div>
                                     )}
