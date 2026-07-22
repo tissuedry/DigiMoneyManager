@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
             budget: {
               include: {
                 mainAnggaran: {
-                  include: { subAnggaran: { include: { keterangan: true } } },
+                  include: { subAnggaran: { include: { keterangan: { include: { reimbursements: { include: { approvals: true } } } } } } },
                 },
               },
             },
@@ -99,6 +99,21 @@ export async function GET(req: NextRequest) {
             nama: k.keterangan,
             alokasi: Number(k.nominalAlokasi),
             realisasi: Number(k.nominalRealisasi),
+            reimbursements: k.reimbursements.map((r) => ({
+              id: r.id,
+              nominal: Number(r.nominal),
+              urlStruk: r.urlStruk,
+              ocrData: r.ocrData,
+              fraudFlag: r.fraudFlag,
+              status: r.status,
+              createdAt: r.createdAt,
+              approvals: r.approvals.map((a) => ({
+                id: a.id,
+                level: a.level,
+                status: a.status,
+                createdAt: a.createdAt,
+              })),
+            })),
           })),
         })),
       }));
