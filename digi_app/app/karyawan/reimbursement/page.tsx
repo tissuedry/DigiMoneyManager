@@ -38,10 +38,12 @@ function KeteranganSearchDropdown({
   options,
   selectedLabel,
   onSelect,
+  hasError,
 }: {
   options: FlatKeteranganOption[];
   selectedLabel: string;
   onSelect: (opt: FlatKeteranganOption) => void;
+  hasError?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -76,7 +78,9 @@ function KeteranganSearchDropdown({
             setIsOpen(true);
           }}
           placeholder="Cari keterangan..."
-          className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
+          className={`w-full bg-white border rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+            hasError ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+          }`}
         />
         <Search size={14} className="absolute right-3.5 top-3.5 text-stone-400 pointer-events-none" />
       </div>
@@ -166,6 +170,13 @@ function AjukanReimbursementContent() {
   const [nominal, setNominal] = useState("");
   const [kategoriBukti, setKategoriBukti] = useState("Struk Pembelian");
   const [keterangan, setKeterangan] = useState("");
+  const [formErrors, setFormErrors] = useState<{
+    posAnggaran?: string;
+    merchant?: string;
+    tanggal?: string;
+    nominal?: string;
+    kategoriBukti?: string;
+  }>({});
 
   // File upload state and preview
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -210,10 +221,20 @@ function AjukanReimbursementContent() {
     setIsResubmitLoading(false);
   }, [resubmitId, reimbData]);
 
+  const clearFieldError = (field: keyof typeof formErrors) => {
+    setFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const handleKeteranganSelect = (opt: FlatKeteranganOption) => {
     setMainAnggaranId(opt.mainId);
     setSubAnggaranId(opt.subId);
     setPosAnggaranId(opt.id);
+    clearFieldError('posAnggaran');
   };
 
   const triggerFileInput = () => {
@@ -276,19 +297,29 @@ function AjukanReimbursementContent() {
   const handleSubmitReimbursement = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!proyekId || !posAnggaranId) {
-      alert('Pilih proyek dan pos anggaran terlebih dahulu');
+    if (!proyekId) return;
+
+    // Clean nominal string (e.g. "450.000" -> "450000")
+    const cleanNominal = nominal.replace(/\./g, '').replace(/,/g, '.');
+
+    const errors: typeof formErrors = {};
+    if (!posAnggaranId) errors.posAnggaran = 'Keterangan wajib dipilih';
+    if (!merchant.trim()) errors.merchant = 'Nama reimbursement wajib diisi';
+    if (!tanggal.trim()) errors.tanggal = 'Tanggal transaksi wajib diisi';
+    if (!cleanNominal || Number(cleanNominal) <= 0) errors.nominal = 'Nominal wajib diisi';
+    if (!kategoriBukti.trim()) errors.kategoriBukti = 'Kategori bukti wajib dipilih';
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
+    setFormErrors({});
 
     setIsLoading(true);
 
     const formData = new FormData();
     formData.append('proyekId', proyekId);
     formData.append('keteranganAnggaranId', posAnggaranId);
-
-    // Clean nominal string (e.g. "450.000" -> "450000")
-    const cleanNominal = nominal.replace(/\./g, '').replace(/,/g, '.');
     formData.append('nominal', cleanNominal);
 
     if (selectedFile) {
@@ -336,6 +367,7 @@ function AjukanReimbursementContent() {
     setKategoriBukti("Struk Pembelian");
     setKeterangan("");
     setResubmitStrukUrl(null);
+    setFormErrors({});
   };
 
   if (isResubmitLoading) {
@@ -556,7 +588,11 @@ function AjukanReimbursementContent() {
                       options={flatKeteranganOptions}
                       selectedLabel={selectedKeteranganNama}
                       onSelect={handleKeteranganSelect}
+                      hasError={!!formErrors.posAnggaran}
                     />
+                    {formErrors.posAnggaran && (
+                      <p className="text-red-500 font-medium">{formErrors.posAnggaran}</p>
+                    )}
                     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs pt-1">
                       <span className="font-bold text-stone-400 tracking-wide">MAIN</span>
                       <span className="text-stone-300">·</span>
@@ -574,35 +610,45 @@ function AjukanReimbursementContent() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 text-left">
-                      <label className="text-stone-500 font-bold">Nama Reimbursement</label>
+                      <label className="text-stone-500 font-bold">Nama Reimbursement <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={merchant}
-                        onChange={(e) => setMerchant(e.target.value)}
+                        onChange={(e) => { setMerchant(e.target.value); clearFieldError('merchant'); }}
                         placeholder="Ketik nama reimbursement..."
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
+                        className={`w-full bg-white border rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+                          formErrors.merchant ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+                        }`}
                       />
+                      {formErrors.merchant && (
+                        <p className="text-red-500 font-medium">{formErrors.merchant}</p>
+                      )}
                     </div>
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center gap-2">
-                        <label className="text-stone-500 font-bold">Tanggal Transaksi</label>
+                        <label className="text-stone-500 font-bold">Tanggal Transaksi <span className="text-red-500">*</span></label>
                         <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                       </div>
                       <div className="relative">
                         <input
                           type="date"
                           value={tanggal}
-                          onChange={(e) => setTanggal(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all [color-scheme:light]"
+                          onChange={(e) => { setTanggal(e.target.value); clearFieldError('tanggal'); }}
+                          className={`w-full bg-white border rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all [color-scheme:light] ${
+                            formErrors.tanggal ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+                          }`}
                         />
                       </div>
+                      {formErrors.tanggal && (
+                        <p className="text-red-500 font-medium">{formErrors.tanggal}</p>
+                      )}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center gap-2">
-                        <label className="text-stone-500 font-bold">Nominal (IDR)</label>
+                        <label className="text-stone-500 font-bold">Nominal (IDR) <span className="text-red-500">*</span></label>
                         <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                       </div>
                       <div className="relative">
@@ -610,22 +656,29 @@ function AjukanReimbursementContent() {
                         <input
                           type="text"
                           value={nominal}
-                          onChange={(e) => setNominal(formatRupiah(e.target.value))}
+                          onChange={(e) => { setNominal(formatRupiah(e.target.value)); clearFieldError('nominal'); }}
                           placeholder="0"
-                          className="w-full bg-white border border-stone-200 rounded-xl pl-9 pr-3 py-3 font-medium text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
+                          className={`w-full bg-white border rounded-xl pl-9 pr-3 py-3 font-medium text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+                            formErrors.nominal ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+                          }`}
                         />
                       </div>
+                      {formErrors.nominal && (
+                        <p className="text-red-500 font-medium">{formErrors.nominal}</p>
+                      )}
                     </div>
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center gap-2">
-                        <label className="text-stone-500 font-bold">Kategori Bukti</label>
+                        <label className="text-stone-500 font-bold">Kategori Bukti <span className="text-red-500">*</span></label>
                         <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                       </div>
                       <div className="relative">
                         <select
                           value={kategoriBukti}
-                          onChange={(e) => setKategoriBukti(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
+                          onChange={(e) => { setKategoriBukti(e.target.value); clearFieldError('kategoriBukti'); }}
+                          className={`w-full bg-white border rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+                            formErrors.kategoriBukti ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+                          }`}
                         >
                           <option value="Struk Pembelian">Struk Pembelian</option>
                           <option value="Kuitansi Resmi">Kuitansi Resmi</option>
@@ -633,6 +686,9 @@ function AjukanReimbursementContent() {
                         </select>
                         <ChevronDown size={14} className="absolute right-3 top-4 text-stone-400 pointer-events-none" />
                       </div>
+                      {formErrors.kategoriBukti && (
+                        <p className="text-red-500 font-medium">{formErrors.kategoriBukti}</p>
+                      )}
                     </div>
                   </div>
 
