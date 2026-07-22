@@ -1,6 +1,47 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
+import sharp from 'sharp';
+
+// Helper to convert image buffer or base64 data URL to WebP format using sharp
+async function processImageToWebp(input: Buffer | string): Promise<string> {
+  let buffer: Buffer;
+
+  if (typeof input === 'string') {
+    if (input.startsWith('data:image/')) {
+      const parts = input.split(',');
+      if (parts[1]) {
+        buffer = Buffer.from(parts[1], 'base64');
+      } else {
+        return input;
+      }
+    } else {
+      return input;
+    }
+  } else {
+    buffer = input;
+  }
+
+  try {
+    const webpBuffer = await sharp(buffer)
+      .resize({
+        width: 1920,
+        height: 1920,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    return `data:image/webp;base64,${webpBuffer.toString('base64')}`;
+  } catch (error) {
+    console.error('Failed to convert image to WebP with sharp:', error);
+    if (Buffer.isBuffer(input)) {
+      return `data:image/jpeg;base64,${input.toString('base64')}`;
+    }
+    return input;
+  }
+}
 
 // Helper to map DB fields to client fields
 const mapReimbursement = (r: any) => {
@@ -129,15 +170,18 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Handle file upload
+      // Handle file upload & WebP conversion
       const file = formData.get('file') as File | null;
       if (file) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const base64Data = buffer.toString('base64');
-        const mimeType = file.type || 'image/jpeg';
-        strukUrl = `data:${mimeType};base64,${base64Data}`;
+        strukUrl = await processImageToWebp(buffer);
       } else {
-        strukUrl = formData.get('strukUrl') as string || '/uploads/placeholder.png';
+        const rawStrukUrl = (formData.get('strukUrl') as string) || '';
+        if (rawStrukUrl) {
+          strukUrl = await processImageToWebp(rawStrukUrl);
+        } else {
+          strukUrl = '/uploads/placeholder.png';
+        }
       }
     } else {
       // Parse as standard JSON
@@ -145,7 +189,12 @@ export async function POST(req: NextRequest) {
       proyekId = body.proyekId;
       keteranganAnggaranId = body.keteranganAnggaranId || body.posAnggaranId;
       nominal = parseFloat(body.nominal);
-      strukUrl = body.strukUrl || '/uploads/placeholder.png';
+      const rawStrukUrl = body.strukUrl || '';
+      if (rawStrukUrl) {
+        strukUrl = await processImageToWebp(rawStrukUrl);
+      } else {
+        strukUrl = '/uploads/placeholder.png';
+      }
       ocrData = body.ocrData || {};
     }
 
