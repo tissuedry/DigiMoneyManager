@@ -125,7 +125,7 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
   }, []);
 
   return (
-    <div className="relative flex-1" ref={ref}>
+    <div className="relative flex-1 min-w-0" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -480,7 +480,7 @@ export default function KelolaProyekPage() {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
-                <p className="text-2xl font-extrabold text-stone-900">{formatShort(proyek.totalRAB)}</p>
+                <p className="text-2xl font-extrabold text-stone-900 whitespace-nowrap">{formatShort(proyek.totalRAB)}</p>
               </div>
             </div>
 
@@ -490,28 +490,30 @@ export default function KelolaProyekPage() {
             {/* Realisasi vs Sisa */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
               {/* Realisasi */}
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
-                <div>
+              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
                   <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
-                  <p className="text-xl font-extrabold text-stone-900 mt-0.5">{formatShort(proyek.realisasi)}</p>
                 </div>
+                <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">{formatShort(proyek.realisasi)}</p>
               </div>
 
               {/* Sisa */}
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
-                <div>
-                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
-                  <p className="text-xl font-extrabold text-stone-900 mt-0.5">
-                    {formatShort(proyek.totalRAB - proyek.realisasi)}
-                  </p>
+              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
+                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
+                  </div>
+                  {unallocated > 0 && (
+                    <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap">
+                      {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
+                    </span>
+                  )}
                 </div>
-                {unallocated > 0 && (
-                  <span className="ml-auto text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
-                    {formatShort(unallocated)} belum dialokasikan
-                  </span>
-                )}
+                <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">
+                  {formatShort(proyek.totalRAB - proyek.realisasi)}
+                </p>
               </div>
             </div>
           </div>
@@ -586,9 +588,9 @@ export default function KelolaProyekPage() {
 
                 {/* PM row (read-only) */}
                 {proyek.tim.filter((m) => m.role === "Project Manager").map((pm) => (
-                  <div key={pm.id} className="grid grid-cols-2 items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2">
-                    <span className="text-[11px] font-semibold text-emerald-700">Project Manager</span>
-                    <div className="flex items-center gap-2">
+                  <div key={pm.id} className="flex items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2 min-w-0">
+                    <span className="flex-1 min-w-0 text-[11px] font-semibold text-emerald-700 truncate">Project Manager</span>
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
                       <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${avatarColor(pm.inisial)}`}>
                         {pm.inisial}
                       </div>
@@ -599,27 +601,27 @@ export default function KelolaProyekPage() {
 
                 <div className="space-y-2">
                   {editableRows.map((row, idx) => (
-                    <div key={idx} className="grid grid-cols-2 items-center bg-stone-50 border border-stone-100 rounded-xl px-3 py-2.5 gap-2">
+                    <div key={idx} className="flex items-center bg-stone-50 border border-stone-100 rounded-xl px-2.5 py-2 gap-2 min-w-0">
                       <input
                         type="text"
                         placeholder="Role / Divisi"
                         value={row.divisi}
                         onChange={(e) => updateTimRow(idx, "divisi", e.target.value)}
-                        className="text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
+                        className="flex-1 min-w-0 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
                       />
-                      <div className="flex gap-1">
-                        <MemberSelect
-                          users={allUsers}
-                          selectedUserId={row.userId}
-                          onSelect={(uid) => updateTimRow(idx, "userId", uid)}
-                        />
-                        <button
-                          onClick={() => removeTimRow(idx)}
-                          className="p-1.5 hover:bg-red-50 rounded-lg text-stone-400 hover:text-red-500 transition cursor-pointer shrink-0"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
+                      <MemberSelect
+                        users={allUsers}
+                        selectedUserId={row.userId}
+                        onSelect={(uid) => updateTimRow(idx, "userId", uid)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeTimRow(idx)}
+                        className="p-1.5 hover:bg-red-50 rounded-lg text-stone-400 hover:text-red-500 transition cursor-pointer shrink-0"
+                        title="Hapus Anggota"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   ))}
                 </div>

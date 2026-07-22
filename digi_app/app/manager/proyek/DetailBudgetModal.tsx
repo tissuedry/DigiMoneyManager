@@ -27,11 +27,9 @@ export default function DetailBudgetModal({
 }: Props) {
   if (!showDetailBudgetModal) return null;
 
-  const formatMillionsShort = (num: number) => {
-    if (num >= 1e9) return `${(num / 1e9).toFixed(1)} M`;
-    if (num >= 1e6) return `${(num / 1e6).toFixed(1)} jt`;
-    if (num >= 1e3) return `${(num / 1e3).toFixed(1)} rb`;
-    return `${num.toFixed(1)}`;
+  const formatFullCurrency = (num: number) => {
+    const n = Number(num) || 0;
+    return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
   };
 
   const posAnggaran = detailedProjectInfo?.budget?.posAnggaran || [];
@@ -39,7 +37,7 @@ export default function DetailBudgetModal({
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
       <div style={{
-        width: 920,
+        width: 1080,
         background: 'white',
         boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
         borderRadius: 20,
@@ -78,14 +76,14 @@ export default function DetailBudgetModal({
           padding: '14px 40px 10px 40px',
           borderBottom: '0.80px #E6E1D4 solid',
           display: 'grid',
-          gridTemplateColumns: '384px 180px 150px 150px',
+          gridTemplateColumns: '380px 190px 215px 215px',
           alignItems: 'center',
           flexShrink: 0
         }}>
           <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>MAIN · SUB · KETERANGAN</div>
-          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>PROGRESS</div>
-          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>ALOKASI</div>
-          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase' }}>REALISASI</div>
+          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase', textAlign: 'center' }}>PROGRESS</div>
+          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase', textAlign: 'center' }}>ALOKASI</div>
+          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '700', letterSpacing: 0.63, textTransform: 'uppercase', textAlign: 'center' }}>REALISASI</div>
         </div>
 
         {/* Scrollable Content Area */}
@@ -137,7 +135,7 @@ export default function DetailBudgetModal({
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '384px 180px 150px 150px',
+                      gridTemplateColumns: '380px 190px 215px 215px',
                       alignItems: 'center',
                       padding: '10px 12px',
                       background: '#F6F4EF',
@@ -178,20 +176,20 @@ export default function DetailBudgetModal({
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
-                      <div style={{ flex: 1, height: 6, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
+                      <div style={{ flex: 1, height: 8, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
                         <div style={{ width: `${pctPos}%`, height: '100%', background: mainBarColor, borderRadius: 99 }} />
                       </div>
-                      <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'right' }}>
+                      <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'left' }}>
                         {pctPosText}%
                       </span>
                     </div>
 
-                    <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
-                      Rp {formatMillionsShort(alokasiPos)}
+                    <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {formatFullCurrency(alokasiPos)}
                     </div>
 
-                    <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
-                      Rp {formatMillionsShort(terpakaiPos)}
+                    <div style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {formatFullCurrency(terpakaiPos)}
                     </div>
                   </div>
 
@@ -229,7 +227,7 @@ export default function DetailBudgetModal({
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '384px 180px 150px 150px',
+                            gridTemplateColumns: '380px 190px 215px 215px',
                             alignItems: 'center',
                             padding: '8px 12px',
                             background: 'white',
@@ -270,20 +268,20 @@ export default function DetailBudgetModal({
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
-                            <div style={{ flex: 1, height: 6, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
+                            <div style={{ flex: 1, height: 8, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
                               <div style={{ width: `${pctSub}%`, height: '100%', background: subBarColor, borderRadius: 99 }} />
                             </div>
-                            <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'right' }}>
+                            <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'left' }}>
                               {pctSubText}%
                             </span>
                           </div>
 
-                          <div style={{ color: '#14130F', fontSize: 12, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
-                            Rp {formatMillionsShort(alokasiSub)}
+                          <div style={{ color: '#14130F', fontSize: 12, fontFamily: 'IBM Plex Mono', fontWeight: '400', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {formatFullCurrency(alokasiSub)}
                           </div>
 
-                          <div style={{ color: '#14130F', fontSize: 12, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
-                            Rp {formatMillionsShort(terpakaiSub)}
+                          <div style={{ color: '#14130F', fontSize: 12, fontFamily: 'IBM Plex Mono', fontWeight: '400', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {formatFullCurrency(terpakaiSub)}
                           </div>
                         </div>
 
@@ -311,7 +309,7 @@ export default function DetailBudgetModal({
                               <div
                                 style={{
                                   display: 'grid',
-                                  gridTemplateColumns: '384px 180px 150px 150px',
+                                  gridTemplateColumns: '380px 190px 215px 215px',
                                   alignItems: 'center',
                                   padding: '6px 12px',
                                   background: 'white',
@@ -353,12 +351,12 @@ export default function DetailBudgetModal({
 
                                 <div />
 
-                                <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
-                                  Rp {formatMillionsShort(alokasiKet)}
+                                <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '400', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                  {formatFullCurrency(alokasiKet)}
                                 </div>
 
-                                <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
-                                  Rp {formatMillionsShort(realisasiKet)}
+                                <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '400', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                  {formatFullCurrency(realisasiKet)}
                                 </div>
                               </div>
 
@@ -394,7 +392,7 @@ export default function DetailBudgetModal({
                                 return (
                                   <div key={reimb.id} style={{
                                     display: 'grid',
-                                    gridTemplateColumns: '384px 180px 150px 150px',
+                                    gridTemplateColumns: '380px 190px 215px 215px',
                                     alignItems: 'center',
                                     padding: '4px 12px',
                                     background: 'rgba(0, 145, 98, 0.02)'
@@ -455,8 +453,8 @@ export default function DetailBudgetModal({
                                     <div />
                                     <div />
 
-                                    <div style={{ color: '#6A6660', fontSize: 11, fontFamily: 'IBM Plex Mono', fontWeight: '400' }}>
-                                      Rp {formatMillionsShort(nominalReimb)}
+                                    <div style={{ color: '#6A6660', fontSize: 11, fontFamily: 'IBM Plex Mono', fontWeight: '400', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                      {formatFullCurrency(nominalReimb)}
                                     </div>
                                   </div>
                                 );
