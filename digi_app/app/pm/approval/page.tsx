@@ -20,8 +20,11 @@ type Submission = {
   id: string;
   dbId: number;
   date: string; // tanggal transaksi
+  notaDate?: string;
   submittedAt: string; // waktu pengajuan untuk alur approval
   merchant: string;
+  catatanPm: string;
+  catatanKeuangan: string;
   project: string;
   main: string;
   sub: string;
@@ -139,20 +142,20 @@ export default function AntrianApprovalPage() {
   const mappedSubmissions = reimbursements.map((r: any): Submission => {
     const pmApproval = r.approvals?.find((a: any) => a.level === 'PM');
     const financeApproval = r.approvals?.find((a: any) => a.level === 'KEUANGAN');
+    const submissionTime = r.ocrData?.submittedAt || r.createdAt || r.ocrData?.tanggal;
 
-    // Build steps dynamically
     const steps: ApprovalStep[] = [
       {
         label: "Pengajuan dikirim",
-        sublabel: `${r.user?.nama || 'Karyawan'} • ${r.ocrData?.tanggal ? formatTanggal(r.ocrData?.tanggal) : '-'}`,
+        sublabel: `${r.user?.nama || 'Karyawan'} • ${submissionTime ? formatDateTime(submissionTime) : '-'}`,
         state: "done"
       },
       {
         label: "Validasi Project Manager",
-        sublabel: pmApproval 
+        sublabel: pmApproval
           ? `${pmApproval.approver?.nama || 'Project Manager'} • ${formatDateTime(pmApproval.timestamp)}`
           : (r.status === 'SUBMITTED' ? "Menunggu" : "Menunggu • –"),
-        state: pmApproval 
+        state: pmApproval
           ? (pmApproval.status === 'REJECTED' ? "rejected" : "done")
           : (r.status === 'SUBMITTED' ? "active" : "pending")
       },
@@ -167,7 +170,7 @@ export default function AntrianApprovalPage() {
       },
       {
         label: "Dicairkan",
-        sublabel: r.status === 'APPROVED' 
+        sublabel: r.status === 'APPROVED'
           ? `Jurnal otomatis • ${financeApproval ? formatDateTime(financeApproval.timestamp) : ''}`
           : "Jurnal otomatis • –",
         state: r.status === 'APPROVED' ? "done" : "pending"
@@ -196,11 +199,14 @@ export default function AntrianApprovalPage() {
     return {
       id: `RB-${String(r.id)}`,
       dbId: r.id,
-      date: r.ocrData?.tanggal ? formatTanggal(r.ocrData.tanggal) : 'N/A',
+      date: submissionTime ? formatDateTime(submissionTime) : 'N/A',
+      notaDate: r.ocrData?.tanggal ? formatTanggal(r.ocrData.tanggal) : 'N/A',
       submittedAt: r.createdAt ? formatDateTime(r.createdAt) : 'N/A',
       merchant: r.ocrData?.merchant || 'N/A',
       project: r.proyek?.nama || 'N/A',
       main: r.posAnggaran?.namaPos || 'N/A',
+      catatanPm: pmApproval?.catatan || "",
+      catatanKeuangan: financeApproval?.catatan || "",
       sub: r.posAnggaran?.subAnggaran?.namaSub || 'N/A',
       ket: r.posAnggaran?.keterangan || r.posAnggaran?.deskripsi || 'N/A',
       amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
@@ -294,8 +300,8 @@ export default function AntrianApprovalPage() {
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-      <Sidebar 
-        isSidebarOpen={isSidebarOpen} 
+      <Sidebar
+        isSidebarOpen={isSidebarOpen}
         onClose={closeSidebar}
         userRole="Project Manager"
       />
@@ -319,17 +325,15 @@ export default function AntrianApprovalPage() {
                 <button
                   key={tab}
                   onClick={() => handleTabChange(tab)}
-                  className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
-                    activeTab === tab
-                      ? "bg-white text-stone-900 font-semibold shadow-sm"
-                      : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
-                  }`}
+                  className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${activeTab === tab
+                    ? "bg-white text-stone-900 font-semibold shadow-sm"
+                    : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                    }`}
                 >
                   {tab}
                   <span
-                    className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
-                      activeTab === tab ? "bg-stone-100 text-stone-600" : "bg-stone-200/70 text-stone-400"
-                    }`}
+                    className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab ? "bg-stone-100 text-stone-600" : "bg-stone-200/70 text-stone-400"
+                      }`}
                   >
                     {tabCounts[tab]}
                   </span>
@@ -398,7 +402,7 @@ export default function AntrianApprovalPage() {
                       {/* Project Header Card */}
                       <button
                         onClick={() => toggleProject(projectName)}
-                        className="w-full flex items-center justify-between px-3.5 py-3.5 bg-white border border-stone-205 rounded-2xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] hover:border-stone-300 hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.08)] transition-all duration-200 text-left cursor-pointer"
+                        className="w-full flex items-center justify-between px-3.5 py-3.5 bg-white rounded-2xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] hover:bg-stone-100 transition-colors duration-200 text-left cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">
@@ -413,7 +417,7 @@ export default function AntrianApprovalPage() {
                             </span>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                           <span className="text-[12px] font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded-lg">
                             {formattedTotal}
@@ -435,11 +439,10 @@ export default function AntrianApprovalPage() {
                               <button
                                 key={item.id}
                                 onClick={() => setSelectedId(item.id)}
-                                className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${
-                                  isSelected
-                                    ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
-                                    : "bg-white border-stone-200 hover:bg-stone-50"
-                                }`}
+                                className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${isSelected
+                                  ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
+                                  : "bg-white border-stone-200 hover:bg-stone-50"
+                                  }`}
                               >
                                 <div className="flex items-start gap-3">
                                   {/* Avatar inisial */}
@@ -564,7 +567,7 @@ export default function AntrianApprovalPage() {
                   <h2 className="text-[22px] font-bold text-stone-900">{selected.merchant}</h2>
                   <p className="text-[13px] text-stone-400 mt-0.5">
                     oleh{" "}
-                    <span className="font-semibold text-stone-600">{selected.pengaju}</span> ·{" "}
+                    <span className="font-semibold text-stone-600">{selected.pengaju}</span> pada{" "}
                     {selected.date}
                   </p>
                 </div>
@@ -585,7 +588,8 @@ export default function AntrianApprovalPage() {
                       { label: "Main", value: selected.main },
                       { label: "Sub", value: selected.sub },
                       { label: "Keterangan", value: selected.ket },
-                      { label: "Tanggal Transaksi", value: selected.date },
+                      { label: "Tanggal Pengajuan", value: selected.date },
+                      { label: "Tanggal Struk/Nota", value: selected.notaDate },
                       { label: "Pengaju", value: selected.pengaju },
                     ].map(({ label, value }) => (
                       <div key={label} className="flex items-center justify-between text-[13px] py-2.5 first:pt-0 last:pb-0">
@@ -599,15 +603,16 @@ export default function AntrianApprovalPage() {
                   </div>
 
                   {/* Keterangan */}
+                  {/* Keterangan dari Pengaju */}
                   <div>
-                    <p className="text-[13px] text-stone-500 mb-2">Keterangan dari pengaju</p>
+                    <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
                     <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
                       {selected.keterangan}
                     </div>
                   </div>
 
-                  {/* Catatan opsional — hanya tampil jika status Menunggu PM */}
-                  {selected.status === "Menunggu PM" && (
+                  {/* Catatan opsional — Input jika Menunggu PM, Card jika sudah lewat */}
+                  {selected.status === "Menunggu PM" ? (
                     <div>
                       <p className="text-[13px] text-stone-500 mb-2">Catatan untuk Keuangan (opsional)</p>
                       <textarea
@@ -617,6 +622,26 @@ export default function AntrianApprovalPage() {
                         placeholder="Misal: 'Pengajuan sesuai dengan jadwal site visit minggu ini.'"
                         className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[13px] text-stone-700 placeholder:text-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition"
                       />
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-[13px] text-stone-500 mb-2">Catatan Project Manager</p>
+                      <div className="bg-[#f5f4ef] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
+                        {selected.catatanPm && selected.catatanPm.trim() !== ""
+                          ? selected.catatanPm
+                          : "Tidak ada catatan dari Project Manager."}
+                      </div>
+                    </div>
+                  )}
+
+                  {(selected.status === "Dicairkan" || selected.status === "Ditolak") && (
+                    <div>
+                      <p className="text-[13px] text-stone-500 mb-2">Catatan Tim Keuangan</p>
+                      <div className="bg-[#f5f4ef] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
+                        {selected.catatanKeuangan && selected.catatanKeuangan.trim() !== ""
+                          ? selected.catatanKeuangan
+                          : "Tidak ada catatan dari Tim Keuangan."}
+                      </div>
                     </div>
                   )}
 
@@ -631,9 +656,8 @@ export default function AntrianApprovalPage() {
                             <StepIcon state={step.state} number={i + 1} />
                             {i < selected.steps.length - 1 && (
                               <div
-                                className={`w-px flex-1 my-1 ${
-                                  step.state === "done" ? "bg-[#2d6a4f]" : "bg-stone-200"
-                                }`}
+                                className={`w-px flex-1 my-1 ${step.state === "done" ? "bg-[#2d6a4f]" : "bg-stone-200"
+                                  }`}
                                 style={{ minHeight: "20px" }}
                               />
                             )}
@@ -641,9 +665,8 @@ export default function AntrianApprovalPage() {
                           {/* Teks */}
                           <div className="pb-4">
                             <p
-                              className={`text-[13px] font-semibold ${
-                                step.state === "pending" ? "text-stone-400" : "text-stone-800"
-                              }`}
+                              className={`text-[13px] font-semibold ${step.state === "pending" ? "text-stone-400" : "text-stone-800"
+                                }`}
                             >
                               {step.label}
                             </p>
@@ -657,10 +680,10 @@ export default function AntrianApprovalPage() {
                   {/* Tombol aksi */}
                   <div className="flex items-center justify-between pt-2 border-t border-stone-100">
                     {selected.strukUrl ? (
-                      <a 
-                        href={selected.strukUrl} 
+                      <a
+                        href={selected.strukUrl}
                         download={`bukti-${selected.id}.png`}
-                        target="_blank" 
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-600 hover:bg-stone-50 transition cursor-pointer"
                       >
@@ -674,13 +697,13 @@ export default function AntrianApprovalPage() {
 
                     {selected.status === "Menunggu PM" && (
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => handleProcess('REJECT')}
                           className="flex items-center gap-2 px-4 py-2 bg-[#fee2e2] text-[#be123c] rounded-full text-[13px] font-semibold hover:bg-[#fecaca] transition cursor-pointer"
                         >
                           <X size={14} /> Tolak
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleProcess('APPROVE')}
                           className="flex items-center gap-2 px-4 py-2 bg-[#2d6a4f] text-white rounded-full text-[13px] font-semibold hover:bg-[#245c43] transition shadow-sm cursor-pointer"
                         >

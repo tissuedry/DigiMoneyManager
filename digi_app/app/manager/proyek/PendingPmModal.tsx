@@ -201,17 +201,29 @@ export default function PendingPmModal({
 
                   return (
                     <div key={main.id} style={{ borderBottom: gi < mainAnggaranList.length - 1 ? '1px solid #E6E1D4' : 'none' }}>
-                      <div style={{
-                        padding: '9px 12px',
-                        background: 'white',
-                        borderBottom: '1px solid #E6E1D4',
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontWeight: 700,
-                        fontSize: 12.5,
-                        color: '#14130F',
-                      }}>
-                        {main.namaMain}
-                      </div>
+                      
+                      
+                      {/* Badge MAIN */}
+  <span 
+    className="inline-flex items-center justify-center text-[13px] font-bold uppercase tracking-wide rounded text-black px-1.5 py-0.5"
+  >
+    MAIN
+  </span>
+
+  {/* Judul Nama Main */}
+  <span 
+    style={{ 
+      color: '#14130F', 
+      fontSize: 13, 
+      fontFamily: 'Plus Jakarta Sans', 
+      fontWeight: '500', 
+      textOverflow: 'ellipsis', 
+      overflow: 'hidden', 
+      whiteSpace: 'nowrap' 
+    }}
+  >
+    {main.namaMain}
+  </span>
 
                       {subAnggarans.map((sub: any) => {
                         const childPendingKets = mainPending.filter((r: any) => {
@@ -251,7 +263,9 @@ export default function PendingPmModal({
                               >
                                 <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
-                              <span style={{ flex: 1, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 12, color: '#14130F' }}>
+                              
+                                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>SUB</span>
+                              <span style={{ flex: 1, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 12, color: '#14130F', padding:'2px 6px' }}>
                                 {sub.namaSub}
                               </span>
                               <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 400, fontSize: 11, color: '#9A948B' }}>
@@ -440,7 +454,7 @@ export default function PendingPmModal({
                                   <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
                                     SUB BARU
                                   </span>
-                                  <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                  <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 500 }}>
                                     {subName}
                                   </span>
                                   <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
