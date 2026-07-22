@@ -11,9 +11,11 @@ import {
   Upload,
   Check,
   ChevronDown,
+  ChevronRight,
   ArrowLeft,
   RefreshCw,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
 
@@ -23,26 +25,27 @@ function formatRupiah(value: string): string {
   return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-interface PosAnggaranOption {
+interface FlatKeteranganOption {
   id: string;
-  label: string;
-  disabled?: boolean;
-  disabledNote?: string;
+  keterangan: string;
+  mainId: string;
+  mainNama: string;
+  subId: string;
+  subNama: string;
 }
 
-function PosAnggaranDropdown({
-  value,
-  onChange,
+function KeteranganSearchDropdown({
   options,
-  placeholder,
-  disabled,
+  selectedLabel,
+  onSelect,
+  hasError,
 }: {
-  value: string;
-  onChange: (id: string) => void;
-  options: PosAnggaranOption[];
-  placeholder: string;
-  disabled?: boolean;
+  options: FlatKeteranganOption[];
+  selectedLabel: string;
+  onSelect: (opt: FlatKeteranganOption) => void;
+  hasError?: boolean;
 }) {
+  const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -56,57 +59,54 @@ function PosAnggaranDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selected = options.find((o) => o.id === value);
+  const filtered = query.trim()
+    ? options.filter((opt) => opt.keterangan.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => !disabled && setIsOpen((prev) => !prev)}
-        disabled={disabled}
-        className={`w-full flex items-center justify-between gap-2 bg-white border border-stone-200 rounded-xl pl-3 pr-3 py-3 font-medium text-left transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] disabled:bg-stone-50 disabled:text-stone-400 disabled:cursor-not-allowed ${!selected ? 'text-stone-400' : 'text-stone-800'}`}
-      >
-        <span className="truncate">{selected ? selected.label : placeholder}</span>
-        <ChevronDown size={14} className={`text-stone-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
+      <div className="relative">
+        <input
+          type="text"
+          value={isOpen ? query : selectedLabel}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => {
+            setQuery('');
+            setIsOpen(true);
+          }}
+          placeholder="Cari keterangan..."
+          className={`w-full bg-white border rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+            hasError ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+          }`}
+        />
+        <Search size={14} className="absolute right-3.5 top-3.5 text-stone-400 pointer-events-none" />
+      </div>
 
-      {isOpen && !disabled && (
-        <div className="absolute z-20 mt-1.5 w-full bg-white border border-stone-200 rounded-xl shadow-lg shadow-stone-900/5 overflow-hidden max-h-64 overflow-y-auto py-1">
-          {options.length === 0 && (
-            <div className="px-3 py-2.5 text-stone-400 text-xs font-medium">Tidak ada pilihan</div>
+      {isOpen && (
+        <div className="absolute z-20 mt-1.5 w-full bg-white border border-stone-200 rounded-xl shadow-lg shadow-stone-900/5 overflow-hidden max-h-72 overflow-y-auto py-1">
+          {filtered.length === 0 && (
+            <div className="px-3 py-2.5 text-stone-400 text-xs font-medium">Tidak ada keterangan yang ditemukan</div>
           )}
-          {options.map((opt) => {
-            const isSelected = opt.id === value;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                disabled={opt.disabled}
-                onClick={() => {
-                  if (opt.disabled) return;
-                  onChange(opt.id);
-                  setIsOpen(false);
-                }}
-                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-xs transition-colors ${
-                  opt.disabled
-                    ? 'text-stone-300 cursor-not-allowed'
-                    : isSelected
-                    ? 'bg-emerald-50 text-emerald-700 font-bold'
-                    : 'text-stone-700 hover:bg-stone-50 font-medium cursor-pointer'
-                }`}
-              >
-                <span className="truncate">{opt.label}</span>
-                {opt.disabled && opt.disabledNote && (
-                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-400">
-                    {opt.disabledNote}
-                  </span>
-                )}
-                {!opt.disabled && isSelected && (
-                  <Check size={13} className="text-emerald-600 shrink-0" />
-                )}
-              </button>
-            );
-          })}
+          {filtered.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => {
+                onSelect(opt);
+                setQuery('');
+                setIsOpen(false);
+              }}
+              className="w-full text-left px-3 py-2.5 hover:bg-stone-50 transition-colors"
+            >
+              <div className="text-xs font-bold text-stone-800 truncate">{opt.keterangan}</div>
+              <div className="text-[10px] text-stone-400 font-medium mt-0.5 truncate">
+                Main: {opt.mainNama} · Sub: {opt.subNama}
+              </div>
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -150,17 +150,39 @@ function AjukanReimbursementContent() {
   const selectedKeteranganNama = keteranganList.find((k: any) => String(k.id) === posAnggaranId)?.keterangan ?? '';
   const isPosAnggaranSelected = !!(mainAnggaranId && subAnggaranId && posAnggaranId);
 
+  // Flat list of every Keterangan (leaf) across all Main/Sub, for the searchable dropdown
+  const flatKeteranganOptions: FlatKeteranganOption[] = mainAnggaranList.flatMap((m: any) =>
+    (m.subAnggaran ?? []).flatMap((s: any) =>
+      (s.keterangan ?? []).map((k: any) => ({
+        id: String(k.id),
+        keterangan: k.keterangan,
+        mainId: String(m.id),
+        mainNama: m.namaMain,
+        subId: String(s.id),
+        subNama: s.namaSub,
+      }))
+    )
+  );
+
   // Form states - Reimbursement fields
   const [merchant, setMerchant] = useState("");
   const [tanggal, setTanggal] = useState("");
   const [nominal, setNominal] = useState("");
   const [kategoriBukti, setKategoriBukti] = useState("Struk Pembelian");
   const [keterangan, setKeterangan] = useState("");
+  const [formErrors, setFormErrors] = useState<{
+    posAnggaran?: string;
+    merchant?: string;
+    tanggal?: string;
+    nominal?: string;
+    kategoriBukti?: string;
+  }>({});
 
   // File upload state and preview
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState('/bukti_struk.png');
+  const [isDragActive, setIsDragActive] = useState(false);
 
   useEffect(() => {
     if (projects.length > 0 && !proyekId && !resubmitId) {
@@ -199,15 +221,20 @@ function AjukanReimbursementContent() {
     setIsResubmitLoading(false);
   }, [resubmitId, reimbData]);
 
-  const handleMainAnggaranChange = (id: string) => {
-    setMainAnggaranId(id);
-    setSubAnggaranId('');
-    setPosAnggaranId('');
+  const clearFieldError = (field: keyof typeof formErrors) => {
+    setFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   };
 
-  const handleSubAnggaranChange = (id: string) => {
-    setSubAnggaranId(id);
-    setPosAnggaranId('');
+  const handleKeteranganSelect = (opt: FlatKeteranganOption) => {
+    setMainAnggaranId(opt.mainId);
+    setSubAnggaranId(opt.subId);
+    setPosAnggaranId(opt.id);
+    clearFieldError('posAnggaran');
   };
 
   const triggerFileInput = () => {
@@ -215,17 +242,24 @@ function AjukanReimbursementContent() {
   };
 
   const handleUploadTrigger = () => {
-    if (!isPosAnggaranSelected) {
-      alert('Pilih pos anggaran (Main, Sub, dan Keterangan) terlebih dahulu');
-      return;
-    }
     triggerFileInput();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    await processFile(file);
+  };
 
+  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  const processFile = async (file: File) => {
     setSelectedFile(file);
 
     // Create object URL for preview
@@ -244,7 +278,6 @@ function AjukanReimbursementContent() {
       });
       const data = await res.json();
       if (data.success) {
-        setMerchant(data.data.merchant);
         setTanggal(data.data.tanggal);
         setNominal(formatRupiah(data.data.nominal.toString()));
         setKategoriBukti(data.data.kategoriBukti);
@@ -264,19 +297,29 @@ function AjukanReimbursementContent() {
   const handleSubmitReimbursement = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!proyekId || !posAnggaranId) {
-      alert('Pilih proyek dan pos anggaran terlebih dahulu');
+    if (!proyekId) return;
+
+    // Clean nominal string (e.g. "450.000" -> "450000")
+    const cleanNominal = nominal.replace(/\./g, '').replace(/,/g, '.');
+
+    const errors: typeof formErrors = {};
+    if (!posAnggaranId) errors.posAnggaran = 'Keterangan wajib dipilih';
+    if (!merchant.trim()) errors.merchant = 'Nama reimbursement wajib diisi';
+    if (!tanggal.trim()) errors.tanggal = 'Tanggal transaksi wajib diisi';
+    if (!cleanNominal || Number(cleanNominal) <= 0) errors.nominal = 'Nominal wajib diisi';
+    if (!kategoriBukti.trim()) errors.kategoriBukti = 'Kategori bukti wajib dipilih';
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
+    setFormErrors({});
 
     setIsLoading(true);
 
     const formData = new FormData();
     formData.append('proyekId', proyekId);
     formData.append('keteranganAnggaranId', posAnggaranId);
-
-    // Clean nominal string (e.g. "450.000" -> "450000")
-    const cleanNominal = nominal.replace(/\./g, '').replace(/,/g, '.');
     formData.append('nominal', cleanNominal);
 
     if (selectedFile) {
@@ -324,6 +367,7 @@ function AjukanReimbursementContent() {
     setKategoriBukti("Struk Pembelian");
     setKeterangan("");
     setResubmitStrukUrl(null);
+    setFormErrors({});
   };
 
   if (isResubmitLoading) {
@@ -425,75 +469,18 @@ function AjukanReimbursementContent() {
           {/* STATE 1: UPLOAD STRUK */}
           {currentState === 'upload' && (
             <>
-              {/* PILIH POS ANGGARAN */}
-              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-bold text-stone-900">Pilih pos anggaran</h2>
-                  <p className="text-xs text-stone-400">
-                    Tentukan dulu pengeluaran ini masuk ke pos mana, sebelum upload struk.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold text-stone-700">
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-stone-500 font-bold">Main <span className="text-red-500">*</span></label>
-                    <PosAnggaranDropdown
-                      value={mainAnggaranId}
-                      onChange={handleMainAnggaranChange}
-                      placeholder="Pilih main..."
-                      options={mainAnggaranList.map((m: any) => ({
-                        id: String(m.id),
-                        label: m.namaMain,
-                        disabled: (m.subAnggaran?.length ?? 0) === 0,
-                        disabledNote: 'Belum ada sub',
-                      }))}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-stone-500 font-bold">Sub <span className="text-red-500">*</span></label>
-                    <PosAnggaranDropdown
-                      value={subAnggaranId}
-                      onChange={handleSubAnggaranChange}
-                      placeholder="Pilih sub..."
-                      disabled={!mainAnggaranId}
-                      options={subAnggaranList.map((s: any) => ({
-                        id: String(s.id),
-                        label: s.namaSub,
-                        disabled: (s.keterangan?.length ?? 0) === 0,
-                        disabledNote: 'Belum ada keterangan',
-                      }))}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-stone-500 font-bold">Keterangan <span className="text-red-500">*</span></label>
-                    <PosAnggaranDropdown
-                      value={posAnggaranId}
-                      onChange={setPosAnggaranId}
-                      placeholder="Pilih keterangan..."
-                      disabled={!subAnggaranId}
-                      options={keteranganList.map((k: any) => ({
-                        id: String(k.id),
-                        label: k.keterangan,
-                      }))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className={`bg-white border border-stone-200 rounded-2xl p-6 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center transition-opacity ${!isPosAnggaranSelected ? 'opacity-60' : ''}`}>
+              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileChange}
                   className="hidden"
-                  accept="image/*,application/pdf"
+                  accept="image/*"
                 />
                 <div className="md:col-span-6 space-y-4">
                   <h2 className="text-lg font-bold text-stone-900">Upload foto struk atau nota</h2>
                   <p className="text-xs text-stone-400 leading-relaxed">
-                    Pastikan struk terlihat jelas, tidak terlipat, dan seluruh informasi (merchant, tanggal, total) terbaca. Format yang didukung: JPG, PNG, HEIC, atau PDF dengan ukuran maksimal 10MB.
+                    Pastikan struk terlihat jelas, tidak terlipat, dan seluruh informasi (tanggal, nominal) terbaca. Format yang didukung: JPG, PNG, HEIC, atau format gambar lainnya dengan ukuran maksimal 10MB.
                   </p>
                   <div className="flex items-center gap-2.5 pt-2">
                     <button onClick={handleUploadTrigger} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#008F5D] hover:bg-[#007A4F] text-white text-xs font-bold rounded-xl transition shadow-sm">
@@ -505,12 +492,23 @@ function AjukanReimbursementContent() {
                   </div>
                 </div>
 
-                <div onClick={handleUploadTrigger} className="md:col-span-6 border-2 border-dashed border-stone-200 hover:border-emerald-500 bg-stone-50/50 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition group">
-                  <div className="w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:text-emerald-600 shadow-sm transition">
+                <div
+                  onClick={handleUploadTrigger}
+                  onDragEnter={(e) => { e.preventDefault(); setIsDragActive(true); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDragActive(false); }}
+                  onDrop={handleFileDrop}
+                  className={`md:col-span-6 border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition group ${
+                    isDragActive ? 'border-emerald-500 bg-emerald-50/50' : 'border-stone-200 hover:border-emerald-500 bg-stone-50/50'
+                  }`}
+                >
+                  <div className={`pointer-events-none w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center shadow-sm transition ${
+                    isDragActive ? 'text-emerald-600' : 'text-stone-400 group-hover:text-emerald-600'
+                  }`}>
                     <Upload size={16} />
                   </div>
-                  <span className="text-xs font-bold text-stone-700">Klik atau drop struk di sini</span>
-                  <span className="text-[10px] text-stone-400">JPG, PNG, HEIC, PDF maks. 10MB</span>
+                  <span className="pointer-events-none text-xs font-bold text-stone-700">Klik atau drop struk di sini</span>
+                  <span className="pointer-events-none text-[10px] text-stone-400">JPG, PNG, HEIC, dll. maks. 10MB</span>
                 </div>
               </div>
             </>
@@ -576,19 +574,6 @@ function AjukanReimbursementContent() {
                   <div className="inline-block px-2.5 py-0.5 bg-[#DDF2E8] text-[#198754] text-[10px] font-bold rounded-md">
                     Data berhasil diekstrak
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs pt-1">
-                    <span className="font-bold text-stone-400 tracking-wide">MAIN</span>
-                    <span className="text-stone-300">·</span>
-                    <span className="font-bold text-stone-900">{selectedMainNama || '-'}</span>
-                    <span className="text-stone-300 px-1">—</span>
-                    <span className="font-bold text-stone-400 tracking-wide">SUB</span>
-                    <span className="text-stone-300">·</span>
-                    <span className="font-bold text-stone-900">{selectedSubNama || '-'}</span>
-                    <span className="text-stone-300 px-1">—</span>
-                    <span className="font-bold text-stone-400 tracking-wide">KET</span>
-                    <span className="text-stone-300">·</span>
-                    <span className="font-medium text-stone-500">{selectedKeteranganNama || '-'}</span>
-                  </div>
                   <h2 className="text-xl font-extrabold text-stone-900">Review & lengkapi data</h2>
                   <p className="text-xs text-stone-400">
                     Periksa data yang dibaca AI. Field yang ditandai dapat kamu ubah jika ada yang tidak sesuai.
@@ -597,36 +582,76 @@ function AjukanReimbursementContent() {
 
                 <form className="space-y-4 text-xs font-bold text-stone-700" onSubmit={handleSubmitReimbursement}>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5 text-left">
-                      <label className="text-stone-500 font-bold">Nama Reimbursement</label>
-                      <input
-                        type="text"
-                        value={merchant}
-                        onChange={(e) => setMerchant(e.target.value)}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
-                      />
-                    </div>
-                    <div className="space-y-1.5 text-left">
-                      <div className="flex items-center gap-2">
-                        <label className="text-stone-500 font-bold">Tanggal Transaksi</label>
-                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={tanggal}
-                          onChange={(e) => setTanggal(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all [color-scheme:light]"
-                        />
-                      </div>
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-stone-500 font-bold">Keterangan <span className="text-red-500">*</span></label>
+                    <KeteranganSearchDropdown
+                      options={flatKeteranganOptions}
+                      selectedLabel={selectedKeteranganNama}
+                      onSelect={handleKeteranganSelect}
+                      hasError={!!formErrors.posAnggaran}
+                    />
+                    {formErrors.posAnggaran && (
+                      <p className="text-red-500 font-medium">{formErrors.posAnggaran}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs pt-1">
+                      <span className="font-bold text-stone-400 tracking-wide">MAIN</span>
+                      <span className="text-stone-300">·</span>
+                      <span className="font-bold text-stone-900">{selectedMainNama || '-'}</span>
+                      <ChevronRight size={12} className="text-stone-300 shrink-0" />
+                      <span className="font-bold text-stone-400 tracking-wide">SUB</span>
+                      <span className="text-stone-300">·</span>
+                      <span className="font-bold text-stone-900">{selectedSubNama || '-'}</span>
+                      <ChevronRight size={12} className="text-stone-300 shrink-0" />
+                      <span className="font-bold text-stone-400 tracking-wide">KET</span>
+                      <span className="text-stone-300">·</span>
+                      <span className="font-medium text-stone-500">{selectedKeteranganNama || '-'}</span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center gap-2">
-                        <label className="text-stone-500 font-bold">Nominal (IDR)</label>
+                        <label className="text-stone-500 font-bold">Nama Reimbursement <span className="text-red-500">*</span></label>
+                        <span aria-hidden="true" className="opacity-0 pointer-events-none bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={merchant}
+                        onChange={(e) => { setMerchant(e.target.value); clearFieldError('merchant'); }}
+                        placeholder="Ketik nama reimbursement..."
+                        className={`w-full bg-white border rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+                          formErrors.merchant ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+                        }`}
+                      />
+                      {formErrors.merchant && (
+                        <p className="text-red-500 font-medium">{formErrors.merchant}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5 text-left">
+                      <div className="flex items-center gap-2">
+                        <label className="text-stone-500 font-bold">Tanggal Transaksi <span className="text-red-500">*</span></label>
+                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={tanggal}
+                          onChange={(e) => { setTanggal(e.target.value); clearFieldError('tanggal'); }}
+                          className={`w-full bg-white border rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all [color-scheme:light] ${
+                            formErrors.tanggal ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+                          }`}
+                        />
+                      </div>
+                      {formErrors.tanggal && (
+                        <p className="text-red-500 font-medium">{formErrors.tanggal}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5 text-left">
+                      <div className="flex items-center gap-2">
+                        <label className="text-stone-500 font-bold">Nominal (IDR) <span className="text-red-500">*</span></label>
                         <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                       </div>
                       <div className="relative">
@@ -634,19 +659,29 @@ function AjukanReimbursementContent() {
                         <input
                           type="text"
                           value={nominal}
-                          onChange={(e) => setNominal(formatRupiah(e.target.value))}
+                          onChange={(e) => { setNominal(formatRupiah(e.target.value)); clearFieldError('nominal'); }}
                           placeholder="0"
-                          className="w-full bg-white border border-stone-200 rounded-xl pl-9 pr-3 py-3 font-medium text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
+                          className={`w-full bg-white border rounded-xl pl-9 pr-3 py-3 font-medium text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+                            formErrors.nominal ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+                          }`}
                         />
                       </div>
+                      {formErrors.nominal && (
+                        <p className="text-red-500 font-medium">{formErrors.nominal}</p>
+                      )}
                     </div>
                     <div className="space-y-1.5 text-left">
-                      <label className="text-stone-500 font-bold">Kategori Bukti</label>
+                      <div className="flex items-center gap-2">
+                        <label className="text-stone-500 font-bold">Kategori Bukti <span className="text-red-500">*</span></label>
+                        <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
+                      </div>
                       <div className="relative">
                         <select
                           value={kategoriBukti}
-                          onChange={(e) => setKategoriBukti(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
+                          onChange={(e) => { setKategoriBukti(e.target.value); clearFieldError('kategoriBukti'); }}
+                          className={`w-full bg-white border rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+                            formErrors.kategoriBukti ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
+                          }`}
                         >
                           <option value="Struk Pembelian">Struk Pembelian</option>
                           <option value="Kuitansi Resmi">Kuitansi Resmi</option>
@@ -654,12 +689,15 @@ function AjukanReimbursementContent() {
                         </select>
                         <ChevronDown size={14} className="absolute right-3 top-4 text-stone-400 pointer-events-none" />
                       </div>
+                      {formErrors.kategoriBukti && (
+                        <p className="text-red-500 font-medium">{formErrors.kategoriBukti}</p>
+                      )}
                     </div>
                   </div>
 
                   <div className="space-y-1.5 text-left">
                     <div className="flex items-center gap-2">
-                      <label className="text-stone-500 font-bold">Keterangan</label>
+                      <label className="text-stone-500 font-bold">Catatan</label>
                       <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                     </div>
                     <textarea
