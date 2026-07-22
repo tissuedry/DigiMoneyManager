@@ -424,9 +424,9 @@ export default function AjukanPosModal({
               <div className="h-full bg-[#008f5d] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
             </div>
             <div className="flex justify-between items-center text-[11px] text-stone-950 px-0.5">
-              <span>Nilai Proyek <span className="text-stone-850 font-bold">{formatShort(totalRAB)}</span></span>
-              <span>Realisasi <span className="text-stone-850 font-bold">{formatShort(realisasi)}</span></span>
-              <span>Sisa <span className="text-stone-850 font-bold">{formatShort(totalRAB - realisasi)}</span></span>
+              <span>Nilai Proyek <span title={`Rp ${Math.round(totalRAB || 0).toLocaleString("id-ID")}`} className="text-stone-850 font-bold cursor-pointer">{formatShort(totalRAB)}</span></span>
+              <span>Realisasi <span title={`Rp ${Math.round(realisasi || 0).toLocaleString("id-ID")}`} className="text-stone-850 font-bold cursor-pointer">{formatShort(realisasi)}</span></span>
+              <span>Sisa <span title={`Rp ${Math.round((totalRAB - realisasi) || 0).toLocaleString("id-ID")}`} className="text-stone-850 font-bold cursor-pointer">{formatShort(totalRAB - realisasi)}</span></span>
             </div>
           </div>
 

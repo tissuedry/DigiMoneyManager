@@ -81,6 +81,31 @@ const formatRupiah = (amount: number) => {
   }).format(amount);
 };
 
+const formatShort = (v: number): string => {
+  if (!v || v === 0) return "Rp 0";
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+
+  let formatted = "";
+  if (abs >= 1_000_000_000_000) {
+    const num = Math.round(abs / 1_000_000_000_000);
+    formatted = `${num} t`;
+  } else if (abs >= 1_000_000_000) {
+    const num = Math.round(abs / 1_000_000_000);
+    formatted = `${num} m`;
+  } else if (abs >= 1_000_000) {
+    const num = Math.round(abs / 1_000_000);
+    formatted = `${num} jt`;
+  } else if (abs >= 1_000) {
+    const num = Math.round(abs / 1_000);
+    formatted = `${num} rb`;
+  } else {
+    formatted = Math.round(abs).toLocaleString("id-ID");
+  }
+
+  return `${sign}Rp ${formatted}`;
+};
+
 const formatTanggal = (isoString: string | null) => {
   if (!isoString) return "-";
   const date = new Date(isoString);
@@ -236,21 +261,24 @@ export default function PMDashboardPage() {
                     const statCards = [
                       {
                         label: "Total RAB Proyek",
-                        value: formatRupiah(rab),
+                        value: formatShort(rab),
+                        raw: formatRupiah(rab),
                         sub: "Alokasi anggaran awal",
                         icon: <Wallet size={18} className="text-stone-600" />,
                         iconBg: "bg-stone-100",
                       },
                       {
                         label: "Total Terpakai",
-                        value: formatRupiah(used),
+                        value: formatShort(used),
+                        raw: formatRupiah(used),
                         sub: `${usedPercentage.toFixed(1)}% dari total RAB`,
                         icon: <TrendingUp size={18} className="text-rose-600" />,
                         iconBg: "bg-rose-50",
                       },
                       {
                         label: "Sisa Budget",
-                        value: formatRupiah(rem),
+                        value: formatShort(rem),
+                        raw: formatRupiah(rem),
                         sub: `${remPercentage.toFixed(1)}% anggaran tersisa`,
                         icon: <Check size={18} className="text-emerald-600" />,
                         iconBg: "bg-emerald-50",
@@ -258,6 +286,7 @@ export default function PMDashboardPage() {
                       {
                         label: "Menunggu Persetujuan",
                         value: `${data.pendingApprovalsCount} Pengajuan`,
+                        raw: "",
                         sub: "Butuh review Anda segera",
                         icon: <FileCheck size={18} className="text-blue-600" />,
                         iconBg: "bg-blue-50",
@@ -282,7 +311,10 @@ export default function PMDashboardPage() {
                                 </div>
                               </div>
                               <div className="mt-4">
-                                <p className="text-[20px] font-bold text-stone-900 leading-tight">
+                                <p
+                                  title={card.raw || undefined}
+                                  className="text-[20px] font-bold text-stone-900 leading-tight cursor-pointer whitespace-nowrap"
+                                >
                                   {card.value}
                                 </p>
                                 <p className="text-[11px] text-stone-400 mt-1 font-medium">
@@ -315,13 +347,13 @@ export default function PMDashboardPage() {
                           </div>
 
                           <div className="flex justify-between items-center text-xs font-medium text-stone-500">
-                            <span className="flex items-center gap-1.5">
+                            <span title={formatRupiah(used)} className="flex items-center gap-1.5 cursor-pointer">
                               <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-                              Terpakai: {formatRupiah(used)}
+                              Terpakai: {formatShort(used)}
                             </span>
-                            <span className="flex items-center gap-1.5">
+                            <span title={formatRupiah(rem)} className="flex items-center gap-1.5 cursor-pointer">
                               <span className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-                              Sisa Budget: {formatRupiah(rem)}
+                              Sisa Budget: {formatShort(rem)}
                             </span>
                           </div>
                         </div>

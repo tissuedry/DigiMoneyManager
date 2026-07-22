@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
 import { Project, LogAktivitas, Member } from "./types";
-import { formatRupiah, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
+import { formatRupiah, formatSummaryRupiah, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
 
 import AddProjectModal from "./AddProjectModal";
 import AssignMembersModal from "./AssignMembersModal";
@@ -720,14 +720,20 @@ export default function KelolaProyekPage() {
                     <div className="grid grid-cols-2 gap-4 text-left pt-1">
                       <div>
                         <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">TOTAL NILAI PROYEK</span>
-                        <span className="font-mono font-black text-stone-900 text-[15px] block mt-1">
-                          {formatRupiah(totalRAB)}
+                        <span
+                          title={formatRupiah(totalRAB)}
+                          className="font-mono font-black text-stone-900 text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
+                        >
+                          {formatSummaryRupiah(totalRAB)}
                         </span>
                       </div>
                       <div>
                         <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">SISA BUDGET</span>
-                        <span className="font-mono font-black text-[#1b4332] text-[15px] block mt-1">
-                          {formatRupiah(sisa)}
+                        <span
+                          title={formatRupiah(sisa)}
+                          className="font-mono font-black text-[#1b4332] text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
+                        >
+                          {formatSummaryRupiah(sisa)}
                         </span>
                       </div>
                     </div>

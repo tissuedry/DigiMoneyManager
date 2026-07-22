@@ -79,15 +79,28 @@ const getStatusBadgeStyle = (statusStr?: string) => {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export const formatShort = (v: number): string => {
+  if (!v || v === 0) return "Rp 0";
   const abs = Math.abs(v);
-  if (abs >= 100_000_000_000_000) {
-    const triliun = Math.floor(abs / 1_000_000_000_000);
-    return v < 0 ? `-${triliun} T` : `${triliun} T`;
+  const sign = v < 0 ? "-" : "";
+
+  let formatted = "";
+  if (abs >= 1_000_000_000_000) {
+    const num = Math.round(abs / 1_000_000_000_000);
+    formatted = `${num} t`;
+  } else if (abs >= 1_000_000_000) {
+    const num = Math.round(abs / 1_000_000_000);
+    formatted = `${num} m`;
+  } else if (abs >= 1_000_000) {
+    const num = Math.round(abs / 1_000_000);
+    formatted = `${num} jt`;
+  } else if (abs >= 1_000) {
+    const num = Math.round(abs / 1_000);
+    formatted = `${num} rb`;
+  } else {
+    formatted = Math.round(abs).toLocaleString("id-ID");
   }
-  if (v < 0) {
-    return `-Rp ${abs.toLocaleString("id-ID")}`;
-  }
-  return `Rp ${v.toLocaleString("id-ID")}`;
+
+  return `${sign}Rp ${formatted}`;
 };
 
 const AVATAR_COLORS = [
@@ -202,14 +215,14 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
         <span key={p.id} className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: p.warna }} />
           {p.nama}
-          <span className="font-bold text-stone-800">{formatShort(p.alokasi)}</span>
+          <span title={`Rp ${Math.round(p.alokasi || 0).toLocaleString("id-ID")}`} className="font-bold text-stone-800 cursor-pointer">{formatShort(p.alokasi)}</span>
         </span>
       ))}
       {unallocated > 0 && (
         <span className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm bg-stone-300 shrink-0" />
           Belum dialokasikan
-          <span className="font-bold text-stone-800">{formatShort(unallocated)}</span>
+          <span title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`} className="font-bold text-stone-800 cursor-pointer">{formatShort(unallocated)}</span>
         </span>
       )}
     </div>
@@ -226,7 +239,10 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
           <div key={p.id} className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-stone-800">{p.nama}</span>
-              <span className="text-stone-500 font-medium tabular-nums">
+              <span
+                title={`Terpakai: Rp ${Math.round(p.terpakai || 0).toLocaleString("id-ID")} / Alokasi: Rp ${Math.round(p.alokasi || 0).toLocaleString("id-ID")}`}
+                className="text-stone-500 font-medium tabular-nums cursor-pointer hover:text-stone-900"
+              >
                 {formatShort(p.terpakai)}&nbsp;/&nbsp;{formatShort(p.alokasi)}
               </span>
             </div>
@@ -489,7 +505,12 @@ export default function KelolaProyekPage() {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
-                <p className="text-2xl font-extrabold text-stone-900 whitespace-nowrap">{formatShort(proyek.totalRAB)}</p>
+                <p
+                  title={`Rp ${Math.round(proyek.totalRAB || 0).toLocaleString("id-ID")}`}
+                  className="text-2xl font-extrabold text-stone-900 whitespace-nowrap cursor-pointer hover:opacity-80 transition"
+                >
+                  {formatShort(proyek.totalRAB)}
+                </p>
               </div>
             </div>
 
@@ -504,7 +525,12 @@ export default function KelolaProyekPage() {
                   <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
                   <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
                 </div>
-                <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">{formatShort(proyek.realisasi)}</p>
+                <p
+                  title={`Rp ${Math.round(proyek.realisasi || 0).toLocaleString("id-ID")}`}
+                  className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                >
+                  {formatShort(proyek.realisasi)}
+                </p>
               </div>
 
               {/* Sisa */}
@@ -515,12 +541,18 @@ export default function KelolaProyekPage() {
                     <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
                   </div>
                   {unallocated > 0 && (
-                    <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap">
+                    <span
+                      title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`}
+                      className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap cursor-pointer"
+                    >
                       {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
                     </span>
                   )}
                 </div>
-                <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">
+                <p
+                  title={`Rp ${Math.round((proyek.totalRAB - proyek.realisasi) || 0).toLocaleString("id-ID")}`}
+                  className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                >
                   {formatShort(proyek.totalRAB - proyek.realisasi)}
                 </p>
               </div>
