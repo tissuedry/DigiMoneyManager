@@ -475,12 +475,12 @@ function AjukanReimbursementContent() {
                   ref={fileInputRef}
                   onChange={handleFileChange}
                   className="hidden"
-                  accept="image/*,application/pdf"
+                  accept="image/*"
                 />
                 <div className="md:col-span-6 space-y-4">
                   <h2 className="text-lg font-bold text-stone-900">Upload foto struk atau nota</h2>
                   <p className="text-xs text-stone-400 leading-relaxed">
-                    Pastikan struk terlihat jelas, tidak terlipat, dan seluruh informasi (merchant, tanggal, total) terbaca. Format yang didukung: JPG, PNG, HEIC, atau PDF dengan ukuran maksimal 10MB.
+                    Pastikan struk terlihat jelas, tidak terlipat, dan seluruh informasi (tanggal, nominal) terbaca. Format yang didukung: JPG, PNG, HEIC, atau format gambar lainnya dengan ukuran maksimal 10MB.
                   </p>
                   <div className="flex items-center gap-2.5 pt-2">
                     <button onClick={handleUploadTrigger} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#008F5D] hover:bg-[#007A4F] text-white text-xs font-bold rounded-xl transition shadow-sm">
@@ -502,13 +502,13 @@ function AjukanReimbursementContent() {
                     isDragActive ? 'border-emerald-500 bg-emerald-50/50' : 'border-stone-200 hover:border-emerald-500 bg-stone-50/50'
                   }`}
                 >
-                  <div className={`w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center shadow-sm transition ${
+                  <div className={`pointer-events-none w-9 h-9 bg-white border border-stone-100 rounded-xl flex items-center justify-center shadow-sm transition ${
                     isDragActive ? 'text-emerald-600' : 'text-stone-400 group-hover:text-emerald-600'
                   }`}>
                     <Upload size={16} />
                   </div>
-                  <span className="text-xs font-bold text-stone-700">Klik atau drop struk di sini</span>
-                  <span className="text-[10px] text-stone-400">JPG, PNG, HEIC, PDF maks. 10MB</span>
+                  <span className="pointer-events-none text-xs font-bold text-stone-700">Klik atau drop struk di sini</span>
+                  <span className="pointer-events-none text-[10px] text-stone-400">JPG, PNG, HEIC, dll. maks. 10MB</span>
                 </div>
               </div>
             </>
