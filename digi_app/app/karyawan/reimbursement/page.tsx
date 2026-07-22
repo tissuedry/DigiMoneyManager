@@ -11,9 +11,11 @@ import {
   Upload,
   Check,
   ChevronDown,
+  ChevronRight,
   ArrowLeft,
   RefreshCw,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
 
@@ -23,26 +25,25 @@ function formatRupiah(value: string): string {
   return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-interface PosAnggaranOption {
+interface FlatKeteranganOption {
   id: string;
-  label: string;
-  disabled?: boolean;
-  disabledNote?: string;
+  keterangan: string;
+  mainId: string;
+  mainNama: string;
+  subId: string;
+  subNama: string;
 }
 
-function PosAnggaranDropdown({
-  value,
-  onChange,
+function KeteranganSearchDropdown({
   options,
-  placeholder,
-  disabled,
+  selectedLabel,
+  onSelect,
 }: {
-  value: string;
-  onChange: (id: string) => void;
-  options: PosAnggaranOption[];
-  placeholder: string;
-  disabled?: boolean;
+  options: FlatKeteranganOption[];
+  selectedLabel: string;
+  onSelect: (opt: FlatKeteranganOption) => void;
 }) {
+  const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -56,57 +57,52 @@ function PosAnggaranDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selected = options.find((o) => o.id === value);
+  const filtered = query.trim()
+    ? options.filter((opt) => opt.keterangan.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => !disabled && setIsOpen((prev) => !prev)}
-        disabled={disabled}
-        className={`w-full flex items-center justify-between gap-2 bg-white border border-stone-200 rounded-xl pl-3 pr-3 py-3 font-medium text-left transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] disabled:bg-stone-50 disabled:text-stone-400 disabled:cursor-not-allowed ${!selected ? 'text-stone-400' : 'text-stone-800'}`}
-      >
-        <span className="truncate">{selected ? selected.label : placeholder}</span>
-        <ChevronDown size={14} className={`text-stone-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
+      <div className="relative">
+        <input
+          type="text"
+          value={isOpen ? query : selectedLabel}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => {
+            setQuery('');
+            setIsOpen(true);
+          }}
+          placeholder="Cari keterangan..."
+          className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#008F5D] transition-all"
+        />
+        <Search size={14} className="absolute right-3.5 top-3.5 text-stone-400 pointer-events-none" />
+      </div>
 
-      {isOpen && !disabled && (
-        <div className="absolute z-20 mt-1.5 w-full bg-white border border-stone-200 rounded-xl shadow-lg shadow-stone-900/5 overflow-hidden max-h-64 overflow-y-auto py-1">
-          {options.length === 0 && (
-            <div className="px-3 py-2.5 text-stone-400 text-xs font-medium">Tidak ada pilihan</div>
+      {isOpen && (
+        <div className="absolute z-20 mt-1.5 w-full bg-white border border-stone-200 rounded-xl shadow-lg shadow-stone-900/5 overflow-hidden max-h-72 overflow-y-auto py-1">
+          {filtered.length === 0 && (
+            <div className="px-3 py-2.5 text-stone-400 text-xs font-medium">Tidak ada keterangan yang ditemukan</div>
           )}
-          {options.map((opt) => {
-            const isSelected = opt.id === value;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                disabled={opt.disabled}
-                onClick={() => {
-                  if (opt.disabled) return;
-                  onChange(opt.id);
-                  setIsOpen(false);
-                }}
-                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-xs transition-colors ${
-                  opt.disabled
-                    ? 'text-stone-300 cursor-not-allowed'
-                    : isSelected
-                    ? 'bg-emerald-50 text-emerald-700 font-bold'
-                    : 'text-stone-700 hover:bg-stone-50 font-medium cursor-pointer'
-                }`}
-              >
-                <span className="truncate">{opt.label}</span>
-                {opt.disabled && opt.disabledNote && (
-                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-400">
-                    {opt.disabledNote}
-                  </span>
-                )}
-                {!opt.disabled && isSelected && (
-                  <Check size={13} className="text-emerald-600 shrink-0" />
-                )}
-              </button>
-            );
-          })}
+          {filtered.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => {
+                onSelect(opt);
+                setQuery('');
+                setIsOpen(false);
+              }}
+              className="w-full text-left px-3 py-2.5 hover:bg-stone-50 transition-colors"
+            >
+              <div className="text-xs font-bold text-stone-800 truncate">{opt.keterangan}</div>
+              <div className="text-[10px] text-stone-400 font-medium mt-0.5 truncate">
+                Main: {opt.mainNama} · Sub: {opt.subNama}
+              </div>
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -149,6 +145,20 @@ function AjukanReimbursementContent() {
   const selectedSubNama = subAnggaranList.find((s: any) => String(s.id) === subAnggaranId)?.namaSub ?? '';
   const selectedKeteranganNama = keteranganList.find((k: any) => String(k.id) === posAnggaranId)?.keterangan ?? '';
   const isPosAnggaranSelected = !!(mainAnggaranId && subAnggaranId && posAnggaranId);
+
+  // Flat list of every Keterangan (leaf) across all Main/Sub, for the searchable dropdown
+  const flatKeteranganOptions: FlatKeteranganOption[] = mainAnggaranList.flatMap((m: any) =>
+    (m.subAnggaran ?? []).flatMap((s: any) =>
+      (s.keterangan ?? []).map((k: any) => ({
+        id: String(k.id),
+        keterangan: k.keterangan,
+        mainId: String(m.id),
+        mainNama: m.namaMain,
+        subId: String(s.id),
+        subNama: s.namaSub,
+      }))
+    )
+  );
 
   // Form states - Reimbursement fields
   const [merchant, setMerchant] = useState("");
@@ -199,15 +209,10 @@ function AjukanReimbursementContent() {
     setIsResubmitLoading(false);
   }, [resubmitId, reimbData]);
 
-  const handleMainAnggaranChange = (id: string) => {
-    setMainAnggaranId(id);
-    setSubAnggaranId('');
-    setPosAnggaranId('');
-  };
-
-  const handleSubAnggaranChange = (id: string) => {
-    setSubAnggaranId(id);
-    setPosAnggaranId('');
+  const handleKeteranganSelect = (opt: FlatKeteranganOption) => {
+    setMainAnggaranId(opt.mainId);
+    setSubAnggaranId(opt.subId);
+    setPosAnggaranId(opt.id);
   };
 
   const triggerFileInput = () => {
@@ -215,10 +220,6 @@ function AjukanReimbursementContent() {
   };
 
   const handleUploadTrigger = () => {
-    if (!isPosAnggaranSelected) {
-      alert('Pilih pos anggaran (Main, Sub, dan Keterangan) terlebih dahulu');
-      return;
-    }
     triggerFileInput();
   };
 
@@ -425,64 +426,7 @@ function AjukanReimbursementContent() {
           {/* STATE 1: UPLOAD STRUK */}
           {currentState === 'upload' && (
             <>
-              {/* PILIH POS ANGGARAN */}
-              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-bold text-stone-900">Pilih pos anggaran</h2>
-                  <p className="text-xs text-stone-400">
-                    Tentukan dulu pengeluaran ini masuk ke pos mana, sebelum upload struk.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold text-stone-700">
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-stone-500 font-bold">Main <span className="text-red-500">*</span></label>
-                    <PosAnggaranDropdown
-                      value={mainAnggaranId}
-                      onChange={handleMainAnggaranChange}
-                      placeholder="Pilih main..."
-                      options={mainAnggaranList.map((m: any) => ({
-                        id: String(m.id),
-                        label: m.namaMain,
-                        disabled: (m.subAnggaran?.length ?? 0) === 0,
-                        disabledNote: 'Belum ada sub',
-                      }))}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-stone-500 font-bold">Sub <span className="text-red-500">*</span></label>
-                    <PosAnggaranDropdown
-                      value={subAnggaranId}
-                      onChange={handleSubAnggaranChange}
-                      placeholder="Pilih sub..."
-                      disabled={!mainAnggaranId}
-                      options={subAnggaranList.map((s: any) => ({
-                        id: String(s.id),
-                        label: s.namaSub,
-                        disabled: (s.keterangan?.length ?? 0) === 0,
-                        disabledNote: 'Belum ada keterangan',
-                      }))}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-stone-500 font-bold">Keterangan <span className="text-red-500">*</span></label>
-                    <PosAnggaranDropdown
-                      value={posAnggaranId}
-                      onChange={setPosAnggaranId}
-                      placeholder="Pilih keterangan..."
-                      disabled={!subAnggaranId}
-                      options={keteranganList.map((k: any) => ({
-                        id: String(k.id),
-                        label: k.keterangan,
-                      }))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className={`bg-white border border-stone-200 rounded-2xl p-6 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center transition-opacity ${!isPosAnggaranSelected ? 'opacity-60' : ''}`}>
+              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -576,19 +520,6 @@ function AjukanReimbursementContent() {
                   <div className="inline-block px-2.5 py-0.5 bg-[#DDF2E8] text-[#198754] text-[10px] font-bold rounded-md">
                     Data berhasil diekstrak
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs pt-1">
-                    <span className="font-bold text-stone-400 tracking-wide">MAIN</span>
-                    <span className="text-stone-300">·</span>
-                    <span className="font-bold text-stone-900">{selectedMainNama || '-'}</span>
-                    <span className="text-stone-300 px-1">—</span>
-                    <span className="font-bold text-stone-400 tracking-wide">SUB</span>
-                    <span className="text-stone-300">·</span>
-                    <span className="font-bold text-stone-900">{selectedSubNama || '-'}</span>
-                    <span className="text-stone-300 px-1">—</span>
-                    <span className="font-bold text-stone-400 tracking-wide">KET</span>
-                    <span className="text-stone-300">·</span>
-                    <span className="font-medium text-stone-500">{selectedKeteranganNama || '-'}</span>
-                  </div>
                   <h2 className="text-xl font-extrabold text-stone-900">Review & lengkapi data</h2>
                   <p className="text-xs text-stone-400">
                     Periksa data yang dibaca AI. Field yang ditandai dapat kamu ubah jika ada yang tidak sesuai.
@@ -596,6 +527,28 @@ function AjukanReimbursementContent() {
                 </div>
 
                 <form className="space-y-4 text-xs font-bold text-stone-700" onSubmit={handleSubmitReimbursement}>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-stone-500 font-bold">Keterangan <span className="text-red-500">*</span></label>
+                    <KeteranganSearchDropdown
+                      options={flatKeteranganOptions}
+                      selectedLabel={selectedKeteranganNama}
+                      onSelect={handleKeteranganSelect}
+                    />
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs pt-1">
+                      <span className="font-bold text-stone-400 tracking-wide">MAIN</span>
+                      <span className="text-stone-300">·</span>
+                      <span className="font-bold text-stone-900">{selectedMainNama || '-'}</span>
+                      <ChevronRight size={12} className="text-stone-300 shrink-0" />
+                      <span className="font-bold text-stone-400 tracking-wide">SUB</span>
+                      <span className="text-stone-300">·</span>
+                      <span className="font-bold text-stone-900">{selectedSubNama || '-'}</span>
+                      <ChevronRight size={12} className="text-stone-300 shrink-0" />
+                      <span className="font-bold text-stone-400 tracking-wide">KET</span>
+                      <span className="text-stone-300">·</span>
+                      <span className="font-medium text-stone-500">{selectedKeteranganNama || '-'}</span>
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 text-left">
