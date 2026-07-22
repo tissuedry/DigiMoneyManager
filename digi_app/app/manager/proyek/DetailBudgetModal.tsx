@@ -112,7 +112,7 @@ export default function DetailBudgetModal({
                     const subRealisasi = hasKet
                       ? sub.keterangan.reduce((accKet: number, k: any) => {
                           const reimbs = (k.reimbursements || []).filter((r: any) =>
-                            ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+                            ['APPROVED'].includes(r.status)
                           );
                           const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
                           return accKet + (sumReimbs || parseFloat(k.nominalRealisasi) || 0);
@@ -123,7 +123,9 @@ export default function DetailBudgetModal({
                 : parseFloat(pos.nominalTerpakai) || 0;
 
               const pctPos = alokasiPos > 0 ? Math.min((terpakaiPos / alokasiPos) * 100, 100) : 0;
+              // Ini bisa ubah toFixed buat ngubah angka dibelakang koma
               const pctPosText = alokasiPos > 0 ? ((terpakaiPos / alokasiPos) * 100).toFixed(1) : '0.0';
+              const pctPosExact = alokasiPos > 0 ? ((terpakaiPos / alokasiPos) * 100).toFixed(5) : '0.00000';
 
               let mainBarColor = '#2F9E5E';
               if (pctPos >= 90) { mainBarColor = '#D36C66'; }
@@ -179,7 +181,10 @@ export default function DetailBudgetModal({
                       <div style={{ flex: 1, height: 8, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
                         <div style={{ width: `${pctPos}%`, height: '100%', background: mainBarColor, borderRadius: 99 }} />
                       </div>
-                      <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'left' }}>
+                      <span
+                        style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'left' }}
+                        title={`${pctPosExact}%`}
+                      >
                         {pctPosText}%
                       </span>
                     </div>
@@ -208,7 +213,7 @@ export default function DetailBudgetModal({
                     const terpakaiSub = hasKet
                       ? sub.keterangan.reduce((acc: number, k: any) => {
                           const reimbs = (k.reimbursements || []).filter((r: any) =>
-                            ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+                            ['APPROVED'].includes(r.status)
                           );
                           const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
                           return acc + (sumReimbs || parseFloat(k.nominalRealisasi) || 0);
@@ -217,6 +222,7 @@ export default function DetailBudgetModal({
 
                     const pctSub = alokasiSub > 0 ? Math.min((terpakaiSub / alokasiSub) * 100, 100) : 0;
                     const pctSubText = alokasiSub > 0 ? ((terpakaiSub / alokasiSub) * 100).toFixed(1) : '0.0';
+                    const pctSubExact = alokasiSub > 0 ? ((terpakaiSub / alokasiSub) * 100).toFixed(5) : '0.00000';
 
                     let subBarColor = '#2F9E5E';
                     if (pctSub >= 90) { subBarColor = '#D36C66'; }
@@ -271,7 +277,10 @@ export default function DetailBudgetModal({
                             <div style={{ flex: 1, height: 8, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
                               <div style={{ width: `${pctSub}%`, height: '100%', background: subBarColor, borderRadius: 99 }} />
                             </div>
-                            <span style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'left' }}>
+                            <span
+                              style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'left' }}
+                              title={`${pctSubExact}%`}
+                            >
                               {pctSubText}%
                             </span>
                           </div>
@@ -297,8 +306,11 @@ export default function DetailBudgetModal({
 
                           // --- 3. KALKULASI PADA TINGKAT KETERANGAN (Ket sum) ---
                           // Realisasi Ket = Sum Reimbursement yang disetujui (atau fallback ke nominalRealisasi bawaan)
+                          const disbursedReimbs = childReimbursements.filter((r: any) =>
+                            ['APPROVED'].includes(r.status)
+                          );
                           const realisasiKet = hasReimbs
-                            ? approvedReimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0)
+                            ? disbursedReimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0)
                             : parseFloat(ket.nominalRealisasi) || 0;
 
                           const ketKey = `${subKey}-${idxKet}`;
