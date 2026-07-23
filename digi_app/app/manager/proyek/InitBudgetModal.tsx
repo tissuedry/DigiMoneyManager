@@ -4,7 +4,7 @@ import { Project } from "./types";
 import { formatRibuan, ribuanToNumber } from "./utils";
 
 type MainOption = {
-  id: number; 
+  id: number;
   nama: string;
 };
 
@@ -59,10 +59,18 @@ export default function InitBudgetModal({
     };
   }, [showInitBudget?.id]);
 
-  // THEN do the early return
+  useEffect(() => {
+    if (showInitBudget) {
+      if (detailedProjectInfo?.posAnggaranList && detailedProjectInfo.posAnggaranList.length > 0) {
+        setPosAnggaranList(detailedProjectInfo.posAnggaranList);
+      } else {
+        setPosAnggaranList([{ deskripsi: "", nominalAlokasi: "" }]);
+      }
+    }
+  }, [showInitBudget?.id, detailedProjectInfo]);
+
   if (!showInitBudget) return null;
 
-  // Cek jika ada opsi/deskripsi pos anggaran yang duplikat
   const selectedDeskripsi = posAnggaranList
     .map((item) => item.deskripsi)
     .filter((desk) => desk !== "");
@@ -331,7 +339,7 @@ export default function InitBudgetModal({
             </div>
 
             {hasDuplicateOptions && (
-              <div 
+              <div
                 style={{
                   background: '#FDF2F2',
                   border: '1px solid #FCD3D3',
