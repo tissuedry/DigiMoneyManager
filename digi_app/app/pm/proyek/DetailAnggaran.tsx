@@ -448,7 +448,7 @@ export default function DetailAnggaranModal({
             mapped.map((main) => {
               const mainPct =
                 main.alokasi > 0
-                  ? Math.min((main.realisasi / main.alokasi) * 100, 100)
+                  ? (main.realisasi / main.alokasi) * 100
                   : 0;
               const mainPctExact = main.alokasi > 0 ? ((main.realisasi / main.alokasi) * 100).toFixed(5) : '0.00000';
               const isMainOpen = expandedMain[main.id] ?? true;
@@ -506,10 +506,7 @@ export default function DetailAnggaranModal({
                         main.subPos.map((sub) => {
                           const subPct =
                             sub.alokasi > 0
-                              ? Math.min(
-                                  (sub.realisasi / sub.alokasi) * 100,
-                                  100
-                                )
+                              ? (sub.realisasi / sub.alokasi) * 100
                               : 0;
                           const subPctExact = sub.alokasi > 0 ? ((sub.realisasi / sub.alokasi) * 100).toFixed(5) : '0.00000';
                           const isSubOpen = expandedSub[sub.id] ?? false;

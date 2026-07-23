@@ -266,7 +266,7 @@ export default function DetailBudgetModal({
                   }, 0)
                 : parseFloat(pos.nominalTerpakai) || parseFloat(pos.realisasi) || 0;
 
-              const pctPos = alokasiPos > 0 ? Math.min((terpakaiPos / alokasiPos) * 100, 100) : 0;
+              const pctPos = alokasiPos > 0 ? (terpakaiPos / alokasiPos) * 100 : 0;
               const pctPosExact = alokasiPos > 0 ? ((terpakaiPos / alokasiPos) * 100).toFixed(5) : '0.00000';
 
               return (
@@ -320,7 +320,7 @@ export default function DetailBudgetModal({
                               }, 0)
                             : parseFloat(sub.nominalTerpakai) || parseFloat(sub.realisasi) || 0;
 
-                          const pctSub = alokasiSub > 0 ? Math.min((terpakaiSub / alokasiSub) * 100, 100) : 0;
+                          const pctSub = alokasiSub > 0 ? (terpakaiSub / alokasiSub) * 100 : 0;
                           const pctSubExact = alokasiSub > 0 ? ((terpakaiSub / alokasiSub) * 100).toFixed(5) : '0.00000';
 
                           return (
