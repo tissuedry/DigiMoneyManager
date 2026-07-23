@@ -223,7 +223,7 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
       return null;
     };
 
-    let dataJson = parseAiJson(rawResponse);
+    const dataJson = parseAiJson(rawResponse);
 
     if (!dataJson || typeof dataJson !== 'object') {
       console.error('Gagal memproses respons AI Vision. Raw output:', rawResponse);

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
-  Download, Zap, X, Check, Filter, ZoomIn, ZoomOut, RotateCcw, RotateCw
+  Download, Zap, X, Check, Filter, ZoomIn
 } from "lucide-react";
 
 import Sidebar from '@/components/sidebar';
