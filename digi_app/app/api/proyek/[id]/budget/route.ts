@@ -210,3 +210,62 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
+
+// PATCH: Directly update a single pos alokasi (Main / Sub / Keterangan) — PM of project or Direktur
+// Body: { type: 'main'|'sub'|'ket', id: number, nominalAlokasi: number }
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const role = req.headers.get('x-user-role');
+    const userId = req.headers.get('x-user-id');
+    const { id: proyekIdStr } = await params;
+    const proyekId = parseInt(proyekIdStr, 10);
+
+    // Authorization: PM assigned to project or Direktur
+    const isDirektur = role === 'Direktur / Manajemen';
+    const isPM = userId
+      ? await prisma.userProyek.findFirst({
+          where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
+        })
+      : null;
+
+    if (!isDirektur && !isPM) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { type, id, nominalAlokasi } = body;
+
+    if (!['main', 'sub', 'ket'].includes(type) || !id || nominalAlokasi == null || Number(nominalAlokasi) < 0) {
+      return NextResponse.json({ message: 'type (main|sub|ket), id, and nominalAlokasi (>=0) are required' }, { status: 400 });
+    }
+
+    const newAlokasi = Number(nominalAlokasi);
+    const posId = Number(id);
+
+    if (type === 'main') {
+      await prisma.mainAnggaran.update({ where: { id: posId }, data: { nominalAlokasi: newAlokasi } });
+    } else if (type === 'sub') {
+      await prisma.subAnggaran.update({ where: { id: posId }, data: { nominalAlokasi: newAlokasi } });
+    } else {
+      await prisma.keteranganAnggaran.update({ where: { id: posId }, data: { nominalAlokasi: newAlokasi } });
+    }
+
+    // Audit trail
+    if (userId) {
+      await prisma.auditTrail.create({
+        data: {
+          userId: parseInt(userId, 10),
+          aksi: 'edit_alokasi',
+          detail: `Edit alokasi ${type} id=${posId} pada proyek ${proyekId} menjadi Rp ${newAlokasi.toLocaleString('id-ID')}`,
+        },
+      });
+    }
+
+    clearCache('dashboard:');
+    clearCache('proyek:');
+    return NextResponse.json({ message: 'Alokasi berhasil diperbarui' });
+  } catch (error: any) {
+    console.error('PATCH alokasi error:', error);
+    return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+  }
+}

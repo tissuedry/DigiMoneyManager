@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
+import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
@@ -277,19 +278,27 @@ function AksiButton({
   );
 }
 
+
+
 export default function DetailAnggaranModal({
+  proyekId,
   proyekNama,
   posAnggaran,
+  totalRAB,
   onClose,
+  onRefresh,
 }: {
   proyekId: number;
   proyekNama: string;
   posAnggaran: any[];
+  totalRAB?: number;
   onClose: () => void;
+  onRefresh?: () => void;
 }) {
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
   const [expandedKet, setExpandedKet] = useState<Record<number, boolean>>({});
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   const toggleMain = (id: number) =>
     setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
@@ -366,6 +375,7 @@ export default function DetailAnggaranModal({
   }, [mapped, expandedMain]);
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
@@ -467,7 +477,20 @@ export default function DetailAnggaranModal({
                     <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
                     <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
                     <Cell bold>{formatFullCurrency(main.realisasi)}</Cell>
-                    <AksiButton variant="main">
+                    <AksiButton
+                      variant="main"
+                      onClick={() => {
+                        const totalTeralokasi = mapped.reduce((s, m) => s + (m.alokasi || 0), 0);
+                        setEditTarget({
+                          type: "main",
+                          id: main.id,
+                          nama: main.nama,
+                          currentAlokasi: main.alokasi || 0,
+                          totalRAB: totalRAB || totalTeralokasi,
+                          totalTeralokasi,
+                        });
+                      }}
+                    >
                       Edit Alokasi
                     </AksiButton>
                   </Row>
@@ -521,7 +544,21 @@ export default function DetailAnggaranModal({
                                 <ProgressCell pct={subPct} exactPctText={subPctExact} />
                                 <Cell>{formatFullCurrency(sub.alokasi)}</Cell>
                                 <Cell>{formatFullCurrency(sub.realisasi)}</Cell>
-                                <AksiButton variant="sub">
+                                <AksiButton
+                                  variant="sub"
+                                  onClick={() => {
+                                    const totalTeralokasi = main.subPos.reduce((s, s2) => s + (s2.alokasi || 0), 0);
+                                    setEditTarget({
+                                      type: "sub",
+                                      id: sub.id,
+                                      nama: sub.nama,
+                                      parentNama: main.nama,
+                                      currentAlokasi: sub.alokasi || 0,
+                                      totalRAB: main.alokasi || 0,
+                                      totalTeralokasi,
+                                    });
+                                  }}
+                                >
                                   Edit Alokasi
                                 </AksiButton>
                               </Row>
@@ -575,7 +612,21 @@ export default function DetailAnggaranModal({
                                             <Cell style={{ color: "#78716C" }}>
                                               {formatFullCurrency(ket.realisasi)}
                                             </Cell>
-                                            <AksiButton variant="ket">
+                                            <AksiButton
+                                              variant="ket"
+                                              onClick={() => {
+                                                const totalTeralokasi = sub.keterangan.reduce((s, k) => s + (k.alokasi || 0), 0);
+                                                setEditTarget({
+                                                  type: "ket",
+                                                  id: ket.id,
+                                                  nama: ket.nama,
+                                                  parentNama: sub.nama,
+                                                  currentAlokasi: ket.alokasi || 0,
+                                                  totalRAB: sub.alokasi || 0,
+                                                  totalTeralokasi,
+                                                });
+                                              }}
+                                            >
                                               Edit Alokasi
                                             </AksiButton>
                                           </Row>
@@ -666,5 +717,19 @@ export default function DetailAnggaranModal({
         </div>
       </div>
     </div>
+
+    {/* Edit Alokasi Popup */}
+    {editTarget && (
+      <EditAlokasiModal
+        target={editTarget}
+        proyekId={proyekId}
+        onClose={() => setEditTarget(null)}
+        onSuccess={() => {
+          setEditTarget(null);
+          if (onRefresh) onRefresh();
+        }}
+      />
+    )}
+    </>
   );
 }
