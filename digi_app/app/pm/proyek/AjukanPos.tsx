@@ -98,6 +98,9 @@ export default function AjukanPosModal({
   const [error, setError] = useState("");
   const [pendingItems, setPendingItems] = useState<any[]>([]);
 
+  const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
+  const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
+
   useEffect(() => {
     const mapped: AjukanMain[] = posAnggaran.map((main) => ({
       id: main.id,
@@ -164,9 +167,6 @@ export default function AjukanPosModal({
     setLoading(false);
   }, [posAnggaran, proyekId]);
 
-  const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
-  const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
-
   useEffect(() => {
     if (data.length > 0 && Object.keys(expandedMain).length === 0) {
       data.forEach((m) => setExpandedMain((p) => ({ ...p, [m.id]: true })));
@@ -210,7 +210,7 @@ export default function AjukanPosModal({
             const autoExpandSubs: Record<number, boolean> = {};
 
             const updated = prevData.map((main) => {
-              let subList = [...main.subPos];
+              const subList = [...main.subPos];
 
               // 1. Pending SUB_ANGGARAN
               allItems
@@ -232,7 +232,7 @@ export default function AjukanPosModal({
 
               // 2. Pending KETERANGAN
               const finalSubList = subList.map((sub) => {
-                let ketList = [...sub.keterangan];
+                const ketList = [...sub.keterangan];
                 allItems
                   .filter(
                     (item: any) =>
