@@ -60,14 +60,31 @@ export default function InitBudgetModal({
   }, [showInitBudget?.id]);
 
   useEffect(() => {
-    if (showInitBudget) {
-      if (detailedProjectInfo?.posAnggaranList && detailedProjectInfo.posAnggaranList.length > 0) {
-        setPosAnggaranList(detailedProjectInfo.posAnggaranList);
-      } else {
-        setPosAnggaranList([{ deskripsi: "", nominalAlokasi: "" }]);
-      }
-    }
-  }, [showInitBudget?.id, detailedProjectInfo]);
+  if (!showInitBudget) return;
+
+  // 1. Dapatkan array pos anggaran dari berbagai kemungkinan nama properti dari backend
+  const existingList = 
+    detailedProjectInfo?.posAnggaran || 
+    detailedProjectInfo?.budget?.posAnggaran ||
+    detailedProjectInfo?.rincianPos ||
+    detailedProjectInfo?.mainBudgets ||
+    [];
+
+  // 2. Pastikan ID proyek pada detailedProjectInfo SAMA dengan ID proyek yang sedang dibuka (showInitBudget)
+  const isCorrectProject = detailedProjectInfo?.id === showInitBudget.id || detailedProjectInfo?.projectId === showInitBudget.id;
+
+  if (isCorrectProject && Array.isArray(existingList) && existingList.length > 0) {
+    // Jika benar data milik Proyek B DAN memang punya pos anggaran
+    const formattedList = existingList.map((item: any) => ({
+      deskripsi: item.nama || item.deskripsi || item.namaPos || "",
+      nominalAlokasi: formatRibuan(String(item.alokasi || item.nominalAlokasi || item.nominal || 0)),
+    }));
+    setPosAnggaranList(formattedList);
+  } else {
+    // JIKA TIDAK (Proyek baru/Proyek B belum ada data), PAKSA RESET SAMA SEKALI!
+    setPosAnggaranList([{ deskripsi: "", nominalAlokasi: "" }]);
+  }
+}, [showInitBudget?.id, detailedProjectInfo]);
 
   if (!showInitBudget) return null;
 
