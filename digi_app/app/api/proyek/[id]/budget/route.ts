@@ -66,7 +66,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
             if (matchedIncoming) {
               const newAlokasi = parseFloat(matchedIncoming.nominalAlokasi);
-              const nominalTerpakai = Number(ext.nominalTerpakai);
 
               await tx.mainAnggaran.update({
               where: { id: ext.id },

@@ -15,6 +15,7 @@ type AjukanSub = {
   nama: string;
   alokasi: number;
   status?: "MENUNGGU";
+  isDraft?: boolean;
   keterangan: AjukanKet[];
 };
 
@@ -23,6 +24,44 @@ type AjukanMain = {
   nama: string;
   alokasi: number;
   subPos: AjukanSub[];
+};
+
+const DRAFT_STORAGE_KEY = (pId: number) => `digi_ajukan_drafts_${pId}`;
+
+const saveDraftsToStorage = (pId: number, dataList: AjukanMain[]) => {
+  if (typeof window === "undefined") return;
+  const draftSubs: { mainId: number; id: number; nama: string; alokasi: number }[] = [];
+  const draftKets: { subId: number; mainId: number; id: number; nama: string; alokasi: number }[] = [];
+
+  dataList.forEach((main) => {
+    main.subPos.forEach((sub) => {
+      if (sub.isDraft || sub.status === "MENUNGGU") {
+        draftSubs.push({ mainId: main.id, id: sub.id, nama: sub.nama, alokasi: sub.alokasi });
+      }
+      sub.keterangan.forEach((ket) => {
+        if (ket.isDraft) {
+          draftKets.push({ subId: sub.id, mainId: main.id, id: ket.id, nama: ket.nama, alokasi: ket.alokasi });
+        }
+      });
+    });
+  });
+
+  if (draftSubs.length > 0 || draftKets.length > 0) {
+    localStorage.setItem(DRAFT_STORAGE_KEY(pId), JSON.stringify({ subs: draftSubs, kets: draftKets }));
+  } else {
+    localStorage.removeItem(DRAFT_STORAGE_KEY(pId));
+  }
+};
+
+const getDraftsFromStorage = (pId: number) => {
+  if (typeof window === "undefined") return { subs: [], kets: [] };
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY(pId));
+    if (!raw) return { subs: [], kets: [] };
+    return JSON.parse(raw);
+  } catch {
+    return { subs: [], kets: [] };
+  }
 };
 
 const formatShort = (v: number): string => {
@@ -59,6 +98,9 @@ export default function AjukanPosModal({
   const [error, setError] = useState("");
   const [pendingItems, setPendingItems] = useState<any[]>([]);
 
+  const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
+  const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
+
   useEffect(() => {
     const mapped: AjukanMain[] = posAnggaran.map((main) => ({
       id: main.id,
@@ -75,12 +117,55 @@ export default function AjukanPosModal({
         })),
       })),
     }));
-    setData(mapped);
-    setLoading(false);
-  }, [posAnggaran]);
 
-  const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
-  const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
+    // Restore unsubmitted local drafts from localStorage
+    const savedDrafts = getDraftsFromStorage(proyekId);
+    const autoExpandMains: Record<number, boolean> = {};
+    const autoExpandSubs: Record<number, boolean> = {};
+
+    (savedDrafts.subs || []).forEach((dSub: any) => {
+      const main = mapped.find((m) => m.id === dSub.mainId);
+      if (main) {
+        autoExpandMains[main.id] = true;
+        if (!main.subPos.some((s) => s.nama.toUpperCase().trim() === dSub.nama.toUpperCase().trim())) {
+          main.subPos.push({
+            id: dSub.id || Date.now(),
+            nama: dSub.nama,
+            alokasi: dSub.alokasi,
+            status: "MENUNGGU",
+            isDraft: true,
+            keterangan: [],
+          });
+        }
+      }
+    });
+
+    (savedDrafts.kets || []).forEach((dKet: any) => {
+      for (const main of mapped) {
+        const sub = main.subPos.find(
+          (s) => s.id === dKet.subId || s.nama.toUpperCase().trim() === dKet.subNama?.toUpperCase().trim()
+        );
+        if (sub) {
+          autoExpandMains[main.id] = true;
+          autoExpandSubs[sub.id] = true;
+          if (!sub.keterangan.some((k) => k.nama.toUpperCase().trim() === dKet.nama.toUpperCase().trim())) {
+            sub.keterangan.push({
+              id: dKet.id || Date.now(),
+              nama: dKet.nama,
+              alokasi: dKet.alokasi,
+              isDraft: true,
+            });
+          }
+          break;
+        }
+      }
+    });
+
+    setData(mapped);
+    setExpandedMain((prev) => ({ ...prev, ...autoExpandMains }));
+    setExpandedSub((prev) => ({ ...prev, ...autoExpandSubs }));
+    setLoading(false);
+  }, [posAnggaran, proyekId]);
 
   useEffect(() => {
     if (data.length > 0 && Object.keys(expandedMain).length === 0) {
@@ -105,7 +190,7 @@ export default function AjukanPosModal({
   const [ketOptions, setKetOptions] = useState<Record<number, any[]>>({}); // subId -> MasterKeterangan[]
   const [loadingKetOptions, setLoadingKetOptions] = useState<Record<number, boolean>>({});
 
-  // Fetch pending pengajuan items untuk cek duplikasi
+  // Fetch pending pengajuan items untuk merge ke tree & cek duplikasi
   useEffect(() => {
     const fetchPendingItems = async () => {
       try {
@@ -116,6 +201,77 @@ export default function AjukanPosModal({
             (p.items || []).map((item: any) => ({ ...item, pengajuanId: p.id, judul: p.judul }))
           );
           setPendingItems(allItems);
+
+          // Merge pending items from server into data tree
+          setData((prevData) => {
+            if (prevData.length === 0) return prevData;
+            let changed = false;
+            const autoExpandMains: Record<number, boolean> = {};
+            const autoExpandSubs: Record<number, boolean> = {};
+
+            const updated = prevData.map((main) => {
+              const subList = [...main.subPos];
+
+              // 1. Pending SUB_ANGGARAN
+              allItems
+                .filter((item: any) => item.tipe === "SUB_ANGGARAN" && item.parentId === main.id)
+                .forEach((item: any) => {
+                  autoExpandMains[main.id] = true;
+                  if (!subList.some((s) => s.nama.toUpperCase().trim() === item.nama?.toUpperCase().trim())) {
+                    subList.push({
+                      id: item.targetId || Date.now(),
+                      nama: item.nama,
+                      alokasi: Number(item.nominalAlokasi) || 0,
+                      status: "MENUNGGU",
+                      isDraft: true,
+                      keterangan: [],
+                    });
+                    changed = true;
+                  }
+                });
+
+              // 2. Pending KETERANGAN
+              const finalSubList = subList.map((sub) => {
+                const ketList = [...sub.keterangan];
+                allItems
+                  .filter(
+                    (item: any) =>
+                      item.tipe === "KETERANGAN" &&
+                      (item.parentId === sub.id ||
+                        allItems.some(
+                          (pSub: any) =>
+                            pSub.tipe === "SUB_ANGGARAN" &&
+                            pSub.parentId === main.id &&
+                            pSub.nama?.toUpperCase().trim() === sub.nama.toUpperCase().trim() &&
+                            pSub.targetId === item.parentId
+                        ))
+                  )
+                  .forEach((item: any) => {
+                    autoExpandMains[main.id] = true;
+                    autoExpandSubs[sub.id] = true;
+                    if (!ketList.some((k) => k.nama.toUpperCase().trim() === item.nama?.toUpperCase().trim())) {
+                      ketList.push({
+                        id: item.id || Date.now(),
+                        nama: item.nama,
+                        alokasi: Number(item.nominalAlokasi) || 0,
+                        isDraft: true,
+                      });
+                      changed = true;
+                    }
+                  });
+                return { ...sub, keterangan: ketList };
+              });
+
+              return { ...main, subPos: finalSubList };
+            });
+
+            if (changed) {
+              setExpandedMain((prev) => ({ ...prev, ...autoExpandMains }));
+              setExpandedSub((prev) => ({ ...prev, ...autoExpandSubs }));
+              return updated;
+            }
+            return prevData;
+          });
         }
       } catch (err) {
         console.error("Failed to fetch pending items:", err);
@@ -237,22 +393,24 @@ export default function AjukanPosModal({
       return;
     }
 
-    setData((prev) =>
-      prev.map((main) => {
-        if (main.id === mainId) {
-          const updatedSub = {
-            id: Date.now(),
-            nama: newSubName,
-            alokasi: alokasiVal,
-            status: "MENUNGGU" as const,
-            keterangan: [],
-          };
-          setExpandedSub((prevSub) => ({ ...prevSub, [updatedSub.id]: true }));
-          return { ...main, subPos: [...main.subPos, updatedSub] };
-        }
-        return main;
-      })
-    );
+    const nextData = data.map((main) => {
+      if (main.id === mainId) {
+        const updatedSub = {
+          id: Date.now(),
+          nama: newSubName,
+          alokasi: alokasiVal,
+          status: "MENUNGGU" as const,
+          isDraft: true,
+          keterangan: [],
+        };
+        setExpandedSub((prevSub) => ({ ...prevSub, [updatedSub.id]: true }));
+        return { ...main, subPos: [...main.subPos, updatedSub] };
+      }
+      return main;
+    });
+
+    setData(nextData);
+    saveDraftsToStorage(proyekId, nextData);
 
     setAddingSubMainId(null);
     setNewSubName("");
@@ -281,23 +439,24 @@ export default function AjukanPosModal({
       return;
     }
 
-    setData((prev) =>
-      prev.map((main) => ({
-        ...main,
-        subPos: main.subPos.map((sub) => {
-          if (sub.id === subId) {
-            return {
-              ...sub,
-              keterangan: [
-                ...sub.keterangan,
-                { id: Date.now(), nama: newKetName, alokasi: alokasiVal, isDraft: true },
-              ],
-            };
-          }
-          return sub;
-        }),
-      }))
-    );
+    const nextData = data.map((main) => ({
+      ...main,
+      subPos: main.subPos.map((sub) => {
+        if (sub.id === subId) {
+          return {
+            ...sub,
+            keterangan: [
+              ...sub.keterangan,
+              { id: Date.now(), nama: newKetName, alokasi: alokasiVal, isDraft: true },
+            ],
+          };
+        }
+        return sub;
+      }),
+    }));
+
+    setData(nextData);
+    saveDraftsToStorage(proyekId, nextData);
 
     setAddingKetSubId(null);
     setNewKetName("");
@@ -373,6 +532,7 @@ export default function AjukanPosModal({
         setError(result.message || "Gagal mengajukan pos");
         return;
       }
+      localStorage.removeItem(DRAFT_STORAGE_KEY(proyekId));
       onClose();
     } catch {
       setError("Terjadi kesalahan koneksi");
@@ -541,8 +701,10 @@ export default function AjukanPosModal({
                                 <span className="text-[12px] font-semibold text-[#2c2a24]">
                                   {isNewSub ? `Sub Baru: ${sub.nama}` : sub.nama}
                                 </span>
-                                {sub.status && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] uppercase tracking-wider">{sub.status}</span>
+                                {(sub.status === "MENUNGGU" || sub.isDraft) && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] uppercase tracking-wider">
+                                    DRAFT
+                                  </span>
                                 )}
                               </div>
                               <span className="text-[11px] font-normal text-[#9a948b] font-mono">{formatShort(sub.alokasi)}</span>
@@ -556,7 +718,7 @@ export default function AjukanPosModal({
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="font-normal text-[#6a6660]">{ket.nama}</span>
                                       {ket.isDraft && (
-                                        <span className="text-[8px] font-bold px-1.5 py-0.5 bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] uppercase tracking-wider rounded">Draft</span>
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] uppercase tracking-wider rounded">DRAFT</span>
                                       )}
                                     </div>
                                     <span className="text-[#9a948b] font-mono text-[10.5px]">{formatShort(ket.alokasi)}</span>
