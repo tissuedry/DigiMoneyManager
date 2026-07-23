@@ -107,10 +107,12 @@ function Row({
   children,
   indent = 0,
   className = "",
+  onClick,
 }: {
   children: React.ReactNode;
   indent?: number;
   className?: string;
+  onClick?: () => void;
 }) {
   const childrenArray = React.Children.toArray(children);
   const firstChild = childrenArray[0];
@@ -127,7 +129,8 @@ function Row({
 
   return (
     <div
-      className={`${COL_CLASS} ${className}`}
+      onClick={onClick}
+      className={`${COL_CLASS} ${onClick ? "cursor-pointer select-none" : ""} ${className}`}
       style={{ paddingLeft: 24 }}
     >
       {modifiedFirstChild}
@@ -244,7 +247,10 @@ function AksiButton({
   return (
     <div className="flex justify-center shrink-0" style={{ width: 120 }}>
       <button
-        onClick={onClick}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onClick) onClick();
+        }}
         className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-sm"
         style={{
           backgroundColor: styles.bg,
@@ -407,229 +413,233 @@ export default function DetailAnggaranModal({
 
         {/* Scrollable rows */}
         <div className="flex-1 overflow-y-auto divide-y divide-stone-50">
-          {mapped.map((main) => {
-            const mainPct =
-              main.alokasi > 0
-                ? Math.min((main.realisasi / main.alokasi) * 100, 100)
-                : 0;
-            const mainPctExact = main.alokasi > 0 ? ((main.realisasi / main.alokasi) * 100).toFixed(5) : '0.00000';
-            const isMainOpen = expandedMain[main.id] ?? true;
-            return (
-              <div key={main.id}>
-                {/* MAIN row */}
-                <Row>
-                  <div className={NAME_CLASS}>
-                    <button
-                      onClick={() => toggleMain(main.id)}
-                      className="p-0.5 hover:bg-stone-200 rounded transition cursor-pointer shrink-0"
-                    >
-                      {isMainOpen ? (
-                        <ChevronDown size={13} className="text-stone-500" />
+          {mapped.length === 0 ? (
+            <div className="p-12 text-center border border-stone-200 rounded-xl m-6">
+              <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
+                Data Pos Anggaran Kosong
+              </div>
+              <div className="font-sans text-xs text-stone-400">
+                Belum ada pos anggaran yang diinisialisasi untuk proyek ini.
+              </div>
+            </div>
+          ) : (
+            mapped.map((main) => {
+              const mainPct =
+                main.alokasi > 0
+                  ? Math.min((main.realisasi / main.alokasi) * 100, 100)
+                  : 0;
+              const mainPctExact = main.alokasi > 0 ? ((main.realisasi / main.alokasi) * 100).toFixed(5) : '0.00000';
+              const isMainOpen = expandedMain[main.id] ?? true;
+              return (
+                <div key={main.id}>
+                  {/* MAIN row */}
+                  <Row onClick={() => toggleMain(main.id)}>
+                    <div className={NAME_CLASS}>
+                      <div className="p-0.5 shrink-0">
+                        {isMainOpen ? (
+                          <ChevronDown size={13} className="text-stone-500" />
+                        ) : (
+                          <ChevronRight size={13} className="text-stone-500" />
+                        )}
+                      </div>
+                      <span
+                        className="text-[13px] font-bold uppercase shrink-0"
+                        style={{ color: "#14130F" }}
+                      >
+                        MAIN
+                      </span>
+                      <span className="text-[13px] font-semibold text-stone-800 truncate">
+                        {main.nama}
+                      </span>
+                    </div>
+                    <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
+                    <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
+                    <Cell bold>{formatFullCurrency(main.realisasi)}</Cell>
+                    <AksiButton variant="main">
+                      Edit Alokasi
+                    </AksiButton>
+                  </Row>
+
+                  {/* SUB rows */}
+                  {isMainOpen && (
+                    <div className="bg-stone-50/50">
+                      {main.subPos.length === 0 ? (
+                        <p className="pl-14 py-2.5 text-[12px] text-stone-400 italic">
+                          Belum ada sub-pos anggaran.
+                        </p>
                       ) : (
-                        <ChevronRight size={13} className="text-stone-500" />
-                      )}
-                    </button>
-                    <span
-                      className="text-[13px] font-bold uppercase shrink-0"
-                      style={{ color: "#14130F" }}
-                    >
-                      MAIN
-                    </span>
-                    <span className="text-[13px] font-semibold text-stone-800 truncate">
-                      {main.nama}
-                    </span>
-                  </div>
-                  <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
-                  <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
-                  <Cell bold>{formatFullCurrency(main.realisasi)}</Cell>
-                  <AksiButton variant="main">
-                    Edit Alokasi
-                  </AksiButton>
-                </Row>
-
-                {/* SUB rows */}
-                {isMainOpen && (
-                  <div className="bg-stone-50/50">
-                    {main.subPos.length === 0 ? (
-                      <p className="pl-14 py-2.5 text-[12px] text-stone-400 italic">
-                        Belum ada sub-pos.
-                      </p>
-                    ) : (
-                      main.subPos.map((sub) => {
-                        const subPct =
-                          sub.alokasi > 0
-                            ? Math.min(
-                                (sub.realisasi / sub.alokasi) * 100,
-                                100
-                              )
-                            : 0;
-                        const subPctExact = sub.alokasi > 0 ? ((sub.realisasi / sub.alokasi) * 100).toFixed(5) : '0.00000';
-                        const isSubOpen = expandedSub[sub.id] ?? false;
-                        return (
-                          <div key={sub.id}>
-                            {/* SUB row */}
-                            <Row indent={1} className="hover:bg-stone-100/60">
-                              <div className={NAME_CLASS}>
-                                <button
-                                  onClick={() => toggleSub(sub.id)}
-                                  className="p-0.5 hover:bg-stone-200 rounded transition cursor-pointer shrink-0"
-                                >
-                                  {isSubOpen ? (
-                                    <ChevronDown
-                                      size={12}
-                                      className="text-stone-400"
-                                    />
-                                  ) : (
-                                    <ChevronRight
-                                      size={12}
-                                      className="text-stone-400"
-                                    />
-                                  )}
-                                </button>
-                                <span
-                                  className="text-[9px] font-bold uppercase shrink-0"
-                                  style={{ color: "#9A948B" }}
-                                >
-                                  SUB
-                                </span>
-                                <span className="text-[12px] font-semibold text-stone-700 truncate">
-                                  {sub.nama}
-                                </span>
-                              </div>
-                              <ProgressCell pct={subPct} exactPctText={subPctExact} />
-                              <Cell>{formatFullCurrency(sub.alokasi)}</Cell>
-                              <Cell>{formatFullCurrency(sub.realisasi)}</Cell>
-                              <AksiButton variant="sub">
-                                Edit Alokasi
-                              </AksiButton>
-                            </Row>
-
-                            {/* KET rows */}
-                            {isSubOpen &&
-                              sub.keterangan.map((ket) => {
-                                const hasKetReimbs = ket.reimbs && ket.reimbs.length > 0;
-                                const isKetOpen =
-                                  expandedKet[ket.id] ?? false;
-                                return (
-                                  <div key={ket.id}>
-                                    {/* KET row */}
-                                    <Row
-                                      indent={2}
-                                      className="hover:bg-stone-100/60"
-                                    >
-                                      <div className={NAME_CLASS}>
-                                        {hasKetReimbs ? (
-                                          <button
-                                            onClick={() =>
-                                              toggleKet(ket.id)
-                                            }
-                                            className="p-0.5 hover:bg-stone-200 rounded transition cursor-pointer shrink-0"
-                                          >
-                                            {isKetOpen ? (
-                                              <ChevronDown
-                                                size={12}
-                                                className="text-stone-400"
-                                              />
-                                            ) : (
-                                              <ChevronRight
-                                                size={12}
-                                                className="text-stone-400"
-                                              />
-                                            )}
-                                          </button>
-                                        ) : (
-                                          <div style={{ width: 21 }} />
-                                        )}
-                                        <span
-                                          className="text-[9px] font-bold uppercase shrink-0"
-                                          style={{ color: "#9A948B" }}
-                                        >
-                                          KET
-                                        </span>
-                                        <span className="text-[12px] text-stone-600 truncate">
-                                          {ket.nama}
-                                        </span>
-                                      </div>
-                                      <div style={{ width: 200, flexShrink: 0 }} />
-                                      <Cell style={{ color: "#78716C" }}>
-                                        {formatFullCurrency(ket.alokasi)}
-                                      </Cell>
-                                      <Cell style={{ color: "#78716C" }}>
-                                        {formatFullCurrency(ket.realisasi)}
-                                      </Cell>
-                                      <AksiButton variant="ket">
-                                        Edit Alokasi
-                                      </AksiButton>
-                                    </Row>
-
-                                    {/* REIMB rows */}
-                                    {isKetOpen && (
-                                      <div className="bg-white">
-                                        {ket.reimbs.length === 0 ? (
-                                          <p className="pl-24 py-2 text-[11px] text-stone-400 italic">
-                                            Belum ada realisasi.
-                                          </p>
-                                        ) : (
-                                          ket.reimbs.map((reimb: any) => {
-                                            const reimbName = reimb.ocrData && typeof reimb.ocrData === 'object' ? ((reimb.ocrData as any).merchant || (reimb.ocrData as any).keterangan) : null;
-                                            const displayName = reimbName || 'Reimbursement';
-                                            const dateStr = formatReimbursementDate(reimb);
-                                            const displayStatus = statusLabel(reimb.status);
-                                            return (
-                                            <Row
-                                              key={reimb.id}
-                                              indent={3}
-                                            >
-                                              <div className={NAME_CLASS}>
-                                                <span
-                                                  className="text-[9px] font-bold uppercase shrink-0"
-                                                  style={{ color: "#005D8D" }}
-                                                >
-                                                  REIMB
-                                                </span>
-                                                <span
-                                                  className="text-[11px] text-stone-700 font-medium truncate max-w-[220px] shrink-1"
-                                                  title={displayName}
-                                                >
-                                                  {displayName}
-                                                </span>
-                                                <span className="text-[10px] text-stone-400 shrink-0">
-                                                  {dateStr}
-                                                </span>
-                                                <span
-                                                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                                                    STATUS_BADGE[displayStatus] ??
-                                                    "bg-stone-100 text-stone-500"
-                                                  }`}
-                                                >
-                                                  {displayStatus}
-                                                </span>
-                                              </div>
-                                              <div style={{ width: 200, flexShrink: 0 }} />
-                                              <div style={{ width: 210, flexShrink: 0 }} />
-                                              <ReimbRealisasiCell
-                                                nominal={Number(reimb.nominal) || 0}
-                                                status={displayStatus}
-                                              />
-                                              <div style={{ width: 120, flexShrink: 0 }} />
-                                            </Row>
-                                            );
-                                          })
-                                        )}
-                                      </div>
+                        main.subPos.map((sub) => {
+                          const subPct =
+                            sub.alokasi > 0
+                              ? Math.min(
+                                  (sub.realisasi / sub.alokasi) * 100,
+                                  100
+                                )
+                              : 0;
+                          const subPctExact = sub.alokasi > 0 ? ((sub.realisasi / sub.alokasi) * 100).toFixed(5) : '0.00000';
+                          const isSubOpen = expandedSub[sub.id] ?? false;
+                          return (
+                            <div key={sub.id}>
+                              {/* SUB row */}
+                              <Row indent={1} onClick={() => toggleSub(sub.id)} className="hover:bg-stone-100/60">
+                                <div className={NAME_CLASS}>
+                                  <div className="p-0.5 shrink-0">
+                                    {isSubOpen ? (
+                                      <ChevronDown
+                                        size={12}
+                                        className="text-stone-400"
+                                      />
+                                    ) : (
+                                      <ChevronRight
+                                        size={12}
+                                        className="text-stone-400"
+                                      />
                                     )}
                                   </div>
-                                );
-                              })}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                                  <span
+                                    className="text-[9px] font-bold uppercase shrink-0"
+                                    style={{ color: "#9A948B" }}
+                                  >
+                                    SUB
+                                  </span>
+                                  <span className="text-[12px] font-semibold text-stone-700 truncate">
+                                    {sub.nama}
+                                  </span>
+                                </div>
+                                <ProgressCell pct={subPct} exactPctText={subPctExact} />
+                                <Cell>{formatFullCurrency(sub.alokasi)}</Cell>
+                                <Cell>{formatFullCurrency(sub.realisasi)}</Cell>
+                                <AksiButton variant="sub">
+                                  Edit Alokasi
+                                </AksiButton>
+                              </Row>
+
+                              {/* KET rows */}
+                              {isSubOpen && (
+                                <div className="bg-stone-50/30">
+                                  {sub.keterangan.length === 0 ? (
+                                    <p className="pl-20 py-2.5 text-[12px] text-stone-400 italic">
+                                      Belum ada pos keterangan.
+                                    </p>
+                                  ) : (
+                                    sub.keterangan.map((ket) => {
+                                      const isKetOpen = expandedKet[ket.id] ?? false;
+                                      return (
+                                        <div key={ket.id}>
+                                          {/* KET row */}
+                                          <Row
+                                            indent={2}
+                                            onClick={() => toggleKet(ket.id)}
+                                            className="hover:bg-stone-100/60"
+                                          >
+                                            <div className={NAME_CLASS}>
+                                              <div className="p-0.5 shrink-0">
+                                                {isKetOpen ? (
+                                                  <ChevronDown
+                                                    size={12}
+                                                    className="text-stone-400"
+                                                  />
+                                                ) : (
+                                                  <ChevronRight
+                                                    size={12}
+                                                    className="text-stone-400"
+                                                  />
+                                                )}
+                                              </div>
+                                              <span
+                                                className="text-[9px] font-bold uppercase shrink-0"
+                                                style={{ color: "#9A948B" }}
+                                              >
+                                                KET
+                                              </span>
+                                              <span className="text-[12px] text-stone-600 truncate">
+                                                {ket.nama}
+                                              </span>
+                                            </div>
+                                            <div style={{ width: 200, flexShrink: 0 }} />
+                                            <Cell style={{ color: "#78716C" }}>
+                                              {formatFullCurrency(ket.alokasi)}
+                                            </Cell>
+                                            <Cell style={{ color: "#78716C" }}>
+                                              {formatFullCurrency(ket.realisasi)}
+                                            </Cell>
+                                            <AksiButton variant="ket">
+                                              Edit Alokasi
+                                            </AksiButton>
+                                          </Row>
+
+                                          {/* REIMB rows */}
+                                          {isKetOpen && (
+                                            <div className="bg-white">
+                                              {ket.reimbs.length === 0 ? (
+                                                <p className="pl-24 py-2.5 text-[11px] text-stone-400 italic">
+                                                  Belum ada realisasi reimbursement.
+                                                </p>
+                                              ) : (
+                                                ket.reimbs.map((reimb: any) => {
+                                                  const reimbName = reimb.ocrData && typeof reimb.ocrData === 'object' ? ((reimb.ocrData as any).merchant || (reimb.ocrData as any).keterangan) : null;
+                                                  const displayName = reimbName || 'Reimbursement';
+                                                  const dateStr = formatReimbursementDate(reimb);
+                                                  const displayStatus = statusLabel(reimb.status);
+                                                  return (
+                                                    <Row
+                                                      key={reimb.id}
+                                                      indent={3}
+                                                    >
+                                                      <div className={NAME_CLASS}>
+                                                        <span
+                                                          className="text-[9px] font-bold uppercase shrink-0"
+                                                          style={{ color: "#005D8D" }}
+                                                        >
+                                                          REIMB
+                                                        </span>
+                                                        <span
+                                                          className="text-[11px] text-stone-700 font-medium truncate max-w-[220px] shrink-1"
+                                                          title={displayName}
+                                                        >
+                                                          {displayName}
+                                                        </span>
+                                                        <span className="text-[10px] text-stone-400 shrink-0">
+                                                          {dateStr}
+                                                        </span>
+                                                        <span
+                                                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                                            STATUS_BADGE[displayStatus] ??
+                                                            "bg-stone-100 text-stone-500"
+                                                          }`}
+                                                        >
+                                                          {displayStatus}
+                                                        </span>
+                                                      </div>
+                                                      <div style={{ width: 200, flexShrink: 0 }} />
+                                                      <div style={{ width: 210, flexShrink: 0 }} />
+                                                      <ReimbRealisasiCell
+                                                        nominal={Number(reimb.nominal) || 0}
+                                                        status={displayStatus}
+                                                      />
+                                                      <div style={{ width: 120, flexShrink: 0 }} />
+                                                    </Row>
+                                                  );
+                                                })
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Footer */}
