@@ -8,14 +8,19 @@ type AjukanKet = {
   nama: string;
   alokasi: number;
   isDraft?: boolean;
+  isLocalDraft?: boolean;
+  isPendingServer?: boolean;
+  status?: string;
 };
 
 type AjukanSub = {
   id: number;
   nama: string;
   alokasi: number;
-  status?: "MENUNGGU";
+  status?: string;
   isDraft?: boolean;
+  isLocalDraft?: boolean;
+  isPendingServer?: boolean;
   keterangan: AjukanKet[];
 };
 
@@ -35,11 +40,11 @@ const saveDraftsToStorage = (pId: number, dataList: AjukanMain[]) => {
 
   dataList.forEach((main) => {
     main.subPos.forEach((sub) => {
-      if (sub.isDraft || sub.status === "MENUNGGU") {
+      if (sub.isLocalDraft || sub.isDraft) {
         draftSubs.push({ mainId: main.id, id: sub.id, nama: sub.nama, alokasi: sub.alokasi });
       }
       sub.keterangan.forEach((ket) => {
-        if (ket.isDraft) {
+        if (ket.isLocalDraft || ket.isDraft) {
           draftKets.push({ subId: sub.id, mainId: main.id, id: ket.id, nama: ket.nama, alokasi: ket.alokasi });
         }
       });
@@ -132,8 +137,9 @@ export default function AjukanPosModal({
             id: dSub.id || Date.now(),
             nama: dSub.nama,
             alokasi: dSub.alokasi,
-            status: "MENUNGGU",
-            isDraft: true,
+            status: "DRAFT",
+            isLocalDraft: true,
+            isPendingServer: false,
             keterangan: [],
           });
         }
@@ -153,7 +159,8 @@ export default function AjukanPosModal({
               id: dKet.id || Date.now(),
               nama: dKet.nama,
               alokasi: dKet.alokasi,
-              isDraft: true,
+              isLocalDraft: true,
+              isPendingServer: false,
             });
           }
           break;
@@ -223,7 +230,8 @@ export default function AjukanPosModal({
                       nama: item.nama,
                       alokasi: Number(item.nominalAlokasi) || 0,
                       status: "MENUNGGU",
-                      isDraft: true,
+                      isLocalDraft: false,
+                      isPendingServer: true,
                       keterangan: [],
                     });
                     changed = true;
@@ -254,7 +262,9 @@ export default function AjukanPosModal({
                         id: item.id || Date.now(),
                         nama: item.nama,
                         alokasi: Number(item.nominalAlokasi) || 0,
-                        isDraft: true,
+                        status: "MENUNGGU",
+                        isLocalDraft: false,
+                        isPendingServer: true,
                       });
                       changed = true;
                     }
@@ -399,8 +409,9 @@ export default function AjukanPosModal({
           id: Date.now(),
           nama: newSubName,
           alokasi: alokasiVal,
-          status: "MENUNGGU" as const,
-          isDraft: true,
+          status: "DRAFT",
+          isLocalDraft: true,
+          isPendingServer: false,
           keterangan: [],
         };
         setExpandedSub((prevSub) => ({ ...prevSub, [updatedSub.id]: true }));
@@ -447,7 +458,13 @@ export default function AjukanPosModal({
             ...sub,
             keterangan: [
               ...sub.keterangan,
-              { id: Date.now(), nama: newKetName, alokasi: alokasiVal, isDraft: true },
+              {
+                id: Date.now(),
+                nama: newKetName,
+                alokasi: alokasiVal,
+                isLocalDraft: true,
+                isPendingServer: false,
+              },
             ],
           };
         }
@@ -482,11 +499,11 @@ export default function AjukanPosModal({
 
     data.forEach((main) => {
       main.subPos.forEach((sub) => {
-        const isDraftSub = sub.status === "MENUNGGU";
+        const isDraftSub = sub.isLocalDraft || sub.status === "MENUNGGU";
         // parent ref untuk KET: Sub lama → id asli; Sub baru → index negatif remap.
         const ketParentRef = isDraftSub ? draftRef(sub.id) : sub.id;
 
-        if (isDraftSub) {
+        if (sub.isLocalDraft) {
           items.push({
             tipe: "SUB_ANGGARAN",
             aksi: "TAMBAH",
@@ -497,7 +514,7 @@ export default function AjukanPosModal({
           });
         }
         sub.keterangan.forEach((ket) => {
-          if (ket.isDraft) {
+          if (ket.isLocalDraft) {
             items.push({
               tipe: "KETERANGAN",
               aksi: "TAMBAH",
@@ -593,11 +610,17 @@ export default function AjukanPosModal({
     return "Rp " + n.toLocaleString("id-ID");
   };
 
-  let pendingCount = 0;
+  let localDraftCount = 0;
+  let serverPendingCount = 0;
   data.forEach((main) => {
     main.subPos.forEach((sub) => {
-      if (sub.status === "MENUNGGU") pendingCount++;
-      sub.keterangan.forEach((ket) => { if (ket.isDraft) pendingCount++; });
+      if (sub.isLocalDraft) localDraftCount++;
+      else if (sub.isPendingServer || sub.status === "MENUNGGU") serverPendingCount++;
+
+      sub.keterangan.forEach((ket) => {
+        if (ket.isLocalDraft) localDraftCount++;
+        else if (ket.isPendingServer || ket.status === "MENUNGGU") serverPendingCount++;
+      });
     });
   });
 
@@ -699,13 +722,17 @@ export default function AjukanPosModal({
                                   {isSubOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                 </button>
                                 <span className="text-[12px] font-semibold text-[#2c2a24]">
-                                  {isNewSub ? `Sub Baru: ${sub.nama}` : sub.nama}
+                                  {sub.isLocalDraft ? `Sub Baru: ${sub.nama}` : sub.nama}
                                 </span>
-                                {(sub.status === "MENUNGGU" || sub.isDraft) && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] uppercase tracking-wider">
-                                    DRAFT
+                                {sub.isLocalDraft ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider">
+                                    Draft
                                   </span>
-                                )}
+                                ) : (sub.isPendingServer || sub.status === "MENUNGGU") ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fef3c7] text-[#92400e] border border-[#fcd34d] tracking-wider">
+                                    Menunggu
+                                  </span>
+                                ) : null}
                               </div>
                               <span className="text-[11px] font-normal text-[#9a948b] font-mono">{formatShort(sub.alokasi)}</span>
                             </div>
@@ -717,9 +744,15 @@ export default function AjukanPosModal({
                                   <div key={ket.id} className="flex items-center justify-between py-1 text-[11.5px] text-[#6a6660]">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="font-normal text-[#6a6660]">{ket.nama}</span>
-                                      {ket.isDraft && (
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] uppercase tracking-wider rounded">DRAFT</span>
-                                      )}
+                                      {ket.isLocalDraft ? (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider rounded">
+                                          Draft
+                                        </span>
+                                      ) : (ket.isPendingServer || ket.status === "MENUNGGU") ? (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#fef3c7] text-[#92400e] border border-[#fcd34d] tracking-wider rounded">
+                                          Menunggu
+                                        </span>
+                                      ) : null}
                                     </div>
                                     <span className="text-[#9a948b] font-mono text-[10.5px]">{formatShort(ket.alokasi)}</span>
                                   </div>
@@ -949,9 +982,14 @@ export default function AjukanPosModal({
             <p className="text-[11px] font-normal text-[#9a948b]">
               <span className="text-[#902f33] font-bold">*</span> setiap pos wajib punya alasan
             </p>
-            {pendingCount > 0 && (
+            {localDraftCount > 0 && (
               <span className="text-[11px] font-semibold text-[#005836] bg-[#e0f1ec] px-2.5 py-0.5 rounded-full border border-[#b2dccd]">
-                {pendingCount} pos draft
+                {localDraftCount} pos draft
+              </span>
+            )}
+            {serverPendingCount > 0 && (
+              <span className="text-[11px] font-semibold text-[#92400e] bg-[#fef3c7] px-2.5 py-0.5 rounded-full border border-[#fcd34d]">
+                {serverPendingCount} pos menunggu persetujuan
               </span>
             )}
           </div>
