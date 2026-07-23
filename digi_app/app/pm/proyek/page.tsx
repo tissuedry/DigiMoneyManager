@@ -716,7 +716,9 @@ export default function KelolaProyekPage() {
           proyekId={proyek.id}
           proyekNama={proyek.nama}
           posAnggaran={proyek.posAnggaran}
+          totalRAB={proyek.totalRAB}
           onClose={() => setIsDetailOpen(false)}
+          onRefresh={() => invalidate("/api/pm/proyek")}
         />
       )}
 
