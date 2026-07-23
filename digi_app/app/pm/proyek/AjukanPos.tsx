@@ -703,6 +703,7 @@ export default function AjukanPosModal({
                       <button onClick={() => toggleMain(main.id)} className="p-0.5 hover:bg-[#f3f0e9] rounded transition cursor-pointer shrink-0 text-[#14130f]">
                         {isMainOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
+                      <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: '#14130F' }}>MAIN</span>
                       <span className="text-[12.5px] font-bold text-[#14130f]">{main.nama}</span>
                     </div>
                     <span className="text-[11px] font-normal text-[#9a948b] font-mono">{formatShort(main.alokasi)}</span>
@@ -721,6 +722,7 @@ export default function AjukanPosModal({
                                 <button onClick={() => toggleSub(sub.id)} className="p-0.5 hover:bg-[#f3f0e9] rounded transition cursor-pointer shrink-0 text-[#6a6660]">
                                   {isSubOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                 </button>
+                                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>SUB</span>
                                 <span className="text-[12px] font-semibold text-[#2c2a24]">
                                   {sub.isLocalDraft ? `Sub Baru: ${sub.nama}` : sub.nama}
                                 </span>
@@ -739,10 +741,11 @@ export default function AjukanPosModal({
 
                             {/* Keterangan List */}
                             {isSubOpen && (
-                              <div className="pl-[34px] pr-3 py-1 space-y-1 bg-white">
+                              <div className="pl-6 pr-3 py-1 space-y-1 bg-white">
                                 {sub.keterangan.map((ket) => (
-                                  <div key={ket.id} className="flex items-center justify-between py-1 text-[11.5px] text-[#6a6660]">
+                                  <div key={ket.id} className="flex items-center justify-between py-1 pl-13 text-[11.5px] text-[#6a6660]">
                                     <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>KET</span>
                                       <span className="font-normal text-[#6a6660]">{ket.nama}</span>
                                       {ket.isLocalDraft ? (
                                         <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider rounded">
@@ -790,7 +793,7 @@ export default function AjukanPosModal({
                                         );
                                       })()}
                                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                        <div className="flex-1">
+                                        <div className="">
                                           <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Keterangan Baru:</label>
                                           {loadingKetOptions[sub.id] ? (
                                             <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
@@ -801,7 +804,7 @@ export default function AjukanPosModal({
                                             <select
                                               value={newKetName}
                                               onChange={(e) => setNewKetName(e.target.value)}
-                                              className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
+                                              className="w-full min-w-85 text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
                                             >
                                               {(ketOptions[sub.id] || []).length > 0 ? (
                                                 <>
@@ -818,7 +821,7 @@ export default function AjukanPosModal({
                                             </select>
                                           )}
                                         </div>
-                                        <div className="w-full sm:w-[150px]">
+                                        <div className="w-full max-w-86">
                                           <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Nominal:</label>
                                           <input
                                             type="text"
@@ -898,7 +901,7 @@ export default function AjukanPosModal({
                               );
                             })()}
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                              <div className="flex-1">
+                              <div>
                                 <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Sub Pos Baru:</label>
                                 {loadingSubOptions[main.id] ? (
                                   <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
@@ -909,7 +912,7 @@ export default function AjukanPosModal({
                                   <select
                                     value={newSubName}
                                     onChange={(e) => setNewSubName(e.target.value)}
-                                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
+                                    className="w-full min-w-85 text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
                                   >
                                     {(subOptions[main.id] || []).length > 0 ? (
                                       <>
@@ -926,7 +929,7 @@ export default function AjukanPosModal({
                                   </select>
                                 )}
                               </div>
-                              <div className="w-full sm:w-[150px]">
+                              <div className="w-full max-w-86">
                                 <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Alokasi Anggaran:</label>
                                 <input
                                   type="text"
