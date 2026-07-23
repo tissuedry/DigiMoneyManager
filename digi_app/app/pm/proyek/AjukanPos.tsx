@@ -446,9 +446,9 @@ export default function AjukanPosModal({
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <Loader2 size={24} className="animate-spin text-stone-400 mx-auto" />
-          <p className="text-stone-400 text-sm mt-3">Memuat data...</p>
+        <div className="bg-white rounded-2xl p-8 shadow-2xl border border-[#e6e1d4]" onClick={(e) => e.stopPropagation()}>
+          <Loader2 size={24} className="animate-spin text-[#9a948b] mx-auto" />
+          <p className="text-[#9a948b] text-xs mt-3">Memuat data...</p>
         </div>
       </div>
     );
@@ -456,105 +456,117 @@ export default function AjukanPosModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-[20px] shadow-[0px_24px_64px_0px_rgba(20,18,14,0.28)] w-full max-w-[820px] max-h-[88vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-stone-100 flex items-start justify-between shrink-0">
+        <div className="px-6 pt-5 pb-4 border-b border-[#e6e1d4] flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-[17px] font-bold text-stone-900">Ajukan Pos</h2>
-            <p className="text-[12px] text-stone-400 mt-0.5">{proyekNama}</p>
+            <h2 className="text-[17px] font-bold text-[#14130f] leading-[25.5px]">Ajukan Pos</h2>
+            <p className="text-[12.5px] text-[#6a6660] leading-[18.75px] mt-0.5">{proyekNama}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-stone-100 rounded-lg transition text-stone-400 hover:text-stone-600 cursor-pointer">
-            <X size={18} />
+          <button onClick={onClose} className="p-1.5 hover:bg-[#f3f0e9] rounded-xl transition text-[#14130f] hover:text-black cursor-pointer">
+            <X size={16} />
           </button>
         </div>
 
         {/* Error banner */}
         {error && (
-          <div className="mx-6 mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-[12px] font-medium text-red-700">{error}</div>
+          <div className="mx-6 mt-4 bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-4 py-2.5 text-[12px] font-medium text-[#902f33]">{error}</div>
         )}
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-          {/* Realisasi Anggaran Box */}
-          <div className="bg-stone-50 border border-stone-150 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold text-stone-750">
-              <span>Realisasi Anggaran</span>
-              <span>{progressPct.toFixed(0)}%</span>
+          {/* Realisasi Anggaran Card */}
+          <div className="bg-white border border-[#e6e1d4] rounded-[16px] p-4 space-y-2.5 shadow-[0px_0px_0px_1px_rgba(20,18,14,0.04),0px_1px_2px_0px_rgba(20,18,14,0.05)]">
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="font-semibold text-[#14130f]">Realisasi Anggaran</span>
+              <span className="font-bold text-[#14130f] font-mono">{progressPct.toFixed(0)}%</span>
             </div>
-            <div className="w-full bg-stone-200 h-2.5 rounded-full overflow-hidden">
-              <div className="h-full bg-[#008f5d] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+            <div className="w-full bg-[#f3f0e9] h-2 rounded-full overflow-hidden">
+              <div className="h-full bg-[#009162] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
             </div>
-            <div className="flex justify-between items-center text-[11px] text-stone-950 px-0.5">
-              <span>Nilai Proyek <span title={`Rp ${Math.round(totalRAB || 0).toLocaleString("id-ID")}`} className="text-stone-850 font-bold cursor-pointer">{formatShort(totalRAB)}</span></span>
-              <span>Realisasi <span title={`Rp ${Math.round(realisasi || 0).toLocaleString("id-ID")}`} className="text-stone-850 font-bold cursor-pointer">{formatShort(realisasi)}</span></span>
-              <span>Sisa <span title={`Rp ${Math.round((totalRAB - realisasi) || 0).toLocaleString("id-ID")}`} className="text-stone-850 font-bold cursor-pointer">{formatShort(totalRAB - realisasi)}</span></span>
+            <div className="flex justify-between items-center text-[12px] pt-1">
+              <div className="flex items-baseline gap-1">
+                <span className="font-medium text-[#000000]">Nilai Proyek</span>
+                <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
+                <span title={`Rp ${Math.round(totalRAB || 0).toLocaleString("id-ID")}`} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatShort(totalRAB).replace(/^Rp\s?/, '')}</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-medium text-[#000000]">Realisasi</span>
+                <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
+                <span title={`Rp ${Math.round(realisasi || 0).toLocaleString("id-ID")}`} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatShort(realisasi).replace(/^Rp\s?/, '')}</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-normal text-[#9a948b]">Sisa</span>
+                <span className="text-[10.2px] font-bold text-[#9a948b] font-mono">Rp</span>
+                <span title={`Rp ${Math.round((totalRAB - realisasi) || 0).toLocaleString("id-ID")}`} className="font-bold text-[#14130f] font-mono cursor-pointer">{formatShort(totalRAB - realisasi).replace(/^Rp\s?/, '')}</span>
+              </div>
             </div>
           </div>
 
-          <p className="text-[12px] font-bold text-stone-500">
+          <p className="text-[12.5px] font-semibold text-[#14130f] px-0.5">
             Anggaran Proyek — klik &quot;+ Tambah&quot; untuk mengajukan Sub / Keterangan baru
           </p>
 
-          <div className="border border-stone-250/70 rounded-2xl divide-y divide-stone-100 overflow-hidden bg-white">
+          <div className="border border-[#e6e1d4] rounded-[10px] divide-y divide-[#e6e1d4] overflow-hidden bg-white">
             {data.map((main) => {
               const isMainOpen = expandedMain[main.id] ?? true;
               return (
-                <div key={main.id} className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                <div key={main.id} className="divide-y divide-[#e6e1d4]">
+                  {/* Main Pos Header */}
+                  <div className="bg-white px-3 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => toggleMain(main.id)} className="p-0.5 hover:bg-stone-100 rounded transition cursor-pointer shrink-0 text-stone-500">
+                      <button onClick={() => toggleMain(main.id)} className="p-0.5 hover:bg-[#f3f0e9] rounded transition cursor-pointer shrink-0 text-[#14130f]">
                         {isMainOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
-                      <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: '#14130F' }}>MAIN</span>
-                      <span className="text-[13px] font-semibold text-stone-850">{main.nama}</span>
+                      <span className="text-[12.5px] font-bold text-[#14130f]">{main.nama}</span>
                     </div>
-                    <span className="text-[13px] font-bold text-stone-900">{formatShort(main.alokasi)}</span>
+                    <span className="text-[11px] font-normal text-[#9a948b] font-mono">{formatShort(main.alokasi)}</span>
                   </div>
 
                   {isMainOpen && (
-                    <div className="pl-6 space-y-3">
+                    <div className="bg-white divide-y divide-[#e6e1d4]/60">
                       {main.subPos.map((sub) => {
                         const isSubOpen = expandedSub[sub.id] ?? false;
                         const isNewSub = sub.status === "MENUNGGU";
                         return (
-                          <div key={sub.id} className="border-l border-stone-200/60 pl-3 space-y-2">
-                            <div className="flex items-center justify-between">
+                          <div key={sub.id} className="bg-white">
+                            {/* Sub Pos Header */}
+                            <div className="px-3 py-2 pl-6 flex items-center justify-between">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <button onClick={() => toggleSub(sub.id)} className="p-0.5 hover:bg-stone-100 rounded transition cursor-pointer shrink-0 text-stone-500">
+                                <button onClick={() => toggleSub(sub.id)} className="p-0.5 hover:bg-[#f3f0e9] rounded transition cursor-pointer shrink-0 text-[#6a6660]">
                                   {isSubOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                 </button>
-                                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>SUB</span>
-                                <span className="text-[12px] font-semibold text-stone-800">
+                                <span className="text-[12px] font-semibold text-[#2c2a24]">
                                   {isNewSub ? `Sub Baru: ${sub.nama}` : sub.nama}
                                 </span>
                                 {sub.status && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider">{sub.status}</span>
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] uppercase tracking-wider">{sub.status}</span>
                                 )}
                               </div>
-                              <span className="text-[12px] font-bold text-stone-800">{formatShort(sub.alokasi)}</span>
+                              <span className="text-[11px] font-normal text-[#9a948b] font-mono">{formatShort(sub.alokasi)}</span>
                             </div>
 
+                            {/* Keterangan List */}
                             {isSubOpen && (
-                              <div className="pl-6 space-y-2">
+                              <div className="pl-[34px] pr-3 py-1 space-y-1 bg-white">
                                 {sub.keterangan.map((ket) => (
-                                  <div key={ket.id} className="flex items-center justify-between text-xs text-stone-650">
+                                  <div key={ket.id} className="flex items-center justify-between py-1 text-[11.5px] text-[#6a6660]">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>KET</span>
-                                      <span className="font-medium text-stone-700">{ket.nama}</span>
+                                      <span className="font-normal text-[#6a6660]">{ket.nama}</span>
                                       {ket.isDraft && (
-                                        <span className="text-[8px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider rounded">Draft</span>
+                                        <span className="text-[8px] font-bold px-1.5 py-0.5 bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] uppercase tracking-wider rounded">Draft</span>
                                       )}
                                     </div>
-                                    <span className="text-stone-500 font-semibold">{formatShort(ket.alokasi)}</span>
+                                    <span className="text-[#9a948b] font-mono text-[10.5px]">{formatShort(ket.alokasi)}</span>
                                   </div>
                                 ))}
 
                                 {/* Add Keterangan inline */}
-                                <div className="pt-1">
+                                <div className="py-1">
                                   {addingKetSubId === sub.id ? (
-                                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3 mt-1 mr-2 shadow-inner">
+                                    <div className="bg-[#fbfaf6] border border-[#e6e1d4] rounded-xl p-3.5 space-y-3 my-1.5 mr-1 shadow-inner">
                                       {/* Budget summary for this Sub */}
                                       {(() => {
                                         const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
@@ -563,30 +575,30 @@ export default function AjukanPosModal({
                                         const sisaKet = sub.alokasi - liveTotalKet;
                                         const isOverKet = sisaKet < 0;
                                         return (
-                                          <div className="grid grid-cols-2 gap-3">
-                                            <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
-                                              <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
-                                              <p className="text-[12px] font-bold text-stone-800">{formatShort(liveTotalKet)}</p>
+                                          <div className="grid grid-cols-2 gap-2.5">
+                                            <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
+                                              <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
+                                              <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalKet)}</p>
                                             </div>
                                             {isOverKet ? (
-                                              <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: '#FDF3F2', borderColor: '#E8B6B8' }}>
-                                                <p className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: '#902F33' }}>Kelebihan Alokasi (Overbudget)</p>
-                                                <p className="text-[12px] font-bold" style={{ color: '#902F33' }}>{formatShort(sisaKet)}</p>
+                                              <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3 py-2">
+                                                <p className="text-[12.5px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
+                                                <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaKet)}</p>
                                               </div>
                                             ) : (
-                                              <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
-                                                <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Sisa SUB · {sub.nama} Belum Dialokasikan</p>
-                                                <p className="text-[12px] font-bold text-stone-600">{formatShort(sisaKet)}</p>
+                                              <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
+                                                <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Sisa SUB · {sub.nama} Belum Dialokasikan</p>
+                                                <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaKet)}</p>
                                               </div>
                                             )}
                                           </div>
                                         );
                                       })()}
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Keterangan Baru:</label>
+                                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                        <div className="flex-1">
+                                          <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Keterangan Baru:</label>
                                           {loadingKetOptions[sub.id] ? (
-                                            <div className="flex items-center gap-2 text-xs text-stone-500 py-2">
+                                            <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
                                               <Loader2 size={12} className="animate-spin" />
                                               Memuat pilihan...
                                             </div>
@@ -594,8 +606,7 @@ export default function AjukanPosModal({
                                             <select
                                               value={newKetName}
                                               onChange={(e) => setNewKetName(e.target.value)}
-                                              className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850"
-                                              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                                              className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
                                             >
                                               {(ketOptions[sub.id] || []).length > 0 ? (
                                                 <>
@@ -612,24 +623,44 @@ export default function AjukanPosModal({
                                             </select>
                                           )}
                                         </div>
-                                        <div>
-                                          <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Nominal:</label>
-                                          <input type="text" value={newKetAlokasi} onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))} placeholder="Rp 0" className="w-full text-xs border border-stone-255 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800" />
+                                        <div className="w-full sm:w-[150px]">
+                                          <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Nominal:</label>
+                                          <input
+                                            type="text"
+                                            value={newKetAlokasi}
+                                            onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))}
+                                            placeholder="Rp 0"
+                                            className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] font-mono text-[#14130f] h-[37px]"
+                                          />
                                         </div>
                                       </div>
                                       <div className="flex flex-wrap items-center gap-3 pt-1">
-                                        <button onClick={() => handleAddKet(sub.id)} disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0 || (!!newKetName && (sub.keterangan.some(k => k.nama === newKetName) || isKetInPending(sub, main.id, newKetName)))} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer disabled:opacity-50">Simpan Draft</button>
-                                        <button onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer">Batal</button>
+                                        <button
+                                          onClick={() => handleAddKet(sub.id)}
+                                          disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0 || (!!newKetName && (sub.keterangan.some(k => k.nama === newKetName) || isKetInPending(sub, main.id, newKetName)))}
+                                          className="px-3.5 py-1.5 bg-[#009162] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer disabled:opacity-50"
+                                        >
+                                          Simpan Draft
+                                        </button>
+                                        <button
+                                          onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }}
+                                          className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer"
+                                        >
+                                          Batal
+                                        </button>
                                         {newKetName && sub.keterangan.some(k => k.nama === newKetName) && (
-                                          <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah pernah ditambahkan atau diajukan</span>
+                                          <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah pernah ditambahkan atau diajukan</span>
                                         )}
                                         {newKetName && !sub.keterangan.some(k => k.nama === newKetName) && isKetInPending(sub, main.id, newKetName) && (
-                                          <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah diajukan dan menunggu persetujuan Direktur</span>
+                                          <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah diajukan dan menunggu persetujuan Direktur</span>
                                         )}
                                       </div>
                                     </div>
                                   ) : (
-                                    <button onClick={() => { setAddingKetSubId(sub.id); loadKetOptions(sub.id, sub.nama); }} className="inline-flex items-center gap-1 text-[11px] font-bold text-[#005D8D] hover:underline cursor-pointer">
+                                    <button
+                                      onClick={() => { setAddingKetSubId(sub.id); loadKetOptions(sub.id, sub.nama); }}
+                                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#005d8d] hover:underline cursor-pointer py-1"
+                                    >
                                       <Plus size={11} /> Tambah Keterangan
                                     </button>
                                   )}
@@ -641,9 +672,9 @@ export default function AjukanPosModal({
                       })}
 
                       {/* Add Sub inline */}
-                      <div className="pt-1">
+                      <div className="px-3 py-1.5 pl-6 bg-white">
                         {addingSubMainId === main.id ? (
-                          <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3 mt-1 mr-2 shadow-inner">
+                          <div className="bg-[#fbfaf6] border border-[#e6e1d4] rounded-xl p-3.5 space-y-3 my-1.5 mr-1 shadow-inner">
                             {/* Budget summary for this Main */}
                             {(() => {
                               const totalSub = main.subPos.reduce((s, sub) => s + sub.alokasi, 0);
@@ -652,30 +683,30 @@ export default function AjukanPosModal({
                               const sisaSub = main.alokasi - liveTotalSub;
                               const isOverSub = sisaSub < 0;
                               return (
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
-                                    <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Total MAIN · {main.nama} Teralokasi</p>
-                                    <p className="text-[12px] font-bold text-stone-800">{formatShort(liveTotalSub)}</p>
+                                <div className="grid grid-cols-2 gap-2.5">
+                                  <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
+                                    <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Total MAIN · {main.nama} Teralokasi</p>
+                                    <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalSub)}</p>
                                   </div>
                                   {isOverSub ? (
-                                    <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: '#FDF3F2', borderColor: '#E8B6B8' }}>
-                                      <p className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: '#902F33' }}>Kelebihan Alokasi (Overbudget)</p>
-                                      <p className="text-[12px] font-bold" style={{ color: '#902F33' }}>{formatShort(sisaSub)}</p>
+                                    <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3 py-2">
+                                      <p className="text-[12.5px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
+                                      <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaSub)}</p>
                                     </div>
                                   ) : (
-                                    <div className="bg-white border border-stone-200 rounded-lg px-3 py-2.5">
-                                      <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wide mb-0.5">Sisa MAIN · {main.nama} Belum Dialokasikan</p>
-                                      <p className="text-[12px] font-bold text-stone-600">{formatShort(sisaSub)}</p>
+                                    <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
+                                      <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Sisa MAIN · {main.nama} Belum Dialokasikan</p>
+                                      <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaSub)}</p>
                                     </div>
                                   )}
                                 </div>
                               );
                             })()}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Sub Pos Baru:</label>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <div className="flex-1">
+                                <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Sub Pos Baru:</label>
                                 {loadingSubOptions[main.id] ? (
-                                  <div className="flex items-center gap-2 text-xs text-stone-500 py-2">
+                                  <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
                                     <Loader2 size={12} className="animate-spin" />
                                     Memuat pilihan...
                                   </div>
@@ -683,8 +714,7 @@ export default function AjukanPosModal({
                                   <select
                                     value={newSubName}
                                     onChange={(e) => setNewSubName(e.target.value)}
-                                    className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-850"
-                                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
                                   >
                                     {(subOptions[main.id] || []).length > 0 ? (
                                       <>
@@ -701,25 +731,45 @@ export default function AjukanPosModal({
                                   </select>
                                 )}
                               </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Alokasi Anggaran:</label>
-                                <input type="text" value={newSubAlokasi} onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))} placeholder="Rp 0" className="w-full text-xs border border-stone-250 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-stone-800" />
+                              <div className="w-full sm:w-[150px]">
+                                <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Alokasi Anggaran:</label>
+                                <input
+                                  type="text"
+                                  value={newSubAlokasi}
+                                  onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))}
+                                  placeholder="Rp 0"
+                                  className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] font-mono text-[#14130f] h-[37px]"
+                                />
                               </div>
                             </div>
-                              <div className="flex flex-wrap items-center gap-3 pt-1">
-                              <button onClick={() => handleAddSub(main.id)} disabled={loadingSubOptions[main.id] || (subOptions[main.id] || []).length === 0 || (!!newSubName && (main.subPos.some(s => s.nama === newSubName) || isSubInPending(main.id, newSubName)))} className="px-3.5 py-1.5 bg-[#008f5d] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-lg transition cursor-pointer shrink-0 disabled:opacity-50">Simpan Draft</button>
-                              <button onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }} className="text-[11px] font-bold text-stone-400 hover:text-stone-600 transition cursor-pointer shrink-0">Batal</button>
+                            <div className="flex flex-wrap items-center gap-3 pt-1">
+                              <button
+                                onClick={() => handleAddSub(main.id)}
+                                disabled={loadingSubOptions[main.id] || (subOptions[main.id] || []).length === 0 || (!!newSubName && (main.subPos.some(s => s.nama === newSubName) || isSubInPending(main.id, newSubName)))}
+                                className="px-3.5 py-1.5 bg-[#009162] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer shrink-0 disabled:opacity-50"
+                              >
+                                Simpan Draft
+                              </button>
+                              <button
+                                onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }}
+                                className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer shrink-0"
+                              >
+                                Batal
+                              </button>
                               {newSubName && main.subPos.some(s => s.nama === newSubName) && (
-                                <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah pernah ditambahkan atau diajukan</span>
+                                <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah pernah ditambahkan atau diajukan</span>
                               )}
                               {newSubName && !main.subPos.some(s => s.nama === newSubName) && isSubInPending(main.id, newSubName) && (
-                                <span className="text-[12px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah diajukan dan menunggu persetujuan Direktur</span>
+                                <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah diajukan dan menunggu persetujuan Direktur</span>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <button onClick={() => { setAddingSubMainId(main.id); loadSubOptions(main.id, main.nama); }} className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer">
-                            <Plus size={11} /> Tambah Sub
+                          <button
+                            onClick={() => { setAddingSubMainId(main.id); loadSubOptions(main.id, main.nama); }}
+                            className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#005836] hover:underline cursor-pointer py-1"
+                          >
+                            <Plus size={12} /> Tambah Sub
                           </button>
                         )}
                       </div>
@@ -729,19 +779,35 @@ export default function AjukanPosModal({
               );
             })}
           </div>
-
-          {pendingCount > 0 && (
-            <div className="bg-[#e6f4ea] text-emerald-800 border border-emerald-200 rounded-xl px-4 py-3 text-xs font-semibold shrink-0">{pendingCount} pos menunggu diajukan</div>
-          )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-end shrink-0">
+        <div className="px-6 py-3.5 border-t border-[#e6e1d4] flex items-center justify-between shrink-0 bg-white">
+          <div className="flex items-center gap-3">
+            <p className="text-[11px] font-normal text-[#9a948b]">
+              <span className="text-[#902f33] font-bold">*</span> setiap pos wajib punya alasan
+            </p>
+            {pendingCount > 0 && (
+              <span className="text-[11px] font-semibold text-[#005836] bg-[#e0f1ec] px-2.5 py-0.5 rounded-full border border-[#b2dccd]">
+                {pendingCount} pos draft
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} disabled={submitting} className="px-5 py-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-[13px] font-bold rounded-xl transition cursor-pointer">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="px-4 py-2 bg-white hover:bg-[#f3f0e9] border border-[#e6e1d4] text-[#14130f] text-[13px] font-semibold rounded-[12px] transition cursor-pointer disabled:opacity-50"
+            >
               Batal
             </button>
-            <button onClick={handleSubmit} disabled={submitting} className="px-5 py-2 bg-stone-900 hover:bg-stone-950 text-white text-[13px] font-bold rounded-xl transition cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-4 py-2 bg-[#14130f] hover:bg-black text-[#fbfaf6] text-[13px] font-semibold rounded-[12px] transition cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
               {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               Ajukan
             </button>
