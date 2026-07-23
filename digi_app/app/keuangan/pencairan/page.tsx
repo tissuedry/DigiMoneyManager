@@ -306,7 +306,7 @@ function PencairanContent() {
                   const active = isAllSelected || String(selectedItem?.id) === String(item.id);
                   const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
                   const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
-                  const vendorTitle = item.ocrData?.namaVendor || item.ocrData?.keterangan || item.posAnggaran?.deskripsi || 'Pengajuan Reimbursement';
+                  const vendorTitle = item.ocrData?.merchant || item.posAnggaran?.deskripsi || 'Pengajuan Reimbursement';
                   const projectTitle = item.proyek?.nama || 'Proyek';
 
                   return (
@@ -323,13 +323,23 @@ function PencairanContent() {
                           {initials}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate">
-                            <span className="text-[13px] font-bold text-[#14130F]">{item.user?.nama || 'Karyawan'}</span>
-                            <span className="text-[11px] text-[#6A6660] ml-1">· {itemCode}</span>
+                          <div className="group relative">
+                            <p className="text-[13px] font-bold text-[#14130F] truncate">
+                              {vendorTitle} · {projectTitle}
+                            </p>
+                            <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-[#E6E1D4] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#14130F] shadow-lg group-hover:block">
+                              {vendorTitle} · {projectTitle}
+                            </div>
                           </div>
-                          <p className="text-[11px] text-[#6A6660] truncate mt-0.5">
-                            {vendorTitle} · {projectTitle}
-                          </p>
+                          <div className="group relative mt-0.5">
+                            <div className="truncate">
+                              <span className="text-[11px] text-[#6A6660]">{item.user?.nama || 'Karyawan'}</span>
+                              <span className="text-[11px] text-[#6A6660] ml-1">· {itemCode}</span>
+                            </div>
+                            <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-[#E6E1D4] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#14130F] shadow-lg group-hover:block">
+                              {item.user?.nama || 'Karyawan'} · {itemCode}
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -369,7 +379,7 @@ function PencairanContent() {
                           RB-{String(selectedItem.id).padStart(4, '0')}
                         </span>
                         <h2 className="text-xl font-bold text-[#14130F] mt-0.5 leading-tight">
-                          {selectedItem.ocrData?.namaVendor || selectedItem.ocrData?.keterangan || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama}
+                          {selectedItem.ocrData?.merchant || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama}
                         </h2>
                         <p className="text-[11px] text-[#6A6660] mt-1">
                           diajukan oleh <span className="font-semibold text-[#14130F]">{selectedItem.user?.nama}</span> pada {formatTanggalWaktu(selectedItem.createdAt || selectedItem.ocrData?.submittedAt || selectedItem.ocrData?.tanggal)}
