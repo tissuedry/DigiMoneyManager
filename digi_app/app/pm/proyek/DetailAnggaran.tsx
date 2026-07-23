@@ -140,19 +140,31 @@ function Row({
 }
 
 function ProgressCell({ pct, exactPctText }: { pct: number; exactPctText?: string }) {
+  const displayPct = Math.min(Math.max(pct, 0), 100);
+  let barColor = "#008f5d";
+  let textColor = "#005836";
+
+  if (pct >= 90) {
+    barColor = "#d36c66";
+    textColor = "#991b1b";
+  } else if (pct >= 75) {
+    barColor = "#d8953d";
+    textColor = "#92400e";
+  }
+
   return (
     <div className="flex items-center justify-center shrink-0" style={{ width: 200 }}>
       <div className="flex items-center justify-center gap-2.5 w-full px-3 shrink-0">
-        <div className="flex-1 bg-stone-100 h-2 rounded-full overflow-hidden">
+        <div className="flex-1 bg-stone-100 h-2.5 rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#008f5d] rounded-full"
-            style={{ width: `${pct}%` }}
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${displayPct}%`, backgroundColor: barColor }}
           />
         </div>
         <span
-          className="text-[11px] font-bold tabular-nums w-10 text-right shrink-0"
-          style={{ color: "#005836" }}
-          title={exactPctText ? `${exactPctText}%` : undefined}
+          className="text-[11px] font-bold tabular-nums w-12 text-left shrink-0"
+          style={{ color: textColor }}
+          title={exactPctText ? `${exactPctText}%` : `${pct.toFixed(2)}%`}
         >
           {pct.toFixed(1)}%
         </span>
@@ -577,8 +589,9 @@ export default function DetailAnggaranModal({
                                                 </p>
                                               ) : (
                                                 ket.reimbs.map((reimb: any) => {
-                                                  const reimbName = reimb.ocrData && typeof reimb.ocrData === 'object' ? ((reimb.ocrData as any).merchant || (reimb.ocrData as any).keterangan) : null;
-                                                  const displayName = reimbName || 'Reimbursement';
+                                                  const ocrObj = reimb.ocrData && typeof reimb.ocrData === 'object' ? reimb.ocrData : {};
+                                                  const reimbName = ocrObj.merchant || ocrObj.keterangan || ocrObj.namaVendor || null;
+                                                  const displayName = reimb.merchant || reimb.keterangan || reimb.nama || reimbName || 'Reimbursement';
                                                   const dateStr = formatReimbursementDate(reimb);
                                                   const displayStatus = statusLabel(reimb.status);
                                                   return (
@@ -586,7 +599,7 @@ export default function DetailAnggaranModal({
                                                       key={reimb.id}
                                                       indent={3}
                                                     >
-                                                      <div className={NAME_CLASS}>
+                                                      <div className={NAME_CLASS} title={displayName}>
                                                         <span
                                                           className="text-[9px] font-bold uppercase shrink-0"
                                                           style={{ color: "#005D8D" }}
@@ -594,7 +607,7 @@ export default function DetailAnggaranModal({
                                                           REIMB
                                                         </span>
                                                         <span
-                                                          className="text-[11px] text-stone-700 font-medium truncate max-w-[220px] shrink-1"
+                                                          className="text-[11px] text-stone-700 font-medium truncate shrink-1 cursor-pointer"
                                                           title={displayName}
                                                         >
                                                           {displayName}

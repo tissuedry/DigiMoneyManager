@@ -79,28 +79,10 @@ const getStatusBadgeStyle = (statusStr?: string) => {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export const formatShort = (v: number): string => {
-  if (!v || v === 0) return "Rp 0";
+  if (v === undefined || v === null || isNaN(v)) return "Rp 0";
   const abs = Math.abs(v);
   const sign = v < 0 ? "-" : "";
-
-  let formatted = "";
-  if (abs >= 1_000_000_000_000) {
-    const num = Math.round(abs / 1_000_000_000_000);
-    formatted = `${num} t`;
-  } else if (abs >= 1_000_000_000) {
-    const num = Math.round(abs / 1_000_000_000);
-    formatted = `${num} m`;
-  } else if (abs >= 1_000_000) {
-    const num = Math.round(abs / 1_000_000);
-    formatted = `${num} jt`;
-  } else if (abs >= 1_000) {
-    const num = Math.round(abs / 1_000);
-    formatted = `${num} rb`;
-  } else {
-    formatted = Math.round(abs).toLocaleString("id-ID");
-  }
-
-  return `${sign}Rp ${formatted}`;
+  return `${sign}Rp ${Math.round(abs).toLocaleString("id-ID")}`;
 };
 
 const AVATAR_COLORS = [
