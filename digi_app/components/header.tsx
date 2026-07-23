@@ -342,6 +342,7 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                   </div>
                   <Link
                     href="/select-project"
+                    onClick={() => setIsProfileOpen(false)}
                     className="w-full px-4 py-2 mt-1.5 text-left text-xs font-bold text-[#008f5d] hover:bg-emerald-50 flex items-center gap-1.5 transition cursor-pointer"
                   >
                     🔄 Ganti Proyek

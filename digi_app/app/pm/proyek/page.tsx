@@ -262,9 +262,6 @@ export default function KelolaProyekPage() {
   const error = proyekError?.message ?? null;
 
   const resolvedId = selectedId ?? meData?.user?.proyekId ?? projects[0]?.id ?? null;
-  if (!selectedId && resolvedId) {
-    setTimeout(() => setSelectedId(resolvedId), 0);
-  }
 
   const selectProject = useMutate("/api/auth/select-project", "POST", ["/api/auth/me", "/api/dashboard"]);
 

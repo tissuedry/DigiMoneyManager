@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Plus,
   ArrowRight,
@@ -128,12 +128,8 @@ export default function PMDashboardPage() {
 
   const allProjects = proyekData?.projects ?? [];
 
-  // Auto-select project when data loads (runs once when both queries resolve)
+  // Auto-select project: resolves dynamically from selected state or user session (meData)
   const resolvedProyekId = selectedProjectId ?? meData?.user?.proyekId ?? allProjects[0]?.id ?? null;
-  if (!selectedProjectId && resolvedProyekId) {
-    // Trigger once when resolution happens — not a useEffect because we don't need the effect lifecycle
-    setTimeout(() => setSelectedProjectId(resolvedProyekId), 0);
-  }
 
   const dashboardUrl = resolvedProyekId
     ? `/api/dashboard?projectId=${resolvedProyekId}&role=Project+Manager`

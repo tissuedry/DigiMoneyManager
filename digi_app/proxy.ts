@@ -172,9 +172,6 @@ export async function proxy(req: NextRequest) {
     if (roles.includes('Tim Keuangan')) {
       return NextResponse.redirect(new URL('/keuangan', req.url));
     }
-    if (roles.includes('Project Manager') && (payload.proyekId !== undefined && payload.proyekId !== null)) {
-      return NextResponse.redirect(new URL('/pm', req.url));
-    }
   }
 
   // Hanya role Karyawan yang diwajibkan memiliki proyek spesifik yang terpilih di session

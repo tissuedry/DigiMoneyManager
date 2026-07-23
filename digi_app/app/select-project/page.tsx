@@ -82,7 +82,7 @@ export default function SelectProjectPage() {
       if (!res.ok) {
         throw new Error(data.message || 'Gagal memilih proyek');
       }
-      await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'], refetchType: 'all' });
+      queryClient.clear();
       // Redirect to dashboard
       router.push(data.redirectUrl);
       router.refresh();
