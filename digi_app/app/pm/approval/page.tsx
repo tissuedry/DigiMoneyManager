@@ -456,18 +456,28 @@ export default function AntrianApprovalPage() {
 
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2 mb-0.5">
-                                      <p className="text-[12px] font-bold text-stone-800 truncate">
-                                        {item.pengaju}{" "}
-                                        <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
-                                      </p>
+                                      <div className="group relative min-w-0">
+                                        <p className="text-[12px] font-bold text-stone-800 truncate">
+                                          {item.merchant}
+                                        </p>
+                                        <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
+                                          {item.merchant}
+                                        </div>
+                                      </div>
                                       <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
                                         {item.amount}
                                       </p>
                                     </div>
                                     <div className="flex items-center justify-between gap-2">
-                                      <p className="text-[11px] text-stone-400 truncate">
-                                        {item.merchant}
-                                      </p>
+                                      <div className="group relative min-w-0">
+                                        <p className="text-[11px] text-stone-400 truncate">
+                                          {item.pengaju}{" "}
+                                          <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
+                                        </p>
+                                        <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
+                                          {item.pengaju} · {item.id}
+                                        </div>
+                                      </div>
                                       <span
                                         className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${getStatusBadge(
                                           item.status
