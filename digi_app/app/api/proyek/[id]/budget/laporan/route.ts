@@ -87,23 +87,37 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     proyek.budget.mainAnggaran.forEach((main, mIdx) => {
       const mainNum = `5.${mIdx + 1}`;
+      
+      let totalRealisasiMain = 0;
+
+      // Kalkulasi total realisasi untuk sub dan main dari keterangan
+      const subAnggaranCalculated = main.subAnggaran.map((sub) => {
+        let totalRealisasiSub = 0;
+        if (sub.keterangan && sub.keterangan.length > 0) {
+          sub.keterangan.forEach((ket) => {
+            totalRealisasiSub += Number(ket.nominalRealisasi) || 0;
+          });
+        }
+        totalRealisasiMain += totalRealisasiSub;
+        return { ...sub, totalRealisasiSub };
+      });
 
       // Level 1: Main Anggaran
       const mainRow = sheet.addRow({
         nama: `        ${mainNum} ${main.namaMain}`,
         rab: Number(main.nominalAlokasi) || 0,
-        realisasi: Number(main.nominalTerpakai) || 0,
+        realisasi: totalRealisasiMain,
       });
       mainRow.font = whiteFont;
       mainRow.fill = lightGreyFill as ExcelJS.FillPattern;
 
       // Level 2: Sub Anggaran
-      main.subAnggaran.forEach((sub, sIdx) => {
+      subAnggaranCalculated.forEach((sub, sIdx) => {
         const subNum = `${mainNum}.0${sIdx + 1}`;
         const subRow = sheet.addRow({
           nama: `            ${subNum} ${sub.namaSub}`,
           rab: Number(sub.nominalAlokasi) || 0,
-          realisasi: Number(sub.nominalTerpakai) || 0,
+          realisasi: sub.totalRealisasiSub,
         });
         subRow.font = blackFont; 
 
@@ -111,6 +125,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         if (sub.keterangan && sub.keterangan.length > 0) {
           sub.keterangan.forEach((ket, kIdx) => {
             const ketNum = `${subNum}.0${kIdx + 1}`;
+            
+            // Render Baris Keterangan
             sheet.addRow({
               nama: `                ${ketNum} ${ket.keterangan}`,
               rab: Number(ket.nominalAlokasi) || 0,
@@ -132,9 +148,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                   }
                 }
 
+                // Mengambil nama/keterangan reimbursement dari ocrData atau custom property lainnya
+                const namaReimb = (reimb as any).nama || (reimb.ocrData as any)?.nama || (reimb.ocrData as any)?.keterangan || (reimb.ocrData as any)?.deskripsi || "Reimbursement";
+
                 // Render Baris Reimbursement
                 const reimbRow = sheet.addRow({
-                  nama: `                    REIMB · ${reimb.user.nama} · ${tglStr}[Dicairkan]`,
+                  nama: `                    REIMB ${namaReimb} ${tglStr}[Dicairkan]`,
                   rab: "", 
                   realisasi: Number(reimb.nominal) || 0,
                 });
