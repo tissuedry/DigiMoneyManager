@@ -1,5 +1,5 @@
 export function formatReimbursementDate(r: any): string {
-  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'tanggal' in r.ocrData ? (r.ocrData as any).tanggal : null;
+  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
   if (ocrTanggal) {
     const d = new Date(ocrTanggal);
     if (!isNaN(d.getTime())) {

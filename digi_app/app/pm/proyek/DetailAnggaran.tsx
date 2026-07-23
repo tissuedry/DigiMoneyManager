@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronRight, Settings, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
@@ -89,10 +89,17 @@ function statusLabel(s: string): string {
   return map[s] || s;
 }
 
+function getStatusRank(status: string): number {
+  if (['APPROVED', 'PAID', 'DISBURSED'].includes(status)) return 1;
+  if (['SUBMITTED'].includes(status)) return 2;
+  if (['APPROVED_BY_PM', 'PENDING'].includes(status)) return 3;
+  return 4;
+}
+
 // ponytail: shared row layout — name grows, rest are fixed-width
 const COL_CLASS =
-  "flex items-center gap-3 px-6 py-3 hover:bg-stone-50 transition";
-const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[320px]";
+  "flex items-center gap-3 px-6 py-1.5 hover:bg-stone-50 transition";
+const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[440px]";
 
 // ─── Shared row wrapper ───────────────────────────────────────────────────
 
@@ -131,8 +138,8 @@ function Row({
 
 function ProgressCell({ pct, exactPctText }: { pct: number; exactPctText?: string }) {
   return (
-    <div className="flex items-center shrink-0" style={{ width: 200 }}>
-      <div className="flex items-center gap-2.5 w-full pr-4 shrink-0">
+    <div className="flex items-center justify-center shrink-0" style={{ width: 200 }}>
+      <div className="flex items-center justify-center gap-2.5 w-full px-3 shrink-0">
         <div className="flex-1 bg-stone-100 h-2 rounded-full overflow-hidden">
           <div
             className="h-full bg-[#008f5d] rounded-full"
@@ -140,7 +147,7 @@ function ProgressCell({ pct, exactPctText }: { pct: number; exactPctText?: strin
           />
         </div>
         <span
-          className="text-[11px] font-bold tabular-nums w-10 text-left shrink-0"
+          className="text-[11px] font-bold tabular-nums w-10 text-right shrink-0"
           style={{ color: "#005836" }}
           title={exactPctText ? `${exactPctText}%` : undefined}
         >
@@ -167,6 +174,39 @@ function Cell({
     >
       {children}
     </span>
+  );
+}
+
+function ReimbRealisasiCell({
+  nominal,
+  status,
+}: {
+  nominal: number;
+  status: string;
+}) {
+  let textColor = "#78716C";
+  let icon: React.ReactNode = null;
+
+  if (status === "Dicairkan") {
+    textColor = "#44403C";
+    icon = <Check size={13} className="shrink-0 stroke-[2.5] text-emerald-600" />;
+  } else if (status === "Menunggu PM") {
+    textColor = "#A8A29E";
+    icon = <Clock size={13} className="shrink-0 text-amber-600" />;
+  } else if (status === "Menunggu Keuangan") {
+    textColor = "#A8A29E";
+    icon = <Clock size={13} className="shrink-0 text-sky-600" />;
+  } else {
+    textColor = "#A8A29E";
+  }
+
+  return (
+    <Cell style={{ color: textColor }}>
+      <span className="inline-flex items-center justify-center gap-1.5">
+        <span>{formatFullCurrency(nominal)}</span>
+        {icon}
+      </span>
+    </Cell>
   );
 }
 
@@ -205,14 +245,14 @@ function AksiButton({
     <div className="flex justify-center shrink-0" style={{ width: 120 }}>
       <button
         onClick={onClick}
-        className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-sm"
+        className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-sm"
         style={{
           backgroundColor: styles.bg,
           borderColor: styles.border,
           color: styles.text,
         }}
       >
-        <Settings size={13} style={{ color: styles.text }} />
+        <Settings size={12} style={{ color: styles.text }} />
         {children}
       </button>
     </div>
@@ -220,7 +260,6 @@ function AksiButton({
 }
 
 export default function DetailAnggaranModal({
-  proyekId,
   proyekNama,
   posAnggaran,
   onClose,
@@ -252,9 +291,11 @@ export default function DetailAnggaranModal({
         const childReimbursements = ket.reimbursements || [];
 
         // Filter display: hanya reimbursement dengan status yang relevan (sama seperti manager)
-        const approvedReimbs = childReimbursements.filter((r: any) =>
-          ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
-        );
+        const approvedReimbs = childReimbursements
+          .filter((r: any) =>
+            ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+          )
+          .sort((a: any, b: any) => getStatusRank(a.status) - getStatusRank(b.status));
         const hasReimbs = approvedReimbs.length > 0;
 
         // Ket realisasi = sum reimbursement dengan status APPROVED (dicairkan)
@@ -312,7 +353,7 @@ export default function DetailAnggaranModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-[1140px] max-h-[85vh] flex flex-col overflow-hidden text-left"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[1260px] max-h-[85vh] flex flex-col overflow-hidden text-left"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -334,8 +375,8 @@ export default function DetailAnggaranModal({
         </div>
 
         {/* Column headers */}
-        <div className="flex items-center gap-3 px-6 py-3 bg-stone-50 border-b border-stone-100 shrink-0">
-          <span className="flex-1 min-w-0 max-w-[320px] text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+        <div className="flex items-center gap-3 px-6 py-2 bg-stone-50 border-b border-stone-100 shrink-0">
+          <span className="flex-1 min-w-0 max-w-[440px] text-[10px] font-bold text-stone-400 uppercase tracking-wider">
             MAIN · SUB · KETERANGAN
           </span>
           <span
@@ -532,11 +573,6 @@ export default function DetailAnggaranModal({
                                           ket.reimbs.map((reimb: any) => {
                                             const reimbName = reimb.ocrData && typeof reimb.ocrData === 'object' ? ((reimb.ocrData as any).merchant || (reimb.ocrData as any).keterangan) : null;
                                             const displayName = reimbName || 'Reimbursement';
-                                            const words = displayName.split(" ");
-                                            const inisial =
-                                              words.length >= 2
-                                                ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
-                                                : displayName.slice(0, 2).toUpperCase();
                                             const dateStr = formatReimbursementDate(reimb);
                                             const displayStatus = statusLabel(reimb.status);
                                             return (
@@ -551,10 +587,10 @@ export default function DetailAnggaranModal({
                                                 >
                                                   REIMB
                                                 </span>
-                                                <div className="w-4 h-4 rounded-full bg-blue-100 text-[7px] font-bold flex items-center justify-center shrink-0 text-blue-700">
-                                                  {inisial}
-                                                </div>
-                                                <span className="text-[11px] text-stone-700 font-medium truncate" title={displayName}>
+                                                <span
+                                                  className="text-[11px] text-stone-700 font-medium truncate max-w-[220px] shrink-1"
+                                                  title={displayName}
+                                                >
                                                   {displayName}
                                                 </span>
                                                 <span className="text-[10px] text-stone-400 shrink-0">
@@ -571,9 +607,10 @@ export default function DetailAnggaranModal({
                                               </div>
                                               <div style={{ width: 200, flexShrink: 0 }} />
                                               <div style={{ width: 210, flexShrink: 0 }} />
-                                              <Cell style={{ color: "#78716C" }}>
-                                                {formatFullCurrency(Number(reimb.nominal) || 0)}
-                                              </Cell>
+                                              <ReimbRealisasiCell
+                                                nominal={Number(reimb.nominal) || 0}
+                                                status={displayStatus}
+                                              />
                                               <div style={{ width: 120, flexShrink: 0 }} />
                                             </Row>
                                             );

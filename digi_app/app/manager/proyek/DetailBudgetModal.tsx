@@ -1,6 +1,13 @@
 import React from "react";
-import { X } from "lucide-react";
+import { X, Check, Clock } from "lucide-react";
 import { formatReimbursementDate } from "./utils";
+
+function getStatusRank(status: string): number {
+  if (['APPROVED', 'PAID', 'DISBURSED'].includes(status)) return 1;
+  if (['SUBMITTED'].includes(status)) return 2;
+  if (['APPROVED_BY_PM', 'PENDING'].includes(status)) return 3;
+  return 4;
+}
 
 type Props = {
   showDetailBudgetModal: boolean;
@@ -41,6 +48,7 @@ export default function DetailBudgetModal({
         background: 'white',
         boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
         borderRadius: 20,
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         maxHeight: '85vh',
@@ -177,12 +185,12 @@ export default function DetailBudgetModal({
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 12px' }}>
                       <div style={{ flex: 1, height: 8, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
                         <div style={{ width: `${pctPos}%`, height: '100%', background: mainBarColor, borderRadius: 99 }} />
                       </div>
                       <span
-                        style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'left' }}
+                        style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'right' }}
                         title={`${pctPosExact}%`}
                       >
                         {pctPosText}%
@@ -273,12 +281,12 @@ export default function DetailBudgetModal({
                             </span>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 12px' }}>
                             <div style={{ flex: 1, height: 8, background: '#E6E1D4', overflow: 'hidden', borderRadius: 99 }}>
                               <div style={{ width: `${pctSub}%`, height: '100%', background: subBarColor, borderRadius: 99 }} />
                             </div>
                             <span
-                              style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'left' }}
+                              style={{ color: '#005836', fontSize: 11.50, fontFamily: 'IBM Plex Mono', fontWeight: '700', minWidth: 42, textAlign: 'right' }}
                               title={`${pctSubExact}%`}
                             >
                               {pctSubText}%
@@ -299,9 +307,11 @@ export default function DetailBudgetModal({
                           const alokasiKet = parseFloat(ket.nominalAlokasi) || 0;
 
                           const childReimbursements = ket.reimbursements || [];
-                          const approvedReimbs = childReimbursements.filter((r: any) =>
-                            ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
-                          );
+                          const approvedReimbs = childReimbursements
+                            .filter((r: any) =>
+                              ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+                            )
+                            .sort((a: any, b: any) => getStatusRank(a.status) - getStatusRank(b.status));
                           const hasReimbs = approvedReimbs.length > 0;
 
                           // --- 3. KALKULASI PADA TINGKAT KETERANGAN (Ket sum) ---
@@ -401,6 +411,22 @@ export default function DetailBudgetModal({
                                 const statusLabel = getStatusLabelText(reimb.status);
                                 const reimbName = (reimb.ocrData as any)?.merchant || (reimb.ocrData as any)?.keterangan || 'Reimbursement';
 
+                                let reimbTextColor = '#6A6660';
+                                let reimbIcon: React.ReactNode = null;
+
+                                if (statusLabel === 'Dicairkan') {
+                                  reimbTextColor = '#14130F';
+                                  reimbIcon = <Check size={13} className="shrink-0 stroke-[2.5] text-emerald-600 inline-block" />;
+                                } else if (statusLabel === 'Menunggu PM') {
+                                  reimbTextColor = '#A8A29E';
+                                  reimbIcon = <Clock size={13} className="shrink-0 text-amber-600 inline-block" />;
+                                } else if (statusLabel === 'Menunggu Keuangan') {
+                                  reimbTextColor = '#A8A29E';
+                                  reimbIcon = <Clock size={13} className="shrink-0 text-sky-600 inline-block" />;
+                                } else {
+                                  reimbTextColor = '#A8A29E';
+                                }
+
                                 return (
                                   <div key={reimb.id} style={{
                                     display: 'grid',
@@ -465,8 +491,20 @@ export default function DetailBudgetModal({
                                     <div />
                                     <div />
 
-                                    <div style={{ color: '#6A6660', fontSize: 11, fontFamily: 'IBM Plex Mono', fontWeight: '400', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                      {formatFullCurrency(nominalReimb)}
+                                    <div style={{
+                                      color: reimbTextColor,
+                                      fontSize: 11,
+                                      fontFamily: 'IBM Plex Mono',
+                                      fontWeight: '400',
+                                      textAlign: 'center',
+                                      whiteSpace: 'nowrap',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: 6
+                                    }}>
+                                      <span>{formatFullCurrency(nominalReimb)}</span>
+                                      {reimbIcon}
                                     </div>
                                   </div>
                                 );
