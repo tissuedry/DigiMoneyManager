@@ -121,7 +121,7 @@ Tugas Anda adalah membaca gambar dokumen transaksi (struk thermal, struk transfe
    - "Nota Kontan" (jika berupa nota manual/toko)
 5. 'keterangan': Ringkasan singkat mengenai transaksi/layanan yang dibayarkan (misal: "Pembayaran Briva PT SYAFTRACO a/n JUMIAH").
 
-WAJIB: Kembalikan HANYA berupa satu objek JSON valid persis dengan struktur berikut tanpa teks lain:
+WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kembalikan HANYA berupa satu objek JSON valid persis dengan struktur berikut:
 {
   "merchant": "JIHAD BRILINK",
   "tanggal": "2023-09-16",
@@ -163,9 +163,9 @@ WAJIB: Kembalikan HANYA berupa satu objek JSON valid persis dengan struktur beri
     // 5. Coba Secondary Provider: Google Gemini Vision API (bila Groq gagal/rate limit)
     if (!rawResponse && geminiKey) {
       try {
-        console.log('Menggunakan Secondary AI Provider: Google Gemini 2.0 Flash...');
+        console.log('Menggunakan Secondary AI Provider: Google Gemini 3.6 Flash / 2.0 Flash...');
         rawResponse = await scanWithGemini(base64Image, mimeType, promptInstruksi, geminiKey);
-        if (rawResponse) providerUsed = 'Google Gemini 2.0 Flash';
+        if (rawResponse) providerUsed = 'Google Gemini Vision';
       } catch (geminiErr: any) {
         console.error('Gemini Vision fallback error:', geminiErr?.message);
       }
@@ -182,52 +182,72 @@ WAJIB: Kembalikan HANYA berupa satu objek JSON valid persis dengan struktur beri
       );
     }
 
-    // 7. Sanitasi & Parsing JSON Respons
-    let cleanedResponse = rawResponse.trim();
-    const jsonBlockMatch = cleanedResponse.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonBlockMatch) {
-      cleanedResponse = jsonBlockMatch[1].trim();
-    } else {
-      const codeBlockMatch = cleanedResponse.match(/```\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
-        cleanedResponse = codeBlockMatch[1].trim();
-      } else {
-        const firstBrace = cleanedResponse.indexOf('{');
-        const lastBrace = cleanedResponse.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          cleanedResponse = cleanedResponse.substring(firstBrace, lastBrace + 1).trim();
-        }
-      }
-    }
+    // 7. Sanitasi & Extractor JSON Respons (Aman dari tag <think> dan markdown code block)
+    const parseAiJson = (text: string): any => {
+      if (!text) return null;
+      // Hapus tag pemikiran model AI (<think>...</think>)
+      let clean = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
-    let dataJson: any = null;
-    if (cleanedResponse) {
+      // Ekstrak dari markdown code block ```json ... ```
+      const codeBlockMatch = clean.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      if (codeBlockMatch) {
+        clean = codeBlockMatch[1].trim();
+      }
+
+      // 1. Coba parse langsung
       try {
-        dataJson = JSON.parse(cleanedResponse);
-      } catch (parseError: any) {
-        console.warn('Direct JSON parse failed, trying regex extraction:', parseError.message);
-        const match = rawResponse.match(/\{[\s\S]*\}/);
-        if (match) {
+        return JSON.parse(clean);
+      } catch {}
+
+      // 2. Cari substring JSON { ... } terluar
+      const firstBrace = clean.indexOf('{');
+      const lastBrace = clean.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const jsonCandidate = clean.substring(firstBrace, lastBrace + 1).trim();
+        try {
+          return JSON.parse(jsonCandidate);
+        } catch {}
+      }
+
+      // 3. Fallback regex matcher per baris JSON
+      const matches = clean.match(/\{[\s\S]*?\}/g);
+      if (matches) {
+        for (const m of matches) {
           try {
-            dataJson = JSON.parse(match[0]);
-          } catch {
-            dataJson = null;
-          }
+            const parsed = JSON.parse(m);
+            if (parsed && typeof parsed === 'object') return parsed;
+          } catch {}
         }
       }
-    }
+
+      return null;
+    };
+
+    let dataJson = parseAiJson(rawResponse);
 
     if (!dataJson || typeof dataJson !== 'object') {
+      console.error('Gagal memproses respons AI Vision. Raw output:', rawResponse);
       return NextResponse.json({
         success: false,
         message: 'Vision AI tidak dapat mengekstrak data dari dokumen ini. Silakan periksa atau isi data secara manual.',
       }, { status: 422 });
     }
 
+    // Normalisasi & pembersihan tipe data hasil ekstrak
+    const sanitizedData = {
+      merchant: String(dataJson.merchant || 'Vendor Dokumen').trim(),
+      tanggal: String(dataJson.tanggal || new Date().toISOString().split('T')[0]).trim(),
+      nominal: typeof dataJson.nominal === 'number' 
+        ? Math.round(dataJson.nominal) 
+        : parseInt(String(dataJson.nominal || '0').replace(/\D/g, ''), 10) || 0,
+      kategoriBukti: String(dataJson.kategoriBukti || 'Struk Pembelian').trim(),
+      keterangan: String(dataJson.keterangan || '').trim(),
+    };
+
     return NextResponse.json({
       success: true,
       message: `Berhasil mengekstrak data menggunakan ${providerUsed}`,
-      data: dataJson,
+      data: sanitizedData,
     });
 
   } catch (error: any) {

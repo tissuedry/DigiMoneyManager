@@ -240,7 +240,7 @@ function PencairanContent() {
       <div className="flex-1 flex flex-col min-w-0 bg-[#F6F4EF] overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
-        <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-8 py-6">
+        <main className="flex-1 overflow-y-auto flex flex-col px-6 lg:px-8 py-6 custom-scrollbar">
 
           {/* Header Title & Subtitle */}
           <div className="shrink-0 mb-6">
@@ -292,10 +292,10 @@ function PencairanContent() {
           </div>
 
           {/* List and Detail Split Layout */}
-          <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
+          <div className="flex flex-col lg:flex-row flex-1 gap-6 items-start">
 
-            {/* LEFT COLUMN: ITEM LIST */}
-            <div className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
+            {/* LEFT COLUMN: ITEM LIST (Sticky on Desktop) */}
+            <div className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:sticky lg:top-0 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
               {isLoading ? (
                 <div className="text-center py-8 text-xs font-semibold text-[#6A6660]">Memuat antrian pencairan...</div>
               ) : filteredList.length === 0 ? (
@@ -351,16 +351,16 @@ function PencairanContent() {
               )}
             </div>
 
-            {/* RIGHT COLUMN: DETAIL VIEW */}
-            <div className="flex-1 flex flex-col bg-white border border-[#E4E0D9] rounded-2xl shadow-sm overflow-hidden h-full">
+            {/* RIGHT COLUMN: DETAIL VIEW (Expanding Naturally Downwards) */}
+            <div className="flex-1 flex flex-col bg-white border border-[#E4E0D9] rounded-2xl shadow-sm min-w-0 w-full mb-6">
               {!selectedItem ? (
-                <div className="flex-1 flex items-center justify-center text-[#6A6660] font-semibold text-xs">
+                <div className="p-12 flex items-center justify-center text-[#6A6660] font-semibold text-xs">
                   Pilih pengajuan dari daftar antrian untuk melihat detail
                 </div>
               ) : (
                 <>
-                  {/* Scrollable Detail Body */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                  {/* Expanding Detail Body (No Internal Scrollbar) */}
+                  <div className="p-6 space-y-5">
 
                     {/* Header Detail */}
                     <div className="flex justify-between items-start border-b border-[#E6E1D4] pb-4">
