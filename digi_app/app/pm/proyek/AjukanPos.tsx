@@ -698,11 +698,14 @@ export default function AjukanPosModal({
               return (
                 <div key={main.id} className="divide-y divide-[#e6e1d4]">
                   {/* Main Pos Header */}
-                  <div className="bg-white px-3 py-2.5 flex items-center justify-between">
+                  <div
+                    onClick={() => toggleMain(main.id)}
+                    className="bg-white px-3 py-2.5 flex items-center justify-between cursor-pointer hover:bg-[#fbfaf6] transition select-none"
+                  >
                     <div className="flex items-center gap-2">
-                      <button onClick={() => toggleMain(main.id)} className="p-0.5 hover:bg-[#f3f0e9] rounded transition cursor-pointer shrink-0 text-[#14130f]">
+                      <div className="p-0.5 rounded transition shrink-0 text-[#14130f]">
                         {isMainOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      </button>
+                      </div>
                       <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: '#14130F' }}>MAIN</span>
                       <span className="text-[12.5px] font-bold text-[#14130f]">{main.nama}</span>
                     </div>
@@ -717,11 +720,14 @@ export default function AjukanPosModal({
                         return (
                           <div key={sub.id} className="bg-white">
                             {/* Sub Pos Header */}
-                            <div className="px-3 py-2 pl-6 flex items-center justify-between">
+                            <div
+                              onClick={() => toggleSub(sub.id)}
+                              className="px-3 py-2 pl-6 flex items-center justify-between cursor-pointer hover:bg-[#fbfaf6] transition select-none"
+                            >
                               <div className="flex items-center gap-2 flex-wrap">
-                                <button onClick={() => toggleSub(sub.id)} className="p-0.5 hover:bg-[#f3f0e9] rounded transition cursor-pointer shrink-0 text-[#6a6660]">
+                                <div className="p-0.5 rounded transition shrink-0 text-[#6a6660]">
                                   {isSubOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                                </button>
+                                </div>
                                 <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>SUB</span>
                                 <span className="text-[12px] font-semibold text-[#2c2a24]">
                                   {sub.isLocalDraft ? `Sub Baru: ${sub.nama}` : sub.nama}
