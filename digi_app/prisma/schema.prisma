@@ -120,7 +120,7 @@ model Reimbursement {
   approvals            Approval[]
   jurnalAkuntansi      JurnalAkuntansi[]
   keteranganAnggaran   KeteranganAnggaran @relation(fields: [keteranganAnggaranId], references: [id])
-  proyek               Proyek             @relation(fields: [proyekId], references: [id])
+  proyek               Proyek             @relation(fields: [proyekId], references: [id], onDelete: Cascade)
   user                 User               @relation(fields: [userId], references: [id])
 
   @@index([keteranganAnggaranId])
