@@ -481,6 +481,7 @@ export default function DetailAnggaranModal({
                       variant="main"
                       onClick={() => {
                         const totalTeralokasi = mapped.reduce((s, m) => s + (m.alokasi || 0), 0);
+                        const totalChildrenAlokasi = main.subPos.reduce((s, s2) => s + (s2.alokasi || 0), 0);
                         setEditTarget({
                           type: "main",
                           id: main.id,
@@ -488,6 +489,7 @@ export default function DetailAnggaranModal({
                           currentAlokasi: main.alokasi || 0,
                           totalRAB: totalRAB || totalTeralokasi,
                           totalTeralokasi,
+                          totalChildrenAlokasi,
                         });
                       }}
                     >
@@ -545,6 +547,7 @@ export default function DetailAnggaranModal({
                                   variant="sub"
                                   onClick={() => {
                                     const totalTeralokasi = main.subPos.reduce((s, s2) => s + (s2.alokasi || 0), 0);
+                                    const totalChildrenAlokasi = sub.keterangan.reduce((s, k) => s + (k.alokasi || 0), 0);
                                     setEditTarget({
                                       type: "sub",
                                       id: sub.id,
@@ -553,6 +556,7 @@ export default function DetailAnggaranModal({
                                       currentAlokasi: sub.alokasi || 0,
                                       totalRAB: main.alokasi || 0,
                                       totalTeralokasi,
+                                      totalChildrenAlokasi,
                                     });
                                   }}
                                 >
@@ -621,6 +625,7 @@ export default function DetailAnggaranModal({
                                                   currentAlokasi: ket.alokasi || 0,
                                                   totalRAB: sub.alokasi || 0,
                                                   totalTeralokasi,
+                                                  totalChildrenAlokasi: 0,
                                                 });
                                               }}
                                             >

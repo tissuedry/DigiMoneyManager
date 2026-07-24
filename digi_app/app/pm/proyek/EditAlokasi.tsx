@@ -13,13 +13,14 @@ export type EditTarget = {
   currentAlokasi: number;
   totalRAB: number;
   totalTeralokasi: number; // sum of all allocations at this level (including self)
+  totalChildrenAlokasi?: number; // sum of allocations of immediate children
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+  return `Rp\u00a0${Math.round(n).toLocaleString("id-ID")}`;
 }
 
 function formatRpInput(val: number): string {
@@ -98,7 +99,12 @@ export default function EditAlokasiModal({
   const parentLabel =
     target.type === "main" ? "Nilai Proyek" : target.type === "sub" ? "Main" : "Sub";
 
+  // Minimum allocation required by child positions (if any)
+  const minChildAlokasi = target.totalChildrenAlokasi || 0;
+  const isInvalid = minChildAlokasi > 0 && alokasiBaru < minChildAlokasi;
+
   const handleSave = async () => {
+    if (isInvalid) return;
     setSaving(true);
     setError("");
     try {
@@ -206,15 +212,29 @@ export default function EditAlokasiModal({
           <span className="text-[12px] font-medium text-stone-500 shrink-0">
             Alokasi baru
           </span>
-          <div className="flex-1 border border-stone-200 rounded-2xl px-4 py-2.5 bg-white shadow-2xs focus-within:border-stone-400 transition flex items-center">
-            <span className="mr-2 text-[14px] font-normal text-stone-900">Rp</span>
+          <div
+            className={`flex-1 border rounded-2xl px-4 py-2.5 shadow-2xs transition flex items-center ${
+              isInvalid
+                ? "bg-[#FDF3F2] border-[#902F33]"
+                : "bg-white border-stone-200 focus-within:border-stone-400"
+            }`}
+          >
+            <span
+              className={`mr-2 text-[14px] font-normal ${
+                isInvalid ? "text-[#902F33]" : "text-stone-900"
+              }`}
+            >
+              Rp
+            </span>
             <input
               type="text"
               value={inputStr}
               onChange={handleInputChange}
               onBlur={handleInputBlur}
               placeholder="0"
-              className="w-full text-[14px] font-normal text-stone-900 outline-none bg-transparent"
+              className={`w-full text-[14px] font-normal outline-none bg-transparent ${
+                isInvalid ? "text-[#902F33]" : "text-stone-900"
+              }`}
             />
           </div>
         </div>
@@ -264,23 +284,33 @@ export default function EditAlokasiModal({
           <p className="text-[12px] text-rose-600 mb-4 font-semibold text-center">{error}</p>
         )}
 
-        {/* ── Action Buttons ── */}
-        <div className="flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-2xl text-[13px] font-semibold text-stone-800 border border-stone-300 hover:bg-stone-50 transition cursor-pointer"
-          >
-            Batal
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2.5 rounded-2xl text-[13px] font-bold text-white bg-stone-950 hover:bg-stone-800 transition cursor-pointer disabled:opacity-50 shadow-sm"
-          >
-            {saving ? "Menyimpan..." : "Terapkan"}
-          </button>
+        {/* ── Action Buttons & Warning Inline ── */}
+        <div className="flex items-center justify-between gap-3">
+          {isInvalid ? (
+            <span className="text-[11px] font-normal text-[#902F33] bg-[#FDF3F2] border border-[#902F33] px-2.5 py-1 rounded-lg">
+              <span className="mr-1.5">⚠</span>Alokasi {target.type === "main" ? "main" : "sub"} kurang dari alokasi total {target.type === "main" ? "sub" : "keterangan"} <span className="whitespace-nowrap">({formatFullCurrency(minChildAlokasi)})</span>
+            </span>
+          ) : (
+            <div />
+          )}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-6 py-2.5 rounded-2xl text-[13px] font-semibold text-stone-800 border border-stone-300 hover:bg-stone-50 transition cursor-pointer disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || isInvalid}
+              className="px-6 py-2.5 rounded-2xl text-[13px] font-bold text-white bg-stone-950 hover:bg-stone-800 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              {saving ? "Menyimpan..." : "Terapkan"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
