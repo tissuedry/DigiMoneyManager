@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Filter, Download, X, Check, ChevronDown, ChevronUp, Briefcase } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
@@ -132,11 +132,42 @@ export default function AntrianApprovalPage() {
   const [collapsedProjects, setCollapsedProjects] = useState<Record<string, boolean>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [catatan, setCatatan] = useState("");
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
   const invalidate = useInvalidate();
 
-  // ponytail: TanStack Query handles deduplication + caching
-  const { data, isLoading } = useApi<any>("/api/reimbursements?role=Project+Manager");
-  const reimbursements = data?.reimbursements ?? [];
+  const { data: meData, isLoading: isMeLoading } = useApi<any>("/api/auth/me");
+  const { data: proyekData } = useApi<any>("/api/proyek?role=Project+Manager");
+  const { data, isLoading: isReimbLoading } = useApi<any>("/api/reimbursements?role=Project+Manager");
+  const selectProject = useMutate("/api/auth/select-project", "POST", [
+    "/api/auth/me",
+    "/api/dashboard",
+    "/api/reimbursements?role=Project+Manager"
+  ]);
+
+  const allProjects = proyekData?.projects ?? [];
+  const activeProyekId = selectedProjectId ?? meData?.user?.proyekId ?? meData?.user?.proyek?.id ?? allProjects[0]?.id ?? null;
+  const activeProyek = allProjects.find((p: any) => p.id === activeProyekId) || meData?.user?.proyek || null;
+
+  const isLoading = isReimbLoading || isMeLoading;
+
+  const allReimbursements = data?.reimbursements ?? [];
+  // Antrian Approval hanya menampilkan proyek yang dipilih di select-project
+  const reimbursements = activeProyekId
+    ? allReimbursements.filter((r: any) => r.proyekId === activeProyekId || r.proyek?.id === activeProyekId)
+    : allReimbursements;
+
+  // Close project dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
+        setIsProjectDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Convert API reimbursements to Submission type
   const mappedSubmissions = reimbursements.map((r: any): Submission => {
@@ -307,7 +338,7 @@ export default function AntrianApprovalPage() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header onOpenSidebar={openSidebar} />
+        <Header onOpenSidebar={openSidebar} userRole="Project Manager" />
 
         <main className="flex-1 p-8 overflow-y-auto">
           {/* Judul */}
@@ -353,36 +384,20 @@ export default function AntrianApprovalPage() {
               {isLoading ? (
                 <>
                   {/* Skeleton project groups */}
-                  {[1, 2].map((g) => (
-                    <div key={g} className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between px-3.5 py-3.5 bg-white border border-stone-200 rounded-2xl">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-xl bg-stone-200 animate-pulse" />
-                          <div className="flex flex-col gap-1.5">
-                            <div className="h-3 w-28 rounded bg-stone-200 animate-pulse" />
-                            <div className="h-2.5 w-16 rounded bg-stone-200/60 animate-pulse" />
+                  {[1, 2].map((item) => (
+                    <div key={item} className="bg-white border border-stone-200 rounded-2xl px-4 py-3.5">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0 flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
+                            <div className="h-3 w-20 rounded bg-stone-200 animate-pulse" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
+                            <div className="h-5 w-24 rounded-full bg-stone-200/60 animate-pulse" />
                           </div>
                         </div>
-                        <div className="h-5 w-20 rounded-lg bg-stone-200 animate-pulse" />
-                      </div>
-                      <div className="flex flex-col gap-1.5 pl-2">
-                        {[1, 2].map((item) => (
-                          <div key={item} className="bg-white border border-stone-200 rounded-2xl px-4 py-3.5">
-                            <div className="flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse flex-shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0 flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                  <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
-                                  <div className="h-3 w-20 rounded bg-stone-200 animate-pulse" />
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
-                                  <div className="h-5 w-24 rounded-full bg-stone-200/60 animate-pulse" />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
                       </div>
                     </div>
                   ))}
@@ -392,110 +407,66 @@ export default function AntrianApprovalPage() {
                   Tidak ada data.
                 </div>
               ) : (
-                Object.entries(groupedProjects).map(([projectName, items]: [string, any]) => {
-                  const isCollapsed = collapsedProjects[projectName] || false;
-                  const totalProjectAmount = items.reduce((sum: number, item: any) => sum + item.amountRaw, 0);
-                  const formattedTotal = `Rp ${totalProjectAmount.toLocaleString('id-ID')}`;
-
-                  return (
-                    <div key={projectName} className="flex flex-col gap-2">
-                      {/* Project Header Card */}
+                <div className="flex flex-col gap-2">
+                  {filteredData.map((item: any) => {
+                    const isSelected = selected && selected.id === item.id;
+                    return (
                       <button
-                        onClick={() => toggleProject(projectName)}
-                        className="w-full flex items-center justify-between px-3.5 py-3.5 bg-white rounded-2xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] hover:bg-stone-100 transition-colors duration-200 text-left cursor-pointer"
+                        key={item.id}
+                        onClick={() => setSelectedId(item.id)}
+                        className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${isSelected
+                          ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
+                          : "bg-white border-stone-200 hover:bg-stone-50"
+                          }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">
-                            <Briefcase size={13} className="text-amber-600" />
+                        <div className="flex items-start gap-3">
+                          {/* Avatar inisial */}
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold mt-0.5 ${getAvatarColor(
+                              item.pengajuInitials
+                            )}`}
+                          >
+                            {item.pengajuInitials}
                           </div>
-                          <div className="min-w-0">
-                            <h3 className="text-xs font-bold text-stone-800 truncate max-w-[200px] leading-tight">
-                              {projectName}
-                            </h3>
-                            <span className="text-[10px] text-stone-400 font-medium">
-                              {items.length} Pengajuan
-                            </span>
-                          </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className="text-[12px] font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded-lg">
-                            {formattedTotal}
-                          </span>
-                          {isCollapsed ? (
-                            <ChevronDown size={14} className="text-stone-400" />
-                          ) : (
-                            <ChevronUp size={14} className="text-stone-400" />
-                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <div className="group relative min-w-0">
+                                <p className="text-[12px] font-bold text-stone-800 truncate">
+                                  {item.merchant}
+                                </p>
+                                <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
+                                  {item.merchant}
+                                </div>
+                              </div>
+                              <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
+                                {item.amount}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="group relative min-w-0">
+                                <p className="text-[11px] text-stone-400 truncate">
+                                  {item.pengaju}{" "}
+                                  <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
+                                </p>
+                                <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
+                                  {item.pengaju} · {item.id}
+                                </div>
+                              </div>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${getStatusBadge(
+                                  item.status
+                                )}`}
+                              >
+                                {item.status}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </button>
-
-                      {/* Project Items List */}
-                      {!isCollapsed && (
-                        <div className="flex flex-col gap-1.5 pl-2 transition-all duration-200">
-                          {items.map((item: any) => {
-                            const isSelected = selected && selected.id === item.id;
-                            return (
-                              <button
-                                key={item.id}
-                                onClick={() => setSelectedId(item.id)}
-                                className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${isSelected
-                                  ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
-                                  : "bg-white border-stone-200 hover:bg-stone-50"
-                                  }`}
-                              >
-                                <div className="flex items-start gap-3">
-                                  {/* Avatar inisial */}
-                                  <div
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold mt-0.5 ${getAvatarColor(
-                                      item.pengajuInitials
-                                    )}`}
-                                  >
-                                    {item.pengajuInitials}
-                                  </div>
-
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                                      <div className="group relative min-w-0">
-                                        <p className="text-[12px] font-bold text-stone-800 truncate">
-                                          {item.merchant}
-                                        </p>
-                                        <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
-                                          {item.merchant}
-                                        </div>
-                                      </div>
-                                      <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                                        {item.amount}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="group relative min-w-0">
-                                        <p className="text-[11px] text-stone-400 truncate">
-                                          {item.pengaju}{" "}
-                                          <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
-                                        </p>
-                                        <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
-                                          {item.pengaju} · {item.id}
-                                        </div>
-                                      </div>
-                                      <span
-                                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${getStatusBadge(
-                                          item.status
-                                        )}`}
-                                      >
-                                        {item.status}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </div>
               )}
             </div>
 
