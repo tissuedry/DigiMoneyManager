@@ -28,6 +28,8 @@ type Props = {
     netCashNominal: number;
     sudahReimburseNominal: number;
     belumReimburseNominal: number;
+    sudahReimburseCount?: number;
+    belumReimburseCount?: number;
     detailTotalRAB: number;
     detailTotalTerpakai: number;
     detailPercentUsed: number;
@@ -71,6 +73,8 @@ export default function ProjectDetailSidebar({
     netCashNominal,
     sudahReimburseNominal,
     belumReimburseNominal,
+    sudahReimburseCount,
+    belumReimburseCount,
     detailTotalRAB,
     detailTotalTerpakai,
     detailPercentUsed,
@@ -229,15 +233,19 @@ export default function ProjectDetailSidebar({
                                         </h4>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 flex flex-col justify-between">
-                                                <span className="text-[11px] font-bold text-emerald-700 block">Sudah Reimburse</span>
+                                                <span className="text-[11px] font-bold text-emerald-700 block">
+                                                    Sudah Reimburse ({sudahReimburseCount ?? detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0})
+                                                </span>
                                                 <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
-                                                    {formatSummaryRupiah(sudahReimburseNominal)}
+                                                    {formatRupiah(sudahReimburseNominal)}
                                                 </span>
                                             </div>
                                             <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex flex-col justify-between">
-                                                <span className="text-[11px] font-bold text-amber-700 block">Belum Reimburse</span>
+                                                <span className="text-[11px] font-bold text-amber-700 block">
+                                                    Belum Reimburse ({belumReimburseCount ?? detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0)})
+                                                </span>
                                                 <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
-                                                    {formatSummaryRupiah(belumReimburseNominal)}
+                                                    {formatRupiah(belumReimburseNominal)}
                                                 </span>
                                             </div>
                                         </div>

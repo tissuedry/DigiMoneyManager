@@ -50,8 +50,18 @@ export default function KelolaProyekPage() {
   const detailTotalTerpakai = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
   const detailPercentUsed = detailTotalRAB > 0 ? Math.round((detailTotalTerpakai / detailTotalRAB) * 100) : 0;
   const detailBarWidth = Math.min(detailPercentUsed, 100);
-  const sudahReimburseNominal = parseFloat(detailedProjectInfo?.budget?.totalReimbursement) || 0;
-  const belumReimburseNominal = Math.max(0, detailTotalTerpakai - sudahReimburseNominal);
+  const sudahReimburseNominal = detailedProjectInfo?.sudahReimburseNominal !== undefined
+    ? Number(detailedProjectInfo.sudahReimburseNominal)
+    : (parseFloat(detailedProjectInfo?.budget?.totalReimbursement) || 0);
+
+  const belumReimburseNominal = detailedProjectInfo?.belumReimburseNominal !== undefined
+    ? Number(detailedProjectInfo.belumReimburseNominal)
+    : (detailedProjectInfo?.pendingReimbursements
+        ? detailedProjectInfo.pendingReimbursements.reduce((sum: number, r: any) => sum + Number(r.nominal || 0), 0)
+        : 0);
+
+  const sudahReimburseCount = detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0;
+  const belumReimburseCount = detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0);
 
   const getSelectedCashFlow = () => {
     if (!detailedProjectInfo) return [];
@@ -820,6 +830,8 @@ export default function KelolaProyekPage() {
         netCashNominal={netCashNominal}
         sudahReimburseNominal={sudahReimburseNominal}
         belumReimburseNominal={belumReimburseNominal}
+        sudahReimburseCount={sudahReimburseCount}
+        belumReimburseCount={belumReimburseCount}
         detailTotalRAB={detailTotalRAB}
         detailTotalTerpakai={detailTotalTerpakai}
         detailPercentUsed={detailPercentUsed}
