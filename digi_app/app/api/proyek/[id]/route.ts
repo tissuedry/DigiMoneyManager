@@ -163,6 +163,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const cashFlow12m = getCashFlowForMonths(12);
     const cashFlowYtd = getCashFlowForMonths(now.getMonth() + 1);
 
+    const approvedReimbursements = approvals.map((a) => Number(a.reimbursement.nominal));
+    const calculatedApprovedNominal = approvedReimbursements.reduce((sum, n) => sum + n, 0);
+    const sudahReimburseNominal = approvals.length > 0
+      ? calculatedApprovedNominal
+      : Number(project.budget?.totalReimbursement || 0);
+    const sudahReimburseCount = approvals.length;
+
+    const belumReimburseNominal = pendingReimbursements.reduce((sum, r) => sum + Number(r.nominal || 0), 0);
+    const belumReimburseCount = pendingReimbursements.length;
+
     const responseProject = {
       ...project,
       users: mappedUsers,
@@ -172,6 +182,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       cashFlowYtd,
       pendingPmCount: pendingPengajuanCount,
       pendingReimbursements,
+      sudahReimburseNominal,
+      sudahReimburseCount,
+      belumReimburseNominal,
+      belumReimburseCount,
+      reimbursementDisetujui: sudahReimburseNominal,
+      reimbursementDisetujuiCount: sudahReimburseCount,
+      reimbursementBelumDisetujui: belumReimburseNominal,
+      reimbursementBelumDisetujuiCount: belumReimburseCount,
     };
 
     return NextResponse.json({ project: responseProject });
