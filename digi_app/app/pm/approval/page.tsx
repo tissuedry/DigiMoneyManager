@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Filter, Download, X, Check, ChevronDown, ChevronUp, Briefcase } from "lucide-react";
+import { Filter, Download, X, Check, ZoomIn } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import { useApi, useMutate, useInvalidate } from '@/lib/use-api';
@@ -70,54 +70,41 @@ function formatDateTime(dateInput: string | Date) {
 const getStatusBadge = (status: ApprovalStatus) => {
   switch (status) {
     case "Menunggu PM":
-      return "bg-[#fdf3e6] text-[#b46b2b]";
+      return "text-[#9A6200] bg-[#FFF8E6] border-[#FFEAA7]";
     case "Menunggu Keuangan":
-      return "bg-[#e1f5fe] text-[#0277bd]";
+      return "text-[#005D8D] bg-[#E2F1F8] border-sky-100";
     case "Dicairkan":
-      return "bg-[#e2f1eb] text-[#117a5b]";
+      return "text-[#005836] bg-[#D1E9E1] border-emerald-100";
     case "Ditolak":
-      return "bg-[#fee2e2] text-[#be123c]";
+      return "text-[#902F33] bg-rose-50 border-rose-100";
     default:
-      return "bg-stone-100 text-stone-600";
+      return "text-[#6A6660] bg-stone-100 border-stone-200";
   }
-};
-
-// Warna avatar inisial
-const getAvatarColor = (initials: string) => {
-  const colors = [
-    "bg-teal-100 text-teal-700",
-    "bg-blue-100 text-blue-700",
-    "bg-violet-100 text-violet-700",
-    "bg-rose-100 text-rose-700",
-    "bg-amber-100 text-amber-700",
-  ];
-  const idx = initials.charCodeAt(0) % colors.length;
-  return colors[idx];
 };
 
 // Step icon dalam alur approval
 const StepIcon = ({ state, number }: { state: ApprovalStep["state"]; number: number }) => {
   if (state === "done")
     return (
-      <div className="w-7 h-7 rounded-full bg-[#2d6a4f] flex items-center justify-center flex-shrink-0">
-        <Check size={14} className="text-white" strokeWidth={2.5} />
+      <div className="w-6 h-6 rounded-full bg-[#005836] flex items-center justify-center shrink-0">
+        <Check size={13} className="text-white" strokeWidth={2.5} />
       </div>
     );
   if (state === "rejected")
     return (
-      <div className="w-7 h-7 rounded-full bg-[#be123c] flex items-center justify-center flex-shrink-0">
-        <X size={14} className="text-white" strokeWidth={2.5} />
+      <div className="w-6 h-6 rounded-full bg-[#902F33] flex items-center justify-center shrink-0">
+        <X size={13} className="text-white" strokeWidth={2.5} />
       </div>
     );
   if (state === "active")
     return (
-      <div className="w-7 h-7 rounded-full bg-[#b46b2b] flex items-center justify-center flex-shrink-0">
-        <span className="text-[11px] font-bold text-white">{number}</span>
+      <div className="w-6 h-6 rounded-full bg-[#005D8D] flex items-center justify-center shrink-0">
+        <span className="text-[10px] font-bold text-white">{number}</span>
       </div>
     );
   return (
-    <div className="w-7 h-7 rounded-full border-2 border-stone-200 bg-white flex items-center justify-center flex-shrink-0">
-      <span className="text-[11px] font-semibold text-stone-400">{number}</span>
+    <div className="w-6 h-6 rounded-full border border-[#E6E1D4] bg-stone-100 flex items-center justify-center shrink-0">
+      <span className="text-[10px] font-semibold text-[#6A6660]">{number}</span>
     </div>
   );
 };
@@ -129,26 +116,45 @@ type Tab = "Menunggu Saya" | "Diteruskan" | "Selesai";
 export default function AntrianApprovalPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Menunggu Saya");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [collapsedProjects, setCollapsedProjects] = useState<Record<string, boolean>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [catatan, setCatatan] = useState("");
-  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const projectDropdownRef = useRef<HTMLDivElement>(null);
   const invalidate = useInvalidate();
+
+  // Zoom Struk State
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [zoomScale, setZoomScale] = useState<number>(1);
+  const [panPos, setPanPos] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const resetZoomAndPan = () => {
+    setZoomScale(1);
+    setPanPos({ x: 0, y: 0 });
+    setIsDragging(false);
+  };
+
+  // Lock body scroll when zoom modal is open
+  useEffect(() => {
+    if (zoomImageUrl) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [zoomImageUrl]);
+
+  const handleOpenZoom = (url: string) => {
+    setZoomImageUrl(url);
+    resetZoomAndPan();
+  };
 
   const { data: meData, isLoading: isMeLoading } = useApi<any>("/api/auth/me");
   const { data: proyekData } = useApi<any>("/api/proyek?role=Project+Manager");
   const { data, isLoading: isReimbLoading } = useApi<any>("/api/reimbursements?role=Project+Manager");
-  const selectProject = useMutate("/api/auth/select-project", "POST", [
-    "/api/auth/me",
-    "/api/dashboard",
-    "/api/reimbursements?role=Project+Manager"
-  ]);
 
   const allProjects = proyekData?.projects ?? [];
   const activeProyekId = selectedProjectId ?? meData?.user?.proyekId ?? meData?.user?.proyek?.id ?? allProjects[0]?.id ?? null;
-  const activeProyek = allProjects.find((p: any) => p.id === activeProyekId) || meData?.user?.proyek || null;
 
   const isLoading = isReimbLoading || isMeLoading;
 
@@ -157,17 +163,6 @@ export default function AntrianApprovalPage() {
   const reimbursements = activeProyekId
     ? allReimbursements.filter((r: any) => r.proyekId === activeProyekId || r.proyek?.id === activeProyekId)
     : allReimbursements;
-
-  // Close project dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
-        setIsProjectDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   // Convert API reimbursements to Submission type
   const mappedSubmissions = reimbursements.map((r: any): Submission => {
@@ -259,15 +254,6 @@ export default function AntrianApprovalPage() {
     return false;
   });
 
-  // Group filtered data by project
-  const groupedProjects = filteredData.reduce((acc: any, item: any) => {
-    if (!acc[item.project]) {
-      acc[item.project] = [];
-    }
-    acc[item.project].push(item);
-    return acc;
-  }, {} as Record<string, Submission[]>);
-
   // Derived selected submission
   const selected = filteredData.find((item: any) => item.id === selectedId) || filteredData[0] || null;
 
@@ -307,13 +293,6 @@ export default function AntrianApprovalPage() {
     }
   };
 
-  const toggleProject = (projectName: string) => {
-    setCollapsedProjects((prev) => ({
-      ...prev,
-      [projectName]: !prev[projectName],
-    }));
-  };
-
   // Reset pilihan saat tab berganti
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
@@ -330,349 +309,323 @@ export default function AntrianApprovalPage() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
+    <div className="flex h-screen w-full bg-[#F6F4EF] text-[#14130F] overflow-hidden font-sans">
+      {/* Sidebar */}
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onClose={closeSidebar}
         userRole="Project Manager"
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col min-w-0 bg-[#F6F4EF] overflow-hidden">
         <Header onOpenSidebar={openSidebar} userRole="Project Manager" />
 
-        <main className="flex-1 p-8 overflow-y-auto">
-          {/* Judul */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-stone-900">Antrian Approval</h1>
-            <p className="text-sm text-stone-500 mt-1.5">
+        <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-8 py-6">
+          {/* Header Title & Subtitle */}
+          <div className="shrink-0 mb-6">
+            <h1 className="text-2xl font-bold text-[#14130F]">Antrian Approval</h1>
+            <p className="text-[13px] text-[#6A6660] mt-1.5">
               Validasi pengajuan reimbursement dari tim. Pastikan pengajuan sesuai dengan RAB dan pos anggaran.
             </p>
-          </div>
 
-          {/* Tab + Filter */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60">
-              {(["Menunggu Saya", "Diteruskan", "Selesai"] as Tab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => handleTabChange(tab)}
-                  className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${activeTab === tab
-                    ? "bg-white text-stone-900 font-semibold shadow-sm"
-                    : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
-                    }`}
-                >
-                  {tab}
-                  <span
-                    className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab ? "bg-stone-100 text-stone-600" : "bg-stone-200/70 text-stone-400"
+            {/* Filter & Tab Switcher Bar */}
+            <div className="flex items-center justify-between gap-4 mt-6">
+              <div className="flex bg-[#F1EEE6] rounded-2xl p-1 border border-[#E6E1D4] items-center gap-1">
+                {(["Menunggu Saya", "Diteruskan", "Selesai"] as Tab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => handleTabChange(tab)}
+                    className={`px-4 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer ${activeTab === tab
+                      ? "bg-white text-[#14130F] shadow-sm"
+                      : "text-[#6A6660] hover:text-[#14130F]"
                       }`}
                   >
-                    {tabCounts[tab]}
-                  </span>
-                </button>
-              ))}
-            </div>
+                    {tab} ({tabCounts[tab]})
+                  </button>
+                ))}
+              </div>
 
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full shadow-sm text-[13px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer">
-              <Filter size={14} className="text-stone-500" /> Filter
-            </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 bg-white border border-[#E4E0D9] text-[#14130F] rounded-xl px-3.5 py-1.5 text-xs font-medium shadow-sm hover:bg-stone-50 transition cursor-pointer"
+                >
+                  <Filter size={14} />
+                  <span>Filter</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Layout dua kolom */}
-          <div className="flex gap-5 items-start">
-            {/* ── Kolom Kiri: Daftar ── */}
-            <div className="w-[500px] flex-shrink-0 flex flex-col gap-3">
+          {/* List and Detail Split Layout */}
+          <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
+            {/* LEFT COLUMN: ITEM LIST */}
+            <div className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
               {isLoading ? (
                 <>
-                  {/* Skeleton project groups */}
-                  {[1, 2].map((item) => (
-                    <div key={item} className="bg-white border border-stone-200 rounded-2xl px-4 py-3.5">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse flex-shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0 flex flex-col gap-2">
-                          <div className="flex items-center justify-between">
-                            <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
-                            <div className="h-3 w-20 rounded bg-stone-200 animate-pulse" />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
-                            <div className="h-5 w-24 rounded-full bg-stone-200/60 animate-pulse" />
-                          </div>
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="p-3.5 rounded-xl border border-[#E6E1D4] bg-white flex justify-between items-center">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse shrink-0" />
+                        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                          <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
+                          <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
                         </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                        <div className="h-3 w-16 rounded bg-stone-200 animate-pulse" />
+                        <div className="h-4 w-20 rounded-lg bg-stone-200/60 animate-pulse" />
                       </div>
                     </div>
                   ))}
                 </>
               ) : filteredData.length === 0 ? (
-                <div className="bg-white border border-stone-200 rounded-2xl px-6 py-10 text-center text-stone-400 text-[13px]">
-                  Tidak ada data.
+                <div className="bg-white border border-[#E6E1D4] rounded-xl p-8 text-center text-[#6A6660] text-xs font-semibold">
+                  Tidak ada pengajuan reimbursement.
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {filteredData.map((item: any) => {
-                    const isSelected = selected && selected.id === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setSelectedId(item.id)}
-                        className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${isSelected
-                          ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
-                          : "bg-white border-stone-200 hover:bg-stone-50"
-                          }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          {/* Avatar inisial */}
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold mt-0.5 ${getAvatarColor(
-                              item.pengajuInitials
-                            )}`}
-                          >
-                            {item.pengajuInitials}
-                          </div>
+                filteredData.map((item: any) => {
+                  const isSelected = selected && selected.id === item.id;
+                  const formattedNominal = item.amountRaw ? item.amountRaw.toLocaleString('id-ID') : item.amount.replace('Rp ', '');
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2 mb-0.5">
-                              <div className="group relative min-w-0">
-                                <p className="text-[12px] font-bold text-stone-800 truncate">
-                                  {item.merchant}
-                                </p>
-                                <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
-                                  {item.merchant}
-                                </div>
-                              </div>
-                              <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                                {item.amount}
-                              </p>
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => setSelectedId(item.id)}
+                      className={`p-3.5 rounded-xl border flex justify-between items-center transition cursor-pointer ${isSelected
+                        ? "bg-[#B2DCCD] border-[#E6E1D4] shadow-sm"
+                        : "bg-white border-[#E6E1D4] hover:border-stone-300 shadow-sm"
+                        }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-full bg-[#D1E9E1] text-[#005836] font-bold text-xs flex items-center justify-center shrink-0">
+                          {item.pengajuInitials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="group relative">
+                            <p className="text-[13px] font-bold text-[#14130F] truncate">
+                              {item.merchant}
+                            </p>
+                            <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-[#E6E1D4] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#14130F] shadow-lg group-hover:block">
+                              {item.merchant}
                             </div>
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="group relative min-w-0">
-                                <p className="text-[11px] text-stone-400 truncate">
-                                  {item.pengaju}{" "}
-                                  <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
-                                </p>
-                                <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
-                                  {item.pengaju} · {item.id}
-                                </div>
-                              </div>
-                              <span
-                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${getStatusBadge(
-                                  item.status
-                                )}`}
-                              >
-                                {item.status}
-                              </span>
+                          </div>
+                          <div className="group relative mt-0.5">
+                            <div className="truncate">
+                              <span className="text-[11px] text-[#6A6660]">{item.pengaju}</span>
+                              <span className="text-[11px] text-[#6A6660] ml-1">· {item.id}</span>
+                            </div>
+                            <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-[#E6E1D4] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#14130F] shadow-lg group-hover:block">
+                              {item.pengaju} · {item.id}
                             </div>
                           </div>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                        <div className="text-[13px] font-bold font-mono text-[#14130F]">
+                          <span className="text-[#6A6660] text-[11px]">Rp </span>{formattedNominal}
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${getStatusBadge(item.status)}`}>
+                          {item.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
 
-            {/* ── Kolom Kanan: Detail ── */}
-            {isLoading ? (
-              <div className="flex-1 bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
-                {/* Header skeleton */}
-                <div className="px-6 pt-6 pb-4 border-b border-stone-100">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="h-3 w-20 rounded bg-stone-200 animate-pulse" />
-                    <div className="h-5 w-28 rounded-full bg-stone-200 animate-pulse" />
+            {/* RIGHT COLUMN: DETAIL VIEW */}
+            <div className="flex-1 flex flex-col bg-white border border-[#E4E0D9] rounded-2xl shadow-sm overflow-hidden h-full">
+              {isLoading ? (
+                <div className="flex-1 p-6 space-y-5">
+                  <div className="flex justify-between items-start border-b border-[#E6E1D4] pb-4">
+                    <div className="space-y-2">
+                      <div className="h-3 w-16 rounded bg-stone-200 animate-pulse" />
+                      <div className="h-6 w-48 rounded bg-stone-200 animate-pulse" />
+                      <div className="h-3 w-60 rounded bg-stone-200/60 animate-pulse" />
+                    </div>
+                    <div className="h-6 w-24 rounded-lg bg-stone-200 animate-pulse" />
                   </div>
-                  <div className="h-6 w-48 rounded bg-stone-200 animate-pulse mb-2" />
-                  <div className="h-3.5 w-64 rounded bg-stone-200/60 animate-pulse" />
-                </div>
-
-                <div className="px-6 py-5 flex flex-col gap-5">
-                  {/* Nominal skeleton */}
-                  <div className="bg-[#f5f4ef] rounded-xl px-5 py-6 text-center">
-                    <div className="h-3 w-28 mx-auto rounded bg-stone-200 animate-pulse mb-3" />
+                  <div className="bg-[#F6F4EF] border border-[#E6E1D4] rounded-xl p-4 text-center">
+                    <div className="h-3 w-28 mx-auto rounded bg-stone-200 animate-pulse mb-2" />
                     <div className="h-8 w-40 mx-auto rounded bg-stone-200 animate-pulse" />
                   </div>
-
-                  {/* Info baris skeleton */}
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <div className="h-3.5 w-24 rounded bg-stone-200 animate-pulse" />
-                      <div className="h-3.5 w-36 rounded bg-stone-200/60 animate-pulse" />
-                    </div>
-                  ))}
-
-                  {/* Keterangan skeleton */}
-                  <div>
-                    <div className="h-3.5 w-40 rounded bg-stone-200 animate-pulse mb-2" />
-                    <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-4">
-                      <div className="h-3 w-full rounded bg-stone-200/60 animate-pulse mb-2" />
-                      <div className="h-3 w-3/4 rounded bg-stone-200/60 animate-pulse" />
-                    </div>
-                  </div>
-
-                  {/* Alur approval skeleton */}
-                  <div>
-                    <div className="h-4 w-28 rounded bg-stone-200 animate-pulse mb-4" />
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="flex gap-3 mb-1">
-                        <div className="w-7 h-7 rounded-full bg-stone-200 animate-pulse flex-shrink-0" />
-                        <div className="flex flex-col gap-1 pb-3">
-                          <div className="h-3.5 w-40 rounded bg-stone-200 animate-pulse" />
-                          <div className="h-3 w-52 rounded bg-stone-200/60 animate-pulse" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Tombol aksi skeleton */}
-                  <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                    <div className="h-8 w-36 rounded-full bg-stone-200 animate-pulse" />
-                    <div className="flex gap-2">
-                      <div className="h-8 w-20 rounded-full bg-stone-200 animate-pulse" />
-                      <div className="h-8 w-40 rounded-full bg-stone-200 animate-pulse" />
-                    </div>
-                  </div>
                 </div>
-              </div>
-            ) : selected && (
-              <div className="flex-1 bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
-                {/* Header detail */}
-                <div className="px-6 pt-6 pb-4 border-b border-stone-100">
-                  <div className="flex items-start justify-between mb-1">
-                    <p className="text-[12px] text-stone-400 font-medium font-mono">{selected.id}</p>
-                    <span
-                      className={`px-3 py-1 rounded-full text-[11px] font-bold ${getStatusBadge(
-                        selected.status
-                      )}`}
-                    >
-                      {selected.status}
-                    </span>
-                  </div>
-                  <h2 className="text-[22px] font-bold text-stone-900">{selected.merchant}</h2>
-                  <p className="text-[13px] text-stone-400 mt-0.5">
-                    oleh{" "}
-                    <span className="font-semibold text-stone-600">{selected.pengaju}</span> pada{" "}
-                    {selected.date}
-                  </p>
+              ) : !selected ? (
+                <div className="flex-1 flex items-center justify-center text-[#6A6660] font-semibold text-xs">
+                  Pilih pengajuan dari daftar antrian untuk melihat detail
                 </div>
-
-                <div className="px-6 py-5 flex flex-col gap-5">
-                  {/* Nominal */}
-                  <div className="bg-[#f5f4ef] rounded-xl px-5 py-4 text-center">
-                    <p className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-1">
-                      Total Pengajuan
-                    </p>
-                    <p className="text-[32px] font-bold text-stone-900">{selected.amount}</p>
-                  </div>
-
-                  {/* Info baris */}
-                  <div className="divide-y divide-stone-200">
-                    {[
-                      { label: "Proyek", value: selected.project },
-                      { label: "Main", value: selected.main },
-                      { label: "Sub", value: selected.sub },
-                      { label: "Keterangan", value: selected.ket },
-                      { label: "Tanggal Pengajuan", value: selected.date },
-                      { label: "Tanggal Struk/Nota", value: selected.notaDate },
-                      { label: "Pengaju", value: selected.pengaju },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between text-[13px] py-2.5 first:pt-0 last:pb-0">
-                        <span className="text-stone-400">{label}</span>
-                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">
-                          {value}
+              ) : (
+                <>
+                  {/* Scrollable Detail Body */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+                    {/* Header Detail */}
+                    <div className="flex justify-between items-start border-b border-[#E6E1D4] pb-4">
+                      <div>
+                        <span className="text-[11px] text-[#6A6660] font-mono tracking-wider">
+                          {selected.id}
                         </span>
+                        <h2 className="text-xl font-bold text-[#14130F] mt-0.5 leading-tight">
+                          {selected.merchant}
+                        </h2>
+                        <p className="text-[11px] text-[#6A6660] mt-1">
+                          oleh <span className="font-semibold text-[#14130F]">{selected.pengaju}</span> pada {selected.date}
+                        </p>
                       </div>
-                    ))}
-                    <hr className="border-stone-50" />
-                  </div>
-
-                  {/* Keterangan */}
-                  {/* Keterangan dari Pengaju */}
-                  <div>
-                    <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
-                    <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
-                      {selected.keterangan}
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border ${getStatusBadge(selected.status)}`}>
+                        {selected.status}
+                      </span>
                     </div>
-                  </div>
 
-                  {/* Catatan opsional — Input jika Menunggu PM, Card jika sudah lewat */}
-                  {selected.status === "Menunggu PM" ? (
-                    <div>
-                      <p className="text-[13px] text-stone-500 mb-2">Catatan untuk Keuangan (opsional)</p>
-                      <textarea
-                        rows={3}
-                        value={catatan}
-                        onChange={(e) => setCatatan(e.target.value)}
-                        placeholder="Misal: 'Pengajuan sesuai dengan jadwal site visit minggu ini.'"
-                        className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[13px] text-stone-700 placeholder:text-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition"
-                      />
+                    {/* Total Pengajuan */}
+                    <div className="bg-[#F6F4EF] border border-[#E6E1D4] rounded-xl p-4 text-center">
+                      <p className="text-[10px] uppercase tracking-widest text-[#6A6660] font-semibold mb-1">
+                        Total Pengajuan
+                      </p>
+                      <p className="text-[32px] font-bold text-[#14130F]">{selected.amount}</p>
                     </div>
-                  ) : (
-                    <div>
-                      <p className="text-[13px] text-stone-500 mb-2">Catatan Project Manager</p>
-                      <div className="bg-[#f5f4ef] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
-                        {selected.catatanPm && selected.catatanPm.trim() !== ""
-                          ? selected.catatanPm
-                          : "Tidak ada catatan dari Project Manager."}
-                      </div>
-                    </div>
-                  )}
 
-                  {(selected.status === "Dicairkan" || selected.status === "Ditolak") && (
-                    <div>
-                      <p className="text-[13px] text-stone-500 mb-2">Catatan Tim Keuangan</p>
-                      <div className="bg-[#f5f4ef] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
-                        {selected.catatanKeuangan && selected.catatanKeuangan.trim() !== ""
-                          ? selected.catatanKeuangan
-                          : "Tidak ada catatan dari Tim Keuangan."}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Alur Approval */}
-                  <div>
-                    <p className="text-[13px] font-bold text-stone-800 mb-4">Alur Approval</p>
-                    <div className="flex flex-col gap-0">
-                      {selected.steps.map((step: any, i: number) => (
-                        <div key={i} className="flex gap-3">
-                          {/* Ikon + garis vertikal */}
-                          <div className="flex flex-col items-center">
-                            <StepIcon state={step.state} number={i + 1} />
-                            {i < selected.steps.length - 1 && (
-                              <div
-                                className={`w-px flex-1 my-1 ${step.state === "done" ? "bg-[#2d6a4f]" : "bg-stone-200"
-                                  }`}
-                                style={{ minHeight: "20px" }}
-                              />
-                            )}
-                          </div>
-                          {/* Teks */}
-                          <div className="pb-4">
-                            <p
-                              className={`text-[13px] font-semibold ${step.state === "pending" ? "text-stone-400" : "text-stone-800"
-                                }`}
-                            >
-                              {step.label}
-                            </p>
-                            <p className="text-[11px] text-stone-400 mt-0.5">{step.sublabel}</p>
-                          </div>
+                    {/* Table Properties */}
+                    <div className="space-y-0 text-[12px]">
+                      {[
+                        { label: "Proyek", value: selected.project, isNominal: false },
+                        { label: "Main", value: selected.main, isNominal: false },
+                        { label: "Sub", value: selected.sub, isNominal: false },
+                        { label: "Keterangan", value: selected.ket, isNominal: false },
+                        { label: "Tanggal Transaksi", value: selected.notaDate, isNominal: false },
+                        { label: "Pengaju", value: selected.pengaju, isNominal: false },
+                      ].map(({ label, value, isNominal }) => (
+                        <div key={label} className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                          <span className="text-[#6A6660]">{label}</span>
+                          {isNominal ? (
+                            <span className="font-bold font-mono text-[#14130F] text-right">{value}</span>
+                          ) : (
+                            <span className="font-medium text-[#14130F] text-right">{value}</span>
+                          )}
                         </div>
                       ))}
                     </div>
+
+                    {/* Preview Struk Upload */}
+                    {selected.strukUrl && (
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-[#14130F]">Bukti Struk</label>
+                        <div
+                          onClick={() => handleOpenZoom(selected.strukUrl!)}
+                          className="border border-[#E4E0D9] rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
+                        >
+                          <img
+                            src={selected.strukUrl}
+                            alt="Bukti Struk"
+                            loading="lazy"
+                            className="w-full h-auto object-contain max-h-48 rounded-lg group-hover:opacity-90 transition"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/bukti_struk.png';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                            <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                              <ZoomIn size={14} /> Klik untuk Memperbesar
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Catatan dari Pengaju */}
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-medium text-stone-500">Catatan dari Pengaju</div>
+                      <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
+                        “{selected.keterangan}”
+                      </div>
+                    </div>
+
+                    {/* Catatan opsional — Input jika Menunggu PM, Card jika sudah lewat */}
+                    {selected.status === "Menunggu PM" ? (
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-medium text-stone-500">Catatan untuk Keuangan (opsional)</div>
+                        <textarea
+                          placeholder="Tambahkan catatan jika ada..."
+                          value={catatan}
+                          onChange={(e) => setCatatan(e.target.value)}
+                          className="w-full bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] focus:outline-none border border-[#E4E0D9] transition resize-none h-18"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-medium text-stone-500">Catatan dari Project Manager</div>
+                        <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
+                          {selected.catatanPm && selected.catatanPm.trim() !== ""
+                            ? selected.catatanPm
+                            : "Tidak ada catatan dari Project Manager."}
+                        </div>
+                      </div>
+                    )}
+
+                    {(selected.status === "Dicairkan" || selected.status === "Ditolak") && (
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-medium text-stone-500">Catatan dari Keuangan</div>
+                        <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
+                          {selected.catatanKeuangan && selected.catatanKeuangan.trim() !== ""
+                            ? selected.catatanKeuangan
+                            : "Tidak ada catatan dari Tim Keuangan."}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-b border-[#E6E1D4] pt-1" />
+
+                    {/* Alur Approval */}
+                    <div className="space-y-3 pt-2">
+                      <p className="text-[13px] font-bold text-[#14130F]">Alur Approval</p>
+                      <div className="flex flex-col gap-0">
+                        {selected.steps.map((step: any, i: number) => (
+                          <div key={i} className="flex gap-3">
+                            {/* Ikon + garis vertikal */}
+                            <div className="flex flex-col items-center">
+                              <StepIcon state={step.state} number={i + 1} />
+                              {i < selected.steps.length - 1 && (
+                                <div
+                                  className={`w-px flex-1 my-1 ${step.state === "done" ? "bg-[#005836]" : "bg-[#E6E1D4]"
+                                    }`}
+                                  style={{ minHeight: "20px" }}
+                                />
+                              )}
+                            </div>
+                            {/* Teks */}
+                            <div className="pb-4">
+                              <p className={`text-[12px] font-semibold ${step.state === "pending" ? "text-[#6A6660]" : "text-[#14130F]"
+                                }`}>
+                                {step.label}
+                              </p>
+                              <p className="text-[11px] text-[#6A6660] mt-0.5">{step.sublabel}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Tombol aksi */}
-                  <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                  {/* Tombol aksi (Fixed / Frozen di bawah) */}
+                  <div className="border-t border-[#E6E1D4] px-6 py-3.5 bg-white flex items-center justify-between shrink-0">
                     {selected.strukUrl ? (
                       <a
                         href={selected.strukUrl}
                         download={`bukti-${selected.id}.png`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-600 hover:bg-stone-50 transition cursor-pointer"
+                        className="flex items-center gap-1.5 bg-white border border-[#E4E0D9] text-[#14130F] rounded-full px-4 py-2 text-xs font-semibold shadow-sm hover:bg-stone-50 transition cursor-pointer"
                       >
-                        <Download size={14} /> Download bukti
+                        <Download size={14} />
+                        <span>Download bukti</span>
                       </a>
                     ) : (
-                      <button className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-600 hover:bg-stone-50 transition opacity-50 cursor-not-allowed" disabled>
-                        <Download size={14} /> Download bukti
+                      <button className="flex items-center gap-1.5 bg-white border border-[#E4E0D9] text-[#6A6660] rounded-full px-4 py-2 text-xs font-semibold opacity-50 cursor-not-allowed" disabled>
+                        <Download size={14} />
+                        <span>Download bukti</span>
                       </button>
                     )}
 
@@ -680,25 +633,98 @@ export default function AntrianApprovalPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleProcess('REJECT')}
-                          className="flex items-center gap-2 px-4 py-2 bg-[#fee2e2] text-[#be123c] rounded-full text-[13px] font-semibold hover:bg-[#fecaca] transition cursor-pointer"
+                          className="flex items-center gap-1.5 bg-[#FEE2E2] text-[#BE123C] border border-rose-100 rounded-full px-4 py-2 text-xs font-semibold hover:bg-[#FECACA] transition cursor-pointer"
                         >
-                          <X size={14} /> Tolak
+                          <X size={14} />
+                          <span>Tolak</span>
                         </button>
                         <button
                           onClick={() => handleProcess('APPROVE')}
-                          className="flex items-center gap-2 px-4 py-2 bg-[#2d6a4f] text-white rounded-full text-[13px] font-semibold hover:bg-[#245c43] transition shadow-sm cursor-pointer"
+                          className="flex items-center gap-1.5 bg-[#005836] text-white rounded-full px-4 py-2 text-xs font-semibold hover:bg-[#00472b] transition shadow-sm cursor-pointer"
                         >
-                          <Check size={14} /> Teruskan ke Keuangan
+                          <Check size={14} />
+                          <span>Teruskan ke Keuangan</span>
                         </button>
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </main>
       </div>
+
+      {/* Modal Zoom Gambar Struk Simple */}
+      {zoomImageUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            setZoomImageUrl(null);
+            resetZoomAndPan();
+          }}
+        >
+          {/* Tombol Tutup Floating di Pojok Kanan Atas */}
+          <button
+            type="button"
+            onClick={() => {
+              setZoomImageUrl(null);
+              resetZoomAndPan();
+            }}
+            className="absolute top-5 right-5 z-50 p-2.5 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 transition cursor-pointer shadow-xl"
+            title="Tutup"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Kontainer Gambar — Drag & Pan dengan Klik Kiri */}
+          <div
+            className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
+              }`}
+            onClick={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              if (e.deltaY < 0) {
+                setZoomScale((prev) => Math.min(prev + 0.25, 4));
+              } else {
+                setZoomScale((prev) => {
+                  const next = Math.max(prev - 0.25, 1);
+                  if (next === 1) setPanPos({ x: 0, y: 0 });
+                  return next;
+                });
+              }
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 0) {
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - panPos.x, y: e.clientY - panPos.y });
+              }
+            }}
+            onMouseMove={(e) => {
+              if (isDragging) {
+                setPanPos({
+                  x: e.clientX - dragStart.x,
+                  y: e.clientY - dragStart.y,
+                });
+              }
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
+          >
+            <img
+              src={zoomImageUrl}
+              alt="Bukti Struk"
+              draggable={false}
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
+              style={{
+                transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${zoomScale})`,
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/bukti_struk.png';
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

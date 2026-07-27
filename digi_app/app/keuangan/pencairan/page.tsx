@@ -40,6 +40,32 @@ function formatTanggalWaktu(isoStr: string | null | undefined) {
   }
 }
 
+const StepIcon = ({ state, number }: { state: "done" | "active" | "pending" | "rejected"; number: number }) => {
+  if (state === "done")
+    return (
+      <div className="w-6 h-6 rounded-full bg-[#005836] flex items-center justify-center shrink-0">
+        <Check size={13} className="text-white" strokeWidth={2.5} />
+      </div>
+    );
+  if (state === "rejected")
+    return (
+      <div className="w-6 h-6 rounded-full bg-[#902F33] flex items-center justify-center shrink-0">
+        <X size={13} className="text-white" strokeWidth={2.5} />
+      </div>
+    );
+  if (state === "active")
+    return (
+      <div className="w-6 h-6 rounded-full bg-[#005D8D] flex items-center justify-center shrink-0">
+        <span className="text-[10px] font-bold text-white">{number}</span>
+      </div>
+    );
+  return (
+    <div className="w-6 h-6 rounded-full border border-[#E6E1D4] bg-stone-100 flex items-center justify-center shrink-0">
+      <span className="text-[10px] font-semibold text-[#6A6660]">{number}</span>
+    </div>
+  );
+};
+
 function PencairanContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -398,11 +424,19 @@ function PencairanContent() {
                     <div className="space-y-0 text-[12px]">
                       <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
                         <span className="text-[#6A6660]">Proyek</span>
-                        <span className="font-medium text-[#14130F] text-right">{selectedItem.proyek?.nama}</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.proyek?.nama || '-'}</span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
-                        <span className="text-[#6A6660]">Pos Anggaran</span>
-                        <span className="font-medium text-[#14130F] text-right">{selectedItem.posAnggaran?.namaPos || selectedItem.posAnggaran?.deskripsi}</span>
+                        <span className="text-[#6A6660]">Main</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.posAnggaran?.namaPos || '-'}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                        <span className="text-[#6A6660]">Sub</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
+                        <span className="text-[#6A6660]">Keterangan</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}</span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
                         <span className="text-[#6A6660]">Tanggal Transaksi</span>
@@ -410,11 +444,7 @@ function PencairanContent() {
                       </div>
                       <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
                         <span className="text-[#6A6660]">Pengaju</span>
-                        <span className="font-medium text-[#14130F] text-right">{selectedItem.user?.nama}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
-                        <span className="text-[#6A6660]">Divalidasi PM</span>
-                        <span className="font-medium text-[#14130F] text-right">{pmApproval?.approver?.nama || '-'}</span>
+                        <span className="font-medium text-[#14130F] text-right">{selectedItem.user?.nama || '-'}</span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-[#E6E1D4]">
                         <span className="text-[#6A6660]">Nominal</span>
@@ -557,9 +587,9 @@ function PencairanContent() {
                       </div>
                     </div>
 
-                    {/* Keterangan dari pengaju */}
+                    {/* Catatan dari Pengaju */}
                     <div className="space-y-1">
-                      <div className="text-[11px] font-medium text-stone-500">Keterangan dari pengaju</div>
+                      <div className="text-[11px] font-medium text-stone-500">Catatan dari Pengaju</div>
                       <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
                         “{selectedItem.ocrData?.keterangan || selectedItem.ocrData?.raw || 'Pembelian kertas A4, log book, dan papan klip untuk kebutuhan administrasi site'}”.
                       </div>
@@ -567,16 +597,16 @@ function PencairanContent() {
 
                     {/* Catatan dari PM */}
                     <div className="space-y-1">
-                      <div className="text-[11px] font-medium text-stone-500">Catatan dari Project Manager ({pmApproval?.approver?.nama || 'Project Manager'})</div>
+                      <div className="text-[11px] font-medium text-stone-500">Catatan dari Project Manager</div>
                       <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
                         {pmApproval?.catatan || '-'}
                       </div>
                     </div>
 
-                    {/* Catatan Keuangan */}
+                    {/* Catatan dari Keuangan */}
                     {selectedItem.status === 'APPROVED_BY_PM' ? (
                       <div className="space-y-1">
-                        <div className="text-[11px] font-medium text-stone-500">Catatan Keuangan (Opsional)</div>
+                        <div className="text-[11px] font-medium text-stone-500">Catatan dari Keuangan (opsional)</div>
                         <textarea
                           placeholder="Tambahkan catatan jika ada..."
                           value={catatan}
@@ -586,7 +616,7 @@ function PencairanContent() {
                       </div>
                     ) : (
                       <div className="space-y-1">
-                        <div className="text-[11px] font-medium text-stone-500">Catatan Keuangan ({financeApproval?.approver?.nama || 'Tim Keuangan'})</div>
+                        <div className="text-[11px] font-medium text-stone-500">Catatan dari Keuangan</div>
                         <div className="bg-[#FCF7F0] rounded-xl p-3 text-[12px] text-[#14130F] italic">
                           {financeApproval?.catatan || '-'}
                         </div>
@@ -596,86 +626,32 @@ function PencairanContent() {
                     <div className="border-b border-[#E6E1D4] pt-1" />
 
                     {/* Alur Approval */}
-                    <div className="space-y-2.5">
-                      <div className="text-[13px] font-bold text-stone-800">Alur Approval</div>
-                      <div className="relative flex flex-col gap-2.5 pl-0.5">
-                        {/* Connecting Line */}
-                        <div className="absolute left-[13px] top-[12px] bottom-[12px] w-[1px] bg-[#E4E0D9]" />
-
-                        {/* Step 1 */}
-                        <div className="flex items-center gap-2.5 z-10">
-                          <div className="w-[26px] h-[26px] rounded-full bg-[#009162] flex items-center justify-center shrink-0">
-                            <Check size={13} className="text-white" strokeWidth={2.5} />
+                    <div className="space-y-3 pt-2">
+                      <p className="text-[13px] font-bold text-[#14130F]">Alur Approval</p>
+                      <div className="flex flex-col gap-0">
+                        {approvalSteps.map((step: any, i: number) => (
+                          <div key={i} className="flex gap-3">
+                            {/* Ikon + garis vertikal */}
+                            <div className="flex flex-col items-center">
+                              <StepIcon state={step.state} number={i + 1} />
+                              {i < approvalSteps.length - 1 && (
+                                <div
+                                  className={`w-px flex-1 my-1 ${step.state === "done" ? "bg-[#005836]" : "bg-[#E6E1D4]"
+                                    }`}
+                                  style={{ minHeight: "20px" }}
+                                />
+                              )}
+                            </div>
+                            {/* Teks */}
+                            <div className="pb-4">
+                              <p className={`text-[12px] font-semibold ${step.state === "pending" ? "text-[#6A6660]" : "text-[#14130F]"
+                                }`}>
+                                {step.label}
+                              </p>
+                              <p className="text-[11px] text-[#6A6660] mt-0.5">{step.sublabel}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[13px] font-semibold text-stone-800">Pengajuan dikirim</p>
-                            <p className="text-[11px] text-stone-400 mt-0.5">
-                              {approvalSteps[0]?.sublabel || `${selectedItem.user?.nama || 'Karyawan'} • -`}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Step 2 */}
-                        <div className="flex items-center gap-2.5 z-10">
-                          {approvalSteps[1]?.state === 'done' ? (
-                            <div className="w-[26px] h-[26px] rounded-full bg-[#009162] flex items-center justify-center shrink-0">
-                              <Check size={13} className="text-white" strokeWidth={2.5} />
-                            </div>
-                          ) : (
-                            <div className="w-[26px] h-[26px] rounded-full bg-[#F6F4EF] border border-[#E4E0D9] text-[#9A948B] font-semibold text-[12px] flex items-center justify-center shrink-0">
-                              2
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-[13px] font-semibold text-stone-800">Validasi Project Manager</p>
-                            <p className="text-[11px] text-stone-400 mt-0.5">
-                              {approvalSteps[1]?.sublabel || 'Menunggu • -'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Step 3 */}
-                        <div className="flex items-center gap-2.5 z-10">
-                          {approvalSteps[2]?.state === 'done' ? (
-                            <div className="w-[26px] h-[26px] rounded-full bg-[#009162] flex items-center justify-center shrink-0">
-                              <Check size={13} className="text-white" strokeWidth={2.5} />
-                            </div>
-                          ) : approvalSteps[2]?.state === 'active' ? (
-                            <div className="w-[26px] h-[26px] rounded-full bg-[#D8953D] ring-2 ring-[#F5E4CE] text-white font-semibold text-[12px] flex items-center justify-center shrink-0">
-                              3
-                            </div>
-                          ) : (
-                            <div className="w-[26px] h-[26px] rounded-full bg-[#F6F4EF] border border-[#E4E0D9] text-[#9A948B] font-semibold text-[12px] flex items-center justify-center shrink-0">
-                              3
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-[13px] font-semibold text-stone-800">Verifikasi Tim Keuangan</p>
-                            <p className="text-[11px] text-stone-400 mt-0.5">
-                              {approvalSteps[2]?.sublabel || 'Menunggu • -'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Step 4 */}
-                        <div className="flex items-center gap-2.5 z-10">
-                          {approvalSteps[3]?.state === 'done' ? (
-                            <div className="w-[26px] h-[26px] rounded-full bg-[#009162] flex items-center justify-center shrink-0">
-                              <Check size={13} className="text-white" strokeWidth={2.5} />
-                            </div>
-                          ) : (
-                            <div className="w-[26px] h-[26px] rounded-full bg-[#F6F4EF] border border-[#E4E0D9] text-[#9A948B] font-semibold text-[12px] flex items-center justify-center shrink-0">
-                              4
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-[13px] font-semibold text-stone-800">Dicairkan</p>
-                            <p className="text-[11px] text-stone-400 mt-0.5">
-                              {approvalSteps[3]?.sublabel || 'Jurnal otomatis • -'}
-                            </p>
-                          </div>
-                        </div>
-
+                        ))}
                       </div>
                     </div>
 
@@ -683,30 +659,38 @@ function PencairanContent() {
 
                   {/* Action Footer (Fixed di bawah) */}
                   <div className="border-t border-[#E6E1D4] px-6 py-3.5 bg-white flex items-center justify-between shrink-0">
-                    <a
-                      href={selectedItem.strukUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-xs font-semibold text-[#14130F] bg-white hover:bg-stone-50 transition px-3.5 py-2 rounded-lg border border-[#E4E0D9]"
-                    >
-                      <Download size={14} />
-                      <span>Download bukti</span>
-                    </a>
+                    {selectedItem.strukUrl ? (
+                      <a
+                        href={selectedItem.strukUrl}
+                        download={`bukti-${selectedItem.id}.png`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 bg-white border border-[#E4E0D9] text-[#14130F] rounded-full px-4 py-2 text-xs font-semibold shadow-sm hover:bg-stone-50 transition cursor-pointer"
+                      >
+                        <Download size={14} />
+                        <span>Download bukti</span>
+                      </a>
+                    ) : (
+                      <button className="flex items-center gap-1.5 bg-white border border-[#E4E0D9] text-[#6A6660] rounded-full px-4 py-2 text-xs font-semibold opacity-50 cursor-not-allowed" disabled>
+                        <Download size={14} />
+                        <span>Download bukti</span>
+                      </button>
+                    )}
 
                     {selectedItem.status === 'APPROVED_BY_PM' && (
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleProcess('REJECT')}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#902F33] hover:bg-[#782528] transition px-4 py-2 rounded-lg shadow-sm cursor-pointer"
+                          className="flex items-center gap-1.5 bg-[#FEE2E2] text-[#BE123C] border border-rose-100 rounded-full px-4 py-2 text-xs font-semibold hover:bg-[#FECACA] transition cursor-pointer"
                         >
-                          <X size={14} strokeWidth={2.5} />
+                          <X size={14} />
                           <span>Tolak</span>
                         </button>
                         <button
                           onClick={() => handleProcess('APPROVE')}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#009162] hover:bg-[#007b53] transition px-4 py-2 rounded-lg shadow-sm cursor-pointer"
+                          className="flex items-center gap-1.5 bg-[#005836] text-white rounded-full px-4 py-2 text-xs font-semibold hover:bg-[#00472b] transition shadow-sm cursor-pointer"
                         >
-                          <Zap size={14} fill="currentColor" className="text-white" />
+                          <Check size={14} />
                           <span>Cairkan & Generate Jurnal</span>
                         </button>
                       </div>
@@ -721,7 +705,7 @@ function PencairanContent() {
 
       {/* Modal Zoom Gambar Struk Simple */}
       {zoomImageUrl && (
-        <div 
+        <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => {
             setZoomImageUrl(null);
@@ -729,7 +713,7 @@ function PencairanContent() {
           }}
         >
           {/* Tombol Tutup Floating di Pojok Kanan Atas */}
-          <button 
+          <button
             type="button"
             onClick={() => {
               setZoomImageUrl(null);
@@ -742,10 +726,9 @@ function PencairanContent() {
           </button>
 
           {/* Kontainer Gambar — Drag & Pan dengan Klik Kiri */}
-          <div 
-            className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${
-              zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
-            }`}
+          <div
+            className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
+              }`}
             onClick={(e) => e.stopPropagation()}
             onWheel={(e) => {
               if (e.deltaY < 0) {
@@ -775,9 +758,9 @@ function PencairanContent() {
             onMouseUp={() => setIsDragging(false)}
             onMouseLeave={() => setIsDragging(false)}
           >
-            <img 
-              src={zoomImageUrl} 
-              alt="Bukti Struk" 
+            <img
+              src={zoomImageUrl}
+              alt="Bukti Struk"
               draggable={false}
               className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
               style={{
