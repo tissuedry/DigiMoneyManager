@@ -88,6 +88,7 @@ export default function KelolaProyekPage() {
 
   // Assign members state
   const [selectedProjectMembers, setSelectedProjectMembers] = useState<{ userId: number; role: string }[]>([]);
+  const [initialProjectMembers, setInitialProjectMembers] = useState<{ userId: number; role: string }[]>([]);
 
   // Budget initialization state
   const [rabTotal, setRabTotal] = useState("");
@@ -403,6 +404,18 @@ export default function KelolaProyekPage() {
     if (!showAssignMembers) return;
     setFormError("");
     setSuccess("");
+
+    const isUnchanged = initialProjectMembers.length === selectedProjectMembers.length &&
+      selectedProjectMembers.every(curr => {
+        const prev = initialProjectMembers.find(p => p.userId === curr.userId);
+        return prev && prev.role === curr.role;
+      });
+
+    if (isUnchanged && initialProjectMembers.length > 0) {
+      setFormError("Tidak ada perubahan penugasan anggota pada proyek ini. Seluruh anggota yang dipilih sudah memiliki role tersebut.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -785,6 +798,7 @@ export default function KelolaProyekPage() {
         members={members}
         selectedProjectMembers={selectedProjectMembers}
         setSelectedProjectMembers={setSelectedProjectMembers}
+        initialProjectMembers={initialProjectMembers}
         formError={formError}
         submitting={submitting}
         onSave={handleSaveMembers}

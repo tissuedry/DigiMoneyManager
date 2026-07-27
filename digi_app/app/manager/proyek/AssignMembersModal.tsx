@@ -8,6 +8,7 @@ type Props = {
   members: Member[];
   selectedProjectMembers: { userId: number; role: string }[];
   setSelectedProjectMembers: React.Dispatch<React.SetStateAction<{ userId: number; role: string }[]>>;
+  initialProjectMembers?: { userId: number; role: string }[];
   formError: string;
   submitting: boolean;
   onSave: (e: React.FormEvent) => void;
@@ -19,6 +20,7 @@ export default function AssignMembersModal({
   members,
   selectedProjectMembers,
   setSelectedProjectMembers,
+  initialProjectMembers = [],
   formError,
   submitting,
   onSave,
@@ -68,7 +70,7 @@ export default function AssignMembersModal({
                       </div>
                     </div>
                     {isChecked ? (
-                      <div className="relative" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <select
                           value={selectedProjectMembers.find((m) => m.userId === member.id)?.role || 'Anggota Lapangan'}
                           onChange={(e) => {
@@ -83,6 +85,18 @@ export default function AssignMembersModal({
                           <option value="Anggota Lapangan">Anggota Lapangan</option>
                           <option value="Project Manager">Project Manager</option>
                         </select>
+                        {(() => {
+                          const prev = initialProjectMembers.find((p) => p.userId === member.id);
+                          const currRole = selectedProjectMembers.find((m) => m.userId === member.id)?.role;
+                          if (prev && prev.role === currRole) {
+                            return (
+                              <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap">
+                                Peran saat ini ({prev.role === 'Project Manager' ? 'PM' : 'Anggota'})
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     ) : (
                       <span className="text-[10px] font-semibold text-stone-500 bg-stone-100 px-2 py-0.5 rounded">

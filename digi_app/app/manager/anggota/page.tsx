@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { UserPlus, Loader2, Check, X, Search, ChevronDown, Users, Edit2, Briefcase } from "lucide-react";
+import { UserPlus, Loader2, Check, X, Search, ChevronDown, Users, Edit2, Briefcase, AlertTriangle } from "lucide-react";
 
 type Proyek = { id: number; nama: string; status: string };
 type Member = {
@@ -103,10 +103,40 @@ export default function AnggotaPage() {
     setSuccess("");
   };
 
+  const isAssignmentsEqual = (
+    initialProyek: { id: number; roleInProyek: string }[],
+    currentAssignments: { proyekId: number; role: string }[]
+  ) => {
+    if (initialProyek.length !== currentAssignments.length) return false;
+    const initialMap = new Map(initialProyek.map((p) => [p.id, p.roleInProyek]));
+    for (const curr of currentAssignments) {
+      if (!initialMap.has(curr.proyekId)) return false;
+      if (initialMap.get(curr.proyekId) !== curr.role) return false;
+    }
+    return true;
+  };
+
+  const hasDataChanged = () => {
+    if (!editingMember) return true;
+    const namaChanged = form.nama.trim() !== editingMember.nama.trim();
+    const emailChanged = form.email.trim().toLowerCase() !== editingMember.email.trim().toLowerCase();
+    const roleChanged = form.userRole !== editingMember.role;
+    const divisiChanged = (form.divisi || "").trim() !== (editingMember.divisi || "").trim();
+    const assignmentsChanged = !isAssignmentsEqual(editingMember.proyek, selectedProyekAssignments);
+
+    return namaChanged || emailChanged || roleChanged || divisiChanged || assignmentsChanged;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setSuccess("");
+
+    if (editingMember && !hasDataChanged()) {
+      setFormError("Tidak ada perubahan data atau role. Pengguna ini sudah terdaftar dengan role tersebut pada proyek yang dipilih.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -327,7 +357,7 @@ export default function AnggotaPage() {
                         </label>
 
                         {isChecked && (
-                          <div className="ml-2">
+                          <div className="ml-2 flex items-center gap-1.5">
                             <select
                               value={selectedProyekAssignments.find((a) => a.proyekId === p.id)?.role || 'Anggota Lapangan'}
                               onChange={(e) => {
@@ -342,6 +372,19 @@ export default function AnggotaPage() {
                               <option value="Anggota Lapangan">Anggota Lapangan</option>
                               <option value="Project Manager">Project Manager</option>
                             </select>
+
+                            {editingMember && (() => {
+                              const prevAssigned = editingMember.proyek.find(ep => ep.id === p.id);
+                              const currentSelectedRole = selectedProyekAssignments.find(a => a.proyekId === p.id)?.role;
+                              if (prevAssigned && prevAssigned.roleInProyek === currentSelectedRole) {
+                                return (
+                                  <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap" title="Role anggota tidak mengalami perubahan pada proyek ini">
+                                    Peran saat ini ({prevAssigned.roleInProyek === 'Project Manager' ? 'PM' : 'Anggota'})
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         )}
                       </div>
