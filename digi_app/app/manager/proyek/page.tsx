@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
-import { Project, LogAktivitas, Member } from "./types"; 
+import { Project, LogAktivitas, Member } from "./types";
 import { formatRupiah, formatSummaryRupiah, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
 
 import AddProjectModal from "./AddProjectModal";
@@ -57,8 +57,8 @@ export default function KelolaProyekPage() {
   const belumReimburseNominal = detailedProjectInfo?.belumReimburseNominal !== undefined
     ? Number(detailedProjectInfo.belumReimburseNominal)
     : (detailedProjectInfo?.pendingReimbursements
-        ? detailedProjectInfo.pendingReimbursements.reduce((sum: number, r: any) => sum + Number(r.nominal || 0), 0)
-        : 0);
+      ? detailedProjectInfo.pendingReimbursements.reduce((sum: number, r: any) => sum + Number(r.nominal || 0), 0)
+      : 0);
 
   const sudahReimburseCount = detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0;
   const belumReimburseCount = detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0);
@@ -82,7 +82,7 @@ export default function KelolaProyekPage() {
 
   const [projectForm, setProjectForm] = useState({
     nama: "",
-    deskripsi: "", 
+    deskripsi: "",
     tanggalMulai: "",
     tanggalSelesai: "",
     status: "Planning",
@@ -605,7 +605,7 @@ export default function KelolaProyekPage() {
     } finally {
       setSubmitting(false);
     }
-  }; 
+  };
 
   const currentStatus = detailedProjectInfo?.status || showProjectDetail?.status;
 
@@ -640,7 +640,7 @@ export default function KelolaProyekPage() {
           />
         </div>
 
-        <div className="flex items-center gap-1 bg-[#f5f4f0] p-1.5 rounded-2xl text-[13px] text-stone-500 font-medium overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 text-[13px] font-medium overflow-x-auto scrollbar-none">
           {statuses.map((status) => {
             const isActive = activeStatus === status;
             return (
@@ -648,9 +648,9 @@ export default function KelolaProyekPage() {
                 key={status}
                 type="button"
                 onClick={() => setActiveStatus(status)}
-                className={`px-4 py-1.5 whitespace-nowrap transition rounded-xl text-[13px] ${isActive
-                  ? 'bg-white text-stone-900 font-bold shadow-sm'
-                  : 'text-stone-500 hover:text-stone-800'
+                className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap ${isActive
+                  ? 'bg-white text-stone-900 font-semibold shadow-sm'
+                  : 'text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50'
                   }`}
               >
                 {status}
