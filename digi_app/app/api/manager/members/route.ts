@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 import { clearCache } from '@/lib/route-cache';
 
-// GET: List all members (users) with their project assignments
+// GET: List members (users) with pagination and project assignments
 export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -12,22 +12,47 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        nama: true,
-        email: true,
-        role: true,
-        proyek: {
-          include: {
-            proyek: {
-              select: { id: true, nama: true, status: true },
+    const { searchParams } = req.nextUrl;
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.max(1, parseInt(searchParams.get('limit') || '10', 10));
+    const search = searchParams.get('search') || '';
+    const roleFilter = searchParams.get('role') || '';
+
+    const where: any = {};
+    if (search.trim()) {
+      where.OR = [
+        { nama: { contains: search.trim(), mode: 'insensitive' } },
+        { email: { contains: search.trim(), mode: 'insensitive' } },
+      ];
+    }
+    if (roleFilter && roleFilter !== 'Semua') {
+      where.role = roleFilter;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          nama: true,
+          email: true,
+          role: true,
+          proyek: {
+            include: {
+              proyek: {
+                select: { id: true, nama: true, status: true },
+              },
             },
           },
         },
-      },
-      orderBy: { id: 'desc' },
-    });
+        orderBy: { id: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
 
     const mapped = users.map((u) => {
       const firstDivisi = u.proyek.find(up => up.divisi !== null)?.divisi || null;
@@ -47,7 +72,15 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ members: mapped });
+    const hasMore = page * limit < total;
+
+    return NextResponse.json({
+      members: mapped,
+      total,
+      page,
+      limit,
+      hasMore,
+    });
   } catch (error: any) {
     console.error('Get members error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
