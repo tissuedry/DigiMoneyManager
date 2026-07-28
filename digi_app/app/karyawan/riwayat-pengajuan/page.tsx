@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Filter, Eye, X, Download, RefreshCw, CheckCircle2, Clock, XCircle, AlertTriangle, BookOpen, ArrowUpDown } from "lucide-react";
 import Sidebar from '@/components/sidebar';
@@ -42,6 +42,21 @@ function formatTanggalLong(iso: string) {
 function makeDisplayId(id: string, index: number) {
   const num = String(index + 1).padStart(3, "0");
   return `RB-2026-${num}`;
+}
+
+function SkeletonRow({ index }: { index: number }) {
+  return (
+    <tr key={`skeleton-${index}`} className="border-b border-stone-100 last:border-none">
+      <td className="px-6 py-4"><div className="h-3 w-16 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-20 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-32 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-24 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-5 w-16 rounded-md bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-20 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-5 w-24 rounded-full bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4 text-center"><div className="h-5 w-5 mx-auto rounded bg-stone-200 animate-pulse" /></td>
+    </tr>
+  );
 }
 
 const getStatusBadge = (status: Submission["status"]) => {
@@ -517,6 +532,13 @@ export default function RiwayatPengajuanPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
+  // Infinite scroll: render 10 rows at a time instead of the whole list
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
+
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -611,6 +633,45 @@ export default function RiwayatPengajuanPage() {
       return sortOrder === "asc" ? a.lastActivityTime - b.lastActivityTime : b.lastActivityTime - a.lastActivityTime;
     });
 
+  // Reset to the first page whenever the active filters/tab/search/sort change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeTab, filterProject, filterPos, searchMerchant, sortOrder]);
+
+  const visibleData = filteredData.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredData.length;
+  // How many real rows are still waiting to be revealed in the next batch —
+  // capped at PAGE_SIZE since we only ever load 10 at a time.
+  const pendingCount = Math.min(PAGE_SIZE, filteredData.length - visibleCount);
+
+  // Infinite scroll: load 10 more rows only when the user actually scrolls near
+  // the bottom of the page (not just because the sentinel happens to be on-screen —
+  // with a short list that never overflows, an IntersectionObserver would fire
+  // immediately on mount and reveal everything at once).
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
+
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+      // Brief delay so the skeleton rows are actually visible instead of
+      // the already-in-memory data just popping in instantly.
+      setTimeout(() => {
+        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredData.length));
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }, 500);
+    };
+
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [filteredData.length, visibleCount]);
+
   const handleOpenDetail = (dbId: number, displayId: string) => {
     const raw = rawReimbursements.find(r => r.id === dbId);
     if (raw) {
@@ -683,7 +744,7 @@ export default function RiwayatPengajuanPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 p-8 overflow-y-auto">
           <div className="mb-8">
             <h1 className="text-[24px] font-bold text-stone-900">Riwayat Pengajuan</h1>
             <p className="text-[14px] text-stone-500 mt-1.5">
@@ -824,12 +885,13 @@ export default function RiwayatPengajuanPage() {
                     </td>
                   </tr>
                 ) : filteredData.length > 0 ? (
-                  filteredData.map((item, index) => (
+                  <>
+                  {visibleData.map((item, index) => (
                     <tr
                       key={item.dbId}
                       onClick={() => handleOpenDetail(item.dbId, item.id)}
                       className={`hover:bg-stone-50 transition border-b border-stone-100 cursor-pointer ${
-                        index === filteredData.length - 1 ? "border-none" : ""
+                        index === visibleData.length - 1 ? "border-none" : ""
                       } ${selectedItem?.id === item.dbId ? "bg-stone-50" : ""}`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-stone-500 font-mono">{item.id}</td>
@@ -870,7 +932,12 @@ export default function RiwayatPengajuanPage() {
                         </button>
                       </td>
                     </tr>
-                  ))
+                  ))}
+                  {isLoadingMore &&
+                    Array.from({ length: pendingCount }).map((_, i) => (
+                      <SkeletonRow key={`skeleton-${i}`} index={i} />
+                    ))}
+                  </>
                 ) : (
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-stone-400">
@@ -881,6 +948,12 @@ export default function RiwayatPengajuanPage() {
               </tbody>
             </table>
           </div>
+
+          {hasMore && !isLoadingMore && (
+            <div className="flex items-center justify-center py-5 text-[12px] text-stone-400">
+              Scroll untuk memuat lebih banyak...
+            </div>
+          )}
         </main>
       </div>
 
