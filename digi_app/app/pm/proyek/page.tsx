@@ -18,6 +18,7 @@ import {
   X,
   Loader2,
   Check,
+  AlertCircle,
 } from "lucide-react";
 import { useApi, useMutate, useInvalidate } from "@/lib/use-api";
 
@@ -214,26 +215,47 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
 
 /** Per-pos progress rows */
 function PosRows({ pos }: { pos: PosAnggaran[] }) {
+  if (!pos || pos.length === 0) {
+    return <p className="text-xs text-stone-400 text-center py-4 font-medium">Belum ada pos anggaran.</p>;
+  }
+
   return (
     <div className="space-y-4 mt-2">
       {pos.map((p) => {
-        const pct = p.alokasi > 0 ? Math.min((p.terpakai / p.alokasi) * 100, 100) : 0;
+        const alloc = p.alokasi || 0;
+        const real = p.terpakai || 0;
+        const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
+        const isWarning = pct >= 80;
+        const rem = Math.max(0, alloc - real);
+
         return (
           <div key={p.id} className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-stone-800">{p.nama}</span>
-              <span
-                title={`Terpakai: Rp ${Math.round(p.terpakai || 0).toLocaleString("id-ID")} / Alokasi: Rp ${Math.round(p.alokasi || 0).toLocaleString("id-ID")}`}
-                className="text-stone-500 font-medium tabular-nums cursor-pointer hover:text-stone-900"
-              >
-                {formatShort(p.terpakai)}&nbsp;/&nbsp;{formatShort(p.alokasi)}
-              </span>
+            <div className="flex items-center justify-between text-xs font-medium">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-stone-800">{p.nama}</span>
+                {isWarning && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
+                    <AlertCircle size={8} /> Hampir Limit
+                  </span>
+                )}
+              </div>
+              <div className="text-stone-500 font-mono">
+                <span className="font-bold text-stone-800">Rp {Math.round(real).toLocaleString("id-ID")}</span>
+                <span className="text-stone-300 mx-1">/</span>
+                <span>Rp {Math.round(alloc).toLocaleString("id-ID")}</span>
+              </div>
             </div>
-            <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden">
+
+            <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
               <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${pct}%`, backgroundColor: "#008f5d" }}
+                className={`h-full transition-all duration-500 ${isWarning ? "bg-amber-500" : "bg-emerald-600"}`}
+                style={{ width: `${pct}%` }}
               />
+            </div>
+
+            <div className="flex justify-between text-[10px] text-stone-400 font-medium">
+              <span>Terpakai: {pct}%</span>
+              <span>Sisa: Rp {Math.round(rem).toLocaleString("id-ID")}</span>
             </div>
           </div>
         );
