@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Filter, Download, X, Check, ZoomIn } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
@@ -132,6 +132,13 @@ export default function AntrianApprovalPage() {
   const [catatan, setCatatan] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const invalidate = useInvalidate();
+
+  // ─── Infinite Scroll ────────────────────────────────────────────────────────
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Zoom Struk State
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
@@ -305,11 +312,32 @@ export default function AntrianApprovalPage() {
     }
   };
 
-  // Reset pilihan saat tab berganti
+  // Reset pilihan & visibleCount saat tab berganti
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
     setSelectedId(null);
+    setVisibleCount(PAGE_SIZE);
   };
+
+  // Infinite scroll handler
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+      setTimeout(() => {
+        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredData.length));
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }, 500);
+    };
+    el.addEventListener('scroll', handleScroll);
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [filteredData.length, visibleCount]);
 
   const openSidebar = () => setIsSidebarOpen(true);
   const closeSidebar = () => setIsSidebarOpen(false);
@@ -379,7 +407,7 @@ export default function AntrianApprovalPage() {
           {/* List and Detail Split Layout */}
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
             {/* LEFT COLUMN: ITEM LIST */}
-            <div className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
+            <div ref={listRef} className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
               {isLoading ? (
                 <>
                   {[1, 2, 3].map((item) => (
@@ -403,7 +431,7 @@ export default function AntrianApprovalPage() {
                   Tidak ada pengajuan reimbursement.
                 </div>
               ) : (
-                filteredData.map((item: any) => {
+                filteredData.slice(0, visibleCount).map((item: any) => {
                   const isSelected = selected && selected.id === item.id;
                   const formattedNominal = item.amountRaw ? item.amountRaw.toLocaleString('id-ID') : item.amount.replace('Rp ', '');
 
@@ -453,6 +481,22 @@ export default function AntrianApprovalPage() {
                   );
                 })
               )}
+              {/* Skeleton saat load batch berikutnya */}
+              {isLoadingMore && Array.from({ length: Math.min(PAGE_SIZE, filteredData.length - visibleCount) }).map((_, i) => (
+                <div key={`skeleton-${i}`} className="bg-white border border-stone-200 rounded-2xl px-4 py-3.5 flex justify-between items-center">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse shrink-0" />
+                    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                      <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
+                      <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                    <div className="h-3 w-16 rounded bg-stone-200 animate-pulse" />
+                    <div className="h-4 w-20 rounded-full bg-stone-200/60 animate-pulse" />
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* RIGHT COLUMN: DETAIL VIEW */}
