@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { UserPlus, Loader2, Check, X, Search, ChevronDown, Users, Edit2, Briefcase, AlertTriangle } from "lucide-react";
 
 type Proyek = { id: number; nama: string; status: string };
@@ -36,10 +36,46 @@ const AVATAR_COLORS = [
   "bg-rose-100 text-rose-700",
 ];
 
+function MemberRowSkeleton() {
+  return (
+    <tr className="animate-pulse border-b border-stone-100">
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-stone-200 shrink-0" />
+          <div className="space-y-1.5 flex-1">
+            <div className="h-3.5 bg-stone-200 rounded w-28" />
+            <div className="h-2.5 bg-stone-150 rounded w-36" />
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3.5">
+        <div className="h-5 bg-stone-200 rounded-lg w-20" />
+      </td>
+      <td className="px-4 py-3.5">
+        <div className="h-3.5 bg-stone-200 rounded w-24" />
+      </td>
+      <td className="px-4 py-3.5">
+        <div className="flex gap-1.5">
+          <div className="h-5 bg-stone-150 rounded-md w-24" />
+          <div className="h-5 bg-stone-150 rounded-md w-20" />
+        </div>
+      </td>
+      <td className="px-5 py-3.5 text-right">
+        <div className="h-7 bg-stone-200 rounded-lg w-28 ml-auto" />
+      </td>
+    </tr>
+  );
+}
+
 export default function AnggotaPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [proyekList, setProyekList] = useState<Proyek[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalMembers, setTotalMembers] = useState(0);
+
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +85,8 @@ export default function AnggotaPage() {
   const [filterRole, setFilterRole] = useState("Semua");
   const [selectedProyekAssignments, setSelectedProyekAssignments] = useState<{ proyekId: number; role: string }[]>([]);
 
+  const observerTarget = useRef<HTMLDivElement | null>(null);
+
   const [form, setForm] = useState({
     nama: "",
     email: "",
@@ -57,24 +95,90 @@ export default function AnggotaPage() {
     divisi: "",
   });
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchProyekList = async () => {
     try {
-      const [membersRes, proyekRes] = await Promise.all([
-        fetch("/api/manager/members"),
-        fetch("/api/manager/proyek"),
-      ]);
-      const [membersData, proyekData] = await Promise.all([membersRes.json(), proyekRes.json()]);
-      setMembers(membersData.members ?? []);
-      setProyekList(proyekData.proyek ?? []);
+      const res = await fetch("/api/manager/proyek");
+      const data = await res.json();
+      setProyekList(data.proyek ?? []);
+    } catch {
+      // silently handle
+    }
+  };
+
+  const fetchMembers = async (pageNum: number, isInitial = false) => {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const params = new URLSearchParams({
+        page: pageNum.toString(),
+        limit: "10",
+        search: searchQuery,
+        role: filterRole,
+      });
+
+      const res = await fetch(`/api/manager/members?${params.toString()}`);
+      const data = await res.json();
+
+      const newMembers: Member[] = data.members ?? [];
+      if (isInitial) {
+        setMembers(newMembers);
+      } else {
+        setMembers((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const filtered = newMembers.filter((m) => !existingIds.has(m.id));
+          return [...prev, ...filtered];
+        });
+      }
+
+      setTotalMembers(data.total ?? 0);
+      setHasMore(data.hasMore ?? false);
+      setPage(pageNum);
     } catch {
       // silently handle
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchProyekList();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchMembers(1, true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, filterRole]);
+
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const [target] = entries;
+      if (target.isIntersecting && hasMore && !loading && !loadingMore) {
+        fetchMembers(page + 1, false);
+      }
+    },
+    [hasMore, loading, loadingMore, page, searchQuery, filterRole]
+  );
+
+  useEffect(() => {
+    const element = observerTarget.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: "100px",
+      threshold: 0.1,
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [handleObserver]);
 
   const handleStartAdd = () => {
     setEditingMember(null);
@@ -177,21 +281,13 @@ export default function AnggotaPage() {
       setSelectedProyekAssignments([]);
       setShowForm(false);
       setEditingMember(null);
-      fetchData();
+      fetchMembers(1, true);
     } catch {
       setFormError("Terjadi kesalahan koneksi");
     } finally {
       setSubmitting(false);
     }
   };
-
-  const filteredMembers = members.filter((m) => {
-    const matchSearch =
-      m.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchRole = filterRole === "Semua" || m.role === filterRole;
-    return matchSearch && matchRole;
-  });
 
   return (
     <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
@@ -462,89 +558,104 @@ export default function AnggotaPage() {
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
             </div>
 
-            <div className="flex items-center gap-1.5 text-[12px] text-stone-455 font-medium whitespace-nowrap bg-stone-100 px-3 py-2 rounded-xl">
+            <div className="flex items-center gap-1.5 text-[12px] font-medium whitespace-nowrap bg-stone-100 px-3 py-2 rounded-xl">
               <Users size={14} className="text-stone-500" />
-              <span className="text-stone-700">{filteredMembers.length} anggota</span>
+              <span className="text-stone-700">
+                {loading ? "Memuat..." : `Menampilkan ${members.length} dari ${totalMembers} anggota`}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Table */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16 gap-3 text-stone-400">
-            <Loader2 size={20} className="animate-spin" />
-            <span className="text-sm">Memuat data anggota...</span>
-          </div>
-        ) : filteredMembers.length === 0 ? (
-          <div className="text-center py-16 text-stone-400 text-sm">
-            {searchQuery || filterRole !== "Semua"
-              ? "Tidak ada anggota yang sesuai filter."
-              : "Belum ada anggota terdaftar."}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-[11px] text-stone-400 font-bold uppercase tracking-wide border-b border-stone-150 bg-stone-50/50">
-                  <th className="text-left px-5 py-3">Anggota</th>
-                  <th className="text-left px-4 py-3">Role</th>
-                  <th className="text-left px-4 py-3">Divisi</th>
-                  <th className="text-left px-4 py-3">Proyek ({proyekList.length} total)</th>
-                  <th className="text-right px-5 py-3">Aksi</th>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-[11px] text-stone-400 font-bold uppercase tracking-wide border-b border-stone-150 bg-stone-50/50">
+                <th className="text-left px-5 py-3">Anggota</th>
+                <th className="text-left px-4 py-3">Role</th>
+                <th className="text-left px-4 py-3">Divisi</th>
+                <th className="text-left px-4 py-3">Proyek ({proyekList.length} total)</th>
+                <th className="text-right px-5 py-3">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => <MemberRowSkeleton key={`skel-init-${i}`} />)
+              ) : members.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-16 text-stone-400 text-sm">
+                    {searchQuery || filterRole !== "Semua"
+                      ? "Tidak ada anggota yang sesuai filter."
+                      : "Belum ada anggota terdaftar."}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {filteredMembers.map((m, i) => (
-                  <tr key={m.id} className="hover:bg-stone-50/40 transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
-                          {getInitials(m.nama)}
+              ) : (
+                <>
+                  {members.map((m, i) => (
+                    <tr key={m.id} className="hover:bg-stone-50/40 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
+                            {getInitials(m.nama)}
+                          </div>
+                          <div>
+                            <p className="text-[13px] font-bold text-stone-900 leading-tight">{m.nama}</p>
+                            <p className="text-[11px] text-stone-400 font-mono">{m.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[13px] font-bold text-stone-900 leading-tight">{m.nama}</p>
-                          <p className="text-[11px] text-stone-400 font-mono">{m.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-lg ${ROLE_BADGE[m.role] || "bg-stone-100 text-stone-600"}`}>
-                        {m.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-[12px] text-stone-500">{m.divisi || "—"}</td>
-                    <td className="px-4 py-3.5">
-                      {m.proyek.length === 0 ? (
-                        <span className="text-[11px] text-stone-300 font-semibold italic">Tidak ada proyek</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5 max-w-[450px]">
-                          {m.proyek.map((p) => (
-                            <div
-                              key={p.id}
-                              className="inline-flex items-center gap-1 text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-md font-semibold font-sans"
-                            >
-                              <Briefcase size={10} className="text-emerald-600" />
-                              <span>{p.nama} ({p.roleInProyek === 'Anggota Lapangan' ? 'Karyawan' : 'PM'})</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <button
-                        onClick={() => handleStartEdit(m)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-[#e8f4ef] hover:text-[#2d6a4f] text-stone-600 text-[11px] font-bold rounded-lg transition cursor-pointer"
-                      >
-                        <Edit2 size={11} />
-                        Atur Proyek & Info
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-lg ${ROLE_BADGE[m.role] || "bg-stone-100 text-stone-600"}`}>
+                          {m.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-[12px] text-stone-500">{m.divisi || "—"}</td>
+                      <td className="px-4 py-3.5">
+                        {m.proyek.length === 0 ? (
+                          <span className="text-[11px] text-stone-300 font-semibold italic">Tidak ada proyek</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5 max-w-[450px]">
+                            {m.proyek.map((p) => (
+                              <div
+                                key={p.id}
+                                className="inline-flex items-center gap-1 text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-md font-semibold font-sans"
+                              >
+                                <Briefcase size={10} className="text-emerald-600" />
+                                <span>{p.nama} ({p.roleInProyek === 'Anggota Lapangan' ? 'Karyawan' : 'PM'})</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <button
+                          onClick={() => handleStartEdit(m)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-[#e8f4ef] hover:text-[#2d6a4f] text-stone-600 text-[11px] font-bold rounded-lg transition cursor-pointer"
+                        >
+                          <Edit2 size={11} />
+                          Atur Proyek & Info
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {loadingMore && (
+                    Array.from({ length: 3 }).map((_, i) => <MemberRowSkeleton key={`skel-more-${i}`} />)
+                  )}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Infinite Scroll Sentinel & Loader */}
+        <div ref={observerTarget} className="py-4 text-center border-t border-stone-100 bg-stone-50/20">
+          {!hasMore && members.length > 0 && !loading && (
+            <span className="text-[11px] text-stone-400 font-medium py-1 inline-block">
+              Menampilkan seluruh {totalMembers} anggota terdaftar.
+            </span>
+          )}
+        </div>
       </div>
     </main>
   );
