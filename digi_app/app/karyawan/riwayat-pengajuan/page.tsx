@@ -814,7 +814,7 @@ export default function RiwayatPengajuanPage() {
                   <th className="px-6 py-4">Tanggal Transaksi</th>
                   <th className="px-6 py-4">Nama Reimbursement</th>
                   <th className="px-6 py-4">Proyek</th>
-                  <th className="px-6 py-4">Pos</th>
+                  <th className="px-6 py-4">Keterangan</th>
                   <th className="px-6 py-4">Nominal</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-center rounded-tr-2xl">Aksi</th>
