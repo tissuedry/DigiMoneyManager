@@ -24,9 +24,14 @@ export async function GET(req: NextRequest) {
     const dashboardData: any = { role };
 
     if (role === 'Karyawan') {
-      // 1. Employee Dashboard data
+      // 1. Employee Dashboard data (scoped to the currently selected project)
+      const karyawanWhere: any = { userId: parseInt(userId, 10) };
+      if (userProyekId) {
+        karyawanWhere.proyekId = parseInt(userProyekId, 10);
+      }
+
       const userReimbursements = await prisma.reimbursement.findMany({
-        where: { userId: parseInt(userId, 10) },
+        where: karyawanWhere,
         select: {
           nominal: true,
           status: true,
@@ -39,7 +44,7 @@ export async function GET(req: NextRequest) {
       const totalRejected = userReimbursements.filter(r => r.status === 'REJECTED').length;
 
       const recentSubmissions = await prisma.reimbursement.findMany({
-        where: { userId: parseInt(userId, 10) },
+        where: karyawanWhere,
         include: {
           proyek: { select: { nama: true } },
           keteranganAnggaran: {
