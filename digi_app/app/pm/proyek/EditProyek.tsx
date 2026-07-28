@@ -70,8 +70,8 @@ export default function EditProyekModal({
   };
 
   const statusOptions = [
-    { value: "AKTIF", label: "Active" },
     { value: "PLANNING", label: "Planning" },
+    { value: "AKTIF", label: "Active" },
     { value: "DONE", label: "Done" },
     { value: "CANCELLED", label: "Cancelled" },
   ];

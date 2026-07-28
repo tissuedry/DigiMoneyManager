@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const urlRole = searchParams.get('role') || role;
 
-    const cacheKey = `reimb:${urlRole}:${userId}`;
+    const cacheKey = `reimb:${urlRole}:${userId}:${userProyekId || ''}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
 
@@ -79,6 +79,9 @@ export async function GET(req: NextRequest) {
 
     if (urlRole === 'Karyawan') {
       filter.userId = parseInt(userId, 10);
+      if (userProyekId) {
+        filter.proyekId = parseInt(userProyekId, 10);
+      }
     } else if (urlRole === 'Project Manager') {
       const pmProyeks = await prisma.userProyek.findMany({
         where: { 

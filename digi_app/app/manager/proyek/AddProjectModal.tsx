@@ -79,8 +79,9 @@ export default function AddProjectModal({
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
             <div className="flex flex-wrap gap-3 mt-1">
               {[
-                { value: "AKTIF", label: "Active" },
-                { value: "PLANNING", label: "Planning" }
+                { value: "PLANNING", label: "Planning" },
+                { value: "AKTIF", label: "Active" }
+                
               ].map((statusItem) => {
                 const isSelected = projectForm.status === statusItem.value;
                 return (
