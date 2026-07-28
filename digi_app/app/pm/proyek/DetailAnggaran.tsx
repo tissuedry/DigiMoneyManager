@@ -10,7 +10,7 @@ function formatFullCurrency(num: number): string {
 }
 
 function formatReimbursementDate(r: any): string {
-  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
+  const ocrTanggal = r.tanggalStruk;
   if (ocrTanggal) {
     const d = new Date(ocrTanggal);
     if (!isNaN(d.getTime())) {
@@ -95,6 +95,15 @@ function getStatusRank(status: string): number {
   if (['SUBMITTED'].includes(status)) return 2;
   if (['APPROVED_BY_PM', 'PENDING'].includes(status)) return 3;
   return 4;
+}
+
+function reimbType(s: string): string {
+  const map: Record<string, string> = {
+    "Realisasi Anggaran": "REAL",
+    "Reimbursement": "REIMB",
+  };
+
+  return map[s] || s;
 }
 
 // ponytail: shared row layout — name grows, rest are fixed-width
@@ -647,6 +656,7 @@ export default function DetailAnggaranModal({
                                                   const displayName = reimb.merchant || reimb.keterangan || reimb.nama || reimbName || 'Reimbursement';
                                                   const dateStr = formatReimbursementDate(reimb);
                                                   const displayStatus = statusLabel(reimb.status);
+
                                                   return (
                                                     <Row
                                                       key={reimb.id}
@@ -654,10 +664,10 @@ export default function DetailAnggaranModal({
                                                     >
                                                       <div className={NAME_CLASS} title={displayName}>
                                                         <span
-                                                          className="text-[9px] font-bold uppercase shrink-0"
-                                                          style={{ color: "#005D8D" }}
+                                                          className={`text-[9px] font-bold uppercase shrink-0 
+                                                            ${reimb.tipe == 'Realisasi Anggaran' ? 'text-[#483E90]' : 'text-[#005D8D]'}`}
                                                         >
-                                                          REIMB
+                                                          {reimbType(reimb.tipe)}
                                                         </span>
                                                         <span
                                                           className="text-[11px] text-stone-700 font-medium truncate shrink-1 cursor-pointer"
