@@ -24,22 +24,18 @@ const TABS = ["Semua", "Menunggu PM", "Menunggu Keuangan", "Dicairkan", "Ditolak
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length < 3) return iso;
-  const [y, m, d] = parts;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
   const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
-  const mIdx = parseInt(m) - 1;
-  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+  return `${d.getUTCDate()} ${bulan[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 function formatTanggalLong(iso: string) {
   if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length < 3) return iso;
-  const [y, m, d] = parts;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
   const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-  const mIdx = parseInt(m) - 1;
-  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+  return `${d.getUTCDate()} ${bulan[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 // Generate a display ID like "RB-2026-004"
@@ -242,7 +238,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
     : null;
 
   const nominalFormatted = `Rp ${Number(raw.nominal).toLocaleString("id-ID")}`;
-  const tanggal = raw.ocrData?.tanggal ? formatTanggalLong(raw.ocrData.tanggal) : "N/A";
+  const tanggal = raw.tanggalStruk ? formatTanggalLong(raw.tanggalStruk) : "N/A";
 
   const statusCardClass =
     status === "SUBMITTED" ? "bg-[#fdf9f2] border-[#f5e4c0]" :
@@ -267,7 +263,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
       {/* Header */}
       <div className="px-6 pt-5 pb-4 border-b border-stone-150">
         <p className="text-[11px] font-mono text-stone-400 mb-1">{displayId}</p>
-        <h2 className="text-[20px] font-bold text-stone-900 leading-tight">{raw.ocrData?.merchant || "N/A"}</h2>
+        <h2 className="text-[20px] font-bold text-stone-900 leading-tight">{raw.nama || raw.merchant || "N/A"}</h2>
         <p className="text-[13px] text-stone-500 mt-0.5">{raw.proyek?.nama || "N/A"}</p>
       </div>
 
@@ -353,7 +349,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
               { label: "Sub", value: raw.posAnggaran?.subAnggaran?.namaSub || "N/A" },
               { label: "Keterangan", value: raw.posAnggaran?.keterangan || raw.posAnggaran?.deskripsi || "N/A" },
               { label: "Tanggal Transaksi", value: tanggal },
-              { label: "Nama Reimbursement", value: raw.ocrData?.merchant || "N/A" },
+              { label: "Nama Reimbursement", value: raw.nama || raw.merchant || "N/A" },
               { label: "Anti-Fraud", value: raw.antiFraud || "Aman" },
             ].map((row, i, arr) => (
               <div key={row.label} className={`flex justify-between items-center px-4 py-3 ${i < arr.length - 1 ? "border-b border-stone-100" : ""}`}>
@@ -558,15 +554,15 @@ export default function RiwayatPengajuanPage() {
         const mapped: Submission[] = data.reimbursements.map((r: any, i: number) => ({
           id: makeDisplayId(String(r.id), i),
           dbId: r.id,
-          date: r.ocrData?.tanggal ? formatTanggal(r.ocrData.tanggal) : formatTanggal(r.createdAt?.split('T')[0] || ''),
+          date: r.tanggalStruk ? formatTanggal(r.tanggalStruk) : '',
           lastActivityTime: [
-            r.ocrData?.submittedAt || (r.ocrData?.tanggal ? `${r.ocrData.tanggal}T00:00:00` : null),
+            r.tanggalStruk,
             ...(r.approvals || []).map((a: any) => a.timestamp),
           ]
             .map((t: string | null | undefined) => (t ? new Date(t).getTime() : NaN))
             .filter((t: number) => !isNaN(t))
             .reduce((max: number, t: number) => Math.max(max, t), 0),
-          merchant: r.ocrData?.merchant || 'N/A',
+          merchant: r.nama || r.merchant || 'N/A',
           project: r.proyek?.nama || 'N/A',
           pos: r.posAnggaran?.deskripsi || r.posAnggaran?.namaPos || 'N/A',
           amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
