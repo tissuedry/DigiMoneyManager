@@ -265,14 +265,15 @@ function PencairanContent() {
   const pmApproval = selectedItem?.approvals?.find((a: any) => a.level === 'PM' || a.approver?.role === 'Project Manager');
   const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN' || a.approver?.role === 'Tim Keuangan');
 
-  // Approval timeline steps matching Figma exact layout
-  const approvalSteps = selectedItem ? [
+  // Approval timeline steps — untuk Realisasi PM, step Validasi PM dihilangkan
+  const isSelectedRealisasi = selectedItem?.tipe === 'Realisasi Anggaran';
+  const baseApprovalSteps = selectedItem ? [
     {
       label: "Pengajuan dikirim",
       sublabel: `${selectedItem.user?.nama || 'Karyawan'} • ${formatTanggalWaktu(selectedItem.createdAt || selectedItem.ocrData?.tanggal)}`,
       state: "done" as const
     },
-    {
+    ...(!isSelectedRealisasi ? [{
       label: "Validasi Project Manager",
       sublabel: pmApproval
         ? `${pmApproval.approver?.nama || 'Project Manager'} • ${formatTanggalWaktu(pmApproval.timestamp)}`
@@ -280,7 +281,7 @@ function PencairanContent() {
       state: pmApproval
         ? (pmApproval.status === 'REJECTED' ? "rejected" as const : "done" as const)
         : (selectedItem.status === 'SUBMITTED' ? "active" as const : "pending" as const)
-    },
+    }] : []),
     {
       label: "Verifikasi Tim Keuangan",
       sublabel: financeApproval
@@ -298,6 +299,7 @@ function PencairanContent() {
       state: selectedItem.status === 'APPROVED' ? "done" as const : "pending" as const
     }
   ] : [];
+  const approvalSteps = baseApprovalSteps;
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
@@ -404,7 +406,8 @@ function PencairanContent() {
                     const active = isAllSelected || String(selectedItem?.id) === String(item.id);
                     const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
                     const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
-                    const vendorTitle = item.ocrData?.merchant || item.posAnggaran?.deskripsi || 'Pengajuan Reimbursement';
+                    const isRealisasi = item.tipe === 'Realisasi Anggaran';
+                    const vendorTitle = item.merchant || item.ocrData?.merchant || item.nama || item.posAnggaran?.deskripsi || (isRealisasi ? 'Realisasi Anggaran' : 'Pengajuan Reimbursement');
                     const projectTitle = item.proyek?.nama || 'Proyek';
 
                     return (
@@ -422,7 +425,15 @@ function PencairanContent() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2 mb-0.5">
-                              <div className="group relative min-w-0">
+                              <div className="group relative min-w-0 flex items-center gap-1.5">
+                                {/* Badge tipe REAL / REIMB */}
+                                <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide border ${
+                                  isRealisasi
+                                    ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
+                                    : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
+                                }`}>
+                                  {isRealisasi ? 'REAL' : 'REIMB'}
+                                </span>
                                 <p className="text-[12px] font-bold text-stone-800 truncate">
                                   {vendorTitle} · {projectTitle}
                                 </p>
@@ -503,24 +514,43 @@ function PencairanContent() {
                   <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
 
                     {/* Header Detail */}
-                    <div className="border-b border-stone-100 pb-4">
-                      <div className="flex items-start justify-between mb-1">
-                        <p className="text-[12px] text-stone-400 font-medium font-mono">RB-{String(selectedItem.id).padStart(4, '0')}</p>
-                        <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${selectedItem.status === 'APPROVED_BY_PM' ? 'bg-[#e1f5fe] text-[#0277bd]' :
-                          selectedItem.status === 'APPROVED' ? 'bg-[#e2f1eb] text-[#117a5b]' :
-                            'bg-[#fee2e2] text-[#be123c]'
-                          }`}>
-                          {selectedItem.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
-                            selectedItem.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
-                        </span>
-                      </div>
-                      <h2 className="text-[22px] font-bold text-stone-900 leading-tight">
-                        {selectedItem.ocrData?.merchant || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama}
-                      </h2>
-                      <p className="text-[13px] text-stone-400 mt-0.5">
-                        diajukan oleh <span className="font-semibold text-stone-600">{selectedItem.user?.nama}</span> pada {formatTanggalWaktu(selectedItem.createdAt || selectedItem.ocrData?.submittedAt || selectedItem.ocrData?.tanggal)}
-                      </p>
-                    </div>
+                    {(() => {
+                      const isRealisasiDetail = selectedItem.tipe === 'Realisasi Anggaran';
+                      const detailVendorTitle = selectedItem.merchant || selectedItem.ocrData?.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama;
+                      // createdAt belum ada di DB — placeholder ditampilkan sampai migrasi dilakukan
+                      const detailTanggal = selectedItem.createdAt || selectedItem.ocrData?.submittedAt || null;
+                      return (
+                        <div className="border-b border-stone-100 pb-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <p className="text-[12px] text-stone-400 font-medium font-mono">RB-{String(selectedItem.id).padStart(4, '0')}</p>
+                              {/* Badge tipe REALISASI / REIMBURSEMENT */}
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${
+                                isRealisasiDetail
+                                  ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
+                                  : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
+                              }`}>
+                                {isRealisasiDetail ? 'REALISASI' : 'REIMBURSEMENT'}
+                              </span>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${selectedItem.status === 'APPROVED_BY_PM' ? 'bg-[#e1f5fe] text-[#0277bd]' :
+                              selectedItem.status === 'APPROVED' ? 'bg-[#e2f1eb] text-[#117a5b]' :
+                                'bg-[#fee2e2] text-[#be123c]'
+                              }`}>
+                              {selectedItem.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
+                                selectedItem.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
+                            </span>
+                          </div>
+                          <h2 className="text-[22px] font-bold text-stone-900 leading-tight">
+                            {detailVendorTitle}
+                          </h2>
+                          <p className="text-[13px] text-stone-400 mt-0.5">
+                            diajukan oleh <span className="font-semibold text-stone-600">{selectedItem.user?.nama}</span>
+                            {detailTanggal ? <> pada {formatTanggalWaktu(detailTanggal)}</> : <span className="italic text-stone-300"> · tanggal tidak tersedia</span>}
+                          </p>
+                        </div>
+                      );
+                    })()}
 
                     {/* Table Properties */}
                     <div className="divide-y divide-stone-200 text-[13px]">
@@ -542,7 +572,7 @@ function PencairanContent() {
                       </div>
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Tanggal Transaksi</span>
-                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : '-'}</span>
+                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : selectedItem.tanggalStruk ? formatTanggal(selectedItem.tanggalStruk.split('T')[0]) : '-'}</span>
                       </div>
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Pengaju</span>
@@ -556,10 +586,12 @@ function PencairanContent() {
                       </div>
                     </div>
 
-                    {/* Preview Struk Upload */}
+                    {/* Preview Struk / Gambar Upload */}
                     {selectedItem.strukUrl && (
                       <div className="space-y-1">
-                        <label className="text-[13px] text-stone-500">Bukti Struk</label>
+                        <label className="text-[13px] text-stone-500">
+                          {selectedItem.tipe === 'Realisasi Anggaran' ? 'Bukti Gambar' : 'Bukti Struk'}
+                        </label>
                         <div
                           onClick={() => handleOpenZoom(selectedItem.strukUrl)}
                           className="border border-stone-200 rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
@@ -697,13 +729,15 @@ function PencairanContent() {
                       </div>
                     </div>
 
-                    {/* Catatan dari PM */}
-                    <div>
-                      <p className="text-[13px] text-stone-500 mb-2">Catatan dari Project Manager</p>
-                      <div className="bg-[#f5f4ef] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
-                        {pmApproval?.catatan || '-'}
+                    {/* Catatan dari PM — hanya untuk reimbursement biasa (bukan realisasi PM) */}
+                    {selectedItem.tipe !== 'Realisasi Anggaran' && (
+                      <div>
+                        <p className="text-[13px] text-stone-500 mb-2">Catatan dari Project Manager</p>
+                        <div className="bg-[#f5f4ef] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
+                          {pmApproval?.catatan || '-'}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Catatan dari Keuangan */}
                     {selectedItem.status === 'APPROVED_BY_PM' ? (
