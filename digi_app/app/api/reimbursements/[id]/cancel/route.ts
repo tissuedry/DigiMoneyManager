@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-// POST: Cancel (permanently delete) a reimbursement that is still pending PM review (Karyawan only)
+// POST: Cancel (permanently delete) a pending pengajuan (Karyawan or PM)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -19,19 +19,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     if (!reimbursement) {
-      return NextResponse.json({ message: 'Reimbursement not found' }, { status: 404 });
+      return NextResponse.json({ message: 'Pengajuan not found' }, { status: 404 });
     }
 
     if (reimbursement.userId !== parseInt(userId, 10)) {
       return NextResponse.json({ message: 'Forbidden: You can only cancel your own submissions' }, { status: 403 });
     }
 
-    if (reimbursement.status !== 'SUBMITTED') {
-      return NextResponse.json({ message: 'Only submissions still pending PM review (SUBMITTED) can be cancelled' }, { status: 400 });
+    // Ambil tipe pengajuan (Reimbursement atau Realisasi Anggaran)
+    const tipePengajuan = reimbursement.tipe || 'Pengajuan';
+
+    const isKaryawanPending = reimbursement.status === 'SUBMITTED';
+    const isPMPending = reimbursement.status === 'APPROVED_BY_PM' && tipePengajuan === 'Realisasi Anggaran';
+
+    if (!isKaryawanPending && !isPMPending) {
+      return NextResponse.json({ 
+        message: 'Pengajuan sudah diproses atau diteruskan, tidak dapat dibatalkan' 
+      }, { status: 400 });
     }
 
     await prisma.$transaction(async (tx) => {
-      // No Approval/JurnalAkuntansi rows exist yet at SUBMITTED status, safe to delete outright
       await tx.reimbursement.delete({
         where: { id: parseInt(id, 10) },
       });
@@ -39,8 +46,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await tx.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
-          aksi: 'cancel_reimbursement',
-          detail: `Membatalkan pengajuan reimbursement Rp ${Number(reimbursement.nominal).toLocaleString()} untuk proyek ${reimbursement.proyek.nama}`,
+          aksi: 'cancel_pengajuan',
+          detail: `Membatalkan pengajuan ${tipePengajuan} Rp ${Number(reimbursement.nominal).toLocaleString()} untuk proyek ${reimbursement.proyek.nama}`,
         },
       });
     });
@@ -50,11 +57,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     clearCache('notif:');
 
     return NextResponse.json({
-      message: 'Reimbursement successfully cancelled and removed',
+      message: `${tipePengajuan} successfully cancelled and removed`,
       id: parseInt(id, 10),
     });
   } catch (error: any) {
-    console.error('Cancel reimbursement error:', error);
+    console.error('Cancel pengajuan error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
