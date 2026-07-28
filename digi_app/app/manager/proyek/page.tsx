@@ -85,7 +85,7 @@ export default function KelolaProyekPage() {
     deskripsi: "", 
     tanggalMulai: "",
     tanggalSelesai: "",
-    status: "Active",
+    status: "Planning",
   });
 
   const [editForm, setEditForm] = useState({
@@ -93,7 +93,7 @@ export default function KelolaProyekPage() {
     deskripsi: "",
     tanggalMulai: "",
     tanggalSelesai: "",
-    status: "Active",
+    status: "Planning",
   });
 
   // Assign members state

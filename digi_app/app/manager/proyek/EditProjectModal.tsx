@@ -54,7 +54,7 @@ export default function EditProjectModal({
           <div>
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
             <div className="flex flex-wrap gap-2 mt-1">
-              {[{ value: "AKTIF", label: "Active" }, { value: "PLANNING", label: "Planning" }, { value: "DONE", label: "Done" }, { value: "CANCELED", label: "Canceled" }].map((statusItem) => {
+              {[{ value: "PLANNING", label: "Planning" }, { value: "AKTIF", label: "Active" },  { value: "DONE", label: "Done" }, { value: "CANCELED", label: "Canceled" }].map((statusItem) => {
                 const isSelected = editForm.status === statusItem.value;
                 return (
                   <button key={statusItem.value} type="button" onClick={() => setEditForm({ ...editForm, status: statusItem.value })}
