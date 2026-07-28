@@ -988,9 +988,6 @@ export default function AjukanPosModal({
         {/* Footer */}
         <div className="px-6 py-3.5 border-t border-[#e6e1d4] flex items-center justify-between shrink-0 bg-white">
           <div className="flex items-center gap-3">
-            <p className="text-[11px] font-normal text-[#9a948b]">
-              <span className="text-[#902f33] font-bold">*</span> setiap pos wajib punya alasan
-            </p>
             {localDraftCount > 0 && (
               <span className="text-[11px] font-semibold text-[#005836] bg-[#e0f1ec] px-2.5 py-0.5 rounded-full border border-[#b2dccd]">
                 {localDraftCount} pos draft
