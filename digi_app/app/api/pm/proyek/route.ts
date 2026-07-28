@@ -83,44 +83,60 @@ export async function GET(req: NextRequest) {
       const budget = p.budget;
       const pmUser = p.users.find((u) => u.role === 'Project Manager');
 
-      const posAnggaran = (budget?.mainAnggaran ?? []).map((m, idx) => ({
-        id: m.id,
-        nama: m.namaMain,
-        alokasi: Number(m.nominalAlokasi),
-        terpakai: Number(m.nominalTerpakai),
-        warna: warnaPalette[idx % warnaPalette.length],
-        subAnggaran: m.subAnggaran.map((s) => ({
-          id: s.id,
-          nama: s.namaSub,
-          alokasi: Number(s.nominalAlokasi),
-          terpakai: Number(s.nominalTerpakai),
-          keterangan: s.keterangan.map((k) => ({
-            id: k.id,
-            nama: k.keterangan,
-            alokasi: Number(k.nominalAlokasi),
-            realisasi: Number(k.nominalRealisasi),
-            reimbursements: k.reimbursements.map((r) => ({
-              id: r.id,
-              nominal: Number(r.nominal),
-              urlStruk: r.urlStruk,
-              
-              nama: r.nama,
-              tipe: r.tipe,
-              merchant: r.merchant,
-              tanggalStruk: r.tanggalStruk,
-              kategoriBukti: r.kategoriBukti,
-              
-              fraudFlag: r.fraudFlag,
-              status: r.status,
-              approvals: r.approvals.map((a) => ({
-                id: a.id,
-                level: a.level,
-                status: a.status,
+      const posAnggaran = (budget?.mainAnggaran ?? []).map((m, idx) => {
+        const calculatedTerpakai = m.subAnggaran.reduce(
+          (sum: number, sub: any) =>
+            sum + sub.keterangan.reduce(
+              (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
+            ),
+          0
+        );
+        const terpakai = Math.max(Number(m.nominalTerpakai || 0), calculatedTerpakai);
+
+        return {
+          id: m.id,
+          nama: m.namaMain,
+          alokasi: Number(m.nominalAlokasi),
+          terpakai,
+          warna: warnaPalette[idx % warnaPalette.length],
+          subAnggaran: m.subAnggaran.map((s) => {
+            const subTerpakai = s.keterangan.reduce(
+              (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
+            );
+            return {
+              id: s.id,
+              nama: s.namaSub,
+              alokasi: Number(s.nominalAlokasi),
+              terpakai: Math.max(Number(s.nominalTerpakai || 0), subTerpakai),
+              keterangan: s.keterangan.map((k) => ({
+                id: k.id,
+                nama: k.keterangan,
+                alokasi: Number(k.nominalAlokasi),
+                realisasi: Number(k.nominalRealisasi),
+                reimbursements: k.reimbursements.map((r) => ({
+                  id: r.id,
+                  nominal: Number(r.nominal),
+                  urlStruk: r.urlStruk,
+                  
+                  nama: r.nama,
+                  tipe: r.tipe,
+                  merchant: r.merchant,
+                  tanggalStruk: r.tanggalStruk,
+                  kategoriBukti: r.kategoriBukti,
+                  
+                  fraudFlag: r.fraudFlag,
+                  status: r.status,
+                  approvals: r.approvals.map((a) => ({
+                    id: a.id,
+                    level: a.level,
+                    status: a.status,
+                  })),
+                })),
               })),
-            })),
-          })),
-        })),
-      }));
+            };
+          }),
+        };
+      });
 
       const tim = p.users.map((u) => {
         const nama = u.user.nama;
@@ -130,6 +146,9 @@ export async function GET(req: NextRequest) {
           : nama.slice(0, 2).toUpperCase();
         return { id: u.user.id, nama, inisial, role: u.role, divisi: u.divisi || '' };
       });
+
+      const totalPosTerpakai = posAnggaran.reduce((s, pos) => s + pos.terpakai, 0);
+      const totalRealisasi = Math.max(realisasiByProyek[p.id] || 0, totalPosTerpakai);
 
       return {
         id: p.id,
@@ -141,10 +160,10 @@ export async function GET(req: NextRequest) {
         pm: pmUser?.user.nama || '',
         status: p.status,
         totalRAB: budget ? Number(budget.rabTotal) : 0,
-        realisasi: realisasiByProyek[p.id] || 0,
+        realisasi: totalRealisasi,
         posAnggaran,
         tim,
-        reimbursementDisetujui: realisasiByProyek[p.id] || 0,
+        reimbursementDisetujui: totalRealisasi,
         reimbursementBelumDisetujui: pendingNominal[p.id] || 0,
         reimbursementDisetujuiCount: approvedCount[p.id] || 0,
         reimbursementBelumDisetujuiCount: pendingCount[p.id] || 0,
