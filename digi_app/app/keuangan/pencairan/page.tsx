@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Download, X, Check, Filter, ZoomIn
@@ -151,9 +151,47 @@ function PencairanContent() {
     return matchesTab && matchesSearch;
   });
 
+  // Infinite scroll: render 10 items at a time
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
   // Count items for each tab
   const countDiteruskan = reimbursements.filter((item: any) => item.status === 'APPROVED_BY_PM').length;
   const countSelesai = reimbursements.filter((item: any) => item.status === 'APPROVED' || item.status === 'REJECTED').length;
+
+  // Reset to the first page whenever active tab or search query changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeTab, searchQuery]);
+
+  const visibleList = filteredList.slice(0, visibleCount);
+  const pendingCount = Math.min(PAGE_SIZE, filteredList.length - visibleCount);
+
+  // Infinite scroll handler
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredList.length) return;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
+
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+      setTimeout(() => {
+        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredList.length));
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }, 500);
+    };
+
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [filteredList.length, visibleCount]);
 
   // Selected item
   const selectedItem = filteredList.find((item: any) => String(item.id) === String(selectedId)) || filteredList[0] || null;
@@ -336,7 +374,7 @@ function PencairanContent() {
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
 
             {/* LEFT COLUMN: ITEM LIST */}
-            <div className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
+            <div ref={listRef} className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
               {isLoading ? (
                 <>
                   {[1, 2, 3].map((item) => (
@@ -360,63 +398,81 @@ function PencairanContent() {
                   Tidak ada pengajuan pencairan.
                 </div>
               ) : (
-                filteredList.map((item: any) => {
-                  const initials = item.user?.nama ? item.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'AI';
-                  const active = isAllSelected || String(selectedItem?.id) === String(item.id);
-                  const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
-                  const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
-                  const vendorTitle = item.ocrData?.merchant || item.posAnggaran?.deskripsi || 'Pengajuan Reimbursement';
-                  const projectTitle = item.proyek?.nama || 'Proyek';
+                <>
+                  {visibleList.map((item: any) => {
+                    const initials = item.user?.nama ? item.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'AI';
+                    const active = isAllSelected || String(selectedItem?.id) === String(item.id);
+                    const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
+                    const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
+                    const vendorTitle = item.ocrData?.merchant || item.posAnggaran?.deskripsi || 'Pengajuan Reimbursement';
+                    const projectTitle = item.proyek?.nama || 'Proyek';
 
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleSelect(String(item.id))}
-                      className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${active
-                        ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
-                        : "bg-white border-stone-200 hover:bg-stone-50"
-                        }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold mt-0.5 ${getAvatarColor(initials)}`}>
-                          {initials}
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleSelect(String(item.id))}
+                        className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${active
+                          ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
+                          : "bg-white border-stone-200 hover:bg-stone-50"
+                          }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold mt-0.5 ${getAvatarColor(initials)}`}>
+                            {initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <div className="group relative min-w-0">
+                                <p className="text-[12px] font-bold text-stone-800 truncate">
+                                  {vendorTitle} · {projectTitle}
+                                </p>
+                                <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
+                                  {vendorTitle} · {projectTitle}
+                                </div>
+                              </div>
+                              <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
+                                <span className="text-stone-400 text-[11px]">Rp </span>{formattedNominal}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="group relative min-w-0">
+                                <p className="text-[11px] text-stone-400 truncate">
+                                  {item.user?.nama || 'Karyawan'} <span className="font-normal text-stone-400 font-mono">· {itemCode}</span>
+                                </p>
+                                <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
+                                  {item.user?.nama || 'Karyawan'} · {itemCode}
+                                </div>
+                              </div>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${item.status === 'APPROVED_BY_PM' ? 'bg-[#e1f5fe] text-[#0277bd]' :
+                                item.status === 'APPROVED' ? 'bg-[#e2f1eb] text-[#117a5b]' :
+                                  'bg-[#fee2e2] text-[#be123c]'
+                                }`}>
+                                {item.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
+                                  item.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-0.5">
-                            <div className="group relative min-w-0">
-                              <p className="text-[12px] font-bold text-stone-800 truncate">
-                                {vendorTitle} · {projectTitle}
-                              </p>
-                              <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
-                                {vendorTitle} · {projectTitle}
-                              </div>
-                            </div>
-                            <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                              <span className="text-stone-400 text-[11px]">Rp </span>{formattedNominal}
-                            </p>
+                      </button>
+                    );
+                  })}
+                  {isLoadingMore &&
+                    Array.from({ length: pendingCount }).map((_, i) => (
+                      <div key={`skeleton-${i}`} className="bg-white border border-stone-200 rounded-2xl px-4 py-3.5 flex justify-between items-center">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse shrink-0" />
+                          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                            <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
+                            <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
                           </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="group relative min-w-0">
-                              <p className="text-[11px] text-stone-400 truncate">
-                                {item.user?.nama || 'Karyawan'} <span className="font-normal text-stone-400 font-mono">· {itemCode}</span>
-                              </p>
-                              <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
-                                {item.user?.nama || 'Karyawan'} · {itemCode}
-                              </div>
-                            </div>
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${item.status === 'APPROVED_BY_PM' ? 'bg-[#e1f5fe] text-[#0277bd]' :
-                              item.status === 'APPROVED' ? 'bg-[#e2f1eb] text-[#117a5b]' :
-                                'bg-[#fee2e2] text-[#be123c]'
-                              }`}>
-                              {item.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
-                                item.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
-                            </span>
-                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                          <div className="h-3 w-16 rounded bg-stone-200 animate-pulse" />
+                          <div className="h-4 w-20 rounded-full bg-stone-200/60 animate-pulse" />
                         </div>
                       </div>
-                    </button>
-                  );
-                })
+                    ))}
+                </>
               )}
             </div>
 
