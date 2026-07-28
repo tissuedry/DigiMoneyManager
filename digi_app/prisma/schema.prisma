@@ -112,11 +112,19 @@ model Reimbursement {
   userId               Int                @map("user_id")
   proyekId             Int                @map("proyek_id")
   keteranganAnggaranId Int                @map("keterangan_anggaran_id")
+  
+              
+  nama                 String?            @map("nama") 
+  tipe                 String?            
+  merchant             String?            
+  tanggalStruk         DateTime?          @map("tanggal_struk")
+  kategoriBukti        String?            @map("kategori_bukti")
+
   nominal              Decimal            @db.Decimal(15, 2)
   urlStruk             String             @map("url_struk")
-  ocrData              Json               @map("ocr_data")
   fraudFlag            Boolean            @default(false) @map("fraud_flag")
   status               String
+
   approvals            Approval[]
   jurnalAkuntansi      JurnalAkuntansi[]
   keteranganAnggaran   KeteranganAnggaran @relation(fields: [keteranganAnggaranId], references: [id])
@@ -236,7 +244,6 @@ model Notification {
   @@index([userId, dibaca, timestamp])
   @@map("notifications")
 }
-
 
 model MasterMain {
   id        Int         @id @default(autoincrement())

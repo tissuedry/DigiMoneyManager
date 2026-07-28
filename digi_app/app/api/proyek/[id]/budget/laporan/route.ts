@@ -133,12 +133,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               realisasi: Number(ket.nominalRealisasi) || 0,
             });
 
-            // Level 4: REIMBURSEMENT (Hanya yang APPROVED)
+            // Level 4: REIMBURSEMENT / REALISASI (Hanya yang APPROVED)
             if (ket.reimbursements && ket.reimbursements.length > 0) {
               ket.reimbursements.forEach((reimb) => {
                 let tglStr = "";
-                if (reimb.ocrData && typeof reimb.ocrData === 'object' && 'tanggal' in reimb.ocrData) {
-                  const d = new Date((reimb.ocrData as any).tanggal);
+                
+                // PERUBAHAN: Gunakan kolom tanggalStruk langsung
+                if (reimb.tanggalStruk) {
+                  const d = new Date(reimb.tanggalStruk);
                   if (!isNaN(d.getTime())) {
                     tglStr = d.toLocaleDateString("id-ID", { 
                       day: 'numeric', 
@@ -148,12 +150,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                   }
                 }
 
-                // Mengambil nama/keterangan reimbursement dari ocrData atau custom property lainnya
-                const namaReimb = (reimb as any).nama || (reimb.ocrData as any)?.nama || (reimb.ocrData as any)?.keterangan || (reimb.ocrData as any)?.deskripsi || "Reimbursement";
+                // PERUBAHAN: Gunakan kolom nama langsung
+                const namaReimb = reimb.nama || "Pengajuan";
+
+                // PERUBAHAN: Bedakan label berdasarkan tipe pengajuan (opsional tapi informatif)
+                const labelTipe = reimb.tipe === "Realisasi Anggaran" ? "REALISASI PM" : "REIMB";
 
                 // Render Baris Reimbursement
                 const reimbRow = sheet.addRow({
-                  nama: `                    REIMB ${namaReimb} ${tglStr}[Dicairkan]`,
+                  nama: `                    ${labelTipe} ${namaReimb} ${tglStr}[Dicairkan]`,
                   rab: "", 
                   realisasi: Number(reimb.nominal) || 0,
                 });
