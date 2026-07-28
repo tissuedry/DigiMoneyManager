@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       );
     }
 
-    // Ambil data keuangan proyek
+    // Ambil data keuangan proyek beserta relasi berjenjangnya
     const proyek = await prisma.proyek.findUnique({
       where: { id: proyekId },
       include: {
@@ -55,35 +55,41 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Laporan Budget");
 
+    // Pengaturan lebar kolom sesuai template
     sheet.columns = [
       { header: "", key: "nama", width: 65 }, 
       { header: "", key: "rab", width: 25 },
       { header: "", key: "realisasi", width: 25 },
     ];
 
+    // Definisi Styling
     const darkGreyFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF595959" } };
     const lightGreyFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF969696" } };
     const whiteFont = { bold: true, color: { argb: "FFFFFFFF" } };
     const blackFont = { bold: true, color: { argb: "FF000000" } };
+    const normalFont = { bold: false, color: { argb: "FF000000" } };
     const reimbFont = { italic: true, color: { argb: "FF5A5A5A" } }; 
 
-    // Row 1: Judul Laporan
-    const row1 = sheet.addRow({
+    // Row 1: Kosong (Sesuai dengan struktur asli template Excel)
+    sheet.addRow({});
+
+    // Row 2: Judul Laporan
+    const row2 = sheet.addRow({
       nama: "  5 BIAYA PROYEK / COST OF REVENUE",
       rab: "",
       realisasi: "",
     });
-    row1.font = whiteFont;
-    row1.fill = darkGreyFill as ExcelJS.FillPattern;
+    row2.font = whiteFont;
+    row2.fill = darkGreyFill as ExcelJS.FillPattern;
 
-    // Row 2: Sub-judul Kolom
-    const row2 = sheet.addRow({
+    // Row 3: Sub-judul Kolom
+    const row3 = sheet.addRow({
       nama: "    Nilai Proyek",
       rab: "RAB",
       realisasi: "REALISASI",
     });
-    row2.font = whiteFont;
-    row2.fill = darkGreyFill as ExcelJS.FillPattern;
+    row3.font = whiteFont;
+    row3.fill = darkGreyFill as ExcelJS.FillPattern;
 
     proyek.budget.mainAnggaran.forEach((main, mIdx) => {
       const mainNum = `5.${mIdx + 1}`;
@@ -102,7 +108,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return { ...sub, totalRealisasiSub };
       });
 
-      // Level 1: Main Anggaran
+      // ── Level 1: Main Anggaran ──
       const mainRow = sheet.addRow({
         nama: `        ${mainNum} ${main.namaMain}`,
         rab: Number(main.nominalAlokasi) || 0,
@@ -111,9 +117,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       mainRow.font = whiteFont;
       mainRow.fill = lightGreyFill as ExcelJS.FillPattern;
 
-      // Level 2: Sub Anggaran
+      // ── Level 2: Sub Anggaran ──
       subAnggaranCalculated.forEach((sub, sIdx) => {
-        const subNum = `${mainNum}.0${sIdx + 1}`;
+        // Menggunakan padStart agar format nomor sub selalu 2 digit (contoh: 5.3.01)
+        const subNum = `${mainNum}.${String(sIdx + 1).padStart(2, '0')}`;
         const subRow = sheet.addRow({
           nama: `            ${subNum} ${sub.namaSub}`,
           rab: Number(sub.nominalAlokasi) || 0,
@@ -121,24 +128,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         });
         subRow.font = blackFont; 
 
-        // Level 3: Keterangan
+        // ── Level 3: Keterangan ──
         if (sub.keterangan && sub.keterangan.length > 0) {
           sub.keterangan.forEach((ket, kIdx) => {
-            const ketNum = `${subNum}.0${kIdx + 1}`;
+            // Menggunakan padStart agar format nomor ket selalu 2 digit (contoh: 5.3.01.01)
+            const ketNum = `${subNum}.${String(kIdx + 1).padStart(2, '0')}`;
             
             // Render Baris Keterangan
-            sheet.addRow({
+            const ketRow = sheet.addRow({
               nama: `                ${ketNum} ${ket.keterangan}`,
               rab: Number(ket.nominalAlokasi) || 0,
               realisasi: Number(ket.nominalRealisasi) || 0,
             });
+            ketRow.font = normalFont;
 
-            // Level 4: REIMBURSEMENT / REALISASI (Hanya yang APPROVED)
+            // ── Level 4: REIMBURSEMENT / REALISASI (Hanya yang APPROVED) ──
             if (ket.reimbursements && ket.reimbursements.length > 0) {
               ket.reimbursements.forEach((reimb) => {
                 let tglStr = "";
                 
-                // PERUBAHAN: Gunakan kolom tanggalStruk langsung
+                // Gunakan kolom tanggalStruk langsung
                 if (reimb.tanggalStruk) {
                   const d = new Date(reimb.tanggalStruk);
                   if (!isNaN(d.getTime())) {
@@ -150,10 +159,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                   }
                 }
 
-                // PERUBAHAN: Gunakan kolom nama langsung
+                // Gunakan kolom nama langsung
                 const namaReimb = reimb.nama || "Pengajuan";
 
-                // PERUBAHAN: Bedakan label berdasarkan tipe pengajuan (opsional tapi informatif)
+                // Bedakan label berdasarkan tipe pengajuan
                 const labelTipe = reimb.tipe === "Realisasi Anggaran" ? "REALISASI PM" : "REIMB";
 
                 // Render Baris Reimbursement
@@ -169,9 +178,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           });
         }
       });
-      sheet.addRow({});
+      
+      // Berikan baris kosong sebagai pemisah antar Main Anggaran
+      sheet.addRow({}); 
     });
 
+    // Format Accounting Rupiah di Excel: _-* #,##0_-;-* #,##0_-;_-* "-"_-;_-@_-
     sheet.getColumn(2).numFmt = '_-* #,##0_-;-* #,##0_-;_-* "-"_-;_-@_-';
     sheet.getColumn(3).numFmt = '_-* #,##0_-;-* #,##0_-;_-* "-"_-;_-@_-';
 
