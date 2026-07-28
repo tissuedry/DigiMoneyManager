@@ -103,7 +103,13 @@ export async function GET(req: NextRequest) {
               id: r.id,
               nominal: Number(r.nominal),
               urlStruk: r.urlStruk,
-              ocrData: r.ocrData,
+              
+              nama: r.nama,
+              tipe: r.tipe,
+              merchant: r.merchant,
+              tanggalStruk: r.tanggalStruk,
+              kategoriBukti: r.kategoriBukti,
+              
               fraudFlag: r.fraudFlag,
               status: r.status,
               approvals: r.approvals.map((a) => ({

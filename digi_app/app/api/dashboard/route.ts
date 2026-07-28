@@ -242,8 +242,9 @@ export async function GET(req: NextRequest) {
       });
 
       const recentJournals = recentJournalsRaw.map((j) => {
-        const ocrData = j.reimbursement.ocrData as any;
-        const tanggal = ocrData?.tanggal || null;
+        // PERUBAHAN: Mengambil tanggal dan tipe langsung dari tabel karena ocrData dihapus
+        const tanggal = j.reimbursement.tanggalStruk || null;
+        const tipePengajuan = j.reimbursement.tipe || 'Pengajuan';
         const kategori = j.reimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
           || j.reimbursement.keteranganAnggaran?.keterangan
           || '-';
@@ -251,7 +252,8 @@ export async function GET(req: NextRequest) {
         return {
           jeId: `JE-${String(j.id).padStart(4, '0')}`,
           tanggal,
-          keterangan: j.keterangan || `Pencairan reimbursement ${j.reimbursement.user.nama} - ${kategori}`,
+          // PERUBAHAN: Teks dinamis sesuai tipe (Reimbursement / Realisasi Anggaran)
+          keterangan: j.keterangan || `Pencairan ${tipePengajuan} ${j.reimbursement.user.nama} - ${kategori}`,
           debitKode: `${j.akunDebit.nomorAkun}`,
           debitNama: j.akunDebit.namaAkun,
           kreditKode: `${j.akunKredit.nomorAkun}`,
@@ -286,6 +288,7 @@ export async function GET(req: NextRequest) {
           id: r.id,
           nominal: Number(r.nominal),
           status: r.status,
+          tipe: r.tipe, // PERUBAHAN: Mengirimkan tipe ke frontend agar Tim Keuangan tahu jenisnya
           user: {
             nama: r.user.nama,
             divisi: assignment?.divisi || null,

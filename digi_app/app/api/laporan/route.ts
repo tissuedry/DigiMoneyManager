@@ -78,21 +78,30 @@ export async function GET(req: NextRequest) {
         orderBy: { id: 'desc' },
       });
 
-      const reportData = entries.map((entry) => ({
-        ID: entry.id,
-        Tanggal: entry.reimbursement.ocrData && (entry.reimbursement.ocrData as any).tanggal
-          ? (entry.reimbursement.ocrData as any).tanggal
-          : 'N/A',
-        Keterangan: entry.keterangan || `Pencairan reimbursement ${entry.reimbursement.id}`,
-        Proyek: entry.reimbursement.proyek.nama,
-        Karyawan: entry.reimbursement.user.nama,
-        KategoriAnggaran: (entry.reimbursement as any).keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
-          || (entry.reimbursement as any).keteranganAnggaran?.keterangan
-          || 'N/A',
-        'Akun Debit': `${entry.akunDebit.nomorAkun} - ${entry.akunDebit.namaAkun}`,
-        'Akun Kredit': `${entry.akunKredit.nomorAkun} - ${entry.akunKredit.namaAkun}`,
-        Nominal: Number(entry.nominal),
-      }));
+      const reportData = entries.map((entry) => {
+        // PERUBAHAN 1: Ambil tanggal dari kolom tanggalStruk langsung
+        const tanggal = entry.reimbursement.tanggalStruk 
+          ? new Date(entry.reimbursement.tanggalStruk).toISOString().split('T')[0]
+          : 'N/A';
+        
+        // PERUBAHAN 2: Ambil tipe (Realisasi Anggaran / Reimbursement)
+        const tipePengajuan = entry.reimbursement.tipe || 'Pengajuan';
+
+        return {
+          ID: entry.id,
+          Tanggal: tanggal,
+          // PERUBAHAN 3: Gunakan teks dinamis sesuai tipe pengajuan
+          Keterangan: entry.keterangan || `Pencairan ${tipePengajuan} ${entry.reimbursement.id}`,
+          Proyek: entry.reimbursement.proyek.nama,
+          Karyawan: entry.reimbursement.user.nama,
+          KategoriAnggaran: entry.reimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
+            || entry.reimbursement.keteranganAnggaran?.keterangan
+            || 'N/A',
+          'Akun Debit': `${entry.akunDebit.nomorAkun} - ${entry.akunDebit.namaAkun}`,
+          'Akun Kredit': `${entry.akunKredit.nomorAkun} - ${entry.akunKredit.namaAkun}`,
+          Nominal: Number(entry.nominal),
+        };
+      });
 
       if (format === 'csv') {
         const csv = convertToCSV(reportData);

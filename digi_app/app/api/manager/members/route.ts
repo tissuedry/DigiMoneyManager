@@ -160,7 +160,12 @@ export async function PUT(req: NextRequest) {
     const trimmedEmail = String(email).trim().toLowerCase();
 
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({ where: { id: parseInt(userId, 10) } });
+    const existingUser = await prisma.user.findUnique({
+      where: { id: parseInt(userId, 10) },
+      include: {
+        proyek: true,
+      },
+    });
     if (!existingUser) {
       return NextResponse.json({ message: 'Anggota tidak ditemukan' }, { status: 404 });
     }
@@ -171,6 +176,38 @@ export async function PUT(req: NextRequest) {
       if (duplicate) {
         return NextResponse.json({ message: 'Email sudah terdaftar oleh pengguna lain' }, { status: 400 });
       }
+    }
+
+    // Check if anything has changed
+    const namaUnchanged = existingUser.nama === nama.trim();
+    const emailUnchanged = existingUser.email === trimmedEmail;
+    const roleUnchanged = existingUser.role === userRole;
+
+    const existingProyekMap = new Map(existingUser.proyek.map((p) => [p.proyekId, p.role]));
+    const currentAssignments: { proyekId: number; role: string }[] = proyekAssignments && Array.isArray(proyekAssignments)
+      ? proyekAssignments.map((pa: any) => ({
+          proyekId: parseInt(pa.proyekId, 10),
+          role: pa.role || (userRole === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan'),
+        }))
+      : (proyekIds && Array.isArray(proyekIds)
+          ? proyekIds.map((pid: any) => ({
+              proyekId: parseInt(pid, 10),
+              role: userRole === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
+            }))
+          : []);
+
+    let assignmentsUnchanged = existingProyekMap.size === currentAssignments.length;
+    if (assignmentsUnchanged) {
+      for (const curr of currentAssignments) {
+        if (!existingProyekMap.has(curr.proyekId) || existingProyekMap.get(curr.proyekId) !== curr.role) {
+          assignmentsUnchanged = false;
+          break;
+        }
+      }
+    }
+
+    if (namaUnchanged && emailUnchanged && roleUnchanged && assignmentsUnchanged) {
+      return NextResponse.json({ message: 'Tidak ada perubahan data. Anggota sudah memiliki role tersebut pada proyek terkait.' }, { status: 400 });
     }
 
     // Update user details

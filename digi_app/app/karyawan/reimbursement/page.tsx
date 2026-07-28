@@ -231,11 +231,11 @@ function AjukanReimbursementContent() {
     setMainAnggaranId(String(original.keteranganAnggaran?.subAnggaran?.mainAnggaranId ?? ''));
     setSubAnggaranId(String(original.keteranganAnggaran?.subAnggaranId ?? ''));
     setPosAnggaranId(String(original.keteranganAnggaranId ?? ''));
-    setMerchant(original.ocrData?.merchant || '');
-    setTanggal(original.ocrData?.tanggal || '');
+    setMerchant(original.merchant || original.nama || '');
+    setTanggal(original.tanggalStruk ? new Date(original.tanggalStruk).toISOString().split('T')[0] : '');
     setNominal(original.nominal != null ? formatRupiah(String(Number(original.nominal))) : '');
-    setKategoriBukti(original.ocrData?.kategoriBukti || 'Struk Pembelian');
-    setKeterangan(original.ocrData?.keterangan || '');
+    setKategoriBukti(original.kategoriBukti || 'Struk Pembelian');
+    setKeterangan(original.keterangan || original.nama || '');
     setFilePreview(original.strukUrl || '/bukti_struk.png');
     setResubmitStrukUrl(original.strukUrl || null);
     setCurrentState('review');
@@ -354,13 +354,19 @@ function AjukanReimbursementContent() {
       formData.append('strukUrl', resubmitStrukUrl);
     }
 
-    formData.append('ocrData', JSON.stringify({
-      merchant,
-      tanggal,
-      kategoriBukti,
-      keterangan,
-      ...(resubmitId ? { resubmitFrom: Number(resubmitId) } : {}),
-    }));
+    formData.append('nama', merchant);
+    formData.append('merchant', merchant);
+    formData.append('tanggalStruk', tanggal);
+    formData.append('kategoriBukti', kategoriBukti);
+    formData.append('tipe', 'Reimbursement'); 
+    
+    if (keterangan) {
+      formData.append('deskripsi', keterangan); 
+    }
+
+    if (resubmitId) {
+      formData.append('resubmitFrom', resubmitId);
+    }
 
     try {
       const res = await fetch('/api/reimbursements', {

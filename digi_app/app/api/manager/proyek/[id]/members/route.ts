@@ -67,6 +67,42 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
+    // Check existing project members to avoid redundant update
+    const existingMembers = await prisma.userProyek.findMany({
+      where: { proyekId },
+      select: { userId: true, role: true },
+    });
+
+    const incomingAssignments: { userId: number; role?: string }[] = members && Array.isArray(members)
+      ? members.map((m: any) => ({
+          userId: typeof m.userId === 'string' ? parseInt(m.userId, 10) : m.userId,
+          role: m.role,
+        }))
+      : (userIds && Array.isArray(userIds)
+          ? userIds.map((uid: any) => ({
+              userId: typeof uid === 'string' ? parseInt(uid, 10) : uid,
+            }))
+          : []);
+
+    const existingMap = new Map(existingMembers.map((em) => [em.userId, em.role]));
+    let membersUnchanged = existingMembers.length === incomingAssignments.length;
+    if (membersUnchanged) {
+      for (const inc of incomingAssignments) {
+        if (!existingMap.has(inc.userId)) {
+          membersUnchanged = false;
+          break;
+        }
+        if (inc.role && existingMap.get(inc.userId) !== inc.role) {
+          membersUnchanged = false;
+          break;
+        }
+      }
+    }
+
+    if (membersUnchanged) {
+      return NextResponse.json({ message: 'Tidak ada perubahan penugasan anggota pada proyek ini.' }, { status: 400 });
+    }
+
     // Update members inside a batch transaction (safe for PgBouncer transaction mode)
     const deleteOp = prisma.userProyek.deleteMany({
       where: { proyekId },

@@ -228,7 +228,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           if (!item.targetId) continue;
           const hasReimbs = await tx.reimbursement.count({ where: { keteranganAnggaranId: item.targetId } });
           if (hasReimbs > 0) {
-            throw new Error(`KeteranganAnggaran id=${item.targetId} masih memiliki ${hasReimbs} reimbursement. Hapus/ganti dulu reimbursement-nya.`);
+            throw new Error(`KeteranganAnggaran id=${item.targetId} masih memiliki ${hasReimbs} data pengajuan (Reimbursement/Realisasi). Hapus/ganti dulu pengajuan terkait.`);
           }
           await tx.keteranganAnggaran.delete({ where: { id: item.targetId } });
         }

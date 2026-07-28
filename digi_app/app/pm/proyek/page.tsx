@@ -5,6 +5,7 @@ import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import DetailAnggaranModal from "./DetailAnggaran";
 import AjukanPosModal from "./AjukanPos";
+import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
 import {
   ChevronDown,
@@ -246,13 +247,14 @@ export default function KelolaProyekPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAjukanOpen, setIsAjukanOpen] = useState(false);
+  const [isAjukanRealisasiOpen, setIsAjukanRealisasiOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const invalidate = useInvalidate();
 
-  // ── TanStack Query (ponytail: replaces manual fetch + useState) ──
+  // ── TanStack Query ──
   const { data: proyekData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>("/api/pm/proyek");
   const { data: meData } = useApi<MeResponse>("/api/auth/me");
   const { data: usersData } = useApi<UsersResponse>("/api/pm/users");
@@ -560,6 +562,13 @@ export default function KelolaProyekPage() {
                     <Plus size={13} />
                     Ajukan Pos
                   </button>
+                 <button
+                    onClick={() => setIsAjukanRealisasiOpen(true)}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#00754c] hover:bg-[#005836] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                  >
+                    <Plus size={13} />
+                    Ajukan Realisasi
+                  </button>
                 </div>
               </div>
 
@@ -728,6 +737,19 @@ export default function KelolaProyekPage() {
           realisasi={proyek.realisasi}
           posAnggaran={proyek.posAnggaran}
           onClose={() => setIsAjukanOpen(false)}
+        />
+      )}
+
+      {/* Ajukan Realisasi Modal */}
+      {isAjukanRealisasiOpen && proyek && (
+        <AjukanRealisasiModal
+          proyekId={proyek.id}
+          proyekNama={proyek.nama}
+          onClose={() => setIsAjukanRealisasiOpen(false)}
+          onRefresh={() => {
+            invalidate("/api/pm/proyek");
+            refetch();
+          }}
         />
       )}
 
