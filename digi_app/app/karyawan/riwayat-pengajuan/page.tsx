@@ -772,12 +772,12 @@ export default function RiwayatPengajuanPage() {
                 </select>
               </div>
 
-              {/* Search Merchant */}
+              {/* Search Reimbursement */}
               <div className="space-y-1.5 text-left">
-                <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Cari Merchant</label>
+                <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Cari Reimbursement</label>
                 <input
                   type="text"
-                  placeholder="Nama merchant..."
+                  placeholder="Nama reimbursement..."
                   value={searchMerchant}
                   onChange={(e) => setSearchMerchant(e.target.value)}
                   className="w-full bg-[#fcfbf9] border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all"
@@ -812,7 +812,7 @@ export default function RiwayatPengajuanPage() {
                 <tr className="bg-[#f5f4ef] border-b border-stone-200 text-[11px] text-stone-400 uppercase tracking-wider font-semibold">
                   <th className="px-6 py-4 rounded-tl-2xl">ID Pengajuan</th>
                   <th className="px-6 py-4">Tanggal Transaksi</th>
-                  <th className="px-6 py-4">Merchant</th>
+                  <th className="px-6 py-4">Nama Reimbursement</th>
                   <th className="px-6 py-4">Proyek</th>
                   <th className="px-6 py-4">Pos</th>
                   <th className="px-6 py-4">Nominal</th>
