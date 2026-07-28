@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Filter, Eye, X, Download, RefreshCw, CheckCircle2, Clock, XCircle, AlertTriangle, BookOpen, ArrowUpDown } from "lucide-react";
 import Sidebar from '@/components/sidebar';
@@ -24,28 +24,39 @@ const TABS = ["Semua", "Menunggu PM", "Menunggu Keuangan", "Dicairkan", "Ditolak
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length < 3) return iso;
-  const [y, m, d] = parts;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
   const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
-  const mIdx = parseInt(m) - 1;
-  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+  return `${d.getUTCDate()} ${bulan[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 function formatTanggalLong(iso: string) {
   if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length < 3) return iso;
-  const [y, m, d] = parts;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
   const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-  const mIdx = parseInt(m) - 1;
-  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+  return `${d.getUTCDate()} ${bulan[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 // Generate a display ID like "RB-2026-004"
 function makeDisplayId(id: string, index: number) {
   const num = String(index + 1).padStart(3, "0");
   return `RB-2026-${num}`;
+}
+
+function SkeletonRow({ index }: { index: number }) {
+  return (
+    <tr key={`skeleton-${index}`} className="border-b border-stone-100 last:border-none">
+      <td className="px-6 py-4"><div className="h-3 w-16 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-20 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-32 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-24 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-5 w-16 rounded-md bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-20 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-5 w-24 rounded-full bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4 text-center"><div className="h-5 w-5 mx-auto rounded bg-stone-200 animate-pulse" /></td>
+    </tr>
+  );
 }
 
 const getStatusBadge = (status: Submission["status"]) => {
@@ -242,7 +253,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
     : null;
 
   const nominalFormatted = `Rp ${Number(raw.nominal).toLocaleString("id-ID")}`;
-  const tanggal = raw.ocrData?.tanggal ? formatTanggalLong(raw.ocrData.tanggal) : "N/A";
+  const tanggal = raw.tanggalStruk ? formatTanggalLong(raw.tanggalStruk) : "N/A";
 
   const statusCardClass =
     status === "SUBMITTED" ? "bg-[#fdf9f2] border-[#f5e4c0]" :
@@ -267,7 +278,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
       {/* Header */}
       <div className="px-6 pt-5 pb-4 border-b border-stone-150">
         <p className="text-[11px] font-mono text-stone-400 mb-1">{displayId}</p>
-        <h2 className="text-[20px] font-bold text-stone-900 leading-tight">{raw.ocrData?.merchant || "N/A"}</h2>
+        <h2 className="text-[20px] font-bold text-stone-900 leading-tight">{raw.nama || raw.merchant || "N/A"}</h2>
         <p className="text-[13px] text-stone-500 mt-0.5">{raw.proyek?.nama || "N/A"}</p>
       </div>
 
@@ -353,7 +364,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
               { label: "Sub", value: raw.posAnggaran?.subAnggaran?.namaSub || "N/A" },
               { label: "Keterangan", value: raw.posAnggaran?.keterangan || raw.posAnggaran?.deskripsi || "N/A" },
               { label: "Tanggal Transaksi", value: tanggal },
-              { label: "Nama Reimbursement", value: raw.ocrData?.merchant || "N/A" },
+              { label: "Nama Reimbursement", value: raw.nama || raw.merchant || "N/A" },
               { label: "Anti-Fraud", value: raw.antiFraud || "Aman" },
             ].map((row, i, arr) => (
               <div key={row.label} className={`flex justify-between items-center px-4 py-3 ${i < arr.length - 1 ? "border-b border-stone-100" : ""}`}>
@@ -521,6 +532,13 @@ export default function RiwayatPengajuanPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
+  // Infinite scroll: render 10 rows at a time instead of the whole list
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
+
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -558,15 +576,15 @@ export default function RiwayatPengajuanPage() {
         const mapped: Submission[] = data.reimbursements.map((r: any, i: number) => ({
           id: makeDisplayId(String(r.id), i),
           dbId: r.id,
-          date: r.ocrData?.tanggal ? formatTanggal(r.ocrData.tanggal) : formatTanggal(r.createdAt?.split('T')[0] || ''),
+          date: r.tanggalStruk ? formatTanggal(r.tanggalStruk) : '',
           lastActivityTime: [
-            r.ocrData?.submittedAt || (r.ocrData?.tanggal ? `${r.ocrData.tanggal}T00:00:00` : null),
+            r.tanggalStruk,
             ...(r.approvals || []).map((a: any) => a.timestamp),
           ]
             .map((t: string | null | undefined) => (t ? new Date(t).getTime() : NaN))
             .filter((t: number) => !isNaN(t))
             .reduce((max: number, t: number) => Math.max(max, t), 0),
-          merchant: r.ocrData?.merchant || 'N/A',
+          merchant: r.nama || r.merchant || 'N/A',
           project: r.proyek?.nama || 'N/A',
           pos: r.posAnggaran?.deskripsi || r.posAnggaran?.namaPos || 'N/A',
           amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
@@ -614,6 +632,45 @@ export default function RiwayatPengajuanPage() {
     .sort((a, b) => {
       return sortOrder === "asc" ? a.lastActivityTime - b.lastActivityTime : b.lastActivityTime - a.lastActivityTime;
     });
+
+  // Reset to the first page whenever the active filters/tab/search/sort change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeTab, filterProject, filterPos, searchMerchant, sortOrder]);
+
+  const visibleData = filteredData.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredData.length;
+  // How many real rows are still waiting to be revealed in the next batch —
+  // capped at PAGE_SIZE since we only ever load 10 at a time.
+  const pendingCount = Math.min(PAGE_SIZE, filteredData.length - visibleCount);
+
+  // Infinite scroll: load 10 more rows only when the user actually scrolls near
+  // the bottom of the page (not just because the sentinel happens to be on-screen —
+  // with a short list that never overflows, an IntersectionObserver would fire
+  // immediately on mount and reveal everything at once).
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
+
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+      // Brief delay so the skeleton rows are actually visible instead of
+      // the already-in-memory data just popping in instantly.
+      setTimeout(() => {
+        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredData.length));
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }, 500);
+    };
+
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [filteredData.length, visibleCount]);
 
   const handleOpenDetail = (dbId: number, displayId: string) => {
     const raw = rawReimbursements.find(r => r.id === dbId);
@@ -687,7 +744,7 @@ export default function RiwayatPengajuanPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 p-8 overflow-y-auto">
           <div className="mb-8">
             <h1 className="text-[24px] font-bold text-stone-900">Riwayat Pengajuan</h1>
             <p className="text-[14px] text-stone-500 mt-1.5">
@@ -772,12 +829,12 @@ export default function RiwayatPengajuanPage() {
                 </select>
               </div>
 
-              {/* Search Merchant */}
+              {/* Search Reimbursement */}
               <div className="space-y-1.5 text-left">
-                <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Cari Merchant</label>
+                <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Cari Reimbursement</label>
                 <input
                   type="text"
-                  placeholder="Nama merchant..."
+                  placeholder="Nama reimbursement..."
                   value={searchMerchant}
                   onChange={(e) => setSearchMerchant(e.target.value)}
                   className="w-full bg-[#fcfbf9] border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all"
@@ -812,9 +869,9 @@ export default function RiwayatPengajuanPage() {
                 <tr className="bg-[#f5f4ef] border-b border-stone-200 text-[11px] text-stone-400 uppercase tracking-wider font-semibold">
                   <th className="px-6 py-4 rounded-tl-2xl">ID Pengajuan</th>
                   <th className="px-6 py-4">Tanggal Transaksi</th>
-                  <th className="px-6 py-4">Merchant</th>
+                  <th className="px-6 py-4">Nama Reimbursement</th>
                   <th className="px-6 py-4">Proyek</th>
-                  <th className="px-6 py-4">Pos</th>
+                  <th className="px-6 py-4">Keterangan</th>
                   <th className="px-6 py-4">Nominal</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-center rounded-tr-2xl">Aksi</th>
@@ -828,12 +885,13 @@ export default function RiwayatPengajuanPage() {
                     </td>
                   </tr>
                 ) : filteredData.length > 0 ? (
-                  filteredData.map((item, index) => (
+                  <>
+                  {visibleData.map((item, index) => (
                     <tr
                       key={item.dbId}
                       onClick={() => handleOpenDetail(item.dbId, item.id)}
                       className={`hover:bg-stone-50 transition border-b border-stone-100 cursor-pointer ${
-                        index === filteredData.length - 1 ? "border-none" : ""
+                        index === visibleData.length - 1 ? "border-none" : ""
                       } ${selectedItem?.id === item.dbId ? "bg-stone-50" : ""}`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-stone-500 font-mono">{item.id}</td>
@@ -874,7 +932,12 @@ export default function RiwayatPengajuanPage() {
                         </button>
                       </td>
                     </tr>
-                  ))
+                  ))}
+                  {isLoadingMore &&
+                    Array.from({ length: pendingCount }).map((_, i) => (
+                      <SkeletonRow key={`skeleton-${i}`} index={i} />
+                    ))}
+                  </>
                 ) : (
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-stone-400">
@@ -885,6 +948,12 @@ export default function RiwayatPengajuanPage() {
               </tbody>
             </table>
           </div>
+
+          {hasMore && !isLoadingMore && (
+            <div className="flex items-center justify-center py-5 text-[12px] text-stone-400">
+              Scroll untuk memuat lebih banyak...
+            </div>
+          )}
         </main>
       </div>
 
