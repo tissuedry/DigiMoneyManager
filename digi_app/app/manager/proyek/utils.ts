@@ -81,7 +81,7 @@ export const getStatusStyles = (status: string) => {
     case "CANCELED":
       return "bg-rose-50 text-rose-700 border-rose-100";
     case "DONE":
-      return "bg-purple-50 text-purple-700 border-purple-100";
+      return "bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]";
     default:
       return "bg-stone-50 text-stone-500 border-stone-100";
   }
