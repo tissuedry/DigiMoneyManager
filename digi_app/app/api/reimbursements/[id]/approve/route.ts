@@ -16,7 +16,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     const body = await req.json();
-    const { action, catatan, noAkunDebit, noAkunKredit } = body; 
+    // 1. Ekstrak variabel `alasan` dari request body
+    const { action, catatan, alasan, noAkunDebit, noAkunKredit } = body; 
 
     if (!action || (action !== 'APPROVE' && action !== 'REJECT')) {
       return NextResponse.json({ message: "Action must be 'APPROVE' or 'REJECT'" }, { status: 400 });
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               level: approvalLevel,
               status: nextStatus,
               catatan: catatan || null,
+              alasan: action === 'REJECT' ? (alasan || null) : null, // 2. Simpan alasan jika ditolak PM
             },
           });
 
@@ -196,6 +198,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               level: 'KEUANGAN',
               status: 'APPROVED',
               catatan: catatan || null,
+              // Jika approve, tidak ada alasan penolakan
             },
           });
 
@@ -284,6 +287,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               level: 'KEUANGAN',
               status: 'REJECTED',
               catatan: catatan || null,
+              alasan: alasan || null, // 3. Simpan alasan penolakan dari Tim Keuangan
             },
           });
 
@@ -304,7 +308,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             data: {
               userId: reimbursement.userId,
               tipe: 'rejected',
-              pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} ditolak oleh Tim Keuangan.`,
+              pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} ditolak oleh Tim Keuangan. Alasan: ${alasan || 'Tidak ada alasan yang diberikan.'}`, // 4. Opsional: Tambahkan alasan di notifikasi
             },
           });
 

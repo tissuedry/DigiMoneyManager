@@ -106,10 +106,20 @@ export async function GET(req: NextRequest) {
         keteranganAnggaran: {
           include: { subAnggaran: { include: { mainAnggaran: true } } },
         },
+        // --- MODIFIKASI: Menggunakan select untuk memastikan alasan ikut terambil ---
         approvals: {
-          include: { approver: { select: { nama: true, role: true } } },
+          select: {
+            id: true,
+            level: true,
+            status: true,
+            catatan: true,
+            alasan: true, // <-- Atribut alasan ditarik dari database
+            timestamp: true,
+            approver: { select: { nama: true, role: true } }
+          },
           orderBy: { timestamp: 'desc' },
         },
+        // --------------------------------------------------------------------------
         jurnalAkuntansi: {
           include: { akunDebit: true, akunKredit: true },
         },
