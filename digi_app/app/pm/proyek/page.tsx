@@ -7,6 +7,7 @@ import DetailAnggaranModal from "./DetailAnggaran";
 import AjukanPosModal from "./AjukanPos";
 import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
+import ProyekSkeleton from "./ProyekSkeleton";
 import {
   ChevronDown,
   Eye,
@@ -358,47 +359,8 @@ export default function KelolaProyekPage() {
     setDirtyTim(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#f9f8f4]">
-        <p className="text-stone-400 text-sm">Memuat data proyek...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-        <Sidebar isSidebarOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} userRole="Project Manager" />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
-          <main className="flex-1 flex items-center justify-center flex-col gap-3">
-            <p className="text-stone-400 text-sm">{error}</p>
-            <button onClick={() => refetch()} className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer">Coba Lagi</button>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (projects.length === 0) {
-    return (
-      <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-        <Sidebar isSidebarOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} userRole="Project Manager" />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
-          <main className="flex-1 flex items-center justify-center">
-            <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (!proyek) return null;
-
-  const allocated = proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0);
-  const unallocated = Math.max(0, proyek.totalRAB - allocated);
+  const allocated = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
+  const unallocated = proyek ? Math.max(0, proyek.totalRAB - allocated) : 0;
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
@@ -411,7 +373,21 @@ export default function KelolaProyekPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
 
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
+        {isLoading ? (
+          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+            <ProyekSkeleton />
+          </main>
+        ) : error ? (
+          <main className="flex-1 flex items-center justify-center flex-col gap-3">
+            <p className="text-stone-400 text-sm">{error}</p>
+            <button onClick={() => refetch()} className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer">Coba Lagi</button>
+          </main>
+        ) : projects.length === 0 || !proyek ? (
+          <main className="flex-1 flex items-center justify-center">
+            <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
+          </main>
+        ) : (
+          <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
           {/* ── Page Header + Project Selector ── */}
           <div className="flex items-start justify-between">
             <div>
@@ -677,6 +653,7 @@ export default function KelolaProyekPage() {
             </div>
           </div>
         </main>
+        )}
       </div>
 
       {isDetailOpen && proyek && (
@@ -716,7 +693,7 @@ export default function KelolaProyekPage() {
       )}
 
       {/* Edit Proyek Modal */}
-      {isEditOpen && (
+      {isEditOpen && proyek && (
         <EditProyekModal
           proyek={proyek}
           onClose={() => setIsEditOpen(false)}
