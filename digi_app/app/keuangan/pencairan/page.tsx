@@ -75,6 +75,98 @@ const StepIcon = ({ state, number }: { state: "done" | "active" | "pending" | "r
   );
 };
 
+// ─── Komponen Pop-up Modal Penolakan (RejectModal) ──────────────────────────
+
+interface RejectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (alasan: string) => void;
+  data?: {
+    merchant: string;
+    userName: string;
+    nominal: number;
+  };
+  isLoading?: boolean;
+}
+
+const RejectModal: React.FC<RejectModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  data, 
+  isLoading = false 
+}) => {
+  const [alasan, setAlasan] = useState('');
+
+  // Reset text alasan ketika modal terbuka/tertutup
+  useEffect(() => {
+    if (!isOpen) setAlasan('');
+  }, [isOpen]);
+
+  const formatRupiah = (angka: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(angka);
+  };
+
+  const handleSubmit = () => {
+    if (!alasan.trim()) return;
+    onSubmit(alasan);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-gray-900">Tolak Pengajuan</h2>
+          {data && (
+            <p className="mt-1 text-sm text-gray-500">
+              {data.merchant} &middot; {data.userName} &middot; {formatRupiah(data.nominal)}
+            </p>
+          )}
+        </div>
+        <div className="mb-6">
+          <label htmlFor="alasan" className="mb-2 block text-sm font-semibold text-gray-900">
+            Alasan <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            id="alasan"
+            rows={4}
+            className="w-full rounded-xl border border-[#E5E5E5] p-4 text-sm text-gray-900 focus:border-black focus:outline-none focus:ring-1 focus:ring-black resize-none"
+            placeholder="Jelaskan alasan penolakan..."
+            value={alasan}
+            onChange={(e) => setAlasan(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isLoading}
+            className="w-full rounded-2xl border border-[#E5E5E5] bg-white py-3.5 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!alasan.trim() || isLoading}
+            className="w-full rounded-2xl bg-black py-3.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400 cursor-pointer"
+          >
+            {isLoading ? 'Mengirim...' : 'Kirim Penolakan'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Content Component ───────────────────────────────────────────────────
+
 function PencairanContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -91,13 +183,16 @@ function PencairanContent() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // State untuk Kontrol Reject Modal
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+
   const resetZoomAndPan = () => {
     setZoomScale(1);
     setPanPos({ x: 0, y: 0 });
     setIsDragging(false);
   };
 
-  // Lock body scroll when zoom modal is open
   useEffect(() => {
     if (zoomImageUrl) {
       document.body.style.overflow = 'hidden';
@@ -136,7 +231,6 @@ function PencairanContent() {
   const reimbursements = rData?.reimbursements ?? [];
   const coaList = cData?.coa ?? [];
 
-  // Filter list based on active tab
   const filteredList = reimbursements.filter((item: any) => {
     const matchesTab = activeTab === 'diteruskan'
       ? item.status === 'APPROVED_BY_PM'
@@ -151,18 +245,15 @@ function PencairanContent() {
     return matchesTab && matchesSearch;
   });
 
-  // Infinite scroll: render 10 items at a time
   const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const isLoadingMoreRef = useRef(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Count items for each tab
   const countDiteruskan = reimbursements.filter((item: any) => item.status === 'APPROVED_BY_PM').length;
   const countSelesai = reimbursements.filter((item: any) => item.status === 'APPROVED' || item.status === 'REJECTED').length;
 
-  // Reset to the first page whenever active tab or search query changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [activeTab, searchQuery]);
@@ -170,7 +261,6 @@ function PencairanContent() {
   const visibleList = filteredList.slice(0, visibleCount);
   const pendingCount = Math.min(PAGE_SIZE, filteredList.length - visibleCount);
 
-  // Infinite scroll handler
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -193,7 +283,6 @@ function PencairanContent() {
     return () => el.removeEventListener("scroll", handleScroll);
   }, [filteredList.length, visibleCount]);
 
-  // Selected item
   const selectedItem = filteredList.find((item: any) => String(item.id) === String(selectedId)) || filteredList[0] || null;
 
   useEffect(() => {
@@ -202,7 +291,6 @@ function PencairanContent() {
     }
   }, [filteredList, selectedItem, selectedId]);
 
-  // Set default debit/credit accounts based on posAnggaran
   useEffect(() => {
     if (selectedItem && selectedItem.status === 'APPROVED_BY_PM') {
       setCreditAccount("10000");
@@ -221,7 +309,8 @@ function PencairanContent() {
     }
   }, [selectedId, selectedItem]);
 
-  const handleProcess = async (action: 'APPROVE' | 'REJECT') => {
+  // Modifikasi handleProcess agar mendukung variabel `alasan`
+  const handleProcess = async (action: 'APPROVE' | 'REJECT', alasanPenolakan?: string) => {
     if (!selectedItem) return;
 
     if (action === 'APPROVE') {
@@ -233,9 +322,7 @@ function PencairanContent() {
         return;
       }
     } else {
-      if (!confirm("Apakah Anda yakin ingin menolak pengajuan ini?")) {
-        return;
-      }
+      setIsSubmittingReject(true);
     }
 
     try {
@@ -245,6 +332,7 @@ function PencairanContent() {
         body: JSON.stringify({
           action,
           catatan,
+          alasan: alasanPenolakan, // Sertakan alasan penolakan ke API
           noAkunDebit: debitAccount,
           noAkunKredit: creditAccount
         })
@@ -252,6 +340,7 @@ function PencairanContent() {
       const data = await res.json();
       if (res.ok) {
         alert(action === 'APPROVE' ? "Pengajuan berhasil dicairkan dan jurnal akuntansi telah di-generate!" : "Pengajuan berhasil ditolak.");
+        if (action === 'REJECT') setIsRejectModalOpen(false); // Tutup modal jika berhasil ditolak
         invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
       } else {
         alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
@@ -259,13 +348,14 @@ function PencairanContent() {
     } catch (err) {
       console.error(err);
       alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+    } finally {
+      if (action === 'REJECT') setIsSubmittingReject(false);
     }
   };
 
   const pmApproval = selectedItem?.approvals?.find((a: any) => a.level === 'PM' || a.approver?.role === 'Project Manager');
   const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN' || a.approver?.role === 'Tim Keuangan');
 
-  // Approval timeline steps — untuk Realisasi PM, step Validasi PM dihilangkan
   const isSelectedRealisasi = selectedItem?.tipe === 'Realisasi Anggaran';
   const baseApprovalSteps = selectedItem ? [
     {
@@ -304,27 +394,23 @@ function PencairanContent() {
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
 
-      {/* Sidebar */}
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         userRole="Tim Keuangan"
       />
 
-      {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Tim Keuangan" />
 
         <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-8 py-6">
 
-          {/* Header Title & Subtitle */}
           <div className="shrink-0 mb-6">
             <h1 className="text-2xl font-bold text-stone-900">Antrian Pencairan</h1>
             <p className="text-sm text-stone-500 mt-1.5">
               Pengajuan yang telah divalidasi PM dan siap dicairkan. Jurnal Debit-Kredit akan ter-generate otomatis.
             </p>
 
-            {/* Filter & Tab Switcher Bar */}
             <div className="flex items-center justify-between gap-4 mt-6">
               <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60">
                 <button
@@ -372,10 +458,8 @@ function PencairanContent() {
             </div>
           </div>
 
-          {/* List and Detail Split Layout */}
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
 
-            {/* LEFT COLUMN: ITEM LIST */}
             <div ref={listRef} className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
               {isLoading ? (
                 <>
@@ -426,7 +510,6 @@ function PencairanContent() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2 mb-0.5">
                               <div className="group relative min-w-0 flex items-center gap-1.5">
-                                {/* Badge tipe REAL / REIMB */}
                                 <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide border ${
                                   isRealisasi
                                     ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
@@ -487,7 +570,6 @@ function PencairanContent() {
               )}
             </div>
 
-            {/* RIGHT COLUMN: DETAIL VIEW */}
             <div className="flex-1 flex flex-col bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden h-full">
               {isLoading ? (
                 <div className="flex-1 p-6 space-y-5">
@@ -510,21 +592,17 @@ function PencairanContent() {
                 </div>
               ) : (
                 <>
-                  {/* Scrollable Detail Body */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
 
-                    {/* Header Detail */}
                     {(() => {
                       const isRealisasiDetail = selectedItem.tipe === 'Realisasi Anggaran';
                       const detailVendorTitle = selectedItem.merchant || selectedItem.ocrData?.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama;
-                      // createdAt belum ada di DB — placeholder ditampilkan sampai migrasi dilakukan
                       const detailTanggal = selectedItem.createdAt || selectedItem.ocrData?.submittedAt || null;
                       return (
                         <div className="border-b border-stone-100 pb-4">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <p className="text-[12px] text-stone-400 font-medium font-mono">RB-{String(selectedItem.id).padStart(4, '0')}</p>
-                              {/* Badge tipe REALISASI / REIMBURSEMENT */}
                               <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${
                                 isRealisasiDetail
                                   ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
@@ -552,7 +630,6 @@ function PencairanContent() {
                       );
                     })()}
 
-                    {/* Table Properties */}
                     <div className="divide-y divide-stone-200 text-[13px]">
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Proyek</span>
@@ -586,7 +663,6 @@ function PencairanContent() {
                       </div>
                     </div>
 
-                    {/* Preview Struk / Gambar Upload */}
                     {selectedItem.strukUrl && (
                       <div className="space-y-1">
                         <label className="text-[13px] text-stone-500">
@@ -614,7 +690,6 @@ function PencairanContent() {
                       </div>
                     )}
 
-                    {/* Preview Jurnal Akuntansi (Auto-generated) */}
                     <div className="space-y-1.5">
                       <div className="text-[13px] font-bold text-stone-800 mb-1.5">Preview Jurnal Akuntansi (Auto-generated)</div>
                       <div className="bg-[#f5f4ef] border border-stone-200/80 rounded-xl p-4 space-y-3">
@@ -721,7 +796,6 @@ function PencairanContent() {
                       </div>
                     </div>
 
-                    {/* Catatan dari Pengaju */}
                     <div>
                       <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
                       <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
@@ -729,7 +803,6 @@ function PencairanContent() {
                       </div>
                     </div>
 
-                    {/* Catatan dari PM — hanya untuk reimbursement biasa (bukan realisasi PM) */}
                     {selectedItem.tipe !== 'Realisasi Anggaran' && (
                       <div>
                         <p className="text-[13px] text-stone-500 mb-2">Catatan dari Project Manager</p>
@@ -739,7 +812,6 @@ function PencairanContent() {
                       </div>
                     )}
 
-                    {/* Catatan dari Keuangan */}
                     {selectedItem.status === 'APPROVED_BY_PM' ? (
                       <div>
                         <p className="text-[13px] text-stone-500 mb-2">Catatan dari Keuangan (opsional)</p>
@@ -760,13 +832,11 @@ function PencairanContent() {
                       </div>
                     )}
 
-                    {/* Alur Approval */}
                     <div>
                       <p className="text-[13px] font-bold text-stone-800 mb-4">Alur Approval</p>
                       <div className="flex flex-col gap-0">
                         {approvalSteps.map((step: any, i: number) => (
                           <div key={i} className="flex gap-3">
-                            {/* Ikon + garis vertikal */}
                             <div className="flex flex-col items-center">
                               <StepIcon state={step.state} number={i + 1} />
                               {i < approvalSteps.length - 1 && (
@@ -777,7 +847,6 @@ function PencairanContent() {
                                 />
                               )}
                             </div>
-                            {/* Teks */}
                             <div className="pb-4">
                               <p className={`text-[13px] font-semibold ${step.state === "pending" ? "text-stone-400" : "text-stone-800"
                                 }`}>
@@ -792,7 +861,7 @@ function PencairanContent() {
 
                   </div>
 
-                  {/* Action Footer (Fixed di bawah) */}
+                  {/* Action Footer */}
                   <div className="flex items-center justify-between px-6 py-4 border-t border-stone-100 bg-white shrink-0">
                     {selectedItem.strukUrl ? (
                       <a
@@ -814,8 +883,9 @@ function PencairanContent() {
 
                     {selectedItem.status === 'APPROVED_BY_PM' && (
                       <div className="flex items-center gap-2">
+                        {/* Tombol Tolak membuka state pop-up modal alih-alih `confirm()` */}
                         <button
-                          onClick={() => handleProcess('REJECT')}
+                          onClick={() => setIsRejectModalOpen(true)}
                           className="flex items-center gap-2 px-4 py-2 bg-[#fee2e2] text-[#be123c] rounded-full text-[13px] font-semibold hover:bg-[#fecaca] transition cursor-pointer"
                         >
                           <X size={14} />
@@ -838,16 +908,32 @@ function PencairanContent() {
         </main>
       </div>
 
-      {/* Modal Zoom Gambar Struk Simple */}
+      {/* Render komponen Modal Penolakan disini */}
+      <RejectModal
+        isOpen={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        onSubmit={(alasanTeks) => handleProcess('REJECT', alasanTeks)}
+        data={
+          selectedItem
+            ? {
+                merchant: selectedItem.merchant || selectedItem.ocrData?.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama || 'Pengajuan',
+                userName: selectedItem.user?.nama || 'Karyawan',
+                nominal: Number(selectedItem.nominal)
+              }
+            : undefined
+        }
+        isLoading={isSubmittingReject}
+      />
+
+      {/* Modal Zoom Gambar */}
       {zoomImageUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => {
             setZoomImageUrl(null);
             resetZoomAndPan();
           }}
         >
-          {/* Tombol Tutup Floating di Pojok Kanan Atas */}
           <button
             type="button"
             onClick={() => {
@@ -860,7 +946,6 @@ function PencairanContent() {
             <X size={20} />
           </button>
 
-          {/* Kontainer Gambar — Drag & Pan dengan Klik Kiri */}
           <div
             className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
               }`}
