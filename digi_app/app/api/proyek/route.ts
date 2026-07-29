@@ -12,9 +12,11 @@ export async function GET(req: NextRequest) {
     const urlRole = searchParams.get('role') || role;
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
+    
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '4', 10);
 
-    // ponytail: cache per role+user+search+status to prevent filter/search bugs
-    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}`;
+    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}:page=${page}:limit=${limit}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
 
@@ -42,7 +44,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 💡 2. Logika Search: Mencari berdasarkan kolom 'nama' atau 'id'
+    // Logika Search: Mencari berdasarkan kolom 'nama' atau 'id'
     let searchFilter: any = {};
     if (search) {
       searchFilter = {
@@ -53,11 +55,9 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // 💡 3. Logika Filter Status Tab
+    // Logika Filter Status Tab
     let statusFilter: any = {};
     if (status && status !== 'Semua') {
-      // Mengubah ke uppercase agar cocok dengan data Enum/String di DB (Contoh: 'AKTIF', 'DONE')
-      // Gantilah mapping string di bawah jika penamaan di database kamu berbeda
       let mappedStatus = status.toUpperCase();
       if (mappedStatus === 'ACTIVE') mappedStatus = 'AKTIF';
       if (mappedStatus === 'CANCELED') mappedStatus = 'CANCELED';
@@ -75,19 +75,26 @@ export async function GET(req: NextRequest) {
       ]
     };
 
-    // Eksekusi query ke database Supabase via Prisma
-    const projects = await prisma.proyek.findMany({
-      where: finalWhere,
-      include: {
-        budget: {
-          include: {
-            mainAnggaran: true,
+    const skip = (page - 1) * limit;
+
+    const [totalItems, projects] = await prisma.$transaction([
+      prisma.proyek.count({ where: finalWhere }),
+      prisma.proyek.findMany({
+        where: finalWhere,
+        skip: skip,
+        take: limit,
+        include: {
+          budget: {
+            include: {
+              mainAnggaran: true,
+            },
           },
         },
-      },
-      orderBy: { tanggalMulai: 'desc' },
-    });
+        orderBy: { tanggalMulai: 'desc' },
+      })
+    ]);
 
+    // Mapping budget (Tetap sama seperti kodemu aslinya)
     const mappedProjects = projects.map((p) => {
       if (!p.budget) return p;
       return {
@@ -103,8 +110,20 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    setCache(cacheKey, { projects: mappedProjects });
-    return NextResponse.json({ projects: mappedProjects });
+    const responseData = { 
+      projects: mappedProjects,
+      pagination: {
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+        currentPage: page,
+        limit
+      }
+    };
+
+    // Simpan ke cache lalu return
+    setCache(cacheKey, responseData);
+    return NextResponse.json(responseData);
+
   } catch (error: any) {
     console.error('Fetch projects error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

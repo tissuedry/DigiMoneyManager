@@ -25,6 +25,9 @@ export default function KelolaProyekPage() {
 
   // Modals state
   const [showAddProject, setShowAddProject] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [limit, setLimit] = useState(6); // Default 6 proyek per halaman
   const [showAssignMembers, setShowAssignMembers] = useState<Project | null>(null);
   const [showInitBudget, setShowInitBudget] = useState<Project | null>(null);
   const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null);
@@ -116,11 +119,15 @@ export default function KelolaProyekPage() {
     setLoading(true);
     try {
       const [proyekRes, membersRes] = await Promise.all([
-        fetch(`/api/proyek?search=${searchQuery}&status=${activeStatus}`),
+        // Gunakan variabel limit di URL
+        fetch(`/api/proyek?search=${searchQuery}&status=${activeStatus}&page=${currentPage}&limit=${limit}`),
         fetch("/api/manager/members"),
       ]);
+
       const [proyekData, membersData] = await Promise.all([proyekRes.json(), membersRes.json()]);
+
       setProjects(proyekData.projects ?? []);
+      setTotalPages(proyekData.pagination?.totalPages ?? 1);
       setMembers(membersData.members ?? []);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -128,6 +135,20 @@ export default function KelolaProyekPage() {
       setLoading(false);
     }
   };
+
+  // Reset ke halaman 1 jika user mencari, ganti status, atau MENGGANTI LIMIT
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeStatus, limit]); // <-- tambahkan limit di sini
+
+  // Panggil API saat ada perubahan
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchData();
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, activeStatus, currentPage, limit]); // <-- tambahkan limit di sini
 
   const fetchPendingPengajuan = async (proyekId: number) => {
     setLoadingPengajuan(true);
@@ -792,6 +813,65 @@ export default function KelolaProyekPage() {
       )}
 
       {/* Pop-up Dialogs & Modals */}
+      {!loading && projects.length > 0 && (
+        <div className="mt-8 pt-6 flex justify-center w-full">
+          
+          {totalPages > 1 && (
+            <div className="flex items-center gap-4 text-[16px] text-stone-500 font-medium">
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="hover:text-stone-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors p-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              
+              <div className="flex items-center gap-4">
+                {(() => {
+                  const maxVisiblePages = 5;
+                  
+                  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                  let endPage = startPage + maxVisiblePages - 1;
+
+                  if (endPage > totalPages) {
+                    endPage = totalPages;
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                  }
+
+                  const visiblePages = Array.from(
+                    { length: endPage - startPage + 1 },
+                    (_, i) => startPage + i
+                  );
+
+                  return visiblePages.map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`transition-colors ${
+                        currentPage === page 
+                          ? "text-[#2d6a4f] font-bold cursor-default scale-110" 
+                          : "hover:text-stone-900 cursor-pointer"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ));
+                })()}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="hover:text-stone-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors p-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              
+            </div>
+          )}
+        </div>
+      )}
       <AddProjectModal
         show={showAddProject}
         onClose={() => setShowAddProject(false)}
