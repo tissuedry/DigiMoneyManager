@@ -145,6 +145,7 @@ model Approval {
   level           String
   status          String
   catatan         String?
+  alasan          String?
   timestamp       DateTime      @default(now())
   approver        User          @relation(fields: [approverId], references: [id])
   reimbursement   Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)

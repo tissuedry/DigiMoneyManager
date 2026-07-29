@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Filter, Download, X, Check, ZoomIn } from "lucide-react";
+import { Filter, Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import { useApi, useInvalidate } from '@/lib/use-api';
@@ -19,12 +19,13 @@ type ApprovalStep = {
 type Submission = {
   id: string;
   dbId: number;
-  date: string; // tanggal transaksi
+  date: string; 
   notaDate?: string;
-  submittedAt: string; // waktu pengajuan untuk alur approval
+  submittedAt: string; 
   merchant: string;
   catatanPm: string;
   catatanKeuangan: string;
+  rejectionReason: string; // <-- Tambahan field alasan penolakan
   project: string;
   main: string;
   sub: string;
@@ -121,6 +122,97 @@ const StepIcon = ({ state, number }: { state: ApprovalStep["state"]; number: num
   );
 };
 
+// ─── Komponen Pop-up Modal Penolakan (RejectModal) ──────────────────────────
+
+interface RejectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (alasan: string) => void;
+  data?: {
+    merchant: string;
+    userName: string;
+    nominal: number;
+  };
+  isLoading?: boolean;
+}
+
+const RejectModal: React.FC<RejectModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  data, 
+  isLoading = false 
+}) => {
+  const [alasan, setAlasan] = useState('');
+
+  // Reset alasan ketika modal ditutup
+  useEffect(() => {
+    if (!isOpen) setAlasan('');
+  }, [isOpen]);
+
+  const formatRupiah = (angka: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(angka);
+  };
+
+  const handleSubmit = () => {
+    if (!alasan.trim()) return;
+    onSubmit(alasan);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-gray-900">Tolak Pengajuan</h2>
+          {data && (
+            <p className="mt-1 text-sm text-gray-500">
+              {data.merchant} &middot; {data.userName} &middot; {formatRupiah(data.nominal)}
+            </p>
+          )}
+        </div>
+        <div className="mb-6">
+          <label htmlFor="alasan" className="mb-2 block text-sm font-semibold text-gray-900">
+            Alasan <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            id="alasan"
+            rows={4}
+            className="w-full rounded-xl border border-[#E5E5E5] p-4 text-sm text-gray-900 focus:border-black focus:outline-none focus:ring-1 focus:ring-black resize-none"
+            placeholder="Jelaskan alasan penolakan..."
+            value={alasan}
+            onChange={(e) => setAlasan(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isLoading}
+            className="w-full rounded-2xl border border-[#E5E5E5] bg-white py-3.5 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!alasan.trim() || isLoading}
+            className="w-full rounded-2xl bg-black py-3.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400 cursor-pointer"
+          >
+            {isLoading ? 'Mengirim...' : 'Kirim Penolakan'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 type Tab = "Menunggu Saya" | "Diteruskan" | "Selesai";
@@ -131,6 +223,11 @@ export default function AntrianApprovalPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [catatan, setCatatan] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  
+  // State untuk kontrol Modal Penolakan
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+
   const invalidate = useInvalidate();
 
   // ─── Infinite Scroll ────────────────────────────────────────────────────────
@@ -188,6 +285,10 @@ export default function AntrianApprovalPage() {
     const pmApproval = r.approvals?.find((a: any) => a.level === 'PM');
     const financeApproval = r.approvals?.find((a: any) => a.level === 'KEUANGAN');
     const submissionTime = r.ocrData?.submittedAt || r.createdAt || r.ocrData?.tanggal;
+
+    // Ambil data penolakan jika ada
+    const rejectedApproval = r.approvals?.find((a: any) => a.status === 'REJECTED');
+    const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
 
     const steps: ApprovalStep[] = [
       {
@@ -252,6 +353,7 @@ export default function AntrianApprovalPage() {
       main: r.posAnggaran?.namaPos || 'N/A',
       catatanPm: pmApproval?.catatan || "",
       catatanKeuangan: financeApproval?.catatan || "",
+      rejectionReason,
       sub: r.posAnggaran?.subAnggaran?.namaSub || 'N/A',
       ket: r.posAnggaran?.keterangan || r.posAnggaran?.deskripsi || 'N/A',
       amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
@@ -276,7 +378,8 @@ export default function AntrianApprovalPage() {
   // Derived selected submission
   const selected = filteredData.find((item: any) => item.id === selectedId) || filteredData[0] || null;
 
-  const handleProcess = async (action: 'APPROVE' | 'REJECT') => {
+  // Fungsi dinamis untuk Approve & Reject
+  const handleProcess = async (action: 'APPROVE' | 'REJECT', alasanPenolakan?: string) => {
     if (!selected) return;
 
     if (action === 'APPROVE') {
@@ -284,9 +387,8 @@ export default function AntrianApprovalPage() {
         return;
       }
     } else {
-      if (!confirm("Apakah Anda yakin ingin menolak pengajuan ini?")) {
-        return;
-      }
+      // Jika action = REJECT, aktifkan loading state khusus modal reject
+      setIsSubmittingReject(true);
     }
 
     try {
@@ -295,13 +397,15 @@ export default function AntrianApprovalPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action,
-          catatan
+          catatan,
+          alasan: alasanPenolakan // Parameter alasan dikirim ke Backend API
         })
       });
       const data = await res.json();
       if (res.ok) {
         alert(action === 'APPROVE' ? "Pengajuan berhasil disetujui!" : "Pengajuan berhasil ditolak.");
         setCatatan("");
+        if (action === 'REJECT') setIsRejectModalOpen(false); // Tutup Modal jika reject
         invalidate("/api/reimbursements?role=Project+Manager", "/api/dashboard", "/api/notifications");
       } else {
         alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
@@ -309,6 +413,8 @@ export default function AntrianApprovalPage() {
     } catch (err) {
       console.error(err);
       alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+    } finally {
+      if (action === 'REJECT') setIsSubmittingReject(false);
     }
   };
 
@@ -546,6 +652,19 @@ export default function AntrianApprovalPage() {
                       <p className="text-[32px] font-bold text-stone-900">{selected.amount}</p>
                     </div>
 
+                    {/* Tampilan Alasan Penolakan Jika Ditolak */}
+                    {selected.status === "Ditolak" && (
+                      <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
+                        <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[12px] font-bold text-[#be123c] mb-1">Alasan Penolakan</p>
+                          <p className="text-[12px] text-stone-700 leading-relaxed">
+                            {selected.rejectionReason || "Tidak ada alasan spesifik yang diberikan."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Table Properties */}
                     <div className="divide-y divide-stone-200 text-[13px]">
                       {[
@@ -688,8 +807,9 @@ export default function AntrianApprovalPage() {
 
                     {selected.status === "Menunggu PM" && (
                       <div className="flex items-center gap-2">
+                        {/* Tombol Tolak sekarang memanggil state untuk memunculkan modal */}
                         <button
-                          onClick={() => handleProcess('REJECT')}
+                          onClick={() => setIsRejectModalOpen(true)}
                           className="flex items-center gap-2 px-4 py-2 bg-[#fee2e2] text-[#be123c] rounded-full text-[13px] font-semibold hover:bg-[#fecaca] transition cursor-pointer"
                         >
                           <X size={14} />
@@ -712,16 +832,32 @@ export default function AntrianApprovalPage() {
         </main>
       </div>
 
+      {/* Render Modal Tolak di Sini */}
+      <RejectModal
+        isOpen={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        onSubmit={(alasanTeks) => handleProcess('REJECT', alasanTeks)}
+        data={
+          selected 
+            ? { 
+                merchant: selected.merchant, 
+                userName: selected.pengaju, 
+                nominal: selected.amountRaw 
+              } 
+            : undefined
+        }
+        isLoading={isSubmittingReject}
+      />
+
       {/* Modal Zoom Gambar Struk Simple */}
       {zoomImageUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => {
             setZoomImageUrl(null);
             resetZoomAndPan();
           }}
         >
-          {/* Tombol Tutup Floating di Pojok Kanan Atas */}
           <button
             type="button"
             onClick={() => {
@@ -734,7 +870,6 @@ export default function AntrianApprovalPage() {
             <X size={20} />
           </button>
 
-          {/* Kontainer Gambar — Drag & Pan dengan Klik Kiri */}
           <div
             className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
               }`}
