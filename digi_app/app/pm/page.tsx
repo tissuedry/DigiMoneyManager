@@ -2,7 +2,6 @@
 
 import {
   ArrowRight,
-  Loader2,
   AlertCircle,
   Check,
   TrendingUp,
@@ -15,6 +14,7 @@ import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
+import PMSkeleton from "./PMSkeleton";
 
 // Type Definitions matching API responses
 type PosAnggaran = {
@@ -121,10 +121,7 @@ export default function PMDashboardPage() {
           </div>
 
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-3">
-              <Loader2 className="animate-spin text-[#008f5d]" size={32} />
-              <p className="text-stone-500 text-[14px]">Memuat dasbor Project Manager...</p>
-            </div>
+            <PMSkeleton />
           ) : error ? (
             <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs font-bold">
               Gagal memuat dashboard: {error}

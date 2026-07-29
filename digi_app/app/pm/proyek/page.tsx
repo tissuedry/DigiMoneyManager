@@ -7,6 +7,7 @@ import DetailAnggaranModal from "./DetailAnggaran";
 import AjukanPosModal from "./AjukanPos";
 import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
+import ProyekSkeleton from "./ProyekSkeleton";
 import {
   ChevronDown,
   Eye,
@@ -20,7 +21,7 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
-import { useApi, useMutate, useInvalidate } from "@/lib/use-api";
+import { useApi, useInvalidate } from "@/lib/use-api";
 
 type PosAnggaran = {
   id: number;
@@ -266,13 +267,10 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
 
 export default function KelolaProyekPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAjukanOpen, setIsAjukanOpen] = useState(false);
   const [isAjukanRealisasiOpen, setIsAjukanRealisasiOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const invalidate = useInvalidate();
 
@@ -285,9 +283,7 @@ export default function KelolaProyekPage() {
   const allUsers = usersData?.users ?? [];
   const error = proyekError?.message ?? null;
 
-  const resolvedId = selectedId ?? meData?.user?.proyekId ?? projects[0]?.id ?? null;
-
-  const selectProject = useMutate("/api/auth/select-project", "POST", ["/api/auth/me", "/api/dashboard"]);
+  const resolvedId = meData?.user?.proyekId ?? projects[0]?.id ?? null;
 
   const proyek = projects.find((p) => p.id === resolvedId);
 
@@ -363,65 +359,8 @@ export default function KelolaProyekPage() {
     setDirtyTim(true);
   };
 
-  // Reset selectedId when current selection no longer exists in projects
-  useEffect(() => {
-    if (projects.length > 0 && selectedId && !projects.some((p) => p.id === selectedId)) {
-      setSelectedId(projects[0].id);
-    }
-  }, [projects.length, selectedId]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#f9f8f4]">
-        <p className="text-stone-400 text-sm">Memuat data proyek...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-        <Sidebar isSidebarOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} userRole="Project Manager" />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
-          <main className="flex-1 flex items-center justify-center flex-col gap-3">
-            <p className="text-stone-400 text-sm">{error}</p>
-            <button onClick={() => refetch()} className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer">Coba Lagi</button>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (projects.length === 0) {
-    return (
-      <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-        <Sidebar isSidebarOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} userRole="Project Manager" />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
-          <main className="flex-1 flex items-center justify-center">
-            <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (!proyek) return null;
-
-  const allocated = proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0);
-  const unallocated = Math.max(0, proyek.totalRAB - allocated);
+  const allocated = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
+  const unallocated = proyek ? Math.max(0, proyek.totalRAB - allocated) : 0;
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
@@ -434,7 +373,21 @@ export default function KelolaProyekPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
 
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
+        {isLoading ? (
+          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+            <ProyekSkeleton />
+          </main>
+        ) : error ? (
+          <main className="flex-1 flex items-center justify-center flex-col gap-3">
+            <p className="text-stone-400 text-sm">{error}</p>
+            <button onClick={() => refetch()} className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer">Coba Lagi</button>
+          </main>
+        ) : projects.length === 0 || !proyek ? (
+          <main className="flex-1 flex items-center justify-center">
+            <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
+          </main>
+        ) : (
+          <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
           {/* ── Page Header + Project Selector ── */}
           <div className="flex items-start justify-between">
             <div>
@@ -445,52 +398,15 @@ export default function KelolaProyekPage() {
             </div>
 
             <div className="flex items-center gap-2 self-start">
-              {/* Project selector */}
-              <div className="relative" ref={dropdownRef}>
+              {/* Edit Proyek button */}
               <button
                 type="button"
-                onClick={() => setIsDropdownOpen((v) => !v)}
-                className="flex items-center gap-2 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition-all"
+                onClick={() => setIsEditOpen(true)}
+                className="flex items-center gap-1.5 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition cursor-pointer"
               >
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <span className="text-xs font-bold text-stone-800 max-w-[200px] truncate">{proyek.nama}</span>
-                <ChevronDown
-                  size={13}
-                  className={`text-stone-400 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
-                />
+                <Settings size={14} className="text-stone-500" />
+                <span className="text-xs font-bold text-stone-800">Edit Proyek</span>
               </button>
-
-              {isDropdownOpen && projects.length > 1 && (
-                <div className="absolute right-0 mt-1.5 w-64 bg-white border border-stone-200 rounded-xl shadow-lg z-50 overflow-hidden py-1">
-                  {projects.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedId(p.id);
-                        setIsDropdownOpen(false);
-                        selectProject.mutate({ proyekId: p.id });
-                      }}
-                      className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-stone-50 flex items-center gap-2 transition ${p.id === resolvedId ? "text-emerald-700 bg-emerald-50/50" : "text-stone-700"
-                        }`}
-                    >
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${p.id === resolvedId ? "bg-emerald-500" : "bg-stone-200"}`} />
-                      {p.nama}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Edit Proyek button */}
-            <button
-              type="button"
-              onClick={() => setIsEditOpen(true)}
-              className="flex items-center gap-1.5 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition cursor-pointer"
-            >
-              <Settings size={14} className="text-stone-500" />
-              <span className="text-xs font-bold text-stone-800">Edit Proyek</span>
-            </button>
             </div>
           </div>
 
@@ -737,6 +653,7 @@ export default function KelolaProyekPage() {
             </div>
           </div>
         </main>
+        )}
       </div>
 
       {isDetailOpen && proyek && (
@@ -776,7 +693,7 @@ export default function KelolaProyekPage() {
       )}
 
       {/* Edit Proyek Modal */}
-      {isEditOpen && (
+      {isEditOpen && proyek && (
         <EditProyekModal
           proyek={proyek}
           onClose={() => setIsEditOpen(false)}
