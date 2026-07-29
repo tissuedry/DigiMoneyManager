@@ -110,24 +110,33 @@ export default function PMDashboardPage() {
         />
 
         <main className="flex-1 p-8 overflow-y-auto space-y-6">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
-              <p className="text-sm text-stone-500 mt-1">
-                Kelola budget proyek, pantau pengeluaran lapangan, dan setujui reimbursement karyawan.
-              </p>
-            </div>
-          </div>
-
           {isLoading ? (
             <PMSkeleton />
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs font-bold">
-              Gagal memuat dashboard: {error}
-            </div>
+            <>
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
+                  <p className="text-sm text-stone-500 mt-1">
+                    Kelola budget proyek, pantau pengeluaran lapangan, dan setujui reimbursement karyawan.
+                  </p>
+                </div>
+              </div>
+              <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs font-bold">
+                Gagal memuat dashboard: {error}
+              </div>
+            </>
           ) : data ? (
             <>
+              {/* Header Section */}
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
+                  <p className="text-sm text-stone-500 mt-1">
+                    Kelola budget proyek, pantau pengeluaran lapangan, dan setujui reimbursement karyawan.
+                  </p>
+                </div>
+              </div>
               {data.project === null ? (
                 <div className="bg-white border border-stone-200 rounded-2xl p-8 text-center shadow-sm max-w-xl mx-auto space-y-4 my-10">
                   <AlertCircle className="mx-auto text-amber-500" size={40} />
