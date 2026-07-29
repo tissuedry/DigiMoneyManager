@@ -242,6 +242,8 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
   // MENGAMBIL ALASAN PENOLAKAN DARI DB (Memprioritaskan field 'alasan', lalu 'catatan')
   const rejectedApproval = raw.approvals?.find((a: any) => a.status === "REJECTED");
   const rejectionNote = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
+  const rejectedByFinance = rejectedApproval?.level === "FINANCE" || rejectedApproval?.level === "KEUANGAN";
+  const rejecterRoleLabel = rejectedApproval ? (rejectedByFinance ? "Tim Keuangan" : "Project Manager") : "";
 
   const resubmittedRecord = allRaw.find((r: any) => r.ocrData?.resubmitFrom === raw.id);
   const resubmittedAs = resubmittedRecord
@@ -312,7 +314,12 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
             <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[12px] font-bold text-[#be123c] mb-1">Alasan Penolakan</p>
+              <p className="text-[12px] font-bold text-[#be123c] mb-1">
+                Alasan Penolakan
+                {rejecterRoleLabel && (
+                  <span className="font-normal text-[11px] text-[#be123c]/70"> • Ditolak oleh {rejecterRoleLabel}</span>
+                )}
+              </p>
               <p className="text-[12px] text-stone-700 leading-relaxed">
                 {rejectionNote || "Tidak ada alasan spesifik yang diberikan."}
               </p>
