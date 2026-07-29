@@ -136,7 +136,6 @@ function getApprovalSteps(raw: any, allRaw: any[] = []): ApprovalStep[] {
     const finDate = financeApproval ? formatApprovalDate(financeApproval.timestamp) : "";
 
     if (pmApproval?.status === "APPROVED_BY_PM" && financeApproval) {
-      // PM already approved; Tim Keuangan rejected at the disbursement stage
       steps = [
         { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
         { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "done" },
@@ -144,7 +143,6 @@ function getApprovalSteps(raw: any, allRaw: any[] = []): ApprovalStep[] {
         { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
       ];
     } else {
-      // PM rejected directly
       steps = [
         { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
         { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "rejected" },
@@ -161,9 +159,6 @@ function getApprovalSteps(raw: any, allRaw: any[] = []): ApprovalStep[] {
     ];
   }
 
-  // If this submission was created via "Ajukan ulang" from a previously rejected
-  // one, prepend the original's "Pengajuan dikirim" + rejection steps, and relabel
-  // this record's own submission step as "Pengajuan ulang dikirim".
   const resubmitFromId = raw.ocrData?.resubmitFrom;
   const original = resubmitFromId ? allRaw.find((r: any) => r.id === resubmitFromId) : null;
   if (original) {
@@ -216,7 +211,6 @@ function StepIcon({ status, number }: { status: StepStatus; number: number }) {
       </div>
     );
   }
-  // waiting
   return (
     <div className="w-7 h-7 rounded-full bg-white border-2 border-stone-200 flex items-center justify-center flex-shrink-0 text-stone-400 text-xs font-semibold">
       {number}
@@ -244,9 +238,11 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
     raw.ocrData?.resubmitFrom ? "Pengajuan Ulang Ditolak" : "Ditolak";
 
   const steps = getApprovalSteps(raw, allRaw);
-  const rejectionNote = raw.approvals?.find((a: any) => a.status === "REJECTED")?.catatan || "";
+  
+  // MENGAMBIL ALASAN PENOLAKAN DARI DB (Memprioritaskan field 'alasan', lalu 'catatan')
+  const rejectedApproval = raw.approvals?.find((a: any) => a.status === "REJECTED");
+  const rejectionNote = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
 
-  // If this (rejected) submission has already been resubmitted, link to the new one
   const resubmittedRecord = allRaw.find((r: any) => r.ocrData?.resubmitFrom === raw.id);
   const resubmittedAs = resubmittedRecord
     ? { dbId: resubmittedRecord.id, displayId: makeDisplayId(String(resubmittedRecord.id), allRaw.findIndex((r: any) => r.id === resubmittedRecord.id)) }
@@ -275,16 +271,13 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="px-6 pt-5 pb-4 border-b border-stone-150">
         <p className="text-[11px] font-mono text-stone-400 mb-1">{displayId}</p>
         <h2 className="text-[20px] font-bold text-stone-900 leading-tight">{raw.nama || raw.merchant || "N/A"}</h2>
         <p className="text-[13px] text-stone-500 mt-0.5">{raw.proyek?.nama || "N/A"}</p>
       </div>
 
-      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-        {/* Status + Nominal Card */}
         <div className={`rounded-xl border p-4 ${statusCardClass}`}>
           <div className="flex justify-between items-start">
             <div>
@@ -314,27 +307,19 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           </div>
         </div>
 
-        {/* Rejection reason */}
-        {status === "REJECTED" && rejectionNote && (
+        {/* TAMPILAN ALASAN PENOLAKAN */}
+        {status === "REJECTED" && (
           <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
             <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-[12px] font-bold text-[#be123c] mb-1">Alasan Penolakan</p>
-              <p className="text-[12px] text-stone-700 leading-relaxed">{rejectionNote}</p>
-            </div>
-          </div>
-        )}
-        {status === "REJECTED" && !rejectionNote && (
-          <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
-            <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[12px] font-bold text-[#be123c] mb-1">Alasan Penolakan</p>
-              <p className="text-[12px] text-stone-700 leading-relaxed">Pos konsumsi proyek ini sudah melebihi alokasi bulan ini. Silakan ajukan ulang bulan depan</p>
+              <p className="text-[12px] text-stone-700 leading-relaxed">
+                {rejectionNote || "Tidak ada alasan spesifik yang diberikan."}
+              </p>
             </div>
           </div>
         )}
 
-        {/* Sudah diajukan ulang */}
         {status === "REJECTED" && resubmittedAs && (
           <div className="rounded-xl border border-[#bce0f7] bg-[#f0f8ff] p-4 flex items-center justify-between gap-3">
             <div className="flex gap-3">
@@ -355,7 +340,6 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           </div>
         )}
 
-        {/* Detail Pengajuan */}
         <div>
           <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Detail Pengajuan</p>
           <div className="rounded-xl border border-stone-200 bg-white overflow-hidden">
@@ -375,7 +359,6 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           </div>
         </div>
 
-        {/* Keterangan */}
         {raw.ocrData?.keterangan && (
           <div>
             <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Keterangan</p>
@@ -393,7 +376,6 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           </div>
         )}
 
-        {/* Riwayat Approval */}
         <div>
           <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-3">Riwayat Approval</p>
           <div className="space-y-0">
@@ -418,7 +400,6 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           </div>
         </div>
 
-        {/* Bukti Struk & Jurnal Akuntansi */}
         <div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -457,7 +438,6 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
         </div>
       </div>
 
-      {/* Footer */}
       <div className="px-6 py-4 border-t border-stone-150 bg-white flex flex-col gap-2.5">
         {actionError && (
           <p className="text-[11px] text-[#be123c] bg-[#fff5f5] border border-[#fbc9c9] rounded-lg px-3 py-2">
@@ -532,7 +512,6 @@ export default function RiwayatPengajuanPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
-  // Infinite scroll: render 10 rows at a time instead of the whole list
   const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -555,7 +534,6 @@ export default function RiwayatPengajuanPage() {
     setIsImgDragging(false);
   };
 
-  // Lock body scroll when image modal is open
   useEffect(() => {
     if (showImageModal) {
       document.body.style.overflow = 'hidden';
@@ -607,22 +585,17 @@ export default function RiwayatPengajuanPage() {
     fetchReimbursements();
   }, []);
 
-  // Extract unique projects and pos categories dynamically
   const uniqueProjects = Array.from(new Set(submissions.map((s) => s.project))).filter(Boolean);
   const uniquePos = Array.from(new Set(submissions.map((s) => s.pos))).filter(Boolean);
 
   const filteredData = submissions
     .filter((item) => {
-      // 1. Tab filter
       if (activeTab !== "Semua") {
         if (activeTab === "Menunggu Keuangan" && item.status !== "Menunggu Keuangan") return false;
         if (activeTab !== "Menunggu Keuangan" && item.status !== activeTab) return false;
       }
-      // 2. Project filter
       if (filterProject !== "Semua" && item.project !== filterProject) return false;
-      // 3. Pos filter
       if (filterPos !== "Semua" && item.pos !== filterPos) return false;
-      // 4. Merchant search filter
       if (searchMerchant.trim() !== "") {
         const query = searchMerchant.toLowerCase();
         if (!item.merchant.toLowerCase().includes(query)) return false;
@@ -633,21 +606,14 @@ export default function RiwayatPengajuanPage() {
       return sortOrder === "asc" ? a.lastActivityTime - b.lastActivityTime : b.lastActivityTime - a.lastActivityTime;
     });
 
-  // Reset to the first page whenever the active filters/tab/search/sort change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [activeTab, filterProject, filterPos, searchMerchant, sortOrder]);
 
   const visibleData = filteredData.slice(0, visibleCount);
   const hasMore = visibleCount < filteredData.length;
-  // How many real rows are still waiting to be revealed in the next batch —
-  // capped at PAGE_SIZE since we only ever load 10 at a time.
   const pendingCount = Math.min(PAGE_SIZE, filteredData.length - visibleCount);
 
-  // Infinite scroll: load 10 more rows only when the user actually scrolls near
-  // the bottom of the page (not just because the sentinel happens to be on-screen —
-  // with a short list that never overflows, an IntersectionObserver would fire
-  // immediately on mount and reveal everything at once).
   useEffect(() => {
     const el = mainRef.current;
     if (!el) return;
@@ -659,8 +625,6 @@ export default function RiwayatPengajuanPage() {
 
       isLoadingMoreRef.current = true;
       setIsLoadingMore(true);
-      // Brief delay so the skeleton rows are actually visible instead of
-      // the already-in-memory data just popping in instantly.
       setTimeout(() => {
         setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredData.length));
         setIsLoadingMore(false);
@@ -689,7 +653,6 @@ export default function RiwayatPengajuanPage() {
     setTimeout(() => setSelectedItem(null), 300);
   };
 
-  // Switch the open detail panel to a related (resubmitted/original) submission
   const handleViewRelated = (dbId: number, displayId: string) => {
     const raw = rawReimbursements.find(r => r.id === dbId);
     if (raw) {
@@ -700,7 +663,6 @@ export default function RiwayatPengajuanPage() {
     }
   };
 
-  // "Batalkan" - only allowed while status is SUBMITTED (Menunggu PM); permanently removes the submission
   const handleConfirmCancel = async () => {
     if (!selectedItem) return;
     setActionLoading(true);
@@ -726,8 +688,6 @@ export default function RiwayatPengajuanPage() {
     }
   };
 
-  // "Ajukan ulang" - only allowed for REJECTED submissions; redirects to the
-  // "Ajukan Reimbursement" page, pre-filled and ready at the Review & Kirim step
   const handleResubmit = () => {
     if (!selectedItem) return;
     router.push(`/karyawan/reimbursement?resubmitId=${selectedItem.id}`);
@@ -770,7 +730,6 @@ export default function RiwayatPengajuanPage() {
             </div>
 
             <div className="flex items-center gap-2.5">
-              {/* Sort Button */}
               <button
                 onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
                 className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full shadow-sm text-[13px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
@@ -779,7 +738,6 @@ export default function RiwayatPengajuanPage() {
                 Urutan: {sortOrder === "desc" ? "Terbaru" : "Terlama"}
               </button>
 
-              {/* Filter Toggle Button */}
               <button
                 onClick={() => setShowFilterPanel(prev => !prev)}
                 className={`flex items-center gap-2 px-4 py-2 border rounded-full shadow-sm text-[13px] font-medium transition cursor-pointer ${
@@ -796,10 +754,8 @@ export default function RiwayatPengajuanPage() {
             </div>
           </div>
 
-          {/* Filter Panel */}
           {showFilterPanel && (
             <div className="bg-white border border-stone-200 rounded-2xl p-5 mb-6 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end animate-in fade-in slide-in-from-top-3 duration-250">
-              {/* Filter Project */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Filter Proyek</label>
                 <select
@@ -814,7 +770,6 @@ export default function RiwayatPengajuanPage() {
                 </select>
               </div>
 
-              {/* Filter Pos */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Filter Pos Anggaran</label>
                 <select
@@ -829,7 +784,6 @@ export default function RiwayatPengajuanPage() {
                 </select>
               </div>
 
-              {/* Search Reimbursement */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Cari Reimbursement</label>
                 <input
@@ -841,7 +795,6 @@ export default function RiwayatPengajuanPage() {
                 />
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -957,7 +910,6 @@ export default function RiwayatPengajuanPage() {
         </main>
       </div>
 
-      {/* Overlay */}
       {selectedItem && (
         <div
           className={`fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300 ${panelVisible ? "opacity-100" : "opacity-0"}`}
@@ -965,7 +917,6 @@ export default function RiwayatPengajuanPage() {
         />
       )}
 
-      {/* Right Slide Panel */}
       <div
         className={`fixed top-0 right-0 h-full z-50 w-[460px] bg-white shadow-2xl border-l border-stone-200 flex flex-col transition-transform duration-300 ease-in-out ${
           selectedItem && panelVisible ? "translate-x-0" : "translate-x-full"
@@ -973,7 +924,6 @@ export default function RiwayatPengajuanPage() {
       >
         {selectedItem && (
           <>
-            {/* Close button */}
             <button
               onClick={handleClosePanel}
               className="absolute top-4 right-4 w-8 h-8 rounded-lg hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-700 transition z-10 cursor-pointer"
@@ -996,7 +946,6 @@ export default function RiwayatPengajuanPage() {
         )}
       </div>
 
-      {/* Modal Konfirmasi Pembatalan */}
       {showCancelModal && selectedItem && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden p-6">
@@ -1034,7 +983,6 @@ export default function RiwayatPengajuanPage() {
         </div>
       )}
 
-      {/* Image Modal */}
       {showImageModal && selectedImageUrl && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
@@ -1043,7 +991,6 @@ export default function RiwayatPengajuanPage() {
             resetImgZoomAndPan();
           }}
         >
-          {/* Tombol Tutup Floating di Pojok Kanan Atas */}
           <button 
             type="button"
             onClick={() => {
@@ -1056,7 +1003,6 @@ export default function RiwayatPengajuanPage() {
             <X size={20} />
           </button>
 
-          {/* Kontainer Gambar — Drag & Pan dengan Klik Kiri */}
           <div 
             className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${
               imageModalZoomScale > 1 ? (isImgDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
