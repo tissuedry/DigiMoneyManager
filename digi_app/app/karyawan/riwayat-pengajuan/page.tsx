@@ -625,10 +625,9 @@ export default function RiwayatPengajuanPage() {
     const el = mainRef.current;
     if (!el) return;
 
-    const handleScroll = () => {
+    const loadMore = () => {
       if (isLoadingMoreRef.current) return;
       if (visibleCount >= filteredData.length) return;
-      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
 
       isLoadingMoreRef.current = true;
       setIsLoadingMore(true);
@@ -639,8 +638,31 @@ export default function RiwayatPengajuanPage() {
       }, 500);
     };
 
+    const handleScroll = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
+      loadMore();
+    };
+
+    // When zoomed out (or on tall/wide screens), the loaded rows may not
+    // overflow the container at all, so `scroll` never fires. Force-load
+    // more pages until the content actually overflows or runs out.
+    const checkFillViewport = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollHeight > el.clientHeight + 1) return;
+      loadMore();
+    };
+
     el.addEventListener("scroll", handleScroll);
-    return () => el.removeEventListener("scroll", handleScroll);
+    window.addEventListener("resize", checkFillViewport);
+    checkFillViewport();
+
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", checkFillViewport);
+    };
   }, [filteredData.length, visibleCount]);
 
   const handleOpenDetail = (dbId: number, displayId: string) => {
@@ -909,9 +931,10 @@ export default function RiwayatPengajuanPage() {
             </table>
           </div>
 
-          {hasMore && !isLoadingMore && (
+          {!isLoading && filteredData.length > 0 && (
             <div className="flex items-center justify-center py-5 text-[12px] text-stone-400">
-              Scroll untuk memuat lebih banyak...
+              Menampilkan {visibleData.length} dari {filteredData.length} item
+              {hasMore && !isLoadingMore && " · scroll untuk memuat lebih banyak"}
             </div>
           )}
         </main>
