@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Filter, Download, X, Check, ZoomIn } from "lucide-react";
+import { Filter, Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import { useApi, useInvalidate } from '@/lib/use-api';
@@ -19,12 +19,13 @@ type ApprovalStep = {
 type Submission = {
   id: string;
   dbId: number;
-  date: string; // tanggal transaksi
+  date: string; 
   notaDate?: string;
-  submittedAt: string; // waktu pengajuan untuk alur approval
+  submittedAt: string; 
   merchant: string;
   catatanPm: string;
   catatanKeuangan: string;
+  rejectionReason: string; // <-- Tambahan field alasan penolakan
   project: string;
   main: string;
   sub: string;
@@ -285,6 +286,10 @@ export default function AntrianApprovalPage() {
     const financeApproval = r.approvals?.find((a: any) => a.level === 'KEUANGAN');
     const submissionTime = r.ocrData?.submittedAt || r.createdAt || r.ocrData?.tanggal;
 
+    // Ambil data penolakan jika ada
+    const rejectedApproval = r.approvals?.find((a: any) => a.status === 'REJECTED');
+    const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
+
     const steps: ApprovalStep[] = [
       {
         label: "Pengajuan dikirim",
@@ -348,6 +353,7 @@ export default function AntrianApprovalPage() {
       main: r.posAnggaran?.namaPos || 'N/A',
       catatanPm: pmApproval?.catatan || "",
       catatanKeuangan: financeApproval?.catatan || "",
+      rejectionReason,
       sub: r.posAnggaran?.subAnggaran?.namaSub || 'N/A',
       ket: r.posAnggaran?.keterangan || r.posAnggaran?.deskripsi || 'N/A',
       amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
@@ -645,6 +651,19 @@ export default function AntrianApprovalPage() {
                       </p>
                       <p className="text-[32px] font-bold text-stone-900">{selected.amount}</p>
                     </div>
+
+                    {/* Tampilan Alasan Penolakan Jika Ditolak */}
+                    {selected.status === "Ditolak" && (
+                      <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
+                        <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[12px] font-bold text-[#be123c] mb-1">Alasan Penolakan</p>
+                          <p className="text-[12px] text-stone-700 leading-relaxed">
+                            {selected.rejectionReason || "Tidak ada alasan spesifik yang diberikan."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Table Properties */}
                     <div className="divide-y divide-stone-200 text-[13px]">

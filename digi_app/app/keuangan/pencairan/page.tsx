@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
-  Download, X, Check, Filter, ZoomIn
+  Download, X, Check, Filter, ZoomIn, AlertTriangle
 } from "lucide-react";
 
 import Sidebar from '@/components/sidebar';
@@ -98,7 +98,6 @@ const RejectModal: React.FC<RejectModalProps> = ({
 }) => {
   const [alasan, setAlasan] = useState('');
 
-  // Reset text alasan ketika modal terbuka/tertutup
   useEffect(() => {
     if (!isOpen) setAlasan('');
   }, [isOpen]);
@@ -309,7 +308,6 @@ function PencairanContent() {
     }
   }, [selectedId, selectedItem]);
 
-  // Modifikasi handleProcess agar mendukung variabel `alasan`
   const handleProcess = async (action: 'APPROVE' | 'REJECT', alasanPenolakan?: string) => {
     if (!selectedItem) return;
 
@@ -332,7 +330,7 @@ function PencairanContent() {
         body: JSON.stringify({
           action,
           catatan,
-          alasan: alasanPenolakan, // Sertakan alasan penolakan ke API
+          alasan: alasanPenolakan,
           noAkunDebit: debitAccount,
           noAkunKredit: creditAccount
         })
@@ -340,7 +338,7 @@ function PencairanContent() {
       const data = await res.json();
       if (res.ok) {
         alert(action === 'APPROVE' ? "Pengajuan berhasil dicairkan dan jurnal akuntansi telah di-generate!" : "Pengajuan berhasil ditolak.");
-        if (action === 'REJECT') setIsRejectModalOpen(false); // Tutup modal jika berhasil ditolak
+        if (action === 'REJECT') setIsRejectModalOpen(false);
         invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
       } else {
         alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
@@ -355,6 +353,10 @@ function PencairanContent() {
 
   const pmApproval = selectedItem?.approvals?.find((a: any) => a.level === 'PM' || a.approver?.role === 'Project Manager');
   const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN' || a.approver?.role === 'Tim Keuangan');
+
+  // Ambil data penolakan jika status REJECTED
+  const rejectedApproval = selectedItem?.approvals?.find((a: any) => a.status === 'REJECTED');
+  const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
 
   const isSelectedRealisasi = selectedItem?.tipe === 'Realisasi Anggaran';
   const baseApprovalSteps = selectedItem ? [
@@ -629,6 +631,19 @@ function PencairanContent() {
                         </div>
                       );
                     })()}
+
+                    {/* Tampilan Alasan Penolakan Jika Ditolak */}
+                    {selectedItem.status === "REJECTED" && (
+                      <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
+                        <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[12px] font-bold text-[#be123c] mb-1">Alasan Penolakan</p>
+                          <p className="text-[12px] text-stone-700 leading-relaxed">
+                            {rejectionReason || "Tidak ada alasan spesifik yang diberikan."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="divide-y divide-stone-200 text-[13px]">
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
