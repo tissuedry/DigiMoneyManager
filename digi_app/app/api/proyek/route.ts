@@ -13,11 +13,9 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
     
-    // 👇 1. Tangkap parameter pagination
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '4', 10);
 
-    // 👇 2. Tambahkan page & limit ke cacheKey agar tiap halaman cachenya beda
     const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}:page=${page}:limit=${limit}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
@@ -77,16 +75,14 @@ export async function GET(req: NextRequest) {
       ]
     };
 
-    // 👇 3. Hitung skip untuk pagination
     const skip = (page - 1) * limit;
 
-    // 👇 4. Gunakan $transaction untuk mengambil total item & memotong data sekaligus
     const [totalItems, projects] = await prisma.$transaction([
       prisma.proyek.count({ where: finalWhere }),
       prisma.proyek.findMany({
         where: finalWhere,
-        skip: skip,     // <--- Lewati data sesuai halaman
-        take: limit,    // <--- Potong data sesuai limit
+        skip: skip,
+        take: limit,
         include: {
           budget: {
             include: {
@@ -114,7 +110,6 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 👇 5. Siapkan response lengkap dengan metadata pagination
     const responseData = { 
       projects: mappedProjects,
       pagination: {
