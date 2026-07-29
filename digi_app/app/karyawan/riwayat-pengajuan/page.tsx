@@ -242,6 +242,8 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
   // MENGAMBIL ALASAN PENOLAKAN DARI DB (Memprioritaskan field 'alasan', lalu 'catatan')
   const rejectedApproval = raw.approvals?.find((a: any) => a.status === "REJECTED");
   const rejectionNote = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
+  const rejectedByFinance = rejectedApproval?.level === "FINANCE" || rejectedApproval?.level === "KEUANGAN";
+  const rejecterRoleLabel = rejectedApproval ? (rejectedByFinance ? "Tim Keuangan" : "Project Manager") : "";
 
   const resubmittedRecord = allRaw.find((r: any) => r.ocrData?.resubmitFrom === raw.id);
   const resubmittedAs = resubmittedRecord
@@ -312,7 +314,12 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
             <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[12px] font-bold text-[#be123c] mb-1">Alasan Penolakan</p>
+              <p className="text-[12px] font-bold text-[#be123c] mb-1">
+                Alasan Penolakan
+                {rejecterRoleLabel && (
+                  <span className="font-normal text-[11px] text-[#be123c]/70"> • Ditolak oleh {rejecterRoleLabel}</span>
+                )}
+              </p>
               <p className="text-[12px] text-stone-700 leading-relaxed">
                 {rejectionNote || "Tidak ada alasan spesifik yang diberikan."}
               </p>
@@ -618,10 +625,9 @@ export default function RiwayatPengajuanPage() {
     const el = mainRef.current;
     if (!el) return;
 
-    const handleScroll = () => {
+    const loadMore = () => {
       if (isLoadingMoreRef.current) return;
       if (visibleCount >= filteredData.length) return;
-      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
 
       isLoadingMoreRef.current = true;
       setIsLoadingMore(true);
@@ -632,8 +638,31 @@ export default function RiwayatPengajuanPage() {
       }, 500);
     };
 
+    const handleScroll = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
+      loadMore();
+    };
+
+    // When zoomed out (or on tall/wide screens), the loaded rows may not
+    // overflow the container at all, so `scroll` never fires. Force-load
+    // more pages until the content actually overflows or runs out.
+    const checkFillViewport = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollHeight > el.clientHeight + 1) return;
+      loadMore();
+    };
+
     el.addEventListener("scroll", handleScroll);
-    return () => el.removeEventListener("scroll", handleScroll);
+    window.addEventListener("resize", checkFillViewport);
+    checkFillViewport();
+
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", checkFillViewport);
+    };
   }, [filteredData.length, visibleCount]);
 
   const handleOpenDetail = (dbId: number, displayId: string) => {
@@ -902,9 +931,10 @@ export default function RiwayatPengajuanPage() {
             </table>
           </div>
 
-          {hasMore && !isLoadingMore && (
+          {!isLoading && filteredData.length > 0 && (
             <div className="flex items-center justify-center py-5 text-[12px] text-stone-400">
-              Scroll untuk memuat lebih banyak...
+              Menampilkan {visibleData.length} dari {filteredData.length} item
+              {hasMore && !isLoadingMore && " · scroll untuk memuat lebih banyak"}
             </div>
           )}
         </main>
