@@ -90,6 +90,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const deleteOp = prisma.userProyek.deleteMany({ where: { proyekId } });
 
+    const pmUserId = userId ? parseInt(userId, 10) : 0;
+
     if (hasMembers) {
       const userProyeks = memberArray.map((m) => ({
         proyekId,
