@@ -649,7 +649,14 @@ export default function ProjectDetailSidebar({
                                                             setTeamRows(updated);
                                                         }}
                                                         members={members.filter((member) => {
-                                                            if (row.id === "row-pm") return true;
+                                                            if (row.id === "row-pm") {
+                                                                // User who is already PM on a DIFFERENT project cannot be selected as PM
+                                                                const isPmOnOtherProject = member.proyek?.some((p) => {
+                                                                    const isOtherProject = String(p.proyek.id) !== String(showProjectDetail.id);
+                                                                    return isOtherProject && p.roleInProyek === "Project Manager";
+                                                                });
+                                                                return !isPmOnOtherProject;
+                                                            }
                                                             const pmRow = teamRows.find((r) => r.id === "row-pm");
                                                             const selectedPmUserId = pmRow ? pmRow.userId : "";
                                                             return String(member.id) !== String(selectedPmUserId);
