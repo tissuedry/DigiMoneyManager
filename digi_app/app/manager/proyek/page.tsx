@@ -300,8 +300,14 @@ export default function KelolaProyekPage() {
     setSuccess("");
 
     try {
-      const res = await fetch(`/api/proyek/${project.id}`);
-      const data = await res.json();
+      const [res, membersRes] = await Promise.all([
+        fetch(`/api/proyek/${project.id}`),
+        fetch("/api/manager/members?limit=500"),
+      ]);
+      const [data, membersData] = await Promise.all([res.json(), membersRes.json()]);
+      if (membersData.members) {
+        setMembers(membersData.members);
+      }
       if (data.project.users && data.project.users.length > 0) {
         const pmUser = data.project.users.find((u: any) => u.roleInProyek === "Project Manager");
         const otherUsers = data.project.users.filter((u: any) => u.roleInProyek !== "Project Manager");
@@ -815,22 +821,22 @@ export default function KelolaProyekPage() {
       {/* Pop-up Dialogs & Modals */}
       {!loading && projects.length > 0 && (
         <div className="mt-8 pt-6 flex justify-center w-full">
-          
+
           {totalPages > 1 && (
             <div className="flex items-center gap-4 text-[16px] text-stone-500 font-medium">
-              
+
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
                 className="hover:text-stone-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors p-1"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
               </button>
-              
+
               <div className="flex items-center gap-4">
                 {(() => {
                   const maxVisiblePages = 5;
-                  
+
                   let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
                   let endPage = startPage + maxVisiblePages - 1;
 
@@ -848,11 +854,10 @@ export default function KelolaProyekPage() {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`transition-colors ${
-                        currentPage === page 
-                          ? "text-[#2d6a4f] font-bold cursor-default scale-110" 
-                          : "hover:text-stone-900 cursor-pointer"
-                      }`}
+                      className={`transition-colors ${currentPage === page
+                        ? "text-[#2d6a4f] font-bold cursor-default scale-110"
+                        : "hover:text-stone-900 cursor-pointer"
+                        }`}
                     >
                       {page}
                     </button>
@@ -865,9 +870,9 @@ export default function KelolaProyekPage() {
                 disabled={currentPage === totalPages}
                 className="hover:text-stone-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors p-1"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
               </button>
-              
+
             </div>
           )}
         </div>

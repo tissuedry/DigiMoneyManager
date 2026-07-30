@@ -24,15 +24,15 @@ export default function EditProjectModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50 flex-shrink-0">
           <h3 className="font-bold text-[15px] text-stone-900">Edit Proyek</h3>
           <button type="button" onClick={onClose} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition">
             <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="p-6 space-y-4 text-left">
+        <form onSubmit={onSubmit} className="p-6 space-y-4 text-left overflow-y-auto flex-1">
           <div>
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek *</label>
             <input type="text" required value={editForm.nama} onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30" />
