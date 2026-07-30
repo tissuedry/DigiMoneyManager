@@ -76,14 +76,30 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'members or userIds must not be empty' }, { status: 400 });
     }
 
-    // Guard: PM cannot remove themselves
-    const pmUserId = userId ? parseInt(userId, 10) : 0;
-    if (hasMembers && pmUserId) {
-      const pmInNew = memberArray.some((m) =>
-        (typeof m.userId === 'string' ? parseInt(m.userId, 10) : m.userId) === pmUserId && m.role === 'Project Manager'
-      );
-      if (!pmInNew) {
-        return NextResponse.json({ message: 'Cannot remove or demote yourself as Project Manager' }, { status: 400 });
+    // Guard: Validate 1 PM per project & 1 project per PM
+    if (hasMembers) {
+      const pmMembers = memberArray.filter((m) => m.role === 'Project Manager');
+      if (pmMembers.length > 1) {
+        return NextResponse.json({ message: 'Setiap proyek hanya boleh memiliki satu Project Manager.' }, { status: 400 });
+      }
+
+      if (pmMembers.length === 1) {
+        const pmId = typeof pmMembers[0].userId === 'string' ? parseInt(pmMembers[0].userId, 10) : pmMembers[0].userId;
+        if (pmId) {
+          const otherPm = await prisma.userProyek.findFirst({
+            where: {
+              userId: pmId,
+              role: 'Project Manager',
+              proyekId: { not: proyekId },
+            },
+            include: { user: true, proyek: true },
+          });
+          if (otherPm) {
+            return NextResponse.json({
+              message: `Pengguna '${otherPm.user.nama}' sudah menjadi Project Manager pada proyek '${otherPm.proyek.nama}'. Seorang PM hanya boleh memegang satu proyek.`,
+            }, { status: 400 });
+          }
+        }
       }
     }
 
