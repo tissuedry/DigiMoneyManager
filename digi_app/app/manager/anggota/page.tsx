@@ -13,7 +13,7 @@ type Member = {
   proyek: { id: number; nama: string; status: string; roleInProyek: string }[];
 };
 
-const ROLES = ["Karyawan", "Tim Keuangan", "Direktur / Manajemen"];
+const ROLES = ["Karyawan", "Project Manager", "Tim Keuangan", "Direktur / Manajemen"];
 
 const ROLE_BADGE: Record<string, string> = {
   "Karyawan": "bg-stone-100 text-stone-600",
@@ -86,6 +86,7 @@ export default function AnggotaPage() {
   const [selectedProyekAssignments, setSelectedProyekAssignments] = useState<{ proyekId: number; role: string }[]>([]);
 
   const observerTarget = useRef<HTMLDivElement | null>(null);
+  const formRef = useRef<HTMLDivElement | null>(null);
 
   const [form, setForm] = useState({
     nama: "",
@@ -95,11 +96,17 @@ export default function AnggotaPage() {
     divisi: "",
   });
 
+  const scrollToForm = () => {
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
   const fetchProyekList = async () => {
     try {
-      const res = await fetch("/api/manager/proyek");
+      const res = await fetch("/api/manager/proyek?limit=100");
       const data = await res.json();
-      setProyekList(data.proyek ?? []);
+      setProyekList(data.projects || data.proyek || []);
     } catch {
       // silently handle
     }
@@ -187,6 +194,7 @@ export default function AnggotaPage() {
     setShowForm(true);
     setFormError("");
     setSuccess("");
+    scrollToForm();
   };
 
   const handleStartEdit = (m: Member) => {
@@ -205,6 +213,7 @@ export default function AnggotaPage() {
     setShowForm(true);
     setFormError("");
     setSuccess("");
+    scrollToForm();
   };
 
   const isAssignmentsEqual = (
@@ -318,7 +327,7 @@ export default function AnggotaPage() {
 
       {/* Registration / Edit Form */}
       {showForm && (
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden animate-slide-down">
+        <div ref={formRef} className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden animate-slide-down">
           <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
             <h3 className="font-bold text-[15px] text-stone-900">
               {editingMember ? `Edit Anggota: ${editingMember.nama}` : "Daftarkan Anggota Baru"}
