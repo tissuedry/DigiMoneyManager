@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     const body = await req.json();
-    // 1. Ekstrak variabel `alasan` dari request body
+    // Ekstrak variabel `alasan` dari request body
     const { action, catatan, alasan, noAkunDebit, noAkunKredit } = body; 
 
     if (!action || (action !== 'APPROVE' && action !== 'REJECT')) {
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const mapReimbursement = (r: any) => {
       if (!r) return null;
       return {
-        ...r,
+        ...r, // Secara otomatis membawa field 'createdAt' dari database
         strukUrl: r.urlStruk,
         posAnggaran: r.keteranganAnggaran ? {
           ...r.keteranganAnggaran,
@@ -82,13 +82,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               level: approvalLevel,
               status: nextStatus,
               catatan: catatan || null,
-              alasan: action === 'REJECT' ? (alasan || null) : null, // 2. Simpan alasan jika ditolak PM
+              alasan: action === 'REJECT' ? (alasan || null) : null, // Simpan alasan jika ditolak PM
             },
           });
 
           const rb = await tx.reimbursement.update({
             where: { id: parseInt(id, 10) },
             data: { status: nextStatus },
+            // Include dikembalikan agar mapReimbursement memiliki struktur lengkap saat di output
+            include: {
+              user: { select: { nama: true, id: true, role: true } }, 
+              proyek: { select: { nama: true, id: true } },
+              keteranganAnggaran: {
+                include: { subAnggaran: { include: { mainAnggaran: true } } },
+              },
+            }
           });
 
           await tx.auditTrail.create({
@@ -198,13 +206,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               level: 'KEUANGAN',
               status: 'APPROVED',
               catatan: catatan || null,
-              // Jika approve, tidak ada alasan penolakan
             },
           });
 
           const rb = await tx.reimbursement.update({
             where: { id: parseInt(id, 10) },
             data: { status: 'APPROVED' },
+            include: {
+              user: { select: { nama: true, id: true, role: true } }, 
+              proyek: { select: { nama: true, id: true } },
+              keteranganAnggaran: {
+                include: { subAnggaran: { include: { mainAnggaran: true } } },
+              },
+            }
           });
 
           await tx.auditTrail.create({
@@ -287,13 +301,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               level: 'KEUANGAN',
               status: 'REJECTED',
               catatan: catatan || null,
-              alasan: alasan || null, // 3. Simpan alasan penolakan dari Tim Keuangan
+              alasan: alasan || null, 
             },
           });
 
           const rb = await tx.reimbursement.update({
             where: { id: parseInt(id, 10) },
             data: { status: 'REJECTED' },
+            include: {
+              user: { select: { nama: true, id: true, role: true } }, 
+              proyek: { select: { nama: true, id: true } },
+              keteranganAnggaran: {
+                include: { subAnggaran: { include: { mainAnggaran: true } } },
+              },
+            }
           });
 
           await tx.auditTrail.create({
@@ -308,7 +329,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             data: {
               userId: reimbursement.userId,
               tipe: 'rejected',
-              pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} ditolak oleh Tim Keuangan. Alasan: ${alasan || 'Tidak ada alasan yang diberikan.'}`, // 4. Opsional: Tambahkan alasan di notifikasi
+              pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} ditolak oleh Tim Keuangan. Alasan: ${alasan || 'Tidak ada alasan yang diberikan.'}`, 
             },
           });
 

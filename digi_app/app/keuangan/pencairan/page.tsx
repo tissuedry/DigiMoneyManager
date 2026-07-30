@@ -20,21 +20,20 @@ function formatTanggal(iso: string) {
   return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
 }
 
+// PERBARUAN: Hapus logika jam dan menit, hanya kembalikan tanggalnya saja
 function formatTanggalWaktu(isoStr: string | null | undefined) {
   if (!isoStr) return "-";
   try {
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) {
-      return `${formatTanggal(isoStr)}, 07:00`;
+      return formatTanggal(isoStr);
     }
     const day = d.getDate();
     const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
     const month = bulan[d.getMonth()];
     const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const mins = String(d.getMinutes()).padStart(2, '0');
-    const timeDisplay = (hours === '00' && mins === '00') ? '07:00' : `${hours}:${mins}`;
-    return `${day} ${month} ${year}, ${timeDisplay}`;
+    
+    return `${day} ${month} ${year}`;
   } catch {
     return isoStr;
   }
@@ -359,10 +358,12 @@ function PencairanContent() {
   const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
 
   const isSelectedRealisasi = selectedItem?.tipe === 'Realisasi Anggaran';
+  
+  // Disesuaikan agar menggunakan selectedItem.createdAt untuk status pengajuan dikirim
   const baseApprovalSteps = selectedItem ? [
     {
       label: "Pengajuan dikirim",
-      sublabel: `${selectedItem.user?.nama || 'Karyawan'} • ${formatTanggalWaktu(selectedItem.createdAt || selectedItem.ocrData?.tanggal)}`,
+      sublabel: `${selectedItem.user?.nama || 'Karyawan'} • ${formatTanggalWaktu(selectedItem.createdAt)}`,
       state: "done" as const
     },
     ...(!isSelectedRealisasi ? [{
@@ -493,7 +494,9 @@ function PencairanContent() {
                     const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
                     const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
                     const isRealisasi = item.tipe === 'Realisasi Anggaran';
-                    const vendorTitle = item.merchant || item.ocrData?.merchant || item.nama || item.posAnggaran?.deskripsi || (isRealisasi ? 'Realisasi Anggaran' : 'Pengajuan Reimbursement');
+                    
+                    // Disesuaikan dengan data sebenarnya (tanpa ocrData)
+                    const vendorTitle = item.merchant || item.nama || item.posAnggaran?.deskripsi || (isRealisasi ? 'Realisasi Anggaran' : 'Pengajuan Reimbursement');
                     const projectTitle = item.proyek?.nama || 'Proyek';
 
                     return (
@@ -598,8 +601,10 @@ function PencairanContent() {
 
                     {(() => {
                       const isRealisasiDetail = selectedItem.tipe === 'Realisasi Anggaran';
-                      const detailVendorTitle = selectedItem.merchant || selectedItem.ocrData?.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama;
-                      const detailTanggal = selectedItem.createdAt || selectedItem.ocrData?.submittedAt || null;
+                      const detailVendorTitle = selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama;
+                      
+                      // Disesuaikan agar menggunakan selectedItem.createdAt
+                      const detailTanggal = selectedItem.createdAt || null;
                       return (
                         <div className="border-b border-stone-100 pb-4">
                           <div className="flex items-start justify-between mb-2">
@@ -664,7 +669,9 @@ function PencairanContent() {
                       </div>
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Tanggal Transaksi</span>
-                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.ocrData?.tanggal ? formatTanggal(selectedItem.ocrData.tanggal) : selectedItem.tanggalStruk ? formatTanggal(selectedItem.tanggalStruk.split('T')[0]) : '-'}</span>
+                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">
+                          {selectedItem.tanggalStruk ? formatTanggal(selectedItem.tanggalStruk.split('T')[0]) : '-'}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Pengaju</span>
@@ -814,7 +821,8 @@ function PencairanContent() {
                     <div>
                       <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
                       <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
-                        {selectedItem.ocrData?.keterangan || selectedItem.ocrData?.raw || 'Pembelian kertas A4, log book, dan papan klip untuk kebutuhan administrasi site'}.
+                        {/* Disesuaikan karena tidak ada ocrData */}
+                        {selectedItem.nama || '-'}
                       </div>
                     </div>
 
@@ -931,7 +939,7 @@ function PencairanContent() {
         data={
           selectedItem
             ? {
-                merchant: selectedItem.merchant || selectedItem.ocrData?.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama || 'Pengajuan',
+                merchant: selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama || 'Pengajuan',
                 userName: selectedItem.user?.nama || 'Karyawan',
                 nominal: Number(selectedItem.nominal)
               }

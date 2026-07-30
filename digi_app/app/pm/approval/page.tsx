@@ -25,7 +25,7 @@ type Submission = {
   merchant: string;
   catatanPm: string;
   catatanKeuangan: string;
-  rejectionReason: string; // <-- Tambahan field alasan penolakan
+  rejectionReason: string;
   project: string;
   main: string;
   sub: string;
@@ -42,30 +42,34 @@ type Submission = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatTanggal(iso: string) {
-  if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length < 3) return iso;
-  const [y, m, d] = parts;
-  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
-  const mIdx = parseInt(m) - 1;
-  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+function parseDateSafe(isoStr: string | Date | null | undefined): Date | null {
+  if (!isoStr) return null;
+  const d = new Date(isoStr);
+  return isNaN(d.getTime()) ? null : d;
 }
 
-function formatDateTime(dateInput: string | Date) {
+function formatTanggal(iso: string) {
+  if (!iso) return "";
+  const d = parseDateSafe(iso);
+  if (!d) return iso;
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const date = d.getDate();
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+  return `${date} ${bulan[m]} ${y}`;
+}
+
+// PERBARUAN: Menghapus jam, hanya menampilkan tanggal
+function formatDateTime(dateInput: string | Date | null | undefined) {
   if (!dateInput) return "";
-  const d = new Date(dateInput);
-  if (isNaN(d.getTime())) return String(dateInput);
-  const dateStr = d.toLocaleDateString("id-ID", {
+  const d = parseDateSafe(dateInput);
+  if (!d) return String(dateInput);
+  
+  return d.toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-  const timeStr = d.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${dateStr}, ${timeStr}`;
 }
 
 const getStatusBadge = (status: ApprovalStatus) => {
@@ -284,7 +288,9 @@ export default function AntrianApprovalPage() {
   const mappedSubmissions = reimbursements.map((r: any): Submission => {
     const pmApproval = r.approvals?.find((a: any) => a.level === 'PM');
     const financeApproval = r.approvals?.find((a: any) => a.level === 'KEUANGAN');
-    const submissionTime = r.ocrData?.submittedAt || r.createdAt || r.ocrData?.tanggal;
+    
+    // Fallback super berlapis untuk memastikan tanggal tidak pernah kosong
+    const submissionTime = r.createdAt || r.created_at || r.tanggalStruk || r.tanggal;
 
     // Ambil data penolakan jika ada
     const rejectedApproval = r.approvals?.find((a: any) => a.status === 'REJECTED');
@@ -346,24 +352,27 @@ export default function AntrianApprovalPage() {
       id: `RB-${String(r.id)}`,
       dbId: r.id,
       date: submissionTime ? formatDateTime(submissionTime) : 'N/A',
-      notaDate: r.ocrData?.tanggal ? formatTanggal(r.ocrData.tanggal) : 'N/A',
-      submittedAt: r.createdAt ? formatDateTime(r.createdAt) : 'N/A',
-      merchant: r.ocrData?.merchant || 'N/A',
+      notaDate: r.tanggalStruk ? formatTanggal(r.tanggalStruk) : 'N/A',
+      submittedAt: submissionTime ? formatDateTime(submissionTime) : 'N/A',
+      
+      // Ambil secara langsung dari object r sesuai Prisma
+      merchant: r.merchant || r.nama || 'N/A',
       project: r.proyek?.nama || 'N/A',
-      main: r.posAnggaran?.namaPos || 'N/A',
+      main: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'N/A',
+      sub: r.keteranganAnggaran?.subAnggaran?.namaSub || 'N/A',
+      ket: r.keteranganAnggaran?.keterangan || 'N/A',
+      
       catatanPm: pmApproval?.catatan || "",
       catatanKeuangan: financeApproval?.catatan || "",
       rejectionReason,
-      sub: r.posAnggaran?.subAnggaran?.namaSub || 'N/A',
-      ket: r.posAnggaran?.keterangan || r.posAnggaran?.deskripsi || 'N/A',
       amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
       amountRaw: Number(r.nominal),
       status: displayStatus,
       pengaju: r.user?.nama || 'Karyawan',
       pengajuInitials: initials,
-      keterangan: r.ocrData?.keterangan || r.ocrData?.raw || '-',
+      keterangan: '-', // Jika ada deskripsi lain, bisa dilampirkan di sini
       steps,
-      strukUrl: r.strukUrl || r.urlStruk
+      strukUrl: r.urlStruk || r.strukUrl
     };
   });
 
@@ -640,7 +649,8 @@ export default function AntrianApprovalPage() {
                       </div>
                       <h2 className="text-[22px] font-bold text-stone-900">{selected.merchant}</h2>
                       <p className="text-[13px] text-stone-400 mt-0.5">
-                        oleh <span className="font-semibold text-stone-600">{selected.pengaju}</span> pada {selected.date}
+                        oleh <span className="font-semibold text-stone-600">{selected.pengaju}</span>
+                        {selected.date !== 'N/A' && selected.date !== '' ? <> pada {selected.date}</> : <span className="italic text-stone-300"> · tanggal tidak tersedia</span>}
                       </p>
                     </div>
 
