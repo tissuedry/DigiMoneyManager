@@ -106,20 +106,18 @@ export async function GET(req: NextRequest) {
         keteranganAnggaran: {
           include: { subAnggaran: { include: { mainAnggaran: true } } },
         },
-        // --- MODIFIKASI: Menggunakan select untuk memastikan alasan ikut terambil ---
         approvals: {
           select: {
             id: true,
             level: true,
             status: true,
             catatan: true,
-            alasan: true, // <-- Atribut alasan ditarik dari database
+            alasan: true, 
             timestamp: true,
             approver: { select: { nama: true, role: true } }
           },
           orderBy: { timestamp: 'desc' },
         },
-        // --------------------------------------------------------------------------
         jurnalAkuntansi: {
           include: { akunDebit: true, akunKredit: true },
         },
@@ -157,6 +155,7 @@ export async function POST(req: NextRequest) {
     let merchant = '';
     let tanggalStruk: Date | null = null;
     let kategoriBukti = '';
+    let createdAt: Date | undefined = undefined; // Tambahan penampung createdAt
 
     const contentType = req.headers.get('content-type') || '';
 
@@ -171,6 +170,10 @@ export async function POST(req: NextRequest) {
       const rawTgl = formData.get('tanggalStruk') || formData.get('tanggal');
       if (rawTgl) tanggalStruk = new Date(rawTgl as string);
       kategoriBukti = (formData.get('kategoriBukti') as string) || '';
+
+      // Ekstrak createdAt jika dikirim dari frontend
+      const rawCreatedAt = formData.get('createdAt') || formData.get('submittedAt');
+      if (rawCreatedAt) createdAt = new Date(rawCreatedAt as string);
 
       const ocrDataStr = formData.get('ocrData') as string;
       if (ocrDataStr) {
@@ -202,6 +205,11 @@ export async function POST(req: NextRequest) {
       }
       kategoriBukti = body.kategoriBukti || '';
 
+      // Ekstrak createdAt jika dikirim dari frontend
+      if (body.createdAt || body.submittedAt) {
+        createdAt = new Date(body.createdAt || body.submittedAt);
+      }
+
       const rawStrukUrl = body.strukUrl || '';
       strukUrl = rawStrukUrl ? await processImageToWebp(rawStrukUrl) : '/uploads/placeholder.png';
       ocrData = body.ocrData || {};
@@ -211,6 +219,9 @@ export async function POST(req: NextRequest) {
     if (!kategoriBukti && ocrData.kategoriBukti) kategoriBukti = ocrData.kategoriBukti;
     if (!tanggalStruk && ocrData.tanggal) tanggalStruk = new Date(ocrData.tanggal);
     if (!nama && ocrData.keterangan) nama = ocrData.keterangan;
+    
+    // Set fallback createdAt dari ocrData jika ada
+    if (!createdAt && ocrData.submittedAt) createdAt = new Date(ocrData.submittedAt);
 
     if (!proyekId || !keteranganAnggaranId || isNaN(nominal) || nominal <= 0) {
       return NextResponse.json({ message: 'proyekId, keteranganAnggaranId, and a positive nominal are required' }, { status: 400 });
@@ -248,6 +259,9 @@ export async function POST(req: NextRequest) {
         merchant: merchant || null,
         tanggalStruk: (tanggalStruk && !isNaN(tanggalStruk.getTime())) ? tanggalStruk : null,
         kategoriBukti: kategoriBukti || null,
+        
+        // Simpan createdAt jika ada nilai yang valid dikirimkan
+        ...(createdAt && !isNaN(createdAt.getTime()) && { createdAt }),
       },
       include: {
         user: { select: { nama: true } },

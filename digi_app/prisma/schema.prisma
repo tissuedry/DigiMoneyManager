@@ -119,6 +119,7 @@ model Reimbursement {
   merchant             String?            
   tanggalStruk         DateTime?          @map("tanggal_struk")
   kategoriBukti        String?            @map("kategori_bukti")
+  createdAt            DateTime           @default(now()) @map("created_at")
 
   nominal              Decimal            @db.Decimal(15, 2)
   urlStruk             String             @map("url_struk")
