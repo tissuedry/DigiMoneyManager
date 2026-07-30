@@ -152,10 +152,9 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
                 key={u.id}
                 type="button"
                 onClick={() => { onSelect(u.id); setOpen(false); }}
-                className={`w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium hover:bg-stone-50 transition ${
-                  u.id === selectedUserId ? "text-emerald-700 bg-emerald-50/50" : "text-stone-700"
-                }`}
-              > 
+                className={`w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium hover:bg-stone-50 transition ${u.id === selectedUserId ? "text-emerald-700 bg-emerald-50/50" : "text-stone-700"
+                  }`}
+              >
                 <span className={`w-4 h-4 rounded-full text-[1px] font-bold flex items-center justify-center shrink-0 ${avatarColor(ini)}`}>
                   {ini}
                 </span>
@@ -388,271 +387,270 @@ export default function KelolaProyekPage() {
           </main>
         ) : (
           <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-          {/* ── Page Header + Project Selector ── */}
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
-              <p className="text-sm text-stone-500 mt-1">
-                Pantau anggaran, ajukan pos baru, dan kelola tim untuk proyekmu.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 self-start">
-              {/* Edit Proyek button */}
-              <button
-                type="button"
-                onClick={() => setIsEditOpen(true)}
-                className="flex items-center gap-1.5 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition cursor-pointer"
-              >
-                <Settings size={14} className="text-stone-500" />
-                <span className="text-xs font-bold text-stone-800">Edit Proyek</span>
-              </button>
-            </div>
-          </div>
-
-          {/* ── Budget Summary Card ── */}
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-            {/* Title row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
-                <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
-                  { proyek.status == "AKTIF" ? "Active"
-                   : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
-                </span>
-                <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
-                <p
-                  title={`Rp ${Math.round(proyek.totalRAB || 0).toLocaleString("id-ID")}`}
-                  className="text-2xl font-extrabold text-stone-900 whitespace-nowrap cursor-pointer hover:opacity-80 transition"
-                >
-                  {formatShort(proyek.totalRAB)}
+            {/* ── Page Header + Project Selector ── */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
+                <p className="text-sm text-stone-500 mt-1">
+                  Pantau anggaran, ajukan pos baru, dan kelola tim untuk proyekmu.
                 </p>
               </div>
+
+              <div className="flex items-center gap-2 self-start">
+                {/* Edit Proyek button */}
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(true)}
+                  className="flex items-center gap-1.5 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition cursor-pointer"
+                >
+                  <Settings size={14} className="text-stone-500" />
+                  <span className="text-xs font-bold text-stone-800">Edit Proyek</span>
+                </button>
+              </div>
             </div>
 
-            {/* Stacked bar */}
-            <StackedBar realisasi={proyek.realisasi} total={proyek.totalRAB} />
-
-            {/* Realisasi vs Sisa */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-              {/* Realisasi */}
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
-                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
+            {/* ── Budget Summary Card ── */}
+            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+              {/* Title row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
+                  <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
+                    {proyek.status == "AKTIF" ? "Active"
+                      : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
+                  </span>
+                  <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
                 </div>
-                <p
-                  title={`Rp ${Math.round(proyek.realisasi || 0).toLocaleString("id-ID")}`}
-                  className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
-                >
-                  {formatShort(proyek.realisasi)}
-                </p>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
+                  <p
+                    title={`Rp ${Math.round(proyek.totalRAB || 0).toLocaleString("id-ID")}`}
+                    className="text-2xl font-extrabold text-stone-900 whitespace-nowrap cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.totalRAB)}
+                  </p>
+                </div>
               </div>
 
-              {/* Sisa */}
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-3">
+              {/* Stacked bar */}
+              <StackedBar realisasi={proyek.realisasi} total={proyek.totalRAB} />
+
+              {/* Realisasi vs Sisa */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+                {/* Realisasi */}
+                <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
-                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
+                    <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
+                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
                   </div>
-                  {unallocated > 0 && (
-                    <span
-                      title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`}
-                      className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap cursor-pointer"
+                  <p
+                    title={`Rp ${Math.round(proyek.realisasi || 0).toLocaleString("id-ID")}`}
+                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.realisasi)}
+                  </p>
+                </div>
+
+                {/* Sisa */}
+                <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
+                      <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
+                    </div>
+                    {unallocated > 0 && (
+                      <span
+                        title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`}
+                        className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap cursor-pointer"
+                      >
+                        {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    title={`Rp ${Math.round((proyek.totalRAB - proyek.realisasi) || 0).toLocaleString("id-ID")}`}
+                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.totalRAB - proyek.realisasi)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Bottom two columns ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* ── LEFT: Realisasi per Pos ── */}
+              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4 lg:col-span-7">
+                {/* Section header */}
+                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                  <h3 className="font-bold text-[15px] text-stone-900">Realisasi per Pos Anggaran</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsDetailOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-600 hover:text-stone-800 border border-stone-200 hover:border-stone-300 bg-white hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer"
                     >
-                      {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
-                    </span>
+                      <Eye size={13} />
+                      Lihat Detail Anggaran
+                    </button>
+                    <button
+                      onClick={() => setIsAjukanOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                    >
+                      <Plus size={13} />
+                      Ajukan Pos
+                    </button>
+                    <button
+                      onClick={() => setIsAjukanRealisasiOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                    >
+                      <Plus size={13} />
+                      Ajukan Realisasi
+                    </button>
+                  </div>
+                </div>
+
+                {/* Per-pos stacked bar */}
+                <div className="w-full bg-stone-100 h-4 rounded-full overflow-hidden flex shadow-inner">
+                  {proyek.posAnggaran.map((p) => (
+                    <div
+                      key={p.id}
+                      title={`${p.nama}: ${formatShort(p.alokasi)}`}
+                      style={{ width: `${(p.alokasi / proyek.totalRAB) * 100}%`, backgroundColor: p.warna }}
+                      className="h-full transition-all duration-500"
+                    />
+                  ))}
+                  {unallocated > 0 && (
+                    <div
+                      style={{ width: `${(unallocated / proyek.totalRAB) * 100}%` }}
+                      className="h-full bg-stone-300"
+                      title="Belum dialokasikan"
+                    />
                   )}
                 </div>
-                <p
-                  title={`Rp ${Math.round((proyek.totalRAB - proyek.realisasi) || 0).toLocaleString("id-ID")}`}
-                  className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
-                >
-                  {formatShort(proyek.totalRAB - proyek.realisasi)}
-                </p>
-              </div>
-            </div>
-          </div>
 
-          {/* ── Bottom two columns ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* ── LEFT: Realisasi per Pos ── */}
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4 lg:col-span-7">
-              {/* Section header */}
-              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                <h3 className="font-bold text-[15px] text-stone-900">Realisasi per Pos Anggaran</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsDetailOpen(true)}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-600 hover:text-stone-800 border border-stone-200 hover:border-stone-300 bg-white hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer"
-                  >
-                    <Eye size={13} />
-                    Lihat Detail Anggaran
-                  </button>
-                  <button
-                    onClick={() => setIsAjukanOpen(true)}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
-                  >
-                    <Plus size={13} />
-                    Ajukan Pos
-                  </button>
-                 <button
-                    onClick={() => setIsAjukanRealisasiOpen(true)}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#00754c] hover:bg-[#005836] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
-                  >
-                    <Plus size={13} />
-                    Ajukan Realisasi
-                  </button>
-                </div>
-              </div>
-
-              {/* Per-pos stacked bar */}
-              <div className="w-full bg-stone-100 h-4 rounded-full overflow-hidden flex shadow-inner">
-                {proyek.posAnggaran.map((p) => (
-                  <div
-                    key={p.id}
-                    title={`${p.nama}: ${formatShort(p.alokasi)}`}
-                    style={{ width: `${(p.alokasi / proyek.totalRAB) * 100}%`, backgroundColor: p.warna }}
-                    className="h-full transition-all duration-500"
-                  />
-                ))}
-                {unallocated > 0 && (
-                  <div
-                    style={{ width: `${(unallocated / proyek.totalRAB) * 100}%` }}
-                    className="h-full bg-stone-300"
-                    title="Belum dialokasikan"
-                  />
-                )}
-              </div>
-
-              {/* Legend */}
-              <div>
-                <BarLegend pos={proyek.posAnggaran} total={proyek.totalRAB} />
-              </div>
-
-              {/* Progress rows */}
-              <PosRows pos={proyek.posAnggaran} />
-            </div>
-
-            <div className="lg:col-span-5 flex flex-col gap-4">
-              <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4 border-b border-stone-100 pb-3">
-                  <h3 className="font-bold text-[15px] text-stone-900 flex items-center gap-2">
-                    <Users size={15} className="text-stone-400" />
-                    Tim Proyek
-                  </h3>
+                {/* Legend */}
+                <div>
+                  <BarLegend pos={proyek.posAnggaran} total={proyek.totalRAB} />
                 </div>
 
-                {/* Header row */}
-                <div className="grid grid-cols-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2 px-1">
-                  <span>ROLE (Divisi)</span>
-                  <span>ANGGOTA</span>
-                </div>
+                {/* Progress rows */}
+                <PosRows pos={proyek.posAnggaran} />
+              </div>
 
-                {/* PM row (read-only) */}
-                {proyek.tim.filter((m) => m.role === "Project Manager").map((pm) => (
-                  <div key={pm.id} className="flex items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2 min-w-0">
-                    <span className="flex-1 min-w-0 text-[11px] font-semibold text-emerald-700 truncate">Project Manager</span>
-                    <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${avatarColor(pm.inisial)}`}>
-                        {pm.inisial}
-                      </div>
-                      <span className="text-[11px] font-bold text-stone-800 truncate">{pm.nama}</span>
-                    </div>
+              <div className="lg:col-span-5 flex flex-col gap-4">
+                <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4 border-b border-stone-100 pb-3">
+                    <h3 className="font-bold text-[15px] text-stone-900 flex items-center gap-2">
+                      <Users size={15} className="text-stone-400" />
+                      Tim Proyek
+                    </h3>
                   </div>
-                ))}
 
-                <div className="space-y-2">
-                  {editableRows.map((row, idx) => (
-                    <div key={idx} className="flex items-center bg-stone-50 border border-stone-100 rounded-xl px-2.5 py-2 gap-2 min-w-0">
-                      <input
-                        type="text"
-                        placeholder="Role / Divisi"
-                        value={row.divisi}
-                        onChange={(e) => updateTimRow(idx, "divisi", e.target.value)}
-                        className="flex-1 min-w-0 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
-                      />
-                      <MemberSelect
-                        users={allUsers.filter((u) => {
-                          const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
-                          return !pmMember || u.id !== pmMember.id;
-                        })}
-                        selectedUserId={row.userId}
-                        onSelect={(uid) => updateTimRow(idx, "userId", uid)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeTimRow(idx)}
-                        className="p-1.5 hover:bg-red-50 rounded-lg text-stone-400 hover:text-red-500 transition cursor-pointer shrink-0"
-                        title="Hapus Anggota"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                  {/* Header row */}
+                  <div className="grid grid-cols-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2 px-1">
+                    <span>ROLE (Divisi)</span>
+                    <span>ANGGOTA</span>
+                  </div>
+
+                  {/* PM row (read-only) */}
+                  {proyek.tim.filter((m) => m.role === "Project Manager").map((pm) => (
+                    <div key={pm.id} className="flex items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2 min-w-0">
+                      <span className="flex-1 min-w-0 text-[11px] font-semibold text-emerald-700 truncate">Project Manager</span>
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${avatarColor(pm.inisial)}`}>
+                          {pm.inisial}
+                        </div>
+                        <span className="text-[11px] font-bold text-stone-800 truncate">{pm.nama}</span>
+                      </div>
                     </div>
                   ))}
-                </div>
-               
-                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-100">
-                  <button
-                    type="button"
-                    onClick={addTimRow}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-white border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
-                  >
-                    <Plus size={13} />
-                    Tambah Anggota
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveTim}
-                    disabled={savingTim || !dirtyTim}
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-bold text-white px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm ${
-                      savingTim || !dirtyTim
-                        ? "bg-stone-300 cursor-not-allowed text-stone-500"
-                        : "bg-[#008f5d] hover:bg-[#00754c]"
-                    }`}
-                  >
-                    {savingTim ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    Simpan Anggota
-                  </button>
-                </div>
-              </div>
 
-              <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-[15px] text-stone-900 mb-4 border-b border-stone-100 pb-3">
-                  Reimbursement
-                </h3>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <p className="text-[10px] font-bold text-emerald-600 tracking-wider">
-                      Sudah Reimburse ({proyek.reimbursementDisetujuiCount ?? 0})
-                    </p>
-                    <p className="text-lg font-extrabold text-black mt-1">
-                      {formatShort(proyek.reimbursementDisetujui)}
-                    </p>
+                  <div className="space-y-2">
+                    {editableRows.map((row, idx) => (
+                      <div key={idx} className="flex items-center bg-stone-50 border border-stone-100 rounded-xl px-2.5 py-2 gap-2 min-w-0">
+                        <input
+                          type="text"
+                          placeholder="Role / Divisi"
+                          value={row.divisi}
+                          onChange={(e) => updateTimRow(idx, "divisi", e.target.value)}
+                          className="flex-1 min-w-0 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
+                        />
+                        <MemberSelect
+                          users={allUsers.filter((u) => {
+                            const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
+                            return !pmMember || u.id !== pmMember.id;
+                          })}
+                          selectedUserId={row.userId}
+                          onSelect={(uid) => updateTimRow(idx, "userId", uid)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeTimRow(idx)}
+                          className="p-1.5 hover:bg-red-50 rounded-lg text-stone-400 hover:text-red-500 transition cursor-pointer shrink-0"
+                          title="Hapus Anggota"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <p className="text-[10px] font-bold text-amber-600 tracking-wider">
-                      Belum Reimburse ({proyek.reimbursementBelumDisetujuiCount ?? 0})
-                    </p>
-                    <p className="text-lg font-extrabold text-black mt-1">
-                      {formatShort(proyek.reimbursementBelumDisetujui)}
-                    </p>
+                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-100">
+                    <button
+                      type="button"
+                      onClick={addTimRow}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-white border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                    >
+                      <Plus size={13} />
+                      Tambah Anggota
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveTim}
+                      disabled={savingTim || !dirtyTim}
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-bold text-white px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm ${savingTim || !dirtyTim
+                          ? "bg-stone-300 cursor-not-allowed text-stone-500"
+                          : "bg-[#008f5d] hover:bg-[#00754c]"
+                        }`}
+                    >
+                      {savingTim ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Check size={13} />
+                      )}
+                      Simpan Anggota
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+                  <h3 className="font-bold text-[15px] text-stone-900 mb-4 border-b border-stone-100 pb-3">
+                    Reimbursement
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-emerald-600 tracking-wider">
+                        Sudah Reimburse ({proyek.reimbursementDisetujuiCount ?? 0})
+                      </p>
+                      <p className="text-lg font-extrabold text-black mt-1">
+                        {formatShort(proyek.reimbursementDisetujui)}
+                      </p>
+                    </div>
+
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-amber-600 tracking-wider">
+                        Belum Reimburse ({proyek.reimbursementBelumDisetujuiCount ?? 0})
+                      </p>
+                      <p className="text-lg font-extrabold text-black mt-1">
+                        {formatShort(proyek.reimbursementBelumDisetujui)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </main>
+          </main>
         )}
       </div>
 
