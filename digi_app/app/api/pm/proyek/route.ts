@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
                   merchant: r.merchant,
                   tanggalStruk: r.tanggalStruk,
                   kategoriBukti: r.kategoriBukti,
-                  
+                  createdAt: r.createdAt,
                   fraudFlag: r.fraudFlag,
                   status: r.status,
                   approvals: r.approvals.map((a) => ({

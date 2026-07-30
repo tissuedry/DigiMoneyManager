@@ -10,21 +10,9 @@ function formatFullCurrency(num: number): string {
 }
 
 function formatReimbursementDate(r: any): string {
-  const ocrTanggal = r.tanggalStruk;
-  if (ocrTanggal) {
-    const d = new Date(ocrTanggal);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    }
-  }
-  const ocrSubmitted = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
-  const rawDate = r.timestamp || ocrSubmitted;
-  if (rawDate) {
-    const d = new Date(rawDate);
+  const ocrSubmitted = r.createdAt;
+  if (ocrSubmitted) {
+    const d = new Date(ocrSubmitted);
     if (!isNaN(d.getTime())) {
       return d.toLocaleDateString("id-ID", {
         day: "numeric",
@@ -286,8 +274,6 @@ function AksiButton({
     </div>
   );
 }
-
-
 
 export default function DetailAnggaranModal({
   proyekId,
