@@ -19,9 +19,9 @@ type ApprovalStep = {
 type Submission = {
   id: string;
   dbId: number;
-  date: string; 
+  date: string;
   notaDate?: string;
-  submittedAt: string; 
+  submittedAt: string;
   merchant: string;
   catatanPm: string;
   catatanKeuangan: string;
@@ -38,6 +38,7 @@ type Submission = {
   keterangan: string;
   steps: ApprovalStep[];
   strukUrl?: string;
+  isRealisasi?: boolean;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ function formatDateTime(dateInput: string | Date | null | undefined) {
   if (!dateInput) return "";
   const d = parseDateSafe(dateInput);
   if (!d) return String(dateInput);
-  
+
   return d.toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
@@ -140,12 +141,12 @@ interface RejectModalProps {
   isLoading?: boolean;
 }
 
-const RejectModal: React.FC<RejectModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  data, 
-  isLoading = false 
+const RejectModal: React.FC<RejectModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  data,
+  isLoading = false
 }) => {
   const [alasan, setAlasan] = useState('');
 
@@ -227,7 +228,7 @@ export default function AntrianApprovalPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [catatan, setCatatan] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  
+
   // State untuk kontrol Modal Penolakan
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
@@ -288,7 +289,7 @@ export default function AntrianApprovalPage() {
   const mappedSubmissions = reimbursements.map((r: any): Submission => {
     const pmApproval = r.approvals?.find((a: any) => a.level === 'PM');
     const financeApproval = r.approvals?.find((a: any) => a.level === 'KEUANGAN');
-    
+
     // Fallback super berlapis untuk memastikan tanggal tidak pernah kosong
     const submissionTime = r.createdAt || r.created_at || r.tanggalStruk || r.tanggal;
 
@@ -348,20 +349,22 @@ export default function AntrianApprovalPage() {
       ? r.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase()
       : 'KY';
 
+    const isRealisasi = r.tipe === 'Realisasi Anggaran';
+
     return {
       id: `RB-${String(r.id)}`,
       dbId: r.id,
       date: submissionTime ? formatDateTime(submissionTime) : 'N/A',
       notaDate: r.tanggalStruk ? formatTanggal(r.tanggalStruk) : 'N/A',
       submittedAt: submissionTime ? formatDateTime(submissionTime) : 'N/A',
-      
+
       // Ambil secara langsung dari object r sesuai Prisma
       merchant: r.merchant || r.nama || 'N/A',
       project: r.proyek?.nama || 'N/A',
       main: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'N/A',
       sub: r.keteranganAnggaran?.subAnggaran?.namaSub || 'N/A',
       ket: r.keteranganAnggaran?.keterangan || 'N/A',
-      
+
       catatanPm: pmApproval?.catatan || "",
       catatanKeuangan: financeApproval?.catatan || "",
       rejectionReason,
@@ -372,7 +375,8 @@ export default function AntrianApprovalPage() {
       pengajuInitials: initials,
       keterangan: '-', // Jika ada deskripsi lain, bisa dilampirkan di sini
       steps,
-      strukUrl: r.urlStruk || r.strukUrl
+      strukUrl: r.urlStruk || r.strukUrl,
+      isRealisasi
     };
   });
 
@@ -492,8 +496,8 @@ export default function AntrianApprovalPage() {
                     key={tab}
                     onClick={() => handleTabChange(tab)}
                     className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${activeTab === tab
-                        ? "bg-white text-stone-900 font-semibold shadow-sm"
-                        : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                      ? "bg-white text-stone-900 font-semibold shadow-sm"
+                      : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
                       }`}
                   >
                     {tab}
@@ -555,8 +559,8 @@ export default function AntrianApprovalPage() {
                       key={item.id}
                       onClick={() => setSelectedId(item.id)}
                       className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${isSelected
-                          ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
-                          : "bg-white border-stone-200 hover:bg-stone-50"
+                        ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
+                        : "bg-white border-stone-200 hover:bg-stone-50"
                         }`}
                     >
                       <div className="flex items-start gap-3">
@@ -565,7 +569,13 @@ export default function AntrianApprovalPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-0.5">
-                            <div className="group relative min-w-0">
+                            <div className="group relative min-w-0 flex items-center gap-1.5">
+                              <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide border ${item.isRealisasi
+                                  ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
+                                  : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
+                                }`}>
+                                {item.isRealisasi ? 'REAL' : 'REIMB'}
+                              </span>
                               <p className="text-[12px] font-bold text-stone-800 truncate">
                                 {item.merchant}
                               </p>
@@ -641,15 +651,23 @@ export default function AntrianApprovalPage() {
                   <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
                     {/* Header Detail */}
                     <div className="border-b border-stone-100 pb-4">
-                      <div className="flex items-start justify-between mb-1">
-                        <p className="text-[12px] text-stone-400 font-medium font-mono">{selected.id}</p>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[12px] text-stone-400 font-medium font-mono">{selected.id}</p>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${selected.isRealisasi
+                              ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
+                              : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
+                            }`}>
+                            {selected.isRealisasi ? 'REALISASI' : 'REIMBURSEMENT'}
+                          </span>
+                        </div>
                         <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${getStatusBadge(selected.status)}`}>
                           {selected.status}
                         </span>
                       </div>
-                      <h2 className="text-[22px] font-bold text-stone-900">{selected.merchant}</h2>
+                      <h2 className="text-[22px] font-bold text-stone-900 leading-tight">{selected.merchant}</h2>
                       <p className="text-[13px] text-stone-400 mt-0.5">
-                        oleh <span className="font-semibold text-stone-600">{selected.pengaju}</span>
+                        diajukan oleh <span className="font-semibold text-stone-600">{selected.pengaju}</span>
                         {selected.date !== 'N/A' && selected.date !== '' ? <> pada {selected.date}</> : <span className="italic text-stone-300"> · tanggal tidak tersedia</span>}
                       </p>
                     </div>
@@ -848,12 +866,12 @@ export default function AntrianApprovalPage() {
         onClose={() => setIsRejectModalOpen(false)}
         onSubmit={(alasanTeks) => handleProcess('REJECT', alasanTeks)}
         data={
-          selected 
-            ? { 
-                merchant: selected.merchant, 
-                userName: selected.pengaju, 
-                nominal: selected.amountRaw 
-              } 
+          selected
+            ? {
+              merchant: selected.merchant,
+              userName: selected.pengaju,
+              nominal: selected.amountRaw
+            }
             : undefined
         }
         isLoading={isSubmittingReject}
