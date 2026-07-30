@@ -250,13 +250,6 @@ export default function AnggotaPage() {
       return;
     }
 
-    // Validation: 1 PM can only hold 1 project as Project Manager
-    const pmAssignmentsCount = selectedProyekAssignments.filter((pa) => pa.role === "Project Manager").length;
-    if (pmAssignmentsCount > 1) {
-      setFormError("Seorang Project Manager (PM) hanya boleh memegang 1 proyek. Mohon atur maksimal 1 proyek sebagai PM.");
-      return;
-    }
-
     setSubmitting(true);
 
     try {

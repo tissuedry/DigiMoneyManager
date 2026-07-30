@@ -243,16 +243,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: 'Tidak ada perubahan data. Anggota sudah memiliki role tersebut pada proyek terkait.' }, { status: 400 });
     }
 
-    // Enforce PM Constraints: Max 1 project per PM & Max 1 PM per project
+    // Enforce PM Constraint: Max 1 PM per project (A single project cannot have multiple PMs)
     if (proyekAssignments && Array.isArray(proyekAssignments)) {
       const pmAsses = proyekAssignments.filter((pa: any) => pa.role === 'Project Manager');
-      if (pmAsses.length > 1) {
-        return NextResponse.json({ message: 'Seorang Project Manager (PM) hanya dapat memegang 1 proyek.' }, { status: 400 });
-      }
-
-      if (pmAsses.length === 1) {
-        const targetProyekId = parseInt(pmAsses[0].proyekId, 10);
-        // Check if target project already has another PM
+      for (const pmAss of pmAsses) {
+        const targetProyekId = parseInt(pmAss.proyekId, 10);
         const existingProjectPm = await prisma.userProyek.findFirst({
           where: {
             proyekId: targetProyekId,
@@ -264,21 +259,6 @@ export async function PUT(req: NextRequest) {
         if (existingProjectPm) {
           return NextResponse.json({
             message: `Proyek '${existingProjectPm.proyek.nama}' sudah memiliki Project Manager (${existingProjectPm.user.nama}). Setiap proyek hanya boleh memiliki satu Project Manager.`,
-          }, { status: 400 });
-        }
-
-        // Check if user is already PM on a DIFFERENT project
-        const userOtherPm = await prisma.userProyek.findFirst({
-          where: {
-            userId: parseInt(userId, 10),
-            role: 'Project Manager',
-            proyekId: { not: targetProyekId },
-          },
-          include: { proyek: true },
-        });
-        if (userOtherPm) {
-          return NextResponse.json({
-            message: `Pengguna '${nama}' sudah menjadi Project Manager pada proyek '${userOtherPm.proyek.nama}'. Seorang PM hanya boleh memegang 1 proyek.`,
           }, { status: 400 });
         }
       }
