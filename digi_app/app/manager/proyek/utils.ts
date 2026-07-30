@@ -114,7 +114,7 @@ export function calculateTotalTerpakai(detailedProjectInfo: any, fallbackValue: 
           const subRealisasi = hasKet
             ? sub.keterangan.reduce((accKet: number, k: any) => {
                 const reimbs = (k.reimbursements || []).filter((r: any) =>
-                  ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+                  ['APPROVED', 'PAID', 'DISBURSED'].includes(r.status)
                 );
                 const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
                 return accKet + (sumReimbs || parseFloat(k.nominalRealisasi) || 0);
