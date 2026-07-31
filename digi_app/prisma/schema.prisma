@@ -130,7 +130,7 @@ model Reimbursement {
   jurnalAkuntansi      JurnalAkuntansi[]
   keteranganAnggaran   KeteranganAnggaran @relation(fields: [keteranganAnggaranId], references: [id])
   proyek               Proyek             @relation(fields: [proyekId], references: [id], onDelete: Cascade)
-  user                 User               @relation(fields: [userId], references: [id])
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([keteranganAnggaranId])
   @@index([status, proyekId])
@@ -148,7 +148,7 @@ model Approval {
   catatan         String?
   alasan          String?
   timestamp       DateTime      @default(now())
-  approver        User          @relation(fields: [approverId], references: [id])
+  approver        User          @relation(fields: [approverId], references: [id], onDelete: Cascade)
   reimbursement   Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
 
   @@index([reimbursementId])
@@ -210,7 +210,7 @@ model PengajuanAnggaran {
   catatan     String?
   createdAt   DateTime                @default(now()) @map("created_at")
   processedAt DateTime?               @map("diproses_pada")
-  pengaju     User                    @relation(fields: [pengajuId], references: [id])
+  pengaju     User                    @relation(fields: [pengajuId], references: [id], onDelete: Cascade)
   proyek      Proyek                  @relation(fields: [proyekId], references: [id], onDelete: Cascade)
   items       PengajuanAnggaranItem[]
 
