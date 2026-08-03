@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X, Upload, Loader2, Search, ChevronRight, Plus } from "lucide-react";
 import { useApi } from "@/lib/use-api";
+import ConfirmDialog from "@/components/confirm-dialog";
+import SuccessDialog from "@/components/success-dialog";
 
 function formatRupiah(value: string): string {
   const digitsOnly = value.replace(/\D/g, "");
@@ -41,6 +43,8 @@ export default function AjukanRealisasiModal({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Ambil data tree Pos Anggaran proyek ini
   const { data: posData, isLoading: isLoadingPos } = useApi<any>(`/api/proyek/${proyekId}/pos-anggaran`);
@@ -87,13 +91,20 @@ export default function AjukanRealisasiModal({
     if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPos) return alert("Keterangan anggaran wajib dipilih!");
     if (!namaRealisasi.trim()) return alert("Nama realisasi wajib diisi!");
-    
+
     const cleanNominal = nominal.replace(/\./g, "");
     if (!cleanNominal || Number(cleanNominal) <= 0) return alert("Nominal tidak valid!");
+
+    setShowConfirm(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!selectedPos) return;
+    const cleanNominal = nominal.replace(/\./g, "");
 
     setIsSubmitting(true);
     try {
@@ -101,13 +112,13 @@ export default function AjukanRealisasiModal({
       formData.append("proyekId", String(proyekId));
       formData.append("keteranganAnggaranId", selectedPos.id);
       formData.append("nominal", cleanNominal);
-      
+
       // Integrasi ke kolom database yang baru dirombak!
       formData.append("nama", namaRealisasi);
       formData.append("tipe", "Realisasi Anggaran");
       formData.append("tanggalStruk", new Date().toISOString().split("T")[0]); // Default hari ini
       formData.append("kategoriBukti", "Lainnya");
-      
+
       if (catatan.trim()) formData.append("deskripsi", catatan);
       if (file) formData.append("file", file);
 
@@ -118,14 +129,17 @@ export default function AjukanRealisasiModal({
 
       if (res.ok) {
         onRefresh();
-        onClose();
+        setShowConfirm(false);
+        setShowSuccess(true);
       } else {
         const err = await res.json();
         alert(err.message || "Gagal mengajukan realisasi");
+        setShowConfirm(false);
       }
     } catch (error) {
       console.error(error);
       alert("Terjadi kesalahan jaringan.");
+      setShowConfirm(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -293,6 +307,30 @@ export default function AjukanRealisasiModal({
         </form>
 
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="Ajukan Realisasi"
+        description={
+          <>
+            Apakah Anda yakin ingin mengajukan realisasi <span className="font-semibold text-stone-900">{namaRealisasi}</span> senilai <span className="font-semibold text-stone-900">Rp {nominal || "0"}</span> untuk keterangan <span className="font-semibold text-stone-900">{selectedPos?.keterangan}</span>?
+          </>
+        }
+        confirmLabel="Ajukan"
+        isLoading={isSubmitting}
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={handleConfirmSubmit}
+      />
+
+      <SuccessDialog
+        open={showSuccess}
+        title="Realisasi Terkirim"
+        description={<>Realisasi <span className="font-semibold text-[#14130F]">{namaRealisasi}</span> berhasil diajukan.</>}
+        onClose={() => {
+          setShowSuccess(false);
+          onClose();
+        }}
+      />
     </div>
   );
 }
