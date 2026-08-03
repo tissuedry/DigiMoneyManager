@@ -2,6 +2,8 @@
 
 import React, { useState, useCallback } from "react";
 import { X } from "lucide-react";
+import ConfirmDialog from "@/components/confirm-dialog";
+import SuccessDialog from "@/components/success-dialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +56,8 @@ export default function EditAlokasiModal({
   const [inputStr, setInputStr] = useState<string>(formatRpInput(target.currentAlokasi));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Live total teralokasi & sisa nilai proyek / main / sub
   const liveTotalTeralokasi = otherAlokasi + alokasiBaru;
@@ -103,8 +107,12 @@ export default function EditAlokasiModal({
   const minChildAlokasi = target.totalChildrenAlokasi || 0;
   const isInvalid = minChildAlokasi > 0 && alokasiBaru < minChildAlokasi;
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (isInvalid) return;
+    setShowConfirm(true);
+  };
+
+  const handleConfirmSave = async () => {
     setSaving(true);
     setError("");
     try {
@@ -120,12 +128,14 @@ export default function EditAlokasiModal({
       if (!res.ok) {
         const data = await res.json();
         setError(data.message || "Gagal menyimpan.");
+        setShowConfirm(false);
         return;
       }
-      onSuccess();
-      onClose();
+      setShowConfirm(false);
+      setShowSuccess(true);
     } catch {
       setError("Terjadi kesalahan jaringan.");
+      setShowConfirm(false);
     } finally {
       setSaving(false);
     }
@@ -313,6 +323,30 @@ export default function EditAlokasiModal({
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title={`Simpan Alokasi ${typeLabel}`}
+        description={
+          <>
+            Apakah Anda yakin ingin mengubah alokasi <span className="font-semibold text-stone-900">{target.nama}</span> dari <span className="font-semibold text-stone-900">{formatFullCurrency(target.currentAlokasi)}</span> menjadi <span className="font-semibold text-stone-900">{formatFullCurrency(alokasiBaru)}</span>?
+          </>
+        }
+        confirmLabel="Terapkan"
+        isLoading={saving}
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={handleConfirmSave}
+      />
+
+      <SuccessDialog
+        open={showSuccess}
+        title="Alokasi Berhasil Disimpan"
+        description={<>Alokasi <span className="font-semibold text-[#14130F]">{target.nama}</span> berhasil diperbarui menjadi <span className="font-semibold text-[#14130F]">{formatFullCurrency(alokasiBaru)}</span>.</>}
+        onClose={() => {
+          setShowSuccess(false);
+          onSuccess();
+        }}
+      />
     </div>
   );
 }
