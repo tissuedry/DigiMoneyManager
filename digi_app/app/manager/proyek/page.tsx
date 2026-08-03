@@ -91,6 +91,9 @@ export default function KelolaProyekPage() {
   const [showAddProjectConfirm, setShowAddProjectConfirm] = useState(false);
   const [showAddProjectSuccess, setShowAddProjectSuccess] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [showEditProjectConfirm, setShowEditProjectConfirm] = useState(false);
+  const [showEditProjectSuccess, setShowEditProjectSuccess] = useState(false);
+  const [editedProjectName, setEditedProjectName] = useState("");
 
   const [projectForm, setProjectForm] = useState({
     nama: "",
@@ -388,11 +391,15 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const handleUpdateProject = async (e: React.FormEvent) => {
+  const handleUpdateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!showProjectDetail) return;
     setFormError("");
-    setSuccess("");
+    setShowEditProjectConfirm(true);
+  };
+
+  const handleConfirmUpdateProject = async () => {
+    if (!showProjectDetail) return;
     setSubmitting(true);
 
     try {
@@ -411,16 +418,20 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || "Gagal memperbarui proyek");
+        setShowEditProjectConfirm(false);
         return;
       }
 
-      setSuccess(`Proyek "${editForm.nama}" berhasil diperbarui!`);
+      setEditedProjectName(editForm.nama);
       setEditMode(false);
       setShowProjectDetail(null);
       setIsDirectEdit(false);
+      setShowEditProjectConfirm(false);
+      setShowEditProjectSuccess(true);
       fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowEditProjectConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -1050,6 +1061,27 @@ export default function KelolaProyekPage() {
         title="Proyek Berhasil Dibuat"
         description={<>Proyek <span className="font-semibold text-[#14130F]">{newProjectName}</span> berhasil dibuat.</>}
         onClose={() => setShowAddProjectSuccess(false)}
+      />
+
+      <ConfirmDialog
+        open={showEditProjectConfirm}
+        title="Simpan Perubahan Proyek"
+        description={
+          <>
+            Apakah Anda yakin ingin menyimpan perubahan proyek <span className="font-semibold text-stone-900">{editForm.nama}</span>? Status akan diubah menjadi <span className="font-semibold text-stone-900">{editForm.status}</span>, periode {editForm.tanggalMulai} s/d {editForm.tanggalSelesai || "-"}.
+          </>
+        }
+        confirmLabel="Simpan"
+        isLoading={submitting}
+        onCancel={() => setShowEditProjectConfirm(false)}
+        onConfirm={handleConfirmUpdateProject}
+      />
+
+      <SuccessDialog
+        open={showEditProjectSuccess}
+        title="Proyek Berhasil Diperbarui"
+        description={<>Proyek <span className="font-semibold text-[#14130F]">{editedProjectName}</span> berhasil diperbarui.</>}
+        onClose={() => setShowEditProjectSuccess(false)}
       />
     </main>
   );
