@@ -94,6 +94,9 @@ export default function KelolaProyekPage() {
   const [showEditProjectConfirm, setShowEditProjectConfirm] = useState(false);
   const [showEditProjectSuccess, setShowEditProjectSuccess] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState("");
+  const [showInitBudgetConfirm, setShowInitBudgetConfirm] = useState(false);
+  const [showInitBudgetSuccess, setShowInitBudgetSuccess] = useState(false);
+  const [initBudgetProjectName, setInitBudgetProjectName] = useState("");
 
   const [projectForm, setProjectForm] = useState({
     nama: "",
@@ -618,11 +621,10 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const handleInitBudget = async (e: React.FormEvent) => {
+  const handleInitBudget = (e: React.FormEvent) => {
     e.preventDefault();
     if (!showInitBudget) return;
     setFormError("");
-    setSuccess("");
 
     const total = ribuanToNumber(rabTotal);
     if (total <= 0) {
@@ -635,6 +637,13 @@ export default function KelolaProyekPage() {
       setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString("id-ID")}) tidak boleh melebihi total Nilai Proyek (Rp ${total.toLocaleString("id-ID")})`);
       return;
     }
+
+    setShowInitBudgetConfirm(true);
+  };
+
+  const handleConfirmInitBudget = async () => {
+    if (!showInitBudget) return;
+    const total = ribuanToNumber(rabTotal);
 
     setSubmitting(true);
     try {
@@ -653,15 +662,19 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || "Gagal menginisialisasi budget");
+        setShowInitBudgetConfirm(false);
         return;
       }
 
-      setSuccess(`Budget Proyek untuk "${showInitBudget.nama}" berhasil diinisialisasi!`);
+      setInitBudgetProjectName(showInitBudget.nama);
       setShowInitBudget(null);
       setRabTotal("");
+      setShowInitBudgetConfirm(false);
+      setShowInitBudgetSuccess(true);
       fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowInitBudgetConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -1082,6 +1095,30 @@ export default function KelolaProyekPage() {
         title="Proyek Berhasil Diperbarui"
         description={<>Proyek <span className="font-semibold text-[#14130F]">{editedProjectName}</span> berhasil diperbarui.</>}
         onClose={() => setShowEditProjectSuccess(false)}
+      />
+
+      <ConfirmDialog
+        open={showInitBudgetConfirm}
+        title="Simpan Nilai Proyek"
+        description={
+          showInitBudget && (
+            <>
+              Apakah Anda yakin ingin menyimpan Nilai Proyek <span className="font-semibold text-stone-900">{showInitBudget.nama}</span> senilai <span className="font-semibold text-stone-900">Rp {rabTotal}</span> dengan <span className="font-semibold text-stone-900">{posAnggaranList.length} pos anggaran</span>? Data pos anggaran yang sudah ada sebelumnya akan diganti sesuai isian ini.
+            </>
+          )
+        }
+        confirmLabel="Simpan"
+        variant="danger"
+        isLoading={submitting}
+        onCancel={() => setShowInitBudgetConfirm(false)}
+        onConfirm={handleConfirmInitBudget}
+      />
+
+      <SuccessDialog
+        open={showInitBudgetSuccess}
+        title="Nilai Proyek Berhasil Disimpan"
+        description={<>Nilai Proyek <span className="font-semibold text-[#14130F]">{initBudgetProjectName}</span> berhasil disimpan.</>}
+        onClose={() => setShowInitBudgetSuccess(false)}
       />
     </main>
   );
