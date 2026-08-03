@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { UserPlus, Loader2, Check, X, Search, ChevronDown, Users, Edit2, Briefcase, AlertTriangle } from "lucide-react";
+import ConfirmDialog from "@/components/confirm-dialog";
+import SuccessDialog from "@/components/success-dialog";
 
 type Proyek = { id: number; nama: string; status: string };
 type Member = {
@@ -81,6 +83,8 @@ export default function AnggotaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
   const [formError, setFormError] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState("Semua");
   const [selectedProyekAssignments, setSelectedProyekAssignments] = useState<{ proyekId: number; role: string }[]>([]);
@@ -240,7 +244,7 @@ export default function AnggotaPage() {
     return namaChanged || emailChanged || roleChanged || divisiChanged || assignmentsChanged;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setSuccess("");
@@ -250,6 +254,10 @@ export default function AnggotaPage() {
       return;
     }
 
+    setShowConfirm(true);
+  };
+
+  const handleConfirmSubmit = async () => {
     setSubmitting(true);
 
     try {
@@ -282,6 +290,7 @@ export default function AnggotaPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || `Gagal ${editingMember ? "memperbarui" : "mendaftarkan"} anggota`);
+        setShowConfirm(false);
         return;
       }
 
@@ -291,8 +300,11 @@ export default function AnggotaPage() {
       setShowForm(false);
       setEditingMember(null);
       fetchMembers(1, true);
+      setShowConfirm(false);
+      setShowSuccessDialog(true);
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -316,14 +328,6 @@ export default function AnggotaPage() {
           Tambah Anggota
         </button>
       </div>
-
-      {/* Success Banner */}
-      {success && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 animate-fade-in">
-          <Check size={16} />
-          {success}
-        </div>
-      )}
 
       {/* Registration / Edit Form */}
       {showForm && (
@@ -666,6 +670,36 @@ export default function AnggotaPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title={editingMember ? "Simpan Perubahan Anggota" : "Daftarkan Anggota Baru"}
+        description={
+          editingMember ? (
+            <>
+              Apakah Anda yakin ingin menyimpan perubahan data <span className="font-semibold text-stone-900">{form.nama}</span>? Role dan akses proyeknya akan diperbarui sesuai form ini.
+            </>
+          ) : (
+            <>
+              Apakah Anda yakin ingin mendaftarkan <span className="font-semibold text-stone-900">{form.nama}</span> ({form.email}) sebagai <span className="font-semibold text-stone-900">{form.userRole}</span>?
+            </>
+          )
+        }
+        confirmLabel={editingMember ? "Simpan" : "Daftarkan"}
+        isLoading={submitting}
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={handleConfirmSubmit}
+      />
+
+      <SuccessDialog
+        open={showSuccessDialog}
+        title={success.includes("diperbarui") ? "Anggota Berhasil Diperbarui" : "Anggota Berhasil Didaftarkan"}
+        description={success}
+        onClose={() => {
+          setShowSuccessDialog(false);
+          setSuccess("");
+        }}
+      />
     </main>
   );
 }
