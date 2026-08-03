@@ -30,6 +30,7 @@ export default function ChartOfAccountPage() {
   const [editNomorAkun, setEditNomorAkun] = useState('');
   const [editNamaAkun, setEditNamaAkun] = useState('');
   const [editTipe, setEditTipe] = useState('Aset');
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<any | null>(null);
@@ -65,19 +66,24 @@ export default function ChartOfAccountPage() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [activeMenuAccountId]);
 
-  const handleEditAccount = async (e: React.FormEvent) => {
+  const handleEditAccount = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
-    setIsSubmitting(true);
 
     if (!editingAccount) return;
 
     if (!editNomorAkun || !editNamaAkun || !editTipe) {
       setErrorMessage('Nomor Akun, Nama Akun, dan Tipe wajib diisi.');
-      setIsSubmitting(false);
       return;
     }
+
+    setShowEditConfirm(true);
+  };
+
+  const handleConfirmEditAccount = async () => {
+    if (!editingAccount) return;
+    setIsSubmitting(true);
 
     try {
       const res = await fetch(`/api/coa/${editingAccount.id}`, {
@@ -99,7 +105,8 @@ export default function ChartOfAccountPage() {
       }
 
       setSuccessMessage('Akun berhasil diubah!');
-      
+      setShowEditConfirm(false);
+
       // Refresh list
       const fetchRes = await fetch('/api/coa');
       const fetchData = await fetchRes.json();
@@ -114,6 +121,7 @@ export default function ChartOfAccountPage() {
       }, 1500);
     } catch (err: any) {
       setErrorMessage(err.message || 'Terjadi kesalahan sistem.');
+      setShowEditConfirm(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -732,6 +740,36 @@ export default function ChartOfAccountPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showEditConfirm && !!editingAccount}
+        title="Simpan Perubahan Akun"
+        description={
+          editingAccount && (
+            <>
+              Apakah Anda yakin ingin menyimpan perubahan pada akun <span className="font-semibold text-[#14130F]">{editingAccount.nomorAkun} - {editingAccount.namaAkun}</span> menjadi:
+              <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3 mt-3 space-y-1.5">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Nomor Akun</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editNomorAkun}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Nama Akun</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editNamaAkun}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Tipe</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editTipe}</dd>
+                </div>
+              </dl>
+            </>
+          )
+        }
+        confirmLabel={isSubmitting ? 'Menyimpan...' : 'Simpan'}
+        isLoading={isSubmitting}
+        onCancel={() => setShowEditConfirm(false)}
+        onConfirm={handleConfirmEditAccount}
+      />
 
       <ConfirmDialog
         open={showDeleteModal && !!deletingAccount}
