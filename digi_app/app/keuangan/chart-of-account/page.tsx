@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import SuccessDialog from '@/components/success-dialog';
 
 export default function ChartOfAccountPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -32,6 +33,8 @@ export default function ChartOfAccountPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedAccountLabel, setDeletedAccountLabel] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,8 +140,10 @@ export default function ChartOfAccountPage() {
         setAccounts(fetchData.coa);
       }
 
+      setDeletedAccountLabel(`${deletingAccount.nomorAkun} - ${deletingAccount.namaAkun}`);
       setShowDeleteModal(false);
       setDeletingAccount(null);
+      setShowDeleteSuccess(true);
     } catch (err: any) {
       alert(err.message || 'Terjadi kesalahan sistem saat menghapus akun.');
     } finally {
@@ -759,6 +764,13 @@ export default function ChartOfAccountPage() {
           </div>
         </div>
       )}
+
+      <SuccessDialog
+        open={showDeleteSuccess}
+        title="Akun Berhasil Dihapus"
+        description={<>Akun <span className="font-semibold text-[#14130F]">{deletedAccountLabel}</span> telah dihapus dari Chart of Account.</>}
+        onClose={() => setShowDeleteSuccess(false)}
+      />
     </div>
   );
 }
