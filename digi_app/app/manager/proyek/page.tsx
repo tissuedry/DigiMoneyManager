@@ -13,6 +13,7 @@ import InitBudgetModal from "./InitBudgetModal";
 import ProjectDetailSidebar from "./ProjectDetailSidebar";
 import DetailBudgetModal from "./DetailBudgetModal";
 import PendingPmModal from "./PendingPmModal";
+import SuccessDialog from "@/components/success-dialog";
 
 export default function KelolaProyekPage() {
   const [activeStatus, setActiveStatus] = useState('Semua');
@@ -39,6 +40,10 @@ export default function KelolaProyekPage() {
   const [rejectingPengajuan, setRejectingPengajuan] = useState<any | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<Record<number, boolean>>({});
   const [rejectionReason, setRejectionReason] = useState("");
+  const [showBulkRejectSuccess, setShowBulkRejectSuccess] = useState(false);
+  const [bulkRejectedCount, setBulkRejectedCount] = useState(0);
+  const [showBulkApproveSuccess, setShowBulkApproveSuccess] = useState(false);
+  const [bulkApprovedCount, setBulkApprovedCount] = useState(0);
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<string, boolean>>({});
   const [expandedKet, setExpandedKet] = useState<Record<string, boolean>>({});
@@ -212,7 +217,13 @@ export default function KelolaProyekPage() {
 
       const allOk = results.every(res => res.ok);
       if (allOk) {
-        alert(action === 'APPROVE' ? `Berhasil menyetujui ${selectedItemIds.length} item pengajuan!` : `Berhasil menolak ${selectedItemIds.length} item pengajuan.`);
+        if (action === 'REJECT') {
+          setBulkRejectedCount(selectedItemIds.length);
+          setShowBulkRejectSuccess(true);
+        } else {
+          setBulkApprovedCount(selectedItemIds.length);
+          setShowBulkApproveSuccess(true);
+        }
 
         setRejectingPengajuan(null);
         setRejectionReason("");
@@ -993,6 +1004,20 @@ export default function KelolaProyekPage() {
         rejectionReason={rejectionReason}
         setRejectionReason={setRejectionReason}
         handleBulkReview={handleBulkReview}
+      />
+
+      <SuccessDialog
+        open={showBulkRejectSuccess}
+        title="Pengajuan Ditolak"
+        description={<>Berhasil menolak <span className="font-semibold text-[#14130F]">{bulkRejectedCount}</span> item pengajuan.</>}
+        onClose={() => setShowBulkRejectSuccess(false)}
+      />
+
+      <SuccessDialog
+        open={showBulkApproveSuccess}
+        title="Pengajuan Disetujui"
+        description={<>Berhasil menyetujui <span className="font-semibold text-[#14130F]">{bulkApprovedCount}</span> item pengajuan.</>}
+        onClose={() => setShowBulkApproveSuccess(false)}
       />
     </main>
   );
