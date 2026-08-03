@@ -8,6 +8,8 @@ import {
 
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import ConfirmDialog from '@/components/confirm-dialog';
+import SuccessDialog from '@/components/success-dialog';
 import { useApi, useInvalidate } from '@/lib/use-api';
 
 function formatTanggal(iso: string) {
@@ -184,6 +186,11 @@ function PencairanContent() {
   // State untuk Kontrol Reject Modal
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [showApproveSuccess, setShowApproveSuccess] = useState(false);
+  const [approvedLabel, setApprovedLabel] = useState('');
+  const [showAccountWarning, setShowAccountWarning] = useState(false);
 
   const resetZoomAndPan = () => {
     setZoomScale(1);
@@ -312,15 +319,14 @@ function PencairanContent() {
 
     if (action === 'APPROVE') {
       if (!debitAccount || !creditAccount) {
-        alert("Harap pilih Akun Debit dan Akun Kredit terlebih dahulu.");
+        setShowAccountWarning(true);
         return;
       }
-      if (!confirm("Apakah Anda yakin ingin mencairkan pengajuan ini dan men-generate jurnal?")) {
-        return;
-      }
-    } else {
-      setIsSubmittingReject(true);
+      setShowApproveConfirm(true);
+      return;
     }
+
+    setIsSubmittingReject(true);
 
     try {
       const res = await fetch(`/api/reimbursements/${selectedItem.id}/approve`, {
@@ -336,8 +342,8 @@ function PencairanContent() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(action === 'APPROVE' ? "Pengajuan berhasil dicairkan dan jurnal akuntansi telah di-generate!" : "Pengajuan berhasil ditolak.");
-        if (action === 'REJECT') setIsRejectModalOpen(false);
+        alert("Pengajuan berhasil ditolak.");
+        setIsRejectModalOpen(false);
         invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
       } else {
         alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
@@ -346,7 +352,39 @@ function PencairanContent() {
       console.error(err);
       alert("Terjadi kesalahan sistem saat memproses pengajuan.");
     } finally {
-      if (action === 'REJECT') setIsSubmittingReject(false);
+      setIsSubmittingReject(false);
+    }
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!selectedItem) return;
+    setIsApproving(true);
+
+    try {
+      const res = await fetch(`/api/reimbursements/${selectedItem.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'APPROVE',
+          catatan,
+          noAkunDebit: debitAccount,
+          noAkunKredit: creditAccount
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setApprovedLabel(selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || 'Pengajuan');
+        setShowApproveConfirm(false);
+        invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
+        setShowApproveSuccess(true);
+      } else {
+        alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -946,6 +984,56 @@ function PencairanContent() {
             : undefined
         }
         isLoading={isSubmittingReject}
+      />
+
+      <ConfirmDialog
+        open={showApproveConfirm && !!selectedItem}
+        title="Cairkan & Generate Jurnal"
+        description={
+          selectedItem && (
+            <div className="space-y-2.5">
+              <p>Apakah Anda yakin ingin mencairkan pengajuan ini dan men-generate jurnal?</p>
+              <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3 space-y-1.5">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Pemohon</dt>
+                  <dd className="font-bold text-stone-800 text-right">{selectedItem.user?.nama || '-'}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Nominal</dt>
+                  <dd className="font-bold text-stone-800 text-right">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Akun Debit</dt>
+                  <dd className="font-bold text-stone-800 text-right">{debitAccount} {coaList.find((c: any) => c.nomorAkun === debitAccount)?.namaAkun || ''}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Akun Kredit</dt>
+                  <dd className="font-bold text-stone-800 text-right">{creditAccount} {coaList.find((c: any) => c.nomorAkun === creditAccount)?.namaAkun || ''}</dd>
+                </div>
+              </dl>
+            </div>
+          )
+        }
+        confirmLabel="Cairkan"
+        isLoading={isApproving}
+        onCancel={() => setShowApproveConfirm(false)}
+        onConfirm={handleConfirmApprove}
+      />
+
+      <SuccessDialog
+        open={showApproveSuccess}
+        title="Berhasil Dicairkan"
+        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{approvedLabel}</span> berhasil dicairkan dan jurnal akuntansi telah di-generate.</>}
+        onClose={() => setShowApproveSuccess(false)}
+      />
+
+      <SuccessDialog
+        open={showAccountWarning}
+        variant="warning"
+        title="Lengkapi Data Akun Pencairan"
+        description="Harap pilih Akun Debit dan Akun Kredit terlebih dahulu sebelum mencairkan pengajuan."
+        closeLabel="Mengerti"
+        onClose={() => setShowAccountWarning(false)}
       />
 
       {/* Modal Zoom Gambar */}
