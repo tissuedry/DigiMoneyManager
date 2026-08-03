@@ -5,7 +5,7 @@ import { Filter, Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react"
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import ConfirmDialog from '@/components/confirm-dialog';
-import SuccessDialog from '@/components/success-dialog';
+import Toast from '@/components/toast';
 import { useApi, useInvalidate } from '@/lib/use-api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -929,17 +929,15 @@ export default function AntrianApprovalPage() {
         onConfirm={handleConfirmApprove}
       />
 
-      <SuccessDialog
+      <Toast
         open={showApproveSuccess}
-        title="Berhasil Diteruskan"
-        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{approvedLabel}</span> berhasil disetujui dan diteruskan ke Tim Keuangan.</>}
+        message={`Pengajuan ${approvedLabel} berhasil disetujui dan diteruskan ke Tim Keuangan.`}
         onClose={() => setShowApproveSuccess(false)}
       />
 
-      <SuccessDialog
+      <Toast
         open={showRejectSuccess}
-        title="Pengajuan Ditolak"
-        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{rejectedLabel}</span> berhasil ditolak.</>}
+        message={`Pengajuan ${rejectedLabel} berhasil ditolak.`}
         onClose={() => setShowRejectSuccess(false)}
       />
 
