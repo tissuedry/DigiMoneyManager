@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Bell, Menu, LogOut, Check, ArrowRight, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useApi, useMutate } from "@/lib/use-api";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 export type UserRole = "Karyawan" | "Project Manager" | "Tim Keuangan" | "Direktur / Manajemen";
 
@@ -71,6 +72,8 @@ const ROLE_AVATAR_STYLES: Record<UserRole, { bg: string; text: string }> = {
 export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotificationDropdown = false }: HeaderProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -122,6 +125,7 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
 
   // Logout function
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       const res = await fetch("/api/auth/logout", {
         method: "POST",
@@ -131,6 +135,7 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
       }
     } catch (err) {
       console.error("Error logging out:", err);
+      setIsLoggingOut(false);
     }
   };
 
@@ -376,7 +381,10 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
               )}
 
               <button
-                onClick={handleLogout}
+                onClick={() => {
+                  setIsProfileOpen(false);
+                  setShowLogoutConfirm(true);
+                }}
                 className="w-full px-4 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 transition cursor-pointer"
               >
                 <LogOut size={14} />
@@ -386,6 +394,17 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title="Keluar dari Akun"
+        description="Apakah Anda yakin ingin keluar dari akun ini?"
+        confirmLabel="Keluar"
+        variant="danger"
+        isLoading={isLoggingOut}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+      />
     </header>
   );
 }

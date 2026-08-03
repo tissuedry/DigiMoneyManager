@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Briefcase, ChevronRight, ChevronLeft, LogOut, Loader2, FolderOpen, AlertCircle, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
+import ConfirmDialog from '@/components/confirm-dialog';
 
 type ProjectAssignment = {
   proyekId: number;
@@ -44,6 +45,8 @@ export default function SelectProjectPage() {
   const [selectingId, setSelectingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const ITEMS_PER_PAGE = 6;
 
   const queryClient = useQueryClient();
@@ -95,6 +98,7 @@ export default function SelectProjectPage() {
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       const res = await fetch('/api/auth/logout', { method: 'POST' });
       if (res.ok) {
@@ -102,6 +106,7 @@ export default function SelectProjectPage() {
       }
     } catch (err) {
       console.error('Logout error:', err);
+      setIsLoggingOut(false);
     }
   };
 
@@ -147,7 +152,7 @@ export default function SelectProjectPage() {
         </div>
 
         <button
-          onClick={handleLogout}
+          onClick={() => setShowLogoutConfirm(true)}
           className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-xl text-xs font-bold bg-white text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition cursor-pointer shadow-sm"
         >
           <LogOut size={13} />
@@ -335,6 +340,17 @@ export default function SelectProjectPage() {
       <footer className="w-full border-t border-stone-200/60 bg-white/50 py-4 text-center text-[10px] text-stone-400 font-medium">
         © {new Date().getFullYear()} Digi Money Manager. Hak Cipta Dilindungi.
       </footer>
+
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title="Keluar dari Akun"
+        description="Apakah Anda yakin ingin keluar dari akun ini?"
+        confirmLabel="Keluar"
+        variant="danger"
+        isLoading={isLoggingOut}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 }
