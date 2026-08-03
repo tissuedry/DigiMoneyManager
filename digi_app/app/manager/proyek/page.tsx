@@ -14,6 +14,7 @@ import ProjectDetailSidebar from "./ProjectDetailSidebar";
 import DetailBudgetModal from "./DetailBudgetModal";
 import PendingPmModal from "./PendingPmModal";
 import SuccessDialog from "@/components/success-dialog";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 export default function KelolaProyekPage() {
   const [activeStatus, setActiveStatus] = useState('Semua');
@@ -87,6 +88,9 @@ export default function KelolaProyekPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
   const [formError, setFormError] = useState("");
+  const [showAddProjectConfirm, setShowAddProjectConfirm] = useState(false);
+  const [showAddProjectSuccess, setShowAddProjectSuccess] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
 
   const [projectForm, setProjectForm] = useState({
     nama: "",
@@ -265,10 +269,13 @@ export default function KelolaProyekPage() {
     element?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleAddProject = async (e: React.FormEvent) => {
+  const handleAddProject = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
-    setSuccess("");
+    setShowAddProjectConfirm(true);
+  };
+
+  const handleConfirmAddProject = async () => {
     setSubmitting(true);
 
     try {
@@ -287,15 +294,19 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || "Gagal membuat proyek");
+        setShowAddProjectConfirm(false);
         return;
       }
 
-      setSuccess(`Proyek "${projectForm.nama}" berhasil dibuat!`);
+      setNewProjectName(projectForm.nama);
       setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "", status: "Active" });
       setShowAddProject(false);
+      setShowAddProjectConfirm(false);
+      setShowAddProjectSuccess(true);
       fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowAddProjectConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -1018,6 +1029,27 @@ export default function KelolaProyekPage() {
         title="Pengajuan Disetujui"
         description={<>Berhasil menyetujui <span className="font-semibold text-[#14130F]">{bulkApprovedCount}</span> item pengajuan.</>}
         onClose={() => setShowBulkApproveSuccess(false)}
+      />
+
+      <ConfirmDialog
+        open={showAddProjectConfirm}
+        title="Buat Proyek Baru"
+        description={
+          <>
+            Apakah Anda yakin ingin membuat proyek <span className="font-semibold text-stone-900">{projectForm.nama}</span> ({projectForm.tanggalMulai} s/d {projectForm.tanggalSelesai}) dengan status <span className="font-semibold text-stone-900">{projectForm.status}</span>?
+          </>
+        }
+        confirmLabel="Buat Proyek"
+        isLoading={submitting}
+        onCancel={() => setShowAddProjectConfirm(false)}
+        onConfirm={handleConfirmAddProject}
+      />
+
+      <SuccessDialog
+        open={showAddProjectSuccess}
+        title="Proyek Berhasil Dibuat"
+        description={<>Proyek <span className="font-semibold text-[#14130F]">{newProjectName}</span> berhasil dibuat.</>}
+        onClose={() => setShowAddProjectSuccess(false)}
       />
     </main>
   );
