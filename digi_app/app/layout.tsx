@@ -1,6 +1,7 @@
 // app/layout.tsx
 import "./globals.css";
 import QueryProvider from "@/lib/query-provider";
+import SmartChatWidget from "@/components/smart-chat-widget";
 import { Plus_Jakarta_Sans, IBM_Plex_Mono } from "next/font/google";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -35,7 +36,10 @@ export default function DashboardLayout({
 
             {/* Tempat Masuknya isi dari page.tsx */}
             <div className="flex-col flex overflow-hidden w-full mx-auto">
-              <QueryProvider>{children}</QueryProvider>
+              <QueryProvider>
+                {children}
+                <SmartChatWidget />
+              </QueryProvider>
             </div>
           </div>
         </div>

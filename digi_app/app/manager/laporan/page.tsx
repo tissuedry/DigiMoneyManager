@@ -842,10 +842,7 @@ export default function LaporanPage() {
         <p>
           Laporan digenerate berdasarkan data real-time dari database. Klik <strong>Generate</strong> untuk
           menyiapkan laporan, lalu unduh dalam format PDF atau Excel.
-          Untuk analisis lebih mendalam, gunakan fitur{" "}
-          <a href="/manager/smart-chat" className="text-[#2d6a4f] font-bold hover:underline">
-            Smart Chat
-          </a>.
+          Untuk analisis lebih mendalam, gunakan fitur <strong className="text-[#2d6a4f]">Smart Chat</strong> di pojok kanan bawah.
         </p>
       </div>
     </main>
