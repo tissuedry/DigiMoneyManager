@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Check, X, Loader2 } from "lucide-react";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 type ProyekDataMinimal = {
   id: number;
@@ -34,8 +35,9 @@ export default function EditProyekModal({
   const [tanggalSelesai, setTanggalSelesai] = useState(() => toDateInput(proyek.tanggalSelesai));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!nama || !tanggalMulai) {
@@ -43,6 +45,10 @@ export default function EditProyekModal({
       return;
     }
 
+    setShowConfirm(true);
+  };
+
+  const handleConfirmSave = async () => {
     setSubmitting(true);
     try {
       const res = await fetch(`/api/proyek/${proyek.id}`, {
@@ -59,11 +65,14 @@ export default function EditProyekModal({
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Gagal memperbarui proyek");
+        setShowConfirm(false);
         return;
       }
+      setShowConfirm(false);
       onSave();
     } catch {
       setError("Terjadi kesalahan koneksi");
+      setShowConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -185,6 +194,38 @@ export default function EditProyekModal({
           </div>
         </form>
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="Simpan Perubahan Proyek"
+        description={
+          <>
+            Apakah Anda yakin ingin menyimpan perubahan berikut untuk proyek <span className="font-semibold text-stone-900">{proyek.nama}</span>?
+            <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3 mt-3 space-y-1.5">
+              <div className="flex justify-between gap-3">
+                <dt className="text-stone-400 font-medium">Nama</dt>
+                <dd className="font-bold text-stone-800 text-right">{nama}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-stone-400 font-medium">Status</dt>
+                <dd className="font-bold text-stone-800 text-right">{statusOptions.find((o) => o.value === status)?.label || status}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-stone-400 font-medium">Tanggal Mulai</dt>
+                <dd className="font-bold text-stone-800 text-right">{tanggalMulai}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-stone-400 font-medium">Tanggal Selesai</dt>
+                <dd className="font-bold text-stone-800 text-right">{tanggalSelesai || "-"}</dd>
+              </div>
+            </dl>
+          </>
+        }
+        confirmLabel="Simpan"
+        isLoading={submitting}
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={handleConfirmSave}
+      />
     </div>
   );
 }

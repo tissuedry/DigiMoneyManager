@@ -294,6 +294,7 @@ export default function KelolaProyekPage() {
   const [savingTim, setSavingTim] = useState(false);
   const [showSaveTimConfirm, setShowSaveTimConfirm] = useState(false);
   const [showSaveTimToast, setShowSaveTimToast] = useState(false);
+  const [showEditProyekToast, setShowEditProyekToast] = useState(false);
 
   // Sync editable rows when project changes
   useEffect(() => {
@@ -708,6 +709,7 @@ export default function KelolaProyekPage() {
           onSave={() => {
             refetch();
             setIsEditOpen(false);
+            setShowEditProyekToast(true);
           }}
         />
       )}
@@ -728,6 +730,12 @@ export default function KelolaProyekPage() {
         open={showSaveTimToast}
         message="Anggota tim proyek berhasil disimpan."
         onClose={() => setShowSaveTimToast(false)}
+      />
+
+      <Toast
+        open={showEditProyekToast}
+        message="Perubahan proyek berhasil disimpan."
+        onClose={() => setShowEditProyekToast(false)}
       />
     </div>
   );
