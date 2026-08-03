@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
+import Toast from "@/components/toast";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtRupiah(n: number) {
@@ -276,6 +277,7 @@ function ProyekCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [toastError, setToastError] = useState<string | null>(null);
 
   const budget = proyek.budget;
   const rab = budget ? Number(budget.rabTotal) : 0;
@@ -302,13 +304,14 @@ function ProyekCard({
       document.body.removeChild(a);
     } catch (error) {
       console.error("Export error", error);
-      alert("Gagal mengunduh Excel. Pastikan data budget valid.");
+      setToastError("Gagal mengunduh Excel. Pastikan data budget valid.");
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
+    <>
     <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
       {/* Card Header */}
       <div className="p-5 flex items-start gap-4">
@@ -441,6 +444,14 @@ function ProyekCard({
         </div>
       )}
     </div>
+
+    <Toast
+      open={!!toastError}
+      variant="error"
+      message={toastError || ''}
+      onClose={() => setToastError(null)}
+    />
+    </>
   );
 }
 

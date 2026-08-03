@@ -278,8 +278,8 @@ export default function SmartChatWidget() {
       try {
         const parsed = JSON.parse(savedBtn) as Point;
         setBtnPos({
-          x: clamp(parsed.x, 5, window.innerWidth - BTN_SIZE),
-          y: clamp(parsed.y, 5, window.innerHeight - BTN_SIZE),
+          x: clamp(parsed.x, 0, window.innerWidth - BTN_SIZE),
+          y: clamp(parsed.y, 0, window.innerHeight - BTN_SIZE),
         });
       } catch {
         setBtnPos(defaultBtnPos());

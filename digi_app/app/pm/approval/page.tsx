@@ -240,6 +240,7 @@ export default function AntrianApprovalPage() {
   const [approvedLabel, setApprovedLabel] = useState('');
   const [showRejectSuccess, setShowRejectSuccess] = useState(false);
   const [rejectedLabel, setRejectedLabel] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const invalidate = useInvalidate();
 
@@ -428,11 +429,11 @@ export default function AntrianApprovalPage() {
         invalidate("/api/reimbursements?role=Project+Manager", "/api/dashboard", "/api/notifications");
         setShowRejectSuccess(true);
       } else {
-        alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+        setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+      setErrorMessage("Terjadi kesalahan sistem saat memproses pengajuan.");
     } finally {
       setIsSubmittingReject(false);
     }
@@ -459,11 +460,11 @@ export default function AntrianApprovalPage() {
         invalidate("/api/reimbursements?role=Project+Manager", "/api/dashboard", "/api/notifications");
         setShowApproveSuccess(true);
       } else {
-        alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+        setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+      setErrorMessage("Terjadi kesalahan sistem saat memproses pengajuan.");
     } finally {
       setIsApproving(false);
     }
@@ -939,6 +940,13 @@ export default function AntrianApprovalPage() {
         open={showRejectSuccess}
         message={`Pengajuan ${rejectedLabel} berhasil ditolak.`}
         onClose={() => setShowRejectSuccess(false)}
+      />
+
+      <Toast
+        open={!!errorMessage}
+        variant="error"
+        message={errorMessage || ""}
+        onClose={() => setErrorMessage(null)}
       />
 
       {/* Modal Zoom Gambar Struk Simple */}

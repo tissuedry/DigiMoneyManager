@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { FileText, TrendingUp, BarChart3, Star, Download, Loader2, CheckCircle2 } from "lucide-react";
 import { useApi } from '@/lib/use-api';
+import Toast from '@/components/toast';
 
 type ReportCard = {
   id: string;
@@ -46,6 +47,7 @@ const REPORTS: ReportCard[] = [
 export default function LaporanPage() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [generated, setGenerated] = useState<Set<string>>(new Set());
+  const [toastError, setToastError] = useState<string | null>(null);
 
   // ponytail: two useApi calls replace Promise.all + useEffect + useState
   const { data: dashData, isLoading } = useApi<any>("/api/dashboard");
@@ -90,7 +92,7 @@ export default function LaporanPage() {
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert("Gagal membuka jendela pratinjau. Izinkan pop-up untuk mencetak laporan.");
+      setToastError("Gagal membuka jendela pratinjau. Izinkan pop-up untuk mencetak laporan.");
       return;
     }
 
@@ -845,6 +847,13 @@ export default function LaporanPage() {
           Untuk analisis lebih mendalam, gunakan fitur <strong className="text-[#2d6a4f]">Smart Chat</strong> di pojok kanan bawah.
         </p>
       </div>
+
+      <Toast
+        open={!!toastError}
+        variant="error"
+        message={toastError || ''}
+        onClose={() => setToastError(null)}
+      />
     </main>
   );
 }

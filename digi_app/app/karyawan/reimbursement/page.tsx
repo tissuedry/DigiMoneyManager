@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import Toast from '@/components/toast';
 import {
   PlusCircle,
   Camera,
@@ -158,6 +159,7 @@ function AjukanReimbursementContent() {
   const [subAnggaranId, setSubAnggaranId] = useState('');
   const [posAnggaranId, setPosAnggaranId] = useState(''); // holds the selected KeteranganAnggaran (leaf) id
   const [isLoading, setIsLoading] = useState(false);
+  const [toastError, setToastError] = useState<string | null>(null);
 
   // Lightweight Main > Sub > Keterangan name tree for the selected project's
   // budget (id + name only, no financial data) — same ids the backend
@@ -305,7 +307,7 @@ function AjukanReimbursementContent() {
         setKeterangan(data.data.keterangan || "");
         setCurrentState('review');
       } else {
-        alert(data.message || 'Pemindaian AI Vision gagal. Silakan isi detail pengajuan secara manual.');
+        setToastError(data.message || 'Pemindaian AI Vision gagal. Silakan isi detail pengajuan secara manual.');
         // Tetap lanjut ke langkah review agar pengguna bisa mengisi data secara manual tanpa harus mengunggah ulang file
         setTanggal(new Date().toISOString().split('T')[0]);
         setNominal('');
@@ -315,7 +317,7 @@ function AjukanReimbursementContent() {
       }
     } catch (err: any) {
       console.error(err);
-      alert('Gagal menghubungkan ke layanan AI Vision: ' + (err?.message || 'Error jaringan'));
+      setToastError('Gagal menghubungkan ke layanan AI Vision: ' + (err?.message || 'Error jaringan'));
       setCurrentState('review');
     }
   };
@@ -379,11 +381,11 @@ function AjukanReimbursementContent() {
         setNominal(parseFloat(cleanNominal).toLocaleString('id-ID'));
         setCurrentState('success');
       } else {
-        alert(data.message || 'Gagal mengirim pengajuan');
+        setToastError(data.message || 'Gagal mengirim pengajuan');
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan saat menghubungi server');
+      setToastError('Terjadi kesalahan saat menghubungi server');
     } finally {
       setIsLoading(false);
     }
@@ -885,6 +887,13 @@ function AjukanReimbursementContent() {
           </div>
         </div>
       )}
+
+      <Toast
+        open={!!toastError}
+        variant="error"
+        message={toastError || ''}
+        onClose={() => setToastError(null)}
+      />
     </div>
   );
 }
