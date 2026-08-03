@@ -100,6 +100,9 @@ export default function KelolaProyekPage() {
   const [initBudgetProjectName, setInitBudgetProjectName] = useState("");
   const [showSaveTeamConfirm, setShowSaveTeamConfirm] = useState(false);
   const [showSaveTeamToast, setShowSaveTeamToast] = useState(false);
+  const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
+  const [showReactivateSuccess, setShowReactivateSuccess] = useState(false);
+  const [reactivatedProjectName, setReactivatedProjectName] = useState("");
 
   const [projectForm, setProjectForm] = useState({
     nama: "",
@@ -443,10 +446,14 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const handleReactivateProject = async () => {
+  const handleReactivateProject = () => {
     if (!showProjectDetail) return;
     setFormError("");
-    setSuccess("");
+    setShowReactivateConfirm(true);
+  };
+
+  const handleConfirmReactivateProject = async () => {
+    if (!showProjectDetail) return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/proyek/${showProjectDetail.id}`, {
@@ -463,13 +470,17 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || "Gagal mengaktifkan kembali proyek");
+        setShowReactivateConfirm(false);
         return;
       }
-      setSuccess(`Proyek "${editForm.nama}" berhasil diaktifkan kembali!`);
+      setReactivatedProjectName(editForm.nama);
       fetchData();
       handleOpenDetailModal(data.project || showProjectDetail);
+      setShowReactivateConfirm(false);
+      setShowReactivateSuccess(true);
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowReactivateConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -1118,7 +1129,6 @@ export default function KelolaProyekPage() {
           )
         }
         confirmLabel="Simpan"
-        variant="danger"
         isLoading={submitting}
         onCancel={() => setShowInitBudgetConfirm(false)}
         onConfirm={handleConfirmInitBudget}
@@ -1145,6 +1155,27 @@ export default function KelolaProyekPage() {
         open={showSaveTeamToast}
         message="Penugasan tim berhasil disimpan."
         onClose={() => setShowSaveTeamToast(false)}
+      />
+
+      <ConfirmDialog
+        open={showReactivateConfirm}
+        title="Aktifkan Kembali Proyek"
+        description={
+          showProjectDetail && (
+            <>Apakah Anda yakin ingin mengaktifkan kembali proyek <span className="font-semibold text-stone-900">{showProjectDetail.nama}</span>? Status proyek akan diubah menjadi <span className="font-semibold text-stone-900">Active</span>.</>
+          )
+        }
+        confirmLabel="Aktifkan Kembali"
+        isLoading={submitting}
+        onCancel={() => setShowReactivateConfirm(false)}
+        onConfirm={handleConfirmReactivateProject}
+      />
+
+      <SuccessDialog
+        open={showReactivateSuccess}
+        title="Proyek Berhasil Diaktifkan Kembali"
+        description={<>Proyek <span className="font-semibold text-[#14130F]">{reactivatedProjectName}</span> sekarang berstatus Active.</>}
+        onClose={() => setShowReactivateSuccess(false)}
       />
     </main>
   );
