@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { X, Upload, Loader2, Search, ChevronRight, Plus } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
-import SuccessDialog from "@/components/success-dialog";
+import Toast from "@/components/toast";
 
 function formatRupiah(value: string): string {
   const digitsOnly = value.replace(/\D/g, "");
@@ -322,10 +322,9 @@ export default function AjukanRealisasiModal({
         onConfirm={handleConfirmSubmit}
       />
 
-      <SuccessDialog
+      <Toast
         open={showSuccess}
-        title="Realisasi Terkirim"
-        description={<>Realisasi <span className="font-semibold text-[#14130F]">{namaRealisasi}</span> berhasil diajukan.</>}
+        message={`Realisasi ${namaRealisasi} berhasil diajukan.`}
         onClose={() => {
           setShowSuccess(false);
           onClose();

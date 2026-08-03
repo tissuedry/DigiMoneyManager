@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
+import Toast from "@/components/toast";
 
 type AjukanKet = {
   id: number;
@@ -1049,10 +1050,9 @@ export default function AjukanPosModal({
         onConfirm={handleConfirmSubmit}
       />
 
-      <SuccessDialog
+      <Toast
         open={showSubmitSuccess}
-        title="Pengajuan Terkirim"
-        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{pendingSubmitItems.length} pos anggaran</span> berhasil dikirim dan menunggu persetujuan.</>}
+        message={`Pengajuan ${pendingSubmitItems.length} pos anggaran berhasil dikirim dan menunggu persetujuan.`}
         onClose={() => {
           setShowSubmitSuccess(false);
           onClose();

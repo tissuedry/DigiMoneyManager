@@ -9,6 +9,7 @@ import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
 import ProyekSkeleton from "./ProyekSkeleton";
 import ConfirmDialog from "@/components/confirm-dialog";
+import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
 import {
   ChevronDown,
@@ -294,7 +295,7 @@ export default function KelolaProyekPage() {
   const [savingTim, setSavingTim] = useState(false);
   const [showSaveTimConfirm, setShowSaveTimConfirm] = useState(false);
   const [showSaveTimToast, setShowSaveTimToast] = useState(false);
-  const [showEditProyekToast, setShowEditProyekToast] = useState(false);
+  const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
 
   // Sync editable rows when project changes
   useEffect(() => {
@@ -709,7 +710,7 @@ export default function KelolaProyekPage() {
           onSave={() => {
             refetch();
             setIsEditOpen(false);
-            setShowEditProyekToast(true);
+            setShowEditProyekSuccess(true);
           }}
         />
       )}
@@ -732,10 +733,11 @@ export default function KelolaProyekPage() {
         onClose={() => setShowSaveTimToast(false)}
       />
 
-      <Toast
-        open={showEditProyekToast}
-        message="Perubahan proyek berhasil disimpan."
-        onClose={() => setShowEditProyekToast(false)}
+      <SuccessDialog
+        open={showEditProyekSuccess}
+        title="Proyek Berhasil Diperbarui"
+        description="Perubahan proyek berhasil disimpan."
+        onClose={() => setShowEditProyekSuccess(false)}
       />
     </div>
   );
