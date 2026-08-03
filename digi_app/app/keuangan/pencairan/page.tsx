@@ -191,6 +191,8 @@ function PencairanContent() {
   const [showApproveSuccess, setShowApproveSuccess] = useState(false);
   const [approvedLabel, setApprovedLabel] = useState('');
   const [showAccountWarning, setShowAccountWarning] = useState(false);
+  const [showRejectSuccess, setShowRejectSuccess] = useState(false);
+  const [rejectedLabel, setRejectedLabel] = useState('');
 
   const resetZoomAndPan = () => {
     setZoomScale(1);
@@ -342,9 +344,10 @@ function PencairanContent() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert("Pengajuan berhasil ditolak.");
+        setRejectedLabel(selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || 'Pengajuan');
         setIsRejectModalOpen(false);
         invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
+        setShowRejectSuccess(true);
       } else {
         alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
       }
@@ -1034,6 +1037,13 @@ function PencairanContent() {
         description="Harap pilih Akun Debit dan Akun Kredit terlebih dahulu sebelum mencairkan pengajuan."
         closeLabel="Mengerti"
         onClose={() => setShowAccountWarning(false)}
+      />
+
+      <SuccessDialog
+        open={showRejectSuccess}
+        title="Pengajuan Ditolak"
+        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{rejectedLabel}</span> berhasil ditolak.</>}
+        onClose={() => setShowRejectSuccess(false)}
       />
 
       {/* Modal Zoom Gambar */}
