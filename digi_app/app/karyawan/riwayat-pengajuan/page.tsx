@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Filter, Eye, X, Download, RefreshCw, CheckCircle2, Clock, XCircle, AlertTriangle, BookOpen, ArrowUpDown } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import SuccessDialog from '@/components/success-dialog';
+import ConfirmDialog from '@/components/confirm-dialog';
 
 type Submission = {
   id: string;
@@ -508,6 +510,8 @@ export default function RiwayatPengajuanPage() {
   const [rawReimbursements, setRawReimbursements] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [selectedDisplayId, setSelectedDisplayId] = useState<string>("");
+  const [showCancelSuccess, setShowCancelSuccess] = useState(false);
+  const [canceledLabel, setCanceledLabel] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
@@ -704,9 +708,11 @@ export default function RiwayatPengajuanPage() {
         setActionError(data.message || 'Gagal membatalkan pengajuan');
         return;
       }
+      setCanceledLabel(selectedDisplayId);
       setShowCancelModal(false);
       handleClosePanel();
       await fetchReimbursements();
+      setShowCancelSuccess(true);
     } catch (err) {
       setActionError('Terjadi kesalahan jaringan');
     } finally {
@@ -973,42 +979,40 @@ export default function RiwayatPengajuanPage() {
         )}
       </div>
 
-      {showCancelModal && selectedItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden p-6">
-            <h3 className="text-[16px] font-bold text-stone-900 mb-2">Batalkan Pengajuan</h3>
-            <p className="text-[13px] text-stone-600 mb-6 leading-relaxed">
-              Apakah Anda yakin ingin membatalkan pengajuan reimbursement{" "}
-              <span className="font-semibold text-stone-900">{selectedDisplayId}</span> senilai{" "}
-              <span className="font-semibold text-stone-900">Rp {Number(selectedItem.nominal).toLocaleString("id-ID")}</span>?
-              Tindakan ini bersifat permanen dan tidak dapat diurungkan.
-            </p>
-            {actionError && (
-              <p className="text-[11px] text-[#be123c] bg-[#fff5f5] border border-[#fbc9c9] rounded-lg px-3 py-2 mb-4">
-                {actionError}
+      <ConfirmDialog
+        open={showCancelModal && !!selectedItem}
+        title="Batalkan Pengajuan"
+        description={
+          selectedItem && (
+            <>
+              <p>
+                Apakah Anda yakin ingin membatalkan pengajuan reimbursement{" "}
+                <span className="font-semibold text-stone-900">{selectedDisplayId}</span> senilai{" "}
+                <span className="font-semibold text-stone-900">Rp {Number(selectedItem.nominal).toLocaleString("id-ID")}</span>?
+                Tindakan ini bersifat permanen dan tidak dapat diurungkan.
               </p>
-            )}
-            <div className="flex justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setShowCancelModal(false)}
-                disabled={actionLoading}
-                className="px-4 py-2 border border-stone-200 hover:bg-stone-50 text-[12px] font-semibold rounded-xl text-stone-600 transition cursor-pointer disabled:opacity-50"
-              >
-                Tidak, kembali
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCancel}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-[#be123c] hover:bg-[#9f1030] disabled:opacity-50 text-white text-[12px] font-semibold rounded-xl transition cursor-pointer"
-              >
-                {actionLoading ? "Membatalkan..." : "Ya, batalkan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              {actionError && (
+                <p className="text-[11px] text-[#be123c] bg-[#fff5f5] border border-[#fbc9c9] rounded-lg px-3 py-2 mt-4">
+                  {actionError}
+                </p>
+              )}
+            </>
+          )
+        }
+        cancelLabel="Tidak, kembali"
+        confirmLabel={actionLoading ? "Membatalkan..." : "Ya, batalkan"}
+        variant="danger"
+        isLoading={actionLoading}
+        onCancel={() => setShowCancelModal(false)}
+        onConfirm={handleConfirmCancel}
+      />
+
+      <SuccessDialog
+        open={showCancelSuccess}
+        title="Pengajuan Dibatalkan"
+        description={<>Pengajuan reimbursement <span className="font-semibold text-stone-900">{canceledLabel}</span> berhasil dibatalkan.</>}
+        onClose={() => setShowCancelSuccess(false)}
+      />
 
       {showImageModal && selectedImageUrl && (
         <div

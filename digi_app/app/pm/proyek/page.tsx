@@ -8,6 +8,9 @@ import AjukanPosModal from "./AjukanPos";
 import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
 import ProyekSkeleton from "./ProyekSkeleton";
+import ConfirmDialog from "@/components/confirm-dialog";
+import SuccessDialog from "@/components/success-dialog";
+import Toast from "@/components/toast";
 import {
   ChevronDown,
   Eye,
@@ -290,6 +293,9 @@ export default function KelolaProyekPage() {
   const [editableRows, setEditableRows] = useState<{ userId: number; nama: string; divisi: string }[]>([]);
   const [dirtyTim, setDirtyTim] = useState(false);
   const [savingTim, setSavingTim] = useState(false);
+  const [showSaveTimConfirm, setShowSaveTimConfirm] = useState(false);
+  const [showSaveTimToast, setShowSaveTimToast] = useState(false);
+  const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
 
   // Sync editable rows when project changes
   useEffect(() => {
@@ -300,7 +306,12 @@ export default function KelolaProyekPage() {
     }
   }, [proyek]);
 
-  const handleSaveTim = async () => {
+  const handleSaveTim = () => {
+    if (!proyek) return;
+    setShowSaveTimConfirm(true);
+  };
+
+  const handleConfirmSaveTim = async () => {
     if (!proyek) return;
     setSavingTim(true);
     try {
@@ -322,7 +333,8 @@ export default function KelolaProyekPage() {
       if (res.ok) {
         setDirtyTim(false);
         invalidate("/api/pm/proyek");
-        alert("Anggota tim proyek berhasil disimpan!");
+        setShowSaveTimConfirm(false);
+        setShowSaveTimToast(true);
       } else {
         const data = await res.json();
         alert(data.message || "Gagal menyimpan anggota tim");
@@ -698,9 +710,35 @@ export default function KelolaProyekPage() {
           onSave={() => {
             refetch();
             setIsEditOpen(false);
+            setShowEditProyekSuccess(true);
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={showSaveTimConfirm}
+        title="Simpan Anggota Tim"
+        description={
+          <>Apakah Anda yakin ingin menyimpan perubahan anggota tim? Total <span className="font-semibold text-[#14130F]">{editableRows.filter((r) => r.userId > 0).length}</span> anggota akan disimpan untuk proyek ini.</>
+        }
+        confirmLabel="Simpan"
+        isLoading={savingTim}
+        onCancel={() => setShowSaveTimConfirm(false)}
+        onConfirm={handleConfirmSaveTim}
+      />
+
+      <Toast
+        open={showSaveTimToast}
+        message="Anggota tim proyek berhasil disimpan."
+        onClose={() => setShowSaveTimToast(false)}
+      />
+
+      <SuccessDialog
+        open={showEditProyekSuccess}
+        title="Proyek Berhasil Diperbarui"
+        description="Perubahan proyek berhasil disimpan."
+        onClose={() => setShowEditProyekSuccess(false)}
+      />
     </div>
   );
 }

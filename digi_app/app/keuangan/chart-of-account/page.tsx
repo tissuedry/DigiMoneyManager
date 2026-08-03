@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import SuccessDialog from '@/components/success-dialog';
+import ConfirmDialog from '@/components/confirm-dialog';
 
 export default function ChartOfAccountPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -28,10 +30,13 @@ export default function ChartOfAccountPage() {
   const [editNomorAkun, setEditNomorAkun] = useState('');
   const [editNamaAkun, setEditNamaAkun] = useState('');
   const [editTipe, setEditTipe] = useState('Aset');
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedAccountLabel, setDeletedAccountLabel] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,19 +66,24 @@ export default function ChartOfAccountPage() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [activeMenuAccountId]);
 
-  const handleEditAccount = async (e: React.FormEvent) => {
+  const handleEditAccount = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
-    setIsSubmitting(true);
 
     if (!editingAccount) return;
 
     if (!editNomorAkun || !editNamaAkun || !editTipe) {
       setErrorMessage('Nomor Akun, Nama Akun, dan Tipe wajib diisi.');
-      setIsSubmitting(false);
       return;
     }
+
+    setShowEditConfirm(true);
+  };
+
+  const handleConfirmEditAccount = async () => {
+    if (!editingAccount) return;
+    setIsSubmitting(true);
 
     try {
       const res = await fetch(`/api/coa/${editingAccount.id}`, {
@@ -95,7 +105,8 @@ export default function ChartOfAccountPage() {
       }
 
       setSuccessMessage('Akun berhasil diubah!');
-      
+      setShowEditConfirm(false);
+
       // Refresh list
       const fetchRes = await fetch('/api/coa');
       const fetchData = await fetchRes.json();
@@ -110,6 +121,7 @@ export default function ChartOfAccountPage() {
       }, 1500);
     } catch (err: any) {
       setErrorMessage(err.message || 'Terjadi kesalahan sistem.');
+      setShowEditConfirm(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -137,8 +149,10 @@ export default function ChartOfAccountPage() {
         setAccounts(fetchData.coa);
       }
 
+      setDeletedAccountLabel(`${deletingAccount.nomorAkun} - ${deletingAccount.namaAkun}`);
       setShowDeleteModal(false);
       setDeletingAccount(null);
+      setShowDeleteSuccess(true);
     } catch (err: any) {
       alert(err.message || 'Terjadi kesalahan sistem saat menghapus akun.');
     } finally {
@@ -727,38 +741,60 @@ export default function ChartOfAccountPage() {
         </div>
       )}
 
-      {/* Modal Konfirmasi Hapus Akun */}
-      {showDeleteModal && deletingAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-[#F6F4EF] rounded-2xl border border-[#E4E0D9] shadow-xl overflow-hidden p-6 relative">
-            <h3 className="text-lg font-bold text-[#14130F] mb-2">Hapus Akun</h3>
-            <p className="text-sm text-stone-600 mb-6">
-              Apakah Anda yakin ingin menghapus akun <span className="font-semibold text-[#14130F]">{deletingAccount.nomorAkun} - {deletingAccount.namaAkun}</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
-            </p>
+      <ConfirmDialog
+        open={showEditConfirm && !!editingAccount}
+        title="Simpan Perubahan Akun"
+        description={
+          editingAccount && (
+            <>
+              Apakah Anda yakin ingin menyimpan perubahan pada akun <span className="font-semibold text-[#14130F]">{editingAccount.nomorAkun} - {editingAccount.namaAkun}</span> menjadi:
+              <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3 mt-3 space-y-1.5">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Nomor Akun</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editNomorAkun}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Nama Akun</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editNamaAkun}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Tipe</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editTipe}</dd>
+                </div>
+              </dl>
+            </>
+          )
+        }
+        confirmLabel={isSubmitting ? 'Menyimpan...' : 'Simpan'}
+        isLoading={isSubmitting}
+        onCancel={() => setShowEditConfirm(false)}
+        onConfirm={handleConfirmEditAccount}
+      />
 
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeletingAccount(null);
-                }}
-                className="px-4 py-2 border border-[#E4E0D9] hover:bg-gray-50 text-sm font-semibold rounded-xl text-[#6A6660] cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-all cursor-pointer"
-              >
-                {isDeleting ? 'Menghapus...' : 'Hapus Akun'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showDeleteModal && !!deletingAccount}
+        title="Hapus Akun"
+        description={
+          deletingAccount && (
+            <>Apakah Anda yakin ingin menghapus akun <span className="font-semibold text-[#14130F]">{deletingAccount.nomorAkun} - {deletingAccount.namaAkun}</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.</>
+          )
+        }
+        confirmLabel={isDeleting ? 'Menghapus...' : 'Hapus Akun'}
+        variant="danger"
+        isLoading={isDeleting}
+        onCancel={() => {
+          setShowDeleteModal(false);
+          setDeletingAccount(null);
+        }}
+        onConfirm={handleDeleteAccount}
+      />
+
+      <SuccessDialog
+        open={showDeleteSuccess}
+        title="Akun Berhasil Dihapus"
+        description={<>Akun <span className="font-semibold text-[#14130F]">{deletedAccountLabel}</span> telah dihapus dari Chart of Account.</>}
+        onClose={() => setShowDeleteSuccess(false)}
+      />
     </div>
   );
 }

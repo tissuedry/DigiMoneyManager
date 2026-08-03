@@ -13,6 +13,9 @@ import InitBudgetModal from "./InitBudgetModal";
 import ProjectDetailSidebar from "./ProjectDetailSidebar";
 import DetailBudgetModal from "./DetailBudgetModal";
 import PendingPmModal from "./PendingPmModal";
+import SuccessDialog from "@/components/success-dialog";
+import ConfirmDialog from "@/components/confirm-dialog";
+import Toast from "@/components/toast";
 
 export default function KelolaProyekPage() {
   const [activeStatus, setActiveStatus] = useState('Semua');
@@ -39,6 +42,10 @@ export default function KelolaProyekPage() {
   const [rejectingPengajuan, setRejectingPengajuan] = useState<any | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<Record<number, boolean>>({});
   const [rejectionReason, setRejectionReason] = useState("");
+  const [showBulkRejectSuccess, setShowBulkRejectSuccess] = useState(false);
+  const [bulkRejectedCount, setBulkRejectedCount] = useState(0);
+  const [showBulkApproveSuccess, setShowBulkApproveSuccess] = useState(false);
+  const [bulkApprovedCount, setBulkApprovedCount] = useState(0);
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<string, boolean>>({});
   const [expandedKet, setExpandedKet] = useState<Record<string, boolean>>({});
@@ -82,6 +89,20 @@ export default function KelolaProyekPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
   const [formError, setFormError] = useState("");
+  const [showAddProjectConfirm, setShowAddProjectConfirm] = useState(false);
+  const [showAddProjectSuccess, setShowAddProjectSuccess] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [showEditProjectConfirm, setShowEditProjectConfirm] = useState(false);
+  const [showEditProjectSuccess, setShowEditProjectSuccess] = useState(false);
+  const [editedProjectName, setEditedProjectName] = useState("");
+  const [showInitBudgetConfirm, setShowInitBudgetConfirm] = useState(false);
+  const [showInitBudgetSuccess, setShowInitBudgetSuccess] = useState(false);
+  const [initBudgetProjectName, setInitBudgetProjectName] = useState("");
+  const [showSaveTeamConfirm, setShowSaveTeamConfirm] = useState(false);
+  const [showSaveTeamToast, setShowSaveTeamToast] = useState(false);
+  const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
+  const [showReactivateSuccess, setShowReactivateSuccess] = useState(false);
+  const [reactivatedProjectName, setReactivatedProjectName] = useState("");
 
   const [projectForm, setProjectForm] = useState({
     nama: "",
@@ -212,7 +233,13 @@ export default function KelolaProyekPage() {
 
       const allOk = results.every(res => res.ok);
       if (allOk) {
-        alert(action === 'APPROVE' ? `Berhasil menyetujui ${selectedItemIds.length} item pengajuan!` : `Berhasil menolak ${selectedItemIds.length} item pengajuan.`);
+        if (action === 'REJECT') {
+          setBulkRejectedCount(selectedItemIds.length);
+          setShowBulkRejectSuccess(true);
+        } else {
+          setBulkApprovedCount(selectedItemIds.length);
+          setShowBulkApproveSuccess(true);
+        }
 
         setRejectingPengajuan(null);
         setRejectionReason("");
@@ -254,10 +281,13 @@ export default function KelolaProyekPage() {
     element?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleAddProject = async (e: React.FormEvent) => {
+  const handleAddProject = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
-    setSuccess("");
+    setShowAddProjectConfirm(true);
+  };
+
+  const handleConfirmAddProject = async () => {
     setSubmitting(true);
 
     try {
@@ -276,15 +306,19 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || "Gagal membuat proyek");
+        setShowAddProjectConfirm(false);
         return;
       }
 
-      setSuccess(`Proyek "${projectForm.nama}" berhasil dibuat!`);
+      setNewProjectName(projectForm.nama);
       setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "", status: "Active" });
       setShowAddProject(false);
+      setShowAddProjectConfirm(false);
+      setShowAddProjectSuccess(true);
       fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowAddProjectConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -366,11 +400,15 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const handleUpdateProject = async (e: React.FormEvent) => {
+  const handleUpdateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!showProjectDetail) return;
     setFormError("");
-    setSuccess("");
+    setShowEditProjectConfirm(true);
+  };
+
+  const handleConfirmUpdateProject = async () => {
+    if (!showProjectDetail) return;
     setSubmitting(true);
 
     try {
@@ -389,25 +427,33 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || "Gagal memperbarui proyek");
+        setShowEditProjectConfirm(false);
         return;
       }
 
-      setSuccess(`Proyek "${editForm.nama}" berhasil diperbarui!`);
+      setEditedProjectName(editForm.nama);
       setEditMode(false);
       setShowProjectDetail(null);
       setIsDirectEdit(false);
+      setShowEditProjectConfirm(false);
+      setShowEditProjectSuccess(true);
       fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowEditProjectConfirm(false);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleReactivateProject = async () => {
+  const handleReactivateProject = () => {
     if (!showProjectDetail) return;
     setFormError("");
-    setSuccess("");
+    setShowReactivateConfirm(true);
+  };
+
+  const handleConfirmReactivateProject = async () => {
+    if (!showProjectDetail) return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/proyek/${showProjectDetail.id}`, {
@@ -424,13 +470,17 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || "Gagal mengaktifkan kembali proyek");
+        setShowReactivateConfirm(false);
         return;
       }
-      setSuccess(`Proyek "${editForm.nama}" berhasil diaktifkan kembali!`);
+      setReactivatedProjectName(editForm.nama);
       fetchData();
       handleOpenDetailModal(data.project || showProjectDetail);
+      setShowReactivateConfirm(false);
+      setShowReactivateSuccess(true);
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowReactivateConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -494,10 +544,9 @@ export default function KelolaProyekPage() {
     setTeamRows(teamRows.filter((r) => r.id !== id));
   };
 
-  const handleSaveTeamRows = async () => {
+  const handleSaveTeamRows = () => {
     if (!showProjectDetail) return;
     setFormError("");
-    setSuccess("");
 
     const pmRow = teamRows.find((r) => r.id === "row-pm");
     if (!pmRow || !pmRow.userId) {
@@ -538,6 +587,11 @@ export default function KelolaProyekPage() {
       }
     }
 
+    setShowSaveTeamConfirm(true);
+  };
+
+  const handleConfirmSaveTeamRows = async () => {
+    if (!showProjectDetail) return;
     setSubmitting(true);
     try {
       const payloadMembers = teamRows
@@ -572,24 +626,26 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.error ? `${data.message}: ${data.error}` : (data.message || "Gagal menyimpan penugasan tim"));
+        setShowSaveTeamConfirm(false);
         return;
       }
 
       await handleOpenDetailModal(showProjectDetail);
-      setSuccess("Penugasan tim berhasil disimpan!");
       fetchData();
+      setShowSaveTeamConfirm(false);
+      setShowSaveTeamToast(true);
     } catch {
       setFormError("Terjadi kesalahan koneksi saat menyimpan tim");
+      setShowSaveTeamConfirm(false);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleInitBudget = async (e: React.FormEvent) => {
+  const handleInitBudget = (e: React.FormEvent) => {
     e.preventDefault();
     if (!showInitBudget) return;
     setFormError("");
-    setSuccess("");
 
     const total = ribuanToNumber(rabTotal);
     if (total <= 0) {
@@ -602,6 +658,13 @@ export default function KelolaProyekPage() {
       setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString("id-ID")}) tidak boleh melebihi total Nilai Proyek (Rp ${total.toLocaleString("id-ID")})`);
       return;
     }
+
+    setShowInitBudgetConfirm(true);
+  };
+
+  const handleConfirmInitBudget = async () => {
+    if (!showInitBudget) return;
+    const total = ribuanToNumber(rabTotal);
 
     setSubmitting(true);
     try {
@@ -620,15 +683,19 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.message || "Gagal menginisialisasi budget");
+        setShowInitBudgetConfirm(false);
         return;
       }
 
-      setSuccess(`Budget Proyek untuk "${showInitBudget.nama}" berhasil diinisialisasi!`);
+      setInitBudgetProjectName(showInitBudget.nama);
       setShowInitBudget(null);
       setRabTotal("");
+      setShowInitBudgetConfirm(false);
+      setShowInitBudgetSuccess(true);
       fetchData();
     } catch {
       setFormError("Terjadi kesalahan koneksi");
+      setShowInitBudgetConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -993,6 +1060,122 @@ export default function KelolaProyekPage() {
         rejectionReason={rejectionReason}
         setRejectionReason={setRejectionReason}
         handleBulkReview={handleBulkReview}
+      />
+
+      <SuccessDialog
+        open={showBulkRejectSuccess}
+        title="Pengajuan Ditolak"
+        description={<>Berhasil menolak <span className="font-semibold text-[#14130F]">{bulkRejectedCount}</span> item pengajuan.</>}
+        onClose={() => setShowBulkRejectSuccess(false)}
+      />
+
+      <SuccessDialog
+        open={showBulkApproveSuccess}
+        title="Pengajuan Disetujui"
+        description={<>Berhasil menyetujui <span className="font-semibold text-[#14130F]">{bulkApprovedCount}</span> item pengajuan.</>}
+        onClose={() => setShowBulkApproveSuccess(false)}
+      />
+
+      <ConfirmDialog
+        open={showAddProjectConfirm}
+        title="Buat Proyek Baru"
+        description={
+          <>
+            Apakah Anda yakin ingin membuat proyek <span className="font-semibold text-stone-900">{projectForm.nama}</span> ({projectForm.tanggalMulai} s/d {projectForm.tanggalSelesai}) dengan status <span className="font-semibold text-stone-900">{projectForm.status}</span>?
+          </>
+        }
+        confirmLabel="Buat Proyek"
+        isLoading={submitting}
+        onCancel={() => setShowAddProjectConfirm(false)}
+        onConfirm={handleConfirmAddProject}
+      />
+
+      <SuccessDialog
+        open={showAddProjectSuccess}
+        title="Proyek Berhasil Dibuat"
+        description={<>Proyek <span className="font-semibold text-[#14130F]">{newProjectName}</span> berhasil dibuat.</>}
+        onClose={() => setShowAddProjectSuccess(false)}
+      />
+
+      <ConfirmDialog
+        open={showEditProjectConfirm}
+        title="Simpan Perubahan Proyek"
+        description={
+          <>
+            Apakah Anda yakin ingin menyimpan perubahan proyek <span className="font-semibold text-stone-900">{editForm.nama}</span>? Status akan diubah menjadi <span className="font-semibold text-stone-900">{editForm.status}</span>, periode {editForm.tanggalMulai} s/d {editForm.tanggalSelesai || "-"}.
+          </>
+        }
+        confirmLabel="Simpan"
+        isLoading={submitting}
+        onCancel={() => setShowEditProjectConfirm(false)}
+        onConfirm={handleConfirmUpdateProject}
+      />
+
+      <SuccessDialog
+        open={showEditProjectSuccess}
+        title="Proyek Berhasil Diperbarui"
+        description={<>Proyek <span className="font-semibold text-[#14130F]">{editedProjectName}</span> berhasil diperbarui.</>}
+        onClose={() => setShowEditProjectSuccess(false)}
+      />
+
+      <ConfirmDialog
+        open={showInitBudgetConfirm}
+        title="Simpan Nilai Proyek"
+        description={
+          showInitBudget && (
+            <>
+              Apakah Anda yakin ingin menyimpan Nilai Proyek <span className="font-semibold text-stone-900">{showInitBudget.nama}</span> senilai <span className="font-semibold text-stone-900">Rp {rabTotal}</span> dengan <span className="font-semibold text-stone-900">{posAnggaranList.length} pos anggaran</span>? Data pos anggaran yang sudah ada sebelumnya akan diganti sesuai isian ini.
+            </>
+          )
+        }
+        confirmLabel="Simpan"
+        isLoading={submitting}
+        onCancel={() => setShowInitBudgetConfirm(false)}
+        onConfirm={handleConfirmInitBudget}
+      />
+
+      <SuccessDialog
+        open={showInitBudgetSuccess}
+        title="Nilai Proyek Berhasil Disimpan"
+        description={<>Nilai Proyek <span className="font-semibold text-[#14130F]">{initBudgetProjectName}</span> berhasil disimpan.</>}
+        onClose={() => setShowInitBudgetSuccess(false)}
+      />
+
+      <ConfirmDialog
+        open={showSaveTeamConfirm}
+        title="Simpan Penugasan Tim"
+        description="Apakah Anda yakin ingin menyimpan penugasan tim untuk proyek ini?"
+        confirmLabel="Simpan"
+        isLoading={submitting}
+        onCancel={() => setShowSaveTeamConfirm(false)}
+        onConfirm={handleConfirmSaveTeamRows}
+      />
+
+      <Toast
+        open={showSaveTeamToast}
+        message="Penugasan tim berhasil disimpan."
+        onClose={() => setShowSaveTeamToast(false)}
+      />
+
+      <ConfirmDialog
+        open={showReactivateConfirm}
+        title="Aktifkan Kembali Proyek"
+        description={
+          showProjectDetail && (
+            <>Apakah Anda yakin ingin mengaktifkan kembali proyek <span className="font-semibold text-stone-900">{showProjectDetail.nama}</span>? Status proyek akan diubah menjadi <span className="font-semibold text-stone-900">Active</span>.</>
+          )
+        }
+        confirmLabel="Aktifkan Kembali"
+        isLoading={submitting}
+        onCancel={() => setShowReactivateConfirm(false)}
+        onConfirm={handleConfirmReactivateProject}
+      />
+
+      <SuccessDialog
+        open={showReactivateSuccess}
+        title="Proyek Berhasil Diaktifkan Kembali"
+        description={<>Proyek <span className="font-semibold text-[#14130F]">{reactivatedProjectName}</span> sekarang berstatus Active.</>}
+        onClose={() => setShowReactivateSuccess(false)}
       />
     </main>
   );

@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { X } from "lucide-react";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 type Props = {
   showPendingPmModal: boolean;
@@ -32,6 +33,9 @@ export default function PendingPmModal({
   setRejectionReason,
   handleBulkReview,
 }: Props) {
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [isApprovingBulk, setIsApprovingBulk] = useState(false);
+
   if (!showPendingPmModal) return null;
 
   const mainAnggaranList = detailedProjectInfo?.budget?.mainAnggaran || [];
@@ -113,7 +117,13 @@ export default function PendingPmModal({
   };
 
   const handleBulkApprove = async () => {
-    await handleBulkReview('APPROVE');
+    setIsApprovingBulk(true);
+    try {
+      await handleBulkReview('APPROVE');
+      setShowApproveConfirm(false);
+    } finally {
+      setIsApprovingBulk(false);
+    }
   };
 
   return (
@@ -599,7 +609,7 @@ export default function PendingPmModal({
               <button
                 type="button"
                 disabled={selectedCount === 0}
-                onClick={handleBulkApprove}
+                onClick={() => setShowApproveConfirm(true)}
                 style={{
                   padding: '9px 14px',
                   background: selectedCount > 0 ? 'black' : '#E6E1D4',
@@ -780,6 +790,16 @@ export default function PendingPmModal({
         })()}
 
       </div>
+
+      <ConfirmDialog
+        open={showApproveConfirm}
+        title="Setujui Pengajuan Terpilih"
+        description={<>Apakah Anda yakin ingin menyetujui <span className="font-semibold text-[#14130F]">{selectedCount}</span> pos anggaran terpilih?</>}
+        confirmLabel="Setujui"
+        isLoading={isApprovingBulk}
+        onCancel={() => setShowApproveConfirm(false)}
+        onConfirm={handleBulkApprove}
+      />
     </div>
   );
 }
