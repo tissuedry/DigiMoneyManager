@@ -15,6 +15,7 @@ import DetailBudgetModal from "./DetailBudgetModal";
 import PendingPmModal from "./PendingPmModal";
 import SuccessDialog from "@/components/success-dialog";
 import ConfirmDialog from "@/components/confirm-dialog";
+import Toast from "@/components/toast";
 
 export default function KelolaProyekPage() {
   const [activeStatus, setActiveStatus] = useState('Semua');
@@ -97,6 +98,8 @@ export default function KelolaProyekPage() {
   const [showInitBudgetConfirm, setShowInitBudgetConfirm] = useState(false);
   const [showInitBudgetSuccess, setShowInitBudgetSuccess] = useState(false);
   const [initBudgetProjectName, setInitBudgetProjectName] = useState("");
+  const [showSaveTeamConfirm, setShowSaveTeamConfirm] = useState(false);
+  const [showSaveTeamToast, setShowSaveTeamToast] = useState(false);
 
   const [projectForm, setProjectForm] = useState({
     nama: "",
@@ -530,10 +533,9 @@ export default function KelolaProyekPage() {
     setTeamRows(teamRows.filter((r) => r.id !== id));
   };
 
-  const handleSaveTeamRows = async () => {
+  const handleSaveTeamRows = () => {
     if (!showProjectDetail) return;
     setFormError("");
-    setSuccess("");
 
     const pmRow = teamRows.find((r) => r.id === "row-pm");
     if (!pmRow || !pmRow.userId) {
@@ -574,6 +576,11 @@ export default function KelolaProyekPage() {
       }
     }
 
+    setShowSaveTeamConfirm(true);
+  };
+
+  const handleConfirmSaveTeamRows = async () => {
+    if (!showProjectDetail) return;
     setSubmitting(true);
     try {
       const payloadMembers = teamRows
@@ -608,14 +615,17 @@ export default function KelolaProyekPage() {
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.error ? `${data.message}: ${data.error}` : (data.message || "Gagal menyimpan penugasan tim"));
+        setShowSaveTeamConfirm(false);
         return;
       }
 
       await handleOpenDetailModal(showProjectDetail);
-      setSuccess("Penugasan tim berhasil disimpan!");
       fetchData();
+      setShowSaveTeamConfirm(false);
+      setShowSaveTeamToast(true);
     } catch {
       setFormError("Terjadi kesalahan koneksi saat menyimpan tim");
+      setShowSaveTeamConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -1119,6 +1129,22 @@ export default function KelolaProyekPage() {
         title="Nilai Proyek Berhasil Disimpan"
         description={<>Nilai Proyek <span className="font-semibold text-[#14130F]">{initBudgetProjectName}</span> berhasil disimpan.</>}
         onClose={() => setShowInitBudgetSuccess(false)}
+      />
+
+      <ConfirmDialog
+        open={showSaveTeamConfirm}
+        title="Simpan Penugasan Tim"
+        description="Apakah Anda yakin ingin menyimpan penugasan tim untuk proyek ini?"
+        confirmLabel="Simpan"
+        isLoading={submitting}
+        onCancel={() => setShowSaveTeamConfirm(false)}
+        onConfirm={handleConfirmSaveTeamRows}
+      />
+
+      <Toast
+        open={showSaveTeamToast}
+        message="Penugasan tim berhasil disimpan."
+        onClose={() => setShowSaveTeamToast(false)}
       />
     </main>
   );
