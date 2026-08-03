@@ -48,7 +48,10 @@ export default function SuccessDialog({
   const Icon = styles.icon;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="w-full max-w-sm bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden p-6 relative text-center">
         <div className={`w-12 h-12 mx-auto mb-4 rounded-full border flex items-center justify-center ${styles.iconBg}`}>
           <Icon size={24} className={styles.iconColor} strokeWidth={2.5} />

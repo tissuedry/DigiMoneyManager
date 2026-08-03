@@ -46,6 +46,7 @@ export default function Toast({ open, message, duration = 3000, onClose }: Toast
       className={`fixed top-5 left-1/2 z-[100] transition-all ease-out ${
         isVisible ? "duration-300 opacity-100 -translate-x-1/2 translate-y-0 scale-100" : `duration-200 opacity-0 -translate-x-1/2 -translate-y-3 scale-90`
       }`}
+      onClick={(e) => e.stopPropagation()}
     >
       <div
         className="flex items-center gap-3 shadow-2xl shadow-emerald-900/20 rounded-full pl-2.5 pr-4 py-2.5"

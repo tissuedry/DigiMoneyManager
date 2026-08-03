@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
+import ConfirmDialog from "@/components/confirm-dialog";
+import SuccessDialog from "@/components/success-dialog";
 
 type AjukanKet = {
   id: number;
@@ -102,6 +104,10 @@ export default function AjukanPosModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [pendingItems, setPendingItems] = useState<any[]>([]);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
+  const [pendingSubmitItems, setPendingSubmitItems] = useState<any[]>([]);
+  const [showEmptyWarning, setShowEmptyWarning] = useState(false);
 
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
@@ -480,7 +486,7 @@ export default function AjukanPosModal({
     setNewKetAlokasi("");
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const items: any[] = [];
 
     // ponytail: draft id Sub baru (Date.now(), 13-digit) gak muat di kolom targetId (Int32).
@@ -528,10 +534,15 @@ export default function AjukanPosModal({
     });
 
     if (items.length === 0) {
-      alert("Belum ada pos yang diajukan.");
+      setShowEmptyWarning(true);
       return;
     }
 
+    setPendingSubmitItems(items);
+    setShowSubmitConfirm(true);
+  };
+
+  const handleConfirmSubmit = async () => {
     setSubmitting(true);
     setError("");
     try {
@@ -540,19 +551,22 @@ export default function AjukanPosModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           judul: `Pengajuan pos anggaran untuk ${proyekNama}`,
-          deskripsi: `Pengajuan ${items.length} item baru`,
-          items,
+          deskripsi: `Pengajuan ${pendingSubmitItems.length} item baru`,
+          items: pendingSubmitItems,
         }),
       });
       const result = await res.json();
       if (!res.ok) {
         setError(result.message || "Gagal mengajukan pos");
+        setShowSubmitConfirm(false);
         return;
       }
       localStorage.removeItem(DRAFT_STORAGE_KEY(proyekId));
-      onClose();
+      setShowSubmitConfirm(false);
+      setShowSubmitSuccess(true);
     } catch {
       setError("Terjadi kesalahan koneksi");
+      setShowSubmitConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -1020,6 +1034,43 @@ export default function AjukanPosModal({
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showSubmitConfirm}
+        title="Ajukan Pos Anggaran"
+        description={
+          <>
+            Apakah Anda yakin ingin mengajukan <span className="font-semibold text-stone-900">{pendingSubmitItems.length} pos</span> baru untuk proyek <span className="font-semibold text-stone-900">{proyekNama}</span>? Pengajuan ini akan masuk ke antrian persetujuan Direktur/Manajemen.
+          </>
+        }
+        confirmLabel="Ajukan"
+        isLoading={submitting}
+        onCancel={() => setShowSubmitConfirm(false)}
+        onConfirm={handleConfirmSubmit}
+      />
+
+      <SuccessDialog
+        open={showSubmitSuccess}
+        title="Pengajuan Terkirim"
+        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{pendingSubmitItems.length} pos anggaran</span> berhasil dikirim dan menunggu persetujuan.</>}
+        onClose={() => {
+          setShowSubmitSuccess(false);
+          onClose();
+        }}
+      />
+
+      <SuccessDialog
+        open={showEmptyWarning}
+        variant="warning"
+        title={pendingItems.length > 0 ? "Masih Ada Pengajuan Menunggu" : "Belum Ada Pos Baru"}
+        description={
+          pendingItems.length > 0
+            ? "Pos yang sudah diajukan masih menunggu persetujuan Direktur. Tambahkan Sub Pos atau Keterangan baru jika ingin mengajukan lagi."
+            : "Tambahkan minimal satu Sub Pos atau Keterangan baru sebelum mengajukan."
+        }
+        closeLabel="Mengerti"
+        onClose={() => setShowEmptyWarning(false)}
+      />
     </div>
   );
 }

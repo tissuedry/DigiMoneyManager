@@ -41,7 +41,10 @@ export default function ConfirmDialog({
       : "bg-[#008f5d] hover:bg-[#00754c]";
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="w-full max-w-sm bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden p-6 relative">
         <h3 className="text-lg font-bold text-[#14130F] mb-2">{title}</h3>
         <div className="text-sm text-stone-600 mb-6">{description}</div>
