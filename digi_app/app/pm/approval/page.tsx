@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { Filter, Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import ConfirmDialog from '@/components/confirm-dialog';
+import SuccessDialog from '@/components/success-dialog';
 import { useApi, useInvalidate } from '@/lib/use-api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -232,6 +234,12 @@ export default function AntrianApprovalPage() {
   // State untuk kontrol Modal Penolakan
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [showApproveSuccess, setShowApproveSuccess] = useState(false);
+  const [approvedLabel, setApprovedLabel] = useState('');
+  const [showRejectSuccess, setShowRejectSuccess] = useState(false);
+  const [rejectedLabel, setRejectedLabel] = useState('');
 
   const invalidate = useInvalidate();
 
@@ -396,13 +404,11 @@ export default function AntrianApprovalPage() {
     if (!selected) return;
 
     if (action === 'APPROVE') {
-      if (!confirm("Apakah Anda yakin ingin menyetujui dan meneruskan pengajuan ini ke Tim Keuangan?")) {
-        return;
-      }
-    } else {
-      // Jika action = REJECT, aktifkan loading state khusus modal reject
-      setIsSubmittingReject(true);
+      setShowApproveConfirm(true);
+      return;
     }
+
+    setIsSubmittingReject(true);
 
     try {
       const res = await fetch(`/api/reimbursements/${selected.dbId}/approve`, {
@@ -416,10 +422,11 @@ export default function AntrianApprovalPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(action === 'APPROVE' ? "Pengajuan berhasil disetujui!" : "Pengajuan berhasil ditolak.");
+        setRejectedLabel(selected.merchant || selected.pengaju || 'Pengajuan');
         setCatatan("");
-        if (action === 'REJECT') setIsRejectModalOpen(false); // Tutup Modal jika reject
+        setIsRejectModalOpen(false);
         invalidate("/api/reimbursements?role=Project+Manager", "/api/dashboard", "/api/notifications");
+        setShowRejectSuccess(true);
       } else {
         alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
       }
@@ -427,7 +434,38 @@ export default function AntrianApprovalPage() {
       console.error(err);
       alert("Terjadi kesalahan sistem saat memproses pengajuan.");
     } finally {
-      if (action === 'REJECT') setIsSubmittingReject(false);
+      setIsSubmittingReject(false);
+    }
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!selected) return;
+    setIsApproving(true);
+
+    try {
+      const res = await fetch(`/api/reimbursements/${selected.dbId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'APPROVE',
+          catatan,
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setApprovedLabel(selected.merchant || selected.pengaju || 'Pengajuan');
+        setCatatan("");
+        setShowApproveConfirm(false);
+        invalidate("/api/reimbursements?role=Project+Manager", "/api/dashboard", "/api/notifications");
+        setShowApproveSuccess(true);
+      } else {
+        alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -875,6 +913,34 @@ export default function AntrianApprovalPage() {
             : undefined
         }
         isLoading={isSubmittingReject}
+      />
+
+      <ConfirmDialog
+        open={showApproveConfirm && !!selected}
+        title="Teruskan ke Keuangan"
+        description={
+          selected && (
+            <>Apakah Anda yakin ingin menyetujui dan meneruskan pengajuan <span className="font-semibold text-[#14130F]">{selected.merchant}</span> dari <span className="font-semibold text-[#14130F]">{selected.pengaju}</span> senilai <span className="font-semibold text-[#14130F]">{selected.amount}</span> ke Tim Keuangan?</>
+          )
+        }
+        confirmLabel="Teruskan"
+        isLoading={isApproving}
+        onCancel={() => setShowApproveConfirm(false)}
+        onConfirm={handleConfirmApprove}
+      />
+
+      <SuccessDialog
+        open={showApproveSuccess}
+        title="Berhasil Diteruskan"
+        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{approvedLabel}</span> berhasil disetujui dan diteruskan ke Tim Keuangan.</>}
+        onClose={() => setShowApproveSuccess(false)}
+      />
+
+      <SuccessDialog
+        open={showRejectSuccess}
+        title="Pengajuan Ditolak"
+        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{rejectedLabel}</span> berhasil ditolak.</>}
+        onClose={() => setShowRejectSuccess(false)}
       />
 
       {/* Modal Zoom Gambar Struk Simple */}
