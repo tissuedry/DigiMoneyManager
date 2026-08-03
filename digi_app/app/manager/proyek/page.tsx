@@ -100,6 +100,7 @@ export default function KelolaProyekPage() {
   const [initBudgetProjectName, setInitBudgetProjectName] = useState("");
   const [showSaveTeamConfirm, setShowSaveTeamConfirm] = useState(false);
   const [showSaveTeamToast, setShowSaveTeamToast] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
   const [showReactivateSuccess, setShowReactivateSuccess] = useState(false);
   const [reactivatedProjectName, setReactivatedProjectName] = useState("");
@@ -257,11 +258,11 @@ export default function KelolaProyekPage() {
         );
         const messages = failedBodies.map((b: any) => b.message).filter(Boolean);
         const errorText = messages.length > 0 ? messages.join(' ') : "Beberapa item gagal diproses.";
-        alert(errorText);
+        setErrorMessage(errorText);
         setFormError(errorText);
       }
     } catch {
-      alert("Terjadi kesalahan koneksi saat memproses pengajuan");
+      setErrorMessage("Terjadi kesalahan koneksi saat memproses pengajuan");
       setFormError("Terjadi kesalahan koneksi");
     } finally {
       setLoadingDetail(false);
@@ -1155,6 +1156,13 @@ export default function KelolaProyekPage() {
         open={showSaveTeamToast}
         message="Penugasan tim berhasil disimpan."
         onClose={() => setShowSaveTeamToast(false)}
+      />
+
+      <Toast
+        open={!!errorMessage}
+        variant="error"
+        message={errorMessage || ""}
+        onClose={() => setErrorMessage(null)}
       />
 
       <ConfirmDialog

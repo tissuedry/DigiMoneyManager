@@ -296,6 +296,7 @@ export default function KelolaProyekPage() {
   const [showSaveTimConfirm, setShowSaveTimConfirm] = useState(false);
   const [showSaveTimToast, setShowSaveTimToast] = useState(false);
   const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Sync editable rows when project changes
   useEffect(() => {
@@ -337,11 +338,11 @@ export default function KelolaProyekPage() {
         setShowSaveTimToast(true);
       } else {
         const data = await res.json();
-        alert(data.message || "Gagal menyimpan anggota tim");
+        setErrorMessage(data.message || "Gagal menyimpan anggota tim");
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan koneksi saat menyimpan anggota tim");
+      setErrorMessage("Terjadi kesalahan koneksi saat menyimpan anggota tim");
     } finally {
       setSavingTim(false);
     }
@@ -731,6 +732,13 @@ export default function KelolaProyekPage() {
         open={showSaveTimToast}
         message="Anggota tim proyek berhasil disimpan."
         onClose={() => setShowSaveTimToast(false)}
+      />
+
+      <Toast
+        open={!!errorMessage}
+        variant="error"
+        message={errorMessage || ""}
+        onClose={() => setErrorMessage(null)}
       />
 
       <SuccessDialog

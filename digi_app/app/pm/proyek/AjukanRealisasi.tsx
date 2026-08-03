@@ -45,6 +45,7 @@ export default function AjukanRealisasiModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Ambil data tree Pos Anggaran proyek ini
   const { data: posData, isLoading: isLoadingPos } = useApi<any>(`/api/proyek/${proyekId}/pos-anggaran`);
@@ -133,12 +134,12 @@ export default function AjukanRealisasiModal({
         setShowSuccess(true);
       } else {
         const err = await res.json();
-        alert(err.message || "Gagal mengajukan realisasi");
+        setErrorMessage(err.message || "Gagal mengajukan realisasi");
         setShowConfirm(false);
       }
     } catch (error) {
       console.error(error);
-      alert("Terjadi kesalahan jaringan.");
+      setErrorMessage("Terjadi kesalahan jaringan.");
       setShowConfirm(false);
     } finally {
       setIsSubmitting(false);
@@ -329,6 +330,13 @@ export default function AjukanRealisasiModal({
           setShowSuccess(false);
           onClose();
         }}
+      />
+
+      <Toast
+        open={!!errorMessage}
+        variant="error"
+        message={errorMessage || ""}
+        onClose={() => setErrorMessage(null)}
       />
     </div>
   );

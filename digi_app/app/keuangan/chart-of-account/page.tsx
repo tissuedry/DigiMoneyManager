@@ -5,6 +5,7 @@ import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import SuccessDialog from '@/components/success-dialog';
 import ConfirmDialog from '@/components/confirm-dialog';
+import Toast from '@/components/toast';
 
 export default function ChartOfAccountPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -37,6 +38,10 @@ export default function ChartOfAccountPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [deletedAccountLabel, setDeletedAccountLabel] = useState('');
+
+  // Toast untuk error/sukses di luar modal (delete, import CSV)
+  const [toastError, setToastError] = useState<string | null>(null);
+  const [toastSuccess, setToastSuccess] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,7 +159,7 @@ export default function ChartOfAccountPage() {
       setDeletingAccount(null);
       setShowDeleteSuccess(true);
     } catch (err: any) {
-      alert(err.message || 'Terjadi kesalahan sistem saat menghapus akun.');
+      setToastError(err.message || 'Terjadi kesalahan sistem saat menghapus akun.');
     } finally {
       setIsDeleting(false);
     }
@@ -302,8 +307,8 @@ export default function ChartOfAccountPage() {
 
         const data = await res.json();
         if (res.ok) {
-          alert(`Berhasil mengimpor ${data.createdCount} akun.`);
-          
+          setToastSuccess(`Berhasil mengimpor ${data.createdCount} akun.`);
+
           // Refresh list
           const fetchRes = await fetch('/api/coa');
           const fetchData = await fetchRes.json();
@@ -311,11 +316,11 @@ export default function ChartOfAccountPage() {
             setAccounts(fetchData.coa);
           }
         } else {
-          alert(`Gagal mengimpor akun: ${data.message}`);
+          setToastError(`Gagal mengimpor akun: ${data.message}`);
         }
       } catch (err: any) {
         console.error("Error processing CSV:", err);
-        alert(`Gagal memproses file CSV: ${err.message}`);
+        setToastError(`Gagal memproses file CSV: ${err.message}`);
       } finally {
         setIsLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -794,6 +799,19 @@ export default function ChartOfAccountPage() {
         title="Akun Berhasil Dihapus"
         description={<>Akun <span className="font-semibold text-[#14130F]">{deletedAccountLabel}</span> telah dihapus dari Chart of Account.</>}
         onClose={() => setShowDeleteSuccess(false)}
+      />
+
+      <Toast
+        open={!!toastSuccess}
+        message={toastSuccess || ''}
+        onClose={() => setToastSuccess(null)}
+      />
+
+      <Toast
+        open={!!toastError}
+        variant="error"
+        message={toastError || ''}
+        onClose={() => setToastError(null)}
       />
     </div>
   );

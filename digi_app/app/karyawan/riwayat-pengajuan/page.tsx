@@ -359,7 +359,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
               { label: "Sub", value: raw.posAnggaran?.subAnggaran?.namaSub || "N/A" },
               { label: "Keterangan", value: raw.posAnggaran?.keterangan || raw.posAnggaran?.deskripsi || "N/A" },
               { label: "Tanggal Transaksi", value: tanggal },
-              { label: "Nama Vendor", value: raw.merchant || raw.nama || "N/A" },
+              { label: "Nama Reimbursement", value: raw.merchant || raw.nama || "N/A" },
               { label: "Status Indikasi", value: raw.fraudFlag ? "Terindikasi Fraud" : "Aman" },
             ].map((row, i, arr) => (
               <div key={row.label} className={`flex justify-between items-center px-4 py-3 ${i < arr.length - 1 ? "border-b border-stone-100" : ""}`}>

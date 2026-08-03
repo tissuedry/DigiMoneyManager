@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { useDialogBehavior } from "@/hooks/use-dialog-behavior";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -16,6 +17,8 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
+const EXIT_DURATION = 150;
+
 export default function ConfirmDialog({
   open,
   title,
@@ -28,12 +31,34 @@ export default function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const [mounted, setMounted] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!open || !mounted) return null;
+  useEffect(() => {
+    if (open) {
+      setShouldRender(true);
+      const raf = requestAnimationFrame(() => setIsVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setIsVisible(false);
+    const timer = setTimeout(() => setShouldRender(false), EXIT_DURATION);
+    return () => clearTimeout(timer);
+  }, [open]);
+
+  useEffect(() => {
+    if (isVisible) cancelRef.current?.focus();
+  }, [isVisible]);
+
+  useDialogBehavior(open, () => {
+    if (!isLoading) onCancel();
+  });
+
+  if (!shouldRender || !mounted) return null;
 
   const confirmClasses =
     variant === "danger"
@@ -42,15 +67,35 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={(e) => e.stopPropagation()}
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-150 ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
+      onClick={() => !isLoading && onCancel()}
     >
-      <div className="w-full max-w-sm bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden p-6 relative">
-        <h3 className="text-lg font-bold text-[#14130F] mb-2">{title}</h3>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        className={`w-full max-w-sm bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden p-6 relative transition-all duration-150 ${
+          isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3 mb-2">
+          {variant === "danger" && (
+            <div className="w-9 h-9 shrink-0 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
+              <AlertTriangle size={18} className="text-red-600" strokeWidth={2.5} />
+            </div>
+          )}
+          <h3 id="confirm-dialog-title" className="text-lg font-bold text-[#14130F]">
+            {title}
+          </h3>
+        </div>
         <div className="text-sm text-stone-600 mb-6">{description}</div>
 
         <div className="flex justify-end gap-3">
           <button
+            ref={cancelRef}
             type="button"
             onClick={onCancel}
             disabled={isLoading}

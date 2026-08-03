@@ -194,6 +194,7 @@ function PencairanContent() {
   const [showAccountWarning, setShowAccountWarning] = useState(false);
   const [showRejectSuccess, setShowRejectSuccess] = useState(false);
   const [rejectedLabel, setRejectedLabel] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const resetZoomAndPan = () => {
     setZoomScale(1);
@@ -350,11 +351,11 @@ function PencairanContent() {
         invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
         setShowRejectSuccess(true);
       } else {
-        alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+        setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+      setErrorMessage("Terjadi kesalahan sistem saat memproses pengajuan.");
     } finally {
       setIsSubmittingReject(false);
     }
@@ -382,11 +383,11 @@ function PencairanContent() {
         invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
         setShowApproveSuccess(true);
       } else {
-        alert("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+        setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan sistem saat memproses pengajuan.");
+      setErrorMessage("Terjadi kesalahan sistem saat memproses pengajuan.");
     } finally {
       setIsApproving(false);
     }
@@ -1044,6 +1045,13 @@ function PencairanContent() {
         open={showRejectSuccess}
         message={`Pengajuan ${rejectedLabel} berhasil ditolak.`}
         onClose={() => setShowRejectSuccess(false)}
+      />
+
+      <Toast
+        open={!!errorMessage}
+        variant="error"
+        message={errorMessage || ""}
+        onClose={() => setErrorMessage(null)}
       />
 
       {/* Modal Zoom Gambar */}
