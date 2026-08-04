@@ -203,7 +203,3 @@ Untuk endpoint yang membutuhkan login, gunakan JWT token dari response `/api/aut
 - Pastikan `.env` tidak di-commit ke GitHub.
 - Gunakan HTTPS untuk environment production.
 - Rotasi kredensial jika pernah terpapar secara publik.
-
-## Lisensi
-
-MIT
