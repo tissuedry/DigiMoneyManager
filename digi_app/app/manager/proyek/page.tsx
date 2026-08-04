@@ -42,7 +42,7 @@ export default function KelolaProyekPage() {
   const [rejectingPengajuan, setRejectingPengajuan] = useState<any | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<Record<number, boolean>>({});
   const [rejectionReason, setRejectionReason] = useState("");
-  const [showBulkRejectSuccess, setShowBulkRejectSuccess] = useState(false);
+  const [showBulkRejectToast, setShowBulkRejectToast] = useState(false);
   const [bulkRejectedCount, setBulkRejectedCount] = useState(0);
   const [showBulkApproveSuccess, setShowBulkApproveSuccess] = useState(false);
   const [bulkApprovedCount, setBulkApprovedCount] = useState(0);
@@ -236,7 +236,7 @@ export default function KelolaProyekPage() {
       if (allOk) {
         if (action === 'REJECT') {
           setBulkRejectedCount(selectedItemIds.length);
-          setShowBulkRejectSuccess(true);
+          setShowBulkRejectToast(true);
         } else {
           setBulkApprovedCount(selectedItemIds.length);
           setShowBulkApproveSuccess(true);
@@ -1063,11 +1063,10 @@ export default function KelolaProyekPage() {
         handleBulkReview={handleBulkReview}
       />
 
-      <SuccessDialog
-        open={showBulkRejectSuccess}
-        title="Pengajuan Ditolak"
-        description={<>Berhasil menolak <span className="font-semibold text-[#14130F]">{bulkRejectedCount}</span> item pengajuan.</>}
-        onClose={() => setShowBulkRejectSuccess(false)}
+      <Toast
+        open={showBulkRejectToast}
+        message={`Berhasil menolak ${bulkRejectedCount} item pengajuan.`}
+        onClose={() => setShowBulkRejectToast(false)}
       />
 
       <SuccessDialog
