@@ -62,17 +62,19 @@ function formatTanggal(iso: string) {
   return `${date} ${bulan[m]} ${y}`;
 }
 
-// PERBARUAN: Menghapus jam, hanya menampilkan tanggal
 function formatDateTime(dateInput: string | Date | null | undefined) {
   if (!dateInput) return "";
   const d = parseDateSafe(dateInput);
   if (!d) return String(dateInput);
 
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const day = d.getDate();
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+  const month = bulan[d.getMonth()];
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+
+  return `${day} ${month} ${year}, ${hours}:${minutes}`;
 }
 
 const getStatusBadge = (status: ApprovalStatus) => {
