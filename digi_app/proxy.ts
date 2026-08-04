@@ -147,6 +147,9 @@ export async function proxy(req: NextRequest) {
 
   // Jika mengunjungi root page, arahkan ke dashboard masing-masing
   if (pathname === '/') {
+    if (roles.includes('Super Admin') || role === 'superadmin') {
+      return NextResponse.redirect(new URL('/superadmin', req.url));
+    }
     if (roles.includes('Direktur / Manajemen')) {
       return NextResponse.redirect(new URL('/manager', req.url));
     }
@@ -197,6 +200,10 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/', req.url));
   }
 
+  if (pathname.startsWith('/superadmin') && !roles.includes('Superadmin') && role !== 'superadmin') {
+    return NextResponse.redirect(new URL('/', req.url));
+  }
+
   if (pathname.startsWith('/api/manager') && !roles.includes('Direktur / Manajemen')) {
     return new NextResponse(
       JSON.stringify({ message: 'Forbidden: Only Direktur / Manajemen can access manager APIs' }),
@@ -229,7 +236,7 @@ export async function proxy(req: NextRequest) {
   requestHeaders.set('x-user-id', payload.id ? String(payload.id) : '');
   requestHeaders.set('x-user-email', payload.email ? String(payload.email) : '');
   requestHeaders.set('x-user-role', String(role));
-  requestHeaders.set('x-user-roles', roles.join(',')); // Sekarang dijamin aman karena 'roles' pasti Array
+  requestHeaders.set('x-user-roles', roles.join(',')); 
   
   if (payload.proyekId !== undefined && payload.proyekId !== null) {
     requestHeaders.set('x-user-proyek-id', String(payload.proyekId));
@@ -243,5 +250,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/select-project/:path*', '/karyawan/:path*', '/pm/:path*', '/keuangan/:path*', '/manager/:path*', '/api/:path*'],
+  matcher: ['/', '/select-project/:path*', '/karyawan/:path*', '/pm/:path*', '/keuangan/:path*', '/manager/:path*', '/superadmin/:path*', '/api/:path*'],
 };

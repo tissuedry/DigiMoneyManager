@@ -33,16 +33,26 @@ export async function POST(req: Request) {
         nama,
         email: trimmedEmail,
         passwordHash: hashedPassword,
-        role,
+        role, // Role utama (termasuk Super Admin) disimpan di sini
       },
     });
 
     if (proyekId) {
+      // PERUBAHAN: Menyesuaikan pemetaan role pada proyek agar role manajerial/admin tidak turun menjadi Anggota Lapangan
+      let projectRole = 'Anggota Lapangan';
+      if (role === 'Project Manager') {
+        projectRole = 'Project Manager';
+      } else if (role === 'Superadmin' || role === 'superadmin') {
+        projectRole = 'Super Admin';
+      } else if (role === 'Direktur / Manajemen' || role === 'Tim Keuangan') {
+        projectRole = role;
+      }
+
       await prisma.userProyek.create({
         data: {
           userId: user.id,
           proyekId: typeof proyekId === 'number' ? proyekId : parseInt(proyekId, 10),
-          role: role === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
+          role: projectRole,
         },
       });
     }

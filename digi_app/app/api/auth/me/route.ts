@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     let primaryRole = user.role;
     const rolesSet = new Set<string>();
 
-    if (user.role === 'Direktur / Manajemen' || user.role === 'Tim Keuangan') {
+    if (user.role === 'Direktur / Manajemen' || user.role === 'Tim Keuangan' || user.role === 'Super Admin' || user.role === 'superadmin') {
       rolesSet.add(user.role);
     } else {
       const hasPM = user.proyek.some((up: any) => up.role === 'Project Manager');
