@@ -474,6 +474,36 @@ export async function GET(req: NextRequest) {
       dashboardData.cashFlow = cashFlowMonths;
       dashboardData.reimbursementPipeline = reimbursementPipeline;
       dashboardData.projectList = projectProfitability;
+
+    } else if (role === 'Super Admin' || role === 'superadmin') {
+      
+      const totalPengajuan = await prisma.reimbursement.count();
+
+      const totalMenungguApproval = await prisma.reimbursement.count({
+        where: { status: 'SUBMITTED' }
+      });
+
+      const totalSiapDicairkan = await prisma.reimbursement.count({
+        where: { status: 'APPROVED_BY_PM' }
+      });
+
+      const totalProyekAktif = await prisma.proyek.count({
+        where: { status: 'AKTIF' }
+      });
+
+      const totalCoA = await prisma.chartOfAccounts.count();
+
+      const totalUserAktif = await prisma.user.count(); 
+
+      dashboardData.metrics = {
+        totalPengajuan,
+        totalMenungguApproval,
+        totalSiapDicairkan,
+        totalProyekAktif,
+        totalCoA,
+        totalUserAktif
+      };
+
     }
 
     // ponytail: store in cache before returning
