@@ -5,7 +5,6 @@ import { getCached, setCache, clearCache } from '@/lib/route-cache';
 // GET: List all chart of accounts
 export async function GET(req: NextRequest) {
   try {
-    // ponytail: CoA is near-static — cache 5 minutes
     const cached = getCached('coa');
     if (cached) return NextResponse.json(cached);
 
@@ -14,21 +13,23 @@ export async function GET(req: NextRequest) {
     });
     const resp = { coa };
     setCache('coa', resp);
+
     return NextResponse.json(resp);
+
   } catch (error: any) {
     console.error('Fetch CoA error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
 
-// POST: Create a new chart of accounts (Admin Keuangan only)
+// POST: Create a new chart of accounts (Admin Keuangan & Super Admin only)
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
     const userId = req.headers.get('x-user-id');
 
-    if (role !== 'Tim Keuangan') {
-      return NextResponse.json({ message: 'Forbidden: Only Tim Keuangan can manage Chart of Accounts' }, { status: 403 });
+    if (role !== 'Tim Keuangan' && role !== 'Superadmin' && role !== 'superadmin') {
+      return NextResponse.json({ message: 'Forbidden: Only Tim Keuangan and Super Admin can manage Chart of Accounts' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ message: 'Chart of Accounts created successfully', coa: newCoa }, { status: 201 });
+    
   } catch (error: any) {
     console.error('Create CoA error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

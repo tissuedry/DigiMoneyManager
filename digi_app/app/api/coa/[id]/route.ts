@@ -1,14 +1,14 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// PUT: Update a chart of account (Admin Keuangan only)
+// PUT: Update a chart of account (Admin Keuangan & Super Admin only)
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
     const userId = req.headers.get('x-user-id');
 
-    if (role !== 'Tim Keuangan') {
-      return NextResponse.json({ message: 'Forbidden: Only Tim Keuangan can manage Chart of Accounts' }, { status: 403 });
+    if (role !== 'Tim Keuangan' && role !== 'Superadmin' && role !== 'superadmin') {
+      return NextResponse.json({ message: 'Forbidden: Only Tim Keuangan and Super Admin can manage Chart of Accounts' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -28,6 +28,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const duplicate = await prisma.chartOfAccounts.findFirst({
         where: { nomorAkun: parseInt(nomorAkun, 10) },
       });
+
       if (duplicate) {
         return NextResponse.json({ message: `Account number ${nomorAkun} is already in use` }, { status: 400 });
       }
@@ -55,20 +56,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     return NextResponse.json({ message: 'Chart of Accounts updated successfully', coa: updated });
+
   } catch (error: any) {
     console.error('Update CoA error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
 
-// DELETE: Delete a chart of account (Admin Keuangan only)
+// DELETE: Delete a chart of account (Admin Keuangan & Super Admin only)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
     const userId = req.headers.get('x-user-id');
 
-    if (role !== 'Tim Keuangan') {
-      return NextResponse.json({ message: 'Forbidden: Only Tim Keuangan can manage Chart of Accounts' }, { status: 403 });
+    if (role !== 'Tim Keuangan' && role !== 'Superadmin' && role !== 'superadmin') {
+      return NextResponse.json({ message: 'Forbidden: Only Tim Keuangan and Super Admin can manage Chart of Accounts' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -97,6 +99,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     return NextResponse.json({ message: 'Chart of Accounts deleted successfully' });
+    
   } catch (error: any) {
     console.error('Delete CoA error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
