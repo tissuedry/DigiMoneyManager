@@ -15,7 +15,7 @@ type Member = {
   proyek: { id: number; nama: string; status: string; roleInProyek: string }[];
 };
 
-const ROLES = ["Karyawan", "Project Manager", "Tim Keuangan", "Direktur / Manajemen"];
+const ROLES = ["Karyawan", "Project Manager", "Tim Keuangan", "Direktur / Manajemen", "Superadmin"];
 
 const ROLE_BADGE: Record<string, string> = {
   "Karyawan": "bg-stone-100 text-stone-600",

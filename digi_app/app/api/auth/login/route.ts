@@ -40,7 +40,13 @@ export async function POST(req: Request) {
     const rolesSet = new Set<string>();
     let primaryRole = user.role;
 
-    if (user.role === 'Direktur / Manajemen' || user.role === 'Tim Keuangan' || user.role === 'Superadmin' || user.role === 'superadmin') {
+    // PERUBAHAN: Menambahkan 'Super Admin' ke dalam pengecekan root access
+    if (
+      user.role === 'Direktur / Manajemen' || 
+      user.role === 'Tim Keuangan' || 
+      user.role === 'Superadmin' || 
+      user.role === 'superadmin'
+    ) {
       rolesSet.add(user.role);
     } else {
       const hasPM = userProyeks.some((up: any) => up.role === 'Project Manager');
