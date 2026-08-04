@@ -35,7 +35,6 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Beranda PM", href: "/pm", icon: LayoutDashboard, hasBadge: false },
     { name: "Kelola Proyek", href: "/pm/proyek", icon: FolderKanban, hasBadge: false },
     { name: "Antrian Approval", href: "/pm/approval", icon: FileCheck, hasBadge: true, badgeCount: 0 },
-    { name: "Budget Proyek", href: "/pm/budget", icon: Wallet, hasBadge: false },
   ],
   "Tim Keuangan": [
     { name: "Beranda", href: "/keuangan", icon: LayoutDashboard, hasBadge: false },
