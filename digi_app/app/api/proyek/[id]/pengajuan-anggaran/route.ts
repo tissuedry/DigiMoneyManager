@@ -2,25 +2,39 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 async function verifyCanAccessPengajuan(userId: string | null, userRole: string | null, proyekId: number) {
-  if (userRole === 'Direktur / Manajemen') return true;
+  if (
+    userRole === 'Direktur / Manajemen' ||
+    userRole === 'Superadmin' ||
+    userRole === 'superadmin'
+  ) 
+  {
+    return true;
+  }
+  
   if (!userId) return false;
+  
   const up = await prisma.userProyek.findFirst({
     where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
   });
   return !!up;
 }
 
-// POST: PM mengajukan proposal perubahan anggaran
+// POST: PM atau Super Admin mengajukan proposal perubahan anggaran
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
+    const userRole = req.headers.get('x-user-role');
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    // ponytail: POST stays PM-only — Direktur never submits proposals, only reviews.
-    if (!(await verifyCanAccessPengajuan(userId, null, proyekId))) {
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Superadmin' || userRole === 'superadmin';
+    const isPM = userId ? await prisma.userProyek.findFirst({
+      where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
+    }) : false;
+
+    if (!isPM && !isSuperAdmin) {
       return NextResponse.json(
-        { message: 'Forbidden: Only the assigned Project Manager can submit proposals' },
+        { message: 'Forbidden: Only the assigned Project Manager or Super Admin can submit proposals' },
         { status: 403 },
       );
     }
@@ -51,11 +65,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (item.aksi === 'HAPUS' && !item.targetId) {
         return NextResponse.json({ message: `items[${i}].targetId required for HAPUS` }, { status: 400 });
       }
-      // TAMBAH and UBAH need nama + nominal for SUB_ANGGARAN, nama for KETERANGAN
+      
       if (['TAMBAH', 'UBAH'].includes(item.aksi)) {
+
         if (!item.nama?.trim()) {
           return NextResponse.json({ message: `items[${i}].nama is required for ${item.aksi}` }, { status: 400 });
         }
+
         if (item.nominalAlokasi == null || Number(item.nominalAlokasi) < 0) {
           return NextResponse.json({ message: `items[${i}].nominalAlokasi must be a non-negative number for ${item.aksi}` }, { status: 400 });
         }
@@ -82,14 +98,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       include: { items: true },
     });
 
-    // Notify all Direktur
-    const direkturUsers = await prisma.user.findMany({
-      where: { role: 'Direktur / Manajemen' },
+    const reviewers = await prisma.user.findMany({
+      where: { 
+        role: { 
+          in: ['Direktur / Manajemen', 'Superadmin', 'superadmin'] 
+        } 
+      },
       select: { id: true },
     });
-    if (direkturUsers.length > 0) {
+    
+    if (reviewers.length > 0) {
       await prisma.notification.createMany({
-        data: direkturUsers.map((u) => ({
+        data: reviewers.map((u) => ({
           userId: u.id,
           tipe: 'PENGAJUAN_ANGGARAN',
           pesan: `Pengajuan anggaran baru: "${pengajuan.judul}" perlu direview`,
@@ -98,6 +118,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     return NextResponse.json({ message: 'Pengajuan anggaran berhasil dikirim', pengajuan }, { status: 201 });
+
   } catch (error) {
     console.error('Create pengajuan error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -113,9 +134,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
+    // Otomatis tervalidasi jika PM, Direktur, atau Super Admin
     if (!(await verifyCanAccessPengajuan(userId, userRole, proyekId))) {
       return NextResponse.json(
-        { message: 'Forbidden: Only the assigned Project Manager or Direktur can view proposals' },
+        { message: 'Forbidden: Only the assigned Project Manager, Direktur, or Super Admin can view proposals' },
         { status: 403 },
       );
     }
@@ -136,6 +158,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     return NextResponse.json({ pengajuan: list });
+    
   } catch (error) {
     console.error('Get pengajuan list error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

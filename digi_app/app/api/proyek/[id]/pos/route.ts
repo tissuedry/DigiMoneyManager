@@ -20,9 +20,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
-    if (!isPM && !roles.includes('Tim Keuangan') && !roles.includes('Direktur / Manajemen')) {
-      return NextResponse.json({ message: 'Forbidden: You must be the assigned Project Manager, Tim Keuangan, or Direktur / Manajemen to modify this project budget' }, { status: 403 });
+    const isSuperAdmin = 
+      roles.includes('Superadmin') || 
+      roles.includes('superadmin');
+
+    if (!isPM && !roles.includes('Tim Keuangan') && !roles.includes('Direktur / Manajemen') && !isSuperAdmin) {
+      return NextResponse.json({ message: 'Forbidden: You must be the assigned Project Manager, Tim Keuangan, Direktur / Manajemen, or Super Admin to modify this project budget' }, { status: 403 });
     }
+    
     const body = await req.json();
     const { namaPos, nominalAlokasi } = body;
 
@@ -72,11 +77,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     if (userId) {
+      let actor = 'Project Manager';
+
+      if (isSuperAdmin) {
+        actor = 'Superadmin';
+      } else if (roles.includes('Direktur / Manajemen')) {
+        actor = 'Direktur';
+      } else if (roles.includes('Tim Keuangan')) {
+        actor = 'Tim Keuangan';
+      }
+
       await prisma.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
           aksi: 'add_pos_anggaran',
-          detail: `Menambahkan pos anggaran ${namaPos} senilai Rp ${Number(nominalAlokasi).toLocaleString('id-ID')} pada proyek ${project.nama}`,
+          detail: `${actor} menambahkan pos anggaran ${namaPos} senilai Rp ${Number(nominalAlokasi).toLocaleString('id-ID')} pada proyek ${project.nama}`,
         },
       });
     }
@@ -84,6 +99,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     clearCache('dashboard:');
     clearCache('proyek:');
     return NextResponse.json({ message: 'Pos Anggaran added successfully', pos: newPos }, { status: 201 });
+    
   } catch (error: any) {
     console.error('Add pos anggaran error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

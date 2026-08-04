@@ -1,8 +1,18 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-async function verifyIsProjectManagerOf(userId: string | null, proyekId: number) {
+async function canManageProjectMembers(userId: string | null, userRole: string | null, proyekId: number) {
+  if (
+    userRole === 'Direktur / Manajemen' ||
+    userRole === 'Superadmin' ||
+    userRole === 'superadmin'
+  ) 
+  {
+    return true;
+  }
+
   if (!userId) return false;
+  
   const up = await prisma.userProyek.findFirst({
     where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
   });
@@ -12,12 +22,14 @@ async function verifyIsProjectManagerOf(userId: string | null, proyekId: number)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
+    const role = req.headers.get('x-user-role'); 
+    
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    if (!(await verifyIsProjectManagerOf(userId, proyekId))) {
+    if (!(await canManageProjectMembers(userId, role, proyekId))) {
       return NextResponse.json(
-        { message: 'Forbidden: Only the assigned Project Manager can access project members' },
+        { message: 'Forbidden: Only the assigned Project Manager, Direktur, or Super Admin can access project members' },
         { status: 403 },
       );
     }
@@ -39,6 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }));
 
     return NextResponse.json({ members: mapped });
+
   } catch (error) {
     console.error('Get project member error: ', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -49,12 +62,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
+    const role = req.headers.get('x-user-role'); 
+    
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    if (!(await verifyIsProjectManagerOf(userId, proyekId))) {
+    if (!(await canManageProjectMembers(userId, role, proyekId))) {
       return NextResponse.json(
-        { message: 'Forbidden: Only the assigned Project Manager can manage project members' },
+        { message: 'Forbidden: Only the assigned Project Manager, Direktur, or Super Admin can manage project members' },
         { status: 403 },
       );
     }
@@ -101,8 +116,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }));
 
       await prisma.$transaction([deleteOp, prisma.userProyek.createMany({ data: userProyeks })]);
+
     } else {
-      // userIds path — preserve existing PM role
       const users = await prisma.user.findMany({
         where: { id: { in: userIdArray } },
         select: { id: true },
@@ -119,16 +134,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (userId && projectName) {
       const memberCount = hasMembers ? memberArray.length : userIdArray.length;
+      
+      let actor = 'Project Manager';
+      if (role === 'Superadmin' || role === 'superadmin') {
+        actor = 'Superadmin';
+
+      } else if (role === 'Direktur / Manajemen') {
+        actor = 'Direktur';
+      }
+
       await prisma.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
           aksi: 'assign_project_members',
-          detail: `Project Manager mengatur ulang anggota proyek ${projectName} (${memberCount} orang)`,
+          detail: `${actor} mengatur ulang anggota proyek ${projectName} (${memberCount} orang)`,
         },
       });
     }
 
     return NextResponse.json({ message: 'Project members successfully updated!' }, { status: 200 });
+    
   } catch (error) {
     console.error('Update project members error: ', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
