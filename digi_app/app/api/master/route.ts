@@ -24,6 +24,13 @@ export async function GET(request: Request) {
     }
 
     const main = await prisma.masterMain.findMany({
+      include: {
+        MasterSub: {
+          include: {
+            MasterKeterangan: true,
+          },
+        },
+      },
       orderBy: { id: 'asc' }
     });
     

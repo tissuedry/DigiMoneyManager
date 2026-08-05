@@ -92,10 +92,17 @@ export async function GET(req: NextRequest) {
             budget: {
               include: {
                 mainAnggaran: {
+                  orderBy: { id: 'asc' },
                   include: { 
                     subAnggaran: { 
+                      orderBy: { id: 'asc' },
                       include: { 
-                        keterangan: true } } },
+                        keterangan: {
+                          orderBy: { id: 'asc' },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -429,7 +436,7 @@ export async function GET(req: NextRequest) {
       };
 
       // ── Project Profitability ────────────────────────────────────
-      const projectProfitability = proyekList.map((p) => {
+      const projectProfitability = proyekList.filter(p => p.status === 'AKTIF').map((p) => {
         const rab = Number(p.budget?.rabTotal || 0);
         const expense = Number(p.budget?.totalPengeluaran || 0);
         const sisa = Number(p.budget?.sisaBudget || 0);

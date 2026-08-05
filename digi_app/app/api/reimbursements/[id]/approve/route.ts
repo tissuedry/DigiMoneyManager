@@ -134,6 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
 
         clearCache('dashboard:');
+        clearCache('proyek:');
         clearCache('reimb:');
         clearCache('notif:');
         return NextResponse.json({ message: `Successfully processed approval: ${nextStatus}`, reimbursement: mapReimbursement(updated) });
@@ -284,6 +285,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
 
         clearCache('dashboard:');
+        clearCache('proyek:');
         clearCache('reimb:');
         clearCache('notif:');
         clearCache('coa');
@@ -337,6 +339,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
 
         clearCache('dashboard:');
+        clearCache('proyek:');
         clearCache('reimb:');
         clearCache('notif:');
         return NextResponse.json({ message: 'Pengajuan successfully rejected by Keuangan.', reimbursement: mapReimbursement(updated) });

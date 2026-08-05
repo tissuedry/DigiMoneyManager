@@ -284,7 +284,7 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
 
                 <div className="border-t border-stone-200/80 bg-white">
                   <Link
-                    href={userRole === "Karyawan" ? "/karyawan/riwayat-pengajuan" : "#"}
+                    href={"/notification"}
                     onClick={() => setIsNotificationsOpen(false)}
                     className="w-full py-3.5 flex items-center justify-center gap-2 text-stone-800 hover:text-stone-950 font-bold text-[12px] transition hover:bg-stone-50 cursor-pointer"
                   >

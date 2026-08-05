@@ -30,10 +30,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         id: true,
         namaMain: true,
         subAnggaran: {
+          orderBy: { id: 'asc' },
           select: {
             id: true,
             namaSub: true,
             keterangan: {
+              orderBy: { id: 'asc' },
               select: { id: true, keterangan: true },
             },
           },
