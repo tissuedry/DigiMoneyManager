@@ -93,12 +93,12 @@ interface RejectModalProps {
   isLoading?: boolean;
 }
 
-const RejectModal: React.FC<RejectModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  data, 
-  isLoading = false 
+const RejectModal: React.FC<RejectModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  data,
+  isLoading = false
 }) => {
   const [alasan, setAlasan] = useState('');
 
@@ -304,9 +304,9 @@ function PencairanContent() {
 
   useEffect(() => {
     if (selectedItem && selectedItem.status === 'APPROVED_BY_PM') {
-      setCreditAccount("10000");
+      setCreditAccount("");
 
-      const posName = selectedItem.posAnggaran?.deskripsi?.toLowerCase() || "";
+      const posName = (selectedItem.posAnggaran?.deskripsi || selectedItem.posAnggaran?.keterangan || "").toLowerCase();
       if (posName.includes("perlengkapan") || posName.includes("atk")) {
         setDebitAccount("50001");
       } else if (posName.includes("bahan") || posName.includes("sipil") || posName.includes("bangunan")) {
@@ -314,19 +314,30 @@ function PencairanContent() {
       } else if (posName.includes("transportasi") || posName.includes("logistik")) {
         setDebitAccount("50003");
       } else {
-        setDebitAccount("");
+        const expenseCoa = coaList.find((c: any) => {
+          const t = (c.tipe || '').toLowerCase();
+          return t === 'beban' || t === 'expense';
+        });
+        setDebitAccount(expenseCoa ? String(expenseCoa.nomorAkun) : "50001");
       }
       setCatatan("");
     }
-  }, [selectedId, selectedItem]);
+  }, [selectedId, selectedItem, coaList]);
 
   const handleProcess = async (action: 'APPROVE' | 'REJECT', alasanPenolakan?: string) => {
     if (!selectedItem) return;
 
     if (action === 'APPROVE') {
-      if (!debitAccount || !creditAccount) {
+      if (!creditAccount) {
         setShowAccountWarning(true);
         return;
+      }
+      if (!debitAccount) {
+        const expenseCoa = coaList.find((c: any) => {
+          const t = (c.tipe || '').toLowerCase();
+          return t === 'beban' || t === 'expense';
+        });
+        setDebitAccount(expenseCoa ? String(expenseCoa.nomorAkun) : "50001");
       }
       setShowApproveConfirm(true);
       return;
@@ -403,7 +414,7 @@ function PencairanContent() {
   const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
 
   const isSelectedRealisasi = selectedItem?.tipe === 'Realisasi Anggaran';
-  
+
   // Disesuaikan agar menggunakan selectedItem.createdAt untuk status pengajuan dikirim
   const baseApprovalSteps = selectedItem ? [
     {
@@ -539,7 +550,7 @@ function PencairanContent() {
                     const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
                     const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
                     const isRealisasi = item.tipe === 'Realisasi Anggaran';
-                    
+
                     // Disesuaikan dengan data sebenarnya (tanpa ocrData)
                     const vendorTitle = item.merchant || item.nama || item.posAnggaran?.deskripsi || (isRealisasi ? 'Realisasi Anggaran' : 'Pengajuan Reimbursement');
                     const projectTitle = item.proyek?.nama || 'Proyek';
@@ -560,11 +571,10 @@ function PencairanContent() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2 mb-0.5">
                               <div className="group relative min-w-0 flex items-center gap-1.5">
-                                <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide border ${
-                                  isRealisasi
-                                    ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
-                                    : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
-                                }`}>
+                                <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide border ${isRealisasi
+                                  ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
+                                  : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
+                                  }`}>
                                   {isRealisasi ? 'REAL' : 'REIMB'}
                                 </span>
                                 <p className="text-[12px] font-bold text-stone-800 truncate">
@@ -647,7 +657,7 @@ function PencairanContent() {
                     {(() => {
                       const isRealisasiDetail = selectedItem.tipe === 'Realisasi Anggaran';
                       const detailVendorTitle = selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama;
-                      
+
                       // Disesuaikan agar menggunakan selectedItem.createdAt
                       const detailTanggal = selectedItem.createdAt || null;
                       return (
@@ -655,11 +665,10 @@ function PencairanContent() {
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <p className="text-[12px] text-stone-400 font-medium font-mono">RB-{String(selectedItem.id).padStart(4, '0')}</p>
-                              <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${
-                                isRealisasiDetail
-                                  ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
-                                  : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
-                              }`}>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${isRealisasiDetail
+                                ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
+                                : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
+                                }`}>
                                 {isRealisasiDetail ? 'REALISASI' : 'REIMBURSEMENT'}
                               </span>
                             </div>
@@ -773,23 +782,41 @@ function PencairanContent() {
                           <div className="space-y-2 pt-2 border-t border-stone-200">
                             <div className="flex items-center justify-between gap-2 text-[12px]">
                               <span className="text-[#2d6a4f] font-bold shrink-0">Dr</span>
-                              <select
-                                value={debitAccount}
-                                onChange={(e) => setDebitAccount(e.target.value)}
-                                className="flex-1 text-[12px] font-mono bg-white border border-stone-200 rounded-lg p-1.5 outline-none focus:ring-1 focus:ring-emerald-500 text-stone-800"
-                              >
-                                <option value="">-- Pilih Akun Debit (Beban) --</option>
-                                {coaList
-                                  .filter((coa: any) => {
-                                    const t = (coa.tipe || '').toLowerCase();
-                                    return t === 'beban' || t === 'expense';
-                                  })
-                                  .map((coa: any) => (
-                                    <option key={coa.nomorAkun} value={coa.nomorAkun}>
-                                      {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
-                                    </option>
-                                  ))}
-                              </select>
+                              <div className="flex-1 flex items-center gap-1.5 flex-wrap text-[12px] bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 min-w-0">
+                                <div className="inline-flex items-center gap-1 min-w-0">
+                                  <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                    MAIN
+                                  </span>
+                                  <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                  <span className="font-bold text-stone-800 truncate">
+                                    {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
+                                  </span>
+                                </div>
+
+                                <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                <div className="inline-flex items-center gap-1 min-w-0">
+                                  <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                    SUB
+                                  </span>
+                                  <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                  <span className="font-bold text-stone-800 truncate">
+                                    {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
+                                  </span>
+                                </div>
+
+                                <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                <div className="inline-flex items-center gap-1 min-w-0">
+                                  <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                    KET
+                                  </span>
+                                  <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                  <span className="font-bold text-stone-800 truncate">
+                                    {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                                  </span>
+                                </div>
+                              </div>
                               <span className="font-mono text-stone-900 text-[12px] shrink-0 font-bold">
                                 Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}
                               </span>
@@ -802,7 +829,7 @@ function PencairanContent() {
                                 onChange={(e) => setCreditAccount(e.target.value)}
                                 className="flex-1 text-[12px] font-mono bg-white border border-stone-200 rounded-lg p-1.5 outline-none focus:ring-1 focus:ring-emerald-500 text-stone-800"
                               >
-                                <option value="">-- Pilih Akun Kredit (Kas/Bank) --</option>
+                                <option value="">Pilih Akun Kredit</option>
                                 {coaList
                                   .filter((coa: any) => {
                                     const t = (coa.tipe || '').toLowerCase();
@@ -820,16 +847,44 @@ function PencairanContent() {
                             </div>
                           </div>
                         ) : (
-                          <div className="space-y-1 pt-2 border-t border-stone-200 text-[12px]">
+                          <div className="space-y-2 pt-2 border-t border-stone-200 text-[12px]">
                             {selectedItem.jurnalAkuntansi && selectedItem.jurnalAkuntansi.length > 0 ? (
                               selectedItem.jurnalAkuntansi.map((j: any) => (
                                 <React.Fragment key={j.id}>
-                                  <div className="flex justify-between items-center">
-                                    <span>
-                                      <span className="text-[#2d6a4f] font-bold mr-1">Dr</span>
-                                      <span className="text-stone-600"> {j.noAkunDebit} {j.akunDebit?.namaAkun || coaList.find((c: any) => c.nomorAkun === j.noAkunDebit)?.namaAkun || 'Beban Material Proyek'}</span>
-                                    </span>
-                                    <span className="font-mono text-stone-900 font-bold">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="text-[#2d6a4f] font-bold shrink-0">Dr</span>
+                                      <div className="inline-flex items-center gap-1 flex-wrap min-w-0">
+                                        <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                          MAIN
+                                        </span>
+                                        <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                        <span className="font-bold text-stone-800 truncate">
+                                          {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
+                                        </span>
+
+                                        <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                        <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                          SUB
+                                        </span>
+                                        <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                        <span className="font-bold text-stone-800 truncate">
+                                          {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
+                                        </span>
+
+                                        <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                        <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                          KET
+                                        </span>
+                                        <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                        <span className="font-bold text-stone-800 truncate">
+                                          {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
                                   </div>
                                   <div className="flex justify-between items-center pl-3">
                                     <span>
@@ -842,12 +897,40 @@ function PencairanContent() {
                               ))
                             ) : (
                               <React.Fragment>
-                                <div className="flex justify-between items-center">
-                                  <span>
-                                    <span className="text-[#2d6a4f] font-bold mr-1">Dr</span>
-                                    <span className="text-stone-600"> 5-5101 Beban Material Proyek</span>
-                                  </span>
-                                  <span className="font-mono text-stone-900 font-bold">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[#2d6a4f] font-bold shrink-0">Dr</span>
+                                    <div className="inline-flex items-center gap-1 flex-wrap min-w-0">
+                                      <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                        MAIN
+                                      </span>
+                                      <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                      <span className="font-bold text-stone-800 truncate">
+                                        {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
+                                      </span>
+
+                                      <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                      <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                        SUB
+                                      </span>
+                                      <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                      <span className="font-bold text-stone-800 truncate">
+                                        {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
+                                      </span>
+
+                                      <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                      <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                        KET
+                                      </span>
+                                      <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                      <span className="font-bold text-stone-800 truncate">
+                                        {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
                                 </div>
                                 <div className="flex justify-between items-center pl-3">
                                   <span>
@@ -984,10 +1067,10 @@ function PencairanContent() {
         data={
           selectedItem
             ? {
-                merchant: selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama || 'Pengajuan',
-                userName: selectedItem.user?.nama || 'Karyawan',
-                nominal: Number(selectedItem.nominal)
-              }
+              merchant: selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama || 'Pengajuan',
+              userName: selectedItem.user?.nama || 'Karyawan',
+              nominal: Number(selectedItem.nominal)
+            }
             : undefined
         }
         isLoading={isSubmittingReject}
@@ -996,26 +1079,37 @@ function PencairanContent() {
       <ConfirmDialog
         open={showApproveConfirm && !!selectedItem}
         title="Cairkan & Generate Jurnal"
+        maxWidthClass="max-w-xl"
         description={
           selectedItem && (
             <div className="space-y-2.5">
               <p>Apakah Anda yakin ingin mencairkan pengajuan ini dan men-generate jurnal?</p>
-              <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3 space-y-1.5">
-                <div className="flex justify-between gap-3">
-                  <dt className="text-stone-400 font-medium">Pemohon</dt>
-                  <dd className="font-bold text-stone-800 text-right">{selectedItem.user?.nama || '-'}</dd>
+              <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-stone-400 font-medium shrink-0">Pemohon</dt>
+                  <dd className="font-bold text-stone-800 text-right truncate">{selectedItem.user?.nama || '-'}</dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-stone-400 font-medium">Nominal</dt>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-stone-400 font-medium shrink-0">Nominal</dt>
                   <dd className="font-bold text-stone-800 text-right">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-stone-400 font-medium">Akun Debit</dt>
-                  <dd className="font-bold text-stone-800 text-right">{debitAccount} {coaList.find((c: any) => c.nomorAkun === debitAccount)?.namaAkun || ''}</dd>
+                <div className="flex justify-between gap-4 items-center">
+                  <dt className="text-stone-400 font-medium shrink-0 whitespace-nowrap">Akun Debit (Auto)</dt>
+                  <dd className="font-bold text-stone-800 text-right whitespace-nowrap">
+                    {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'} &gt; {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'} &gt; {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                  </dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-stone-400 font-medium">Akun Kredit</dt>
-                  <dd className="font-bold text-stone-800 text-right">{creditAccount} {coaList.find((c: any) => c.nomorAkun === creditAccount)?.namaAkun || ''}</dd>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-stone-400 font-medium shrink-0">Akun Kredit</dt>
+                  <dd className="font-bold text-right truncate">
+                    {creditAccount ? (
+                      <span className="text-stone-800 font-bold">
+                        {creditAccount} {coaList.find((c: any) => String(c.nomorAkun) === String(creditAccount))?.namaAkun || ''}
+                      </span>
+                    ) : (
+                      <span className="text-red-500 font-bold">Akun Kredit belum dipilih</span>
+                    )}
+                  </dd>
                 </div>
               </dl>
             </div>
@@ -1038,7 +1132,7 @@ function PencairanContent() {
         open={showAccountWarning}
         variant="warning"
         title="Lengkapi Data Akun Pencairan"
-        description="Harap pilih Akun Debit dan Akun Kredit terlebih dahulu sebelum mencairkan pengajuan."
+        description="Harap pilih Akun Kredit terlebih dahulu sebelum mencairkan pengajuan."
         closeLabel="Mengerti"
         onClose={() => setShowAccountWarning(false)}
       />

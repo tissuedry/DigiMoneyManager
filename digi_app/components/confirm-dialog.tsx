@@ -13,6 +13,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   isLoading?: boolean;
   variant?: "danger" | "default";
+  maxWidthClass?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -27,6 +28,7 @@ export default function ConfirmDialog({
   cancelLabel = "Batal",
   isLoading = false,
   variant = "default",
+  maxWidthClass = "max-w-md",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -76,7 +78,7 @@ export default function ConfirmDialog({
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className={`w-full max-w-sm bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden p-6 relative transition-all duration-150 ${
+        className={`w-full ${maxWidthClass} bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden p-6 relative transition-all duration-150 ${
           isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
         }`}
         onClick={(e) => e.stopPropagation()}
