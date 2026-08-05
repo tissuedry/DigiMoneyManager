@@ -13,7 +13,7 @@ import {
   X,
   PlusCircle,
   FolderOpen,
-  FileSpreadsheet, // Ditambahkan untuk tombol export
+  FileSpreadsheet, 
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
@@ -73,6 +73,7 @@ function BudgetFormModal({
       ? proyek.budget!.posAnggaran.map((p) => ({
           namaPos: p.namaPos,
           nominalAlokasi: String(Number(p.nominalAlokasi)),
+          nominalTerpakai: String(Number(p.nominalTerpakai))
         }))
       : [{ namaPos: "", nominalAlokasi: "" }]
   );
@@ -516,7 +517,7 @@ export default function KeuanganBudgetPage() {
           {!loading && (
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: "Total Proyek", value: proyekList.length, color: "text-stone-800" },
+                { label: "Total Proyek Aktif", value: proyekList.length, color: "text-stone-800" },
                 {
                   label: "Budget Belum Diinisialisasi",
                   value: noBudget.length,

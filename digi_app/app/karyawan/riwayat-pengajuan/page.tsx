@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Filter, Eye, X, Download, RefreshCw, CheckCircle2, Clock, XCircle, AlertTriangle, BookOpen, ArrowUpDown } from "lucide-react";
+import { Filter, Eye, X, Download, RefreshCw, AlertTriangle, ArrowUpDown, Search, ChevronDown, ZoomIn } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import SuccessDialog from '@/components/success-dialog';
@@ -405,16 +405,23 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Bukti Struk</p>
-              <div className="rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] flex items-center justify-center">
+              <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] flex items-center justify-center">
                 {raw.strukUrl ? (
-                  <img
-                    src={raw.strukUrl}
-                    alt="Bukti Struk"
-                    loading="lazy"
-                    className="w-full h-full object-cover cursor-pointer"
-                    onClick={() => onOpenImage(raw.strukUrl)}
-                    onError={(e) => { (e.target as HTMLImageElement).src = "/bukti_struk.png"; }}
-                  />
+                  <>
+                    <img
+                      src={raw.strukUrl}
+                      alt="Bukti Struk"
+                      loading="lazy"
+                      className="w-full h-full object-cover cursor-pointer group-hover:opacity-90 transition"
+                      onClick={() => onOpenImage(raw.strukUrl)}
+                      onError={(e) => { (e.target as HTMLImageElement).src = "/bukti_struk.png"; }}
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                      <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                        <ZoomIn size={14} /> Klik untuk Memperbesar
+                      </span>
+                    </div>
+                  </>
                 ) : (
                   <img
                     src="/bukti_struk.png"
@@ -424,23 +431,6 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
                   />
                 )}
               </div>
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">
-                Jurnal Akuntansi
-                <span className="font-normal text-stone-400 normal-case ml-1">(ter-generate otomatis)</span>
-              </p>
-              {status === "APPROVED" ? (
-                <div className="rounded-xl border border-stone-200 bg-[#f5f4ef] aspect-[3/2] flex flex-col items-center justify-center gap-1.5 cursor-not-allowed">
-                  <CheckCircle2 size={20} className="text-[#1a7a5e]" />
-                  <p className="text-[11px] font-bold text-[#1a7a5e]">Tercatat di Jurnal</p>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-stone-200 bg-stone-50 aspect-[3/2] flex flex-col items-center justify-center gap-1.5">
-                  <BookOpen size={20} className="text-stone-300" />
-                  <p className="text-[11px] text-stone-400">Belum tersedia</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -516,11 +506,22 @@ export default function RiwayatPengajuanPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
 
-  const [filterProject, setFilterProject] = useState("Semua");
   const [filterPos, setFilterPos] = useState("Semua");
   const [searchMerchant, setSearchMerchant] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showFilterMenu) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setShowFilterMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [showFilterMenu]);
 
   const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -596,7 +597,6 @@ export default function RiwayatPengajuanPage() {
     fetchReimbursements();
   }, []);
 
-  const uniqueProjects = Array.from(new Set(submissions.map((s) => s.project))).filter(Boolean);
   const uniquePos = Array.from(new Set(submissions.map((s) => s.pos))).filter(Boolean);
 
   const filteredData = submissions
@@ -605,7 +605,6 @@ export default function RiwayatPengajuanPage() {
         if (activeTab === "Menunggu Keuangan" && item.status !== "Menunggu Keuangan") return false;
         if (activeTab !== "Menunggu Keuangan" && item.status !== activeTab) return false;
       }
-      if (filterProject !== "Semua" && item.project !== filterProject) return false;
       if (filterPos !== "Semua" && item.pos !== filterPos) return false;
       if (searchMerchant.trim() !== "") {
         const query = searchMerchant.toLowerCase();
@@ -619,7 +618,7 @@ export default function RiwayatPengajuanPage() {
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [activeTab, filterProject, filterPos, searchMerchant, sortOrder]);
+  }, [activeTab, filterPos, searchMerchant, sortOrder]);
 
   const visibleData = filteredData.slice(0, visibleCount);
   const hasMore = visibleCount < filteredData.length;
@@ -770,83 +769,72 @@ export default function RiwayatPengajuanPage() {
                 Urutan: {sortOrder === "desc" ? "Terbaru" : "Terlama"}
               </button>
 
-              <button
-                onClick={() => setShowFilterPanel(prev => !prev)}
-                className={`flex items-center gap-2 px-4 py-2 border rounded-full shadow-sm text-[13px] font-medium transition cursor-pointer ${
-                  showFilterPanel 
-                    ? "bg-stone-900 border-stone-900 text-white hover:bg-stone-850" 
-                    : "bg-white border-stone-200 text-stone-700 hover:bg-stone-50"
-                }`}
-              >
-                <Filter size={14} className={showFilterPanel ? "text-white" : "text-stone-500"} /> Filter
-                {(filterProject !== "Semua" || filterPos !== "Semua" || searchMerchant !== "") && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <div className="relative" ref={filterMenuRef}>
+                <button
+                  onClick={() => setShowFilterMenu(prev => !prev)}
+                  className={`flex items-center gap-2 px-4 py-2 border rounded-full shadow-sm text-[13px] font-medium transition cursor-pointer ${
+                    showFilterMenu || filterPos !== "Semua" || searchMerchant !== ""
+                      ? "bg-stone-900 border-stone-900 text-white hover:bg-stone-800"
+                      : "bg-white border-stone-200 text-stone-700 hover:bg-stone-50"
+                  }`}
+                >
+                  <Filter size={14} className={showFilterMenu || filterPos !== "Semua" || searchMerchant !== "" ? "text-white" : "text-stone-500"} />
+                  Filter
+                  {(filterPos !== "Semua" || searchMerchant !== "") && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  )}
+                </button>
+
+                {showFilterMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-72 z-20 bg-white border border-stone-200 rounded-2xl shadow-lg p-4 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="space-y-1.5 mb-4">
+                      <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Filter Pos Anggaran</label>
+                      <div className="relative">
+                        <select
+                          value={filterPos}
+                          onChange={(e) => setFilterPos(e.target.value)}
+                          className="peer w-full appearance-none bg-[#fcfbf9] border border-stone-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all cursor-pointer"
+                        >
+                          <option value="Semua">Semua Pos</option>
+                          {uniquePos.map((pos) => (
+                            <option key={pos} value={pos}>{pos}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 transition-transform duration-200 peer-focus:rotate-180" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 mb-4">
+                      <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Cari Reimbursement</label>
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Nama reimbursement..."
+                          value={searchMerchant}
+                          onChange={(e) => setSearchMerchant(e.target.value)}
+                          className="w-full bg-[#fcfbf9] border border-stone-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-stone-700 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-3 border-t border-stone-100">
+                      <button
+                        onClick={() => {
+                          setFilterPos("Semua");
+                          setSearchMerchant("");
+                        }}
+                        className="flex-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-bold rounded-xl transition cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                     
+                    </div>
+                  </div>
                 )}
-              </button>
+              </div>
             </div>
           </div>
-
-          {showFilterPanel && (
-            <div className="bg-white border border-stone-200 rounded-2xl p-5 mb-6 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end animate-in fade-in slide-in-from-top-3 duration-250">
-              <div className="space-y-1.5 text-left">
-                <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Filter Proyek</label>
-                <select
-                  value={filterProject}
-                  onChange={(e) => setFilterProject(e.target.value)}
-                  className="w-full bg-[#fcfbf9] border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all"
-                >
-                  <option value="Semua">Semua Proyek</option>
-                  {uniqueProjects.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5 text-left">
-                <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Filter Pos Anggaran</label>
-                <select
-                  value={filterPos}
-                  onChange={(e) => setFilterPos(e.target.value)}
-                  className="w-full bg-[#fcfbf9] border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all"
-                >
-                  <option value="Semua">Semua Pos</option>
-                  {uniquePos.map((pos) => (
-                    <option key={pos} value={pos}>{pos}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5 text-left">
-                <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Cari Reimbursement</label>
-                <input
-                  type="text"
-                  placeholder="Nama reimbursement..."
-                  value={searchMerchant}
-                  onChange={(e) => setSearchMerchant(e.target.value)}
-                  className="w-full bg-[#fcfbf9] border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setFilterProject("Semua");
-                    setFilterPos("Semua");
-                    setSearchMerchant("");
-                  }}
-                  className="flex-1 py-2 bg-stone-100 hover:bg-stone-250 text-stone-600 text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={() => setShowFilterPanel(false)}
-                  className="px-3.5 py-2 border border-stone-200 hover:bg-[#eae8e0] text-stone-500 text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Tutup
-                </button>
-              </div>
-            </div>
-          )}
 
           <div className="bg-white border border-stone-200 rounded-2xl overflow-x-auto shadow-sm">
             <table className="w-full text-left border-collapse min-w-[900px]">

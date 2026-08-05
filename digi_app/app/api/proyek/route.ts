@@ -86,7 +86,15 @@ export async function GET(req: NextRequest) {
         include: {
           budget: {
             include: {
-              mainAnggaran: true,
+              mainAnggaran: {
+                include: {
+                  subAnggaran: {
+                    include: {
+                      keterangan: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -105,6 +113,17 @@ export async function GET(req: NextRequest) {
             ...m,
             deskripsi: m.namaMain,
             namaPos: m.namaMain,
+            nominalTerpakai: String(
+              m.subAnggaran.reduce(
+                (sum: number, sub: any) =>
+                  sum +
+                  sub.keterangan.reduce(
+                    (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0),
+                    0
+                  ),
+                0
+              )
+            ),
           })),
         },
       };
