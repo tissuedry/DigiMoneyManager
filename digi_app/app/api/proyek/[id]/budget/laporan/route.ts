@@ -68,10 +68,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const whiteFont = { bold: true, color: { argb: "FFFFFFFF" } };
     const blackFont = { bold: true, color: { argb: "FF000000" } };
     const normalFont = { bold: false, color: { argb: "FF000000" } };
-    const reimbFont = { italic: true, color: { argb: "FF5A5A5A" } }; 
+    const reimbFont = { italic: true, color: { argb: "FF5A5A5A" } };
+    const proyekNameFont = { bold: true, size: 14, color: { argb: "FF000000" } };
 
-    // Row 1: Kosong (Sesuai dengan struktur asli template Excel)
-    sheet.addRow({});
+    // Row 1: Nama Proyek
+    const row1 = sheet.addRow({
+      nama: `Nama Proyek : ${proyek.nama}`,
+      rab: "",
+      realisasi: "",
+    });
+    row1.font = proyekNameFont;
+    row1.height = 24;
 
     // Row 2: Judul Laporan
     const row2 = sheet.addRow({

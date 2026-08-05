@@ -224,10 +224,10 @@ const RejectModal: React.FC<RejectModalProps> = ({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-type Tab = "Menunggu Saya" | "Diteruskan" | "Selesai";
+type Tab = "Menunggu Approval" | "Diteruskan" | "Selesai";
 
 export default function AntrianApprovalPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("Menunggu Saya");
+  const [activeTab, setActiveTab] = useState<Tab>("Menunggu Approval");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [catatan, setCatatan] = useState("");
@@ -393,7 +393,7 @@ export default function AntrianApprovalPage() {
 
   // Filter data berdasarkan tab
   const filteredData = mappedSubmissions.filter((item: any) => {
-    const matchesTab = activeTab === "Menunggu Saya"  
+    const matchesTab = activeTab === "Menunggu Approval"  
       ? item.status === "Menunggu PM" : activeTab === "Diteruskan" 
       ? item.status === "Menunggu Keuangan" 
       : (item.status === "Dicairkan" || item.status === "Ditolak");
@@ -510,7 +510,7 @@ export default function AntrianApprovalPage() {
   const closeSidebar = () => setIsSidebarOpen(false);
 
   const tabCounts: Record<Tab, number> = {
-    "Menunggu Saya": mappedSubmissions.filter((s: any) => s.status === "Menunggu PM").length,
+    "Menunggu Approval": mappedSubmissions.filter((s: any) => s.status === "Menunggu PM").length,
     Diteruskan: mappedSubmissions.filter((s: any) => s.status === "Menunggu Keuangan").length,
     Selesai: mappedSubmissions.filter((s: any) => s.status === "Dicairkan" || s.status === "Ditolak").length,
   };
@@ -539,7 +539,7 @@ export default function AntrianApprovalPage() {
             {/* Filter & Tab Switcher Bar */}
             <div className="flex items-center justify-between gap-4 mt-6">
               <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60">
-                {(["Menunggu Saya", "Diteruskan", "Selesai"] as Tab[]).map((tab) => (
+                {(["Menunggu Approval", "Diteruskan", "Selesai"] as Tab[]).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => handleTabChange(tab)}
