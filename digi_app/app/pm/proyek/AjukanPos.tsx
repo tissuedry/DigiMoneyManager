@@ -247,7 +247,7 @@ export default function AjukanPosModal({
           setData((prevData) => {
             let changed = false;
             const autoExpandMains: Record<number, boolean> = {};
-            let updatedData = [...prevData];
+            const updatedData = [...prevData];
 
             // 0. Pending MAIN_ANGGARAN
             allItems
