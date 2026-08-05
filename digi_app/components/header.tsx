@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useApi, useMutate } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
 
-export type UserRole = "Karyawan" | "Project Manager" | "Tim Keuangan" | "Direktur / Manajemen";
+export type UserRole = "Karyawan" | "Project Manager" | "Tim Keuangan" | "Direktur / Manajemen" | "Superadmin";
 
 interface HeaderProps {
   onOpenSidebar?: () => void;
@@ -67,6 +67,7 @@ const ROLE_AVATAR_STYLES: Record<UserRole, { bg: string; text: string }> = {
   "Project Manager": { bg: "bg-red-50", text: "text-red-700" },
   "Tim Keuangan": { bg: "bg-[#005c3e]", text: "text-white" },
   "Direktur / Manajemen": { bg: "bg-[#1e3a5f]", text: "text-white" },
+  "Superadmin": { bg: "bg-[#f3e8ff]", text: "text-purple-800" },
 };
 
 export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotificationDropdown = false }: HeaderProps) {
@@ -78,7 +79,6 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
   const dropdownRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // ponytail: useApi deduplicates — two components with same URL share one request
   const { data: profileData } = useApi<UserProfile & { user: UserProfile }>("/api/auth/me");
   const { data: notifData } = useApi<NotificationsResponse>(
     hideNotificationDropdown ? null : "/api/notifications"
@@ -90,7 +90,6 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
   const markAllRead = useMutate("/api/notifications", "PUT", ["/api/notifications"]);
   const markOneRead = useMutate("/api/notifications", "PUT", ["/api/notifications"]);
 
-  // Close dropdowns on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -111,19 +110,16 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
 
   const unreadCount = notifications.filter((n: NotificationItem) => !n.dibaca).length;
 
-  // Mark all as read
   const handleMarkAllRead = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (unreadCount === 0 || markAllRead.isPending) return;
     markAllRead.mutate({});
   };
 
-  // Mark specific notification as read
   const handleMarkOneRead = async (id: string) => {
     markOneRead.mutate({ id });
   };
 
-  // Logout function
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
@@ -144,7 +140,6 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
 
   return (
     <header className={`h-16 lg:h-20 flex items-center justify-between px-4 lg:px-8 border-b border-stone-200 bg-[#f9f8f4] shrink-0 sticky top-0 z-30 w-full`}>
-      {/* Left side: Mobile menu + Logo */}
       <div className="flex items-center gap-3">
         {onOpenSidebar && (
           <button
@@ -158,14 +153,11 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
 
         <div>
           <p className="text-[11px] text-stone-400 font-medium">Selamat datang,</p>
-          <p className="font-bold text-stone-800 text-[15px] leading-tight">{profile?.nama || ""}</p>
+          <p className="font-bold text-stone-800 text-[15px] leading-tight">{profile?.nama || "Daisaq Hadya Albar"}</p>
         </div>
-
       </div>
 
-      {/* Right side: Notifications & Profile */}
       <div className="flex items-center gap-4 relative">
-        {/* Notification Bell & Dropdown */}
         {!hideNotificationDropdown && (
           <div ref={dropdownRef} className="relative">
             <button
@@ -180,7 +172,6 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
               )}
             </button>
 
-            {/* Notification Dropdown */}
             {isNotificationsOpen && (
               <div className="absolute right-0 mt-3 w-90 sm:w-105 bg-[#fdfcf9] border border-stone-200 rounded-2xl shadow-xl z-50 overflow-hidden flex flex-col max-h-[500px] animate-in fade-in slide-in-from-top-3 duration-250">
                 <div className="px-5 py-4 border-b border-stone-200/80 bg-[#f5f4ef] flex items-center justify-between">
@@ -232,49 +223,49 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                             )}
                           </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[12px] font-bold text-stone-900 truncate">
-                              {(() => {
-                                const msg = item.pesan.toLowerCase();
-                                if (msg.includes("disetujui oleh pm") || msg.includes("disetujui oleh project manager")) {
-                                  return "Reimbursement disetujui PM";
-                                }
-                                if (msg.includes("disetujui oleh keuangan") || msg.includes("disetujui oleh tim keuangan")) {
-                                  return "Reimbursement disetujui Keuangan";
-                                }
-                                if (msg.includes("ditolak oleh pm") || msg.includes("ditolak oleh project manager")) {
-                                  return "Reimbursement ditolak PM";
-                                }
-                                if (msg.includes("ditolak oleh keuangan") || msg.includes("ditolak oleh tim keuangan")) {
-                                  return "Reimbursement ditolak Keuangan";
-                                }
-                                if (msg.includes("dicairkan")) {
-                                  return "Reimbursement Dicairkan";
-                                }
-                                if (msg.includes("ditolak")) {
-                                  return "Reimbursement Ditolak";
-                                }
-                                return "Pemberitahuan Sistem";
-                              })()}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[12px] font-bold text-stone-900 truncate">
+                                {(() => {
+                                  const msg = item.pesan.toLowerCase();
+                                  if (msg.includes("disetujui oleh pm") || msg.includes("disetujui oleh project manager")) {
+                                    return "Reimbursement disetujui PM";
+                                  }
+                                  if (msg.includes("disetujui oleh keuangan") || msg.includes("disetujui oleh tim keuangan")) {
+                                    return "Reimbursement disetujui Keuangan";
+                                  }
+                                  if (msg.includes("ditolak oleh pm") || msg.includes("ditolak oleh project manager")) {
+                                    return "Reimbursement ditolak PM";
+                                  }
+                                  if (msg.includes("ditolak oleh keuangan") || msg.includes("ditolak oleh tim keuangan")) {
+                                    return "Reimbursement ditolak Keuangan";
+                                  }
+                                  if (msg.includes("dicairkan")) {
+                                    return "Reimbursement Dicairkan";
+                                  }
+                                  if (msg.includes("ditolak")) {
+                                    return "Reimbursement Ditolak";
+                                  }
+                                  return "Pemberitahuan Sistem";
+                                })()}
+                              </p>
+                              <span className="text-[10px] text-stone-400 shrink-0 font-medium">
+                                {getRelativeTime(item.timestamp)}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-stone-600 leading-relaxed mt-1 font-medium break-words">
+                              {item.pesan}
                             </p>
-                            <span className="text-[10px] text-stone-400 shrink-0 font-medium">
-                              {getRelativeTime(item.timestamp)}
-                            </span>
                           </div>
-                          <p className="text-[11px] text-stone-600 leading-relaxed mt-1 font-medium break-words">
-                            {item.pesan}
-                          </p>
-                        </div>
 
-                        {!item.dibaca && (
-                          <div className="self-center pr-1">
-                            <span className="w-2.5 h-2.5 bg-blue-500 rounded-full block shadow-sm border border-blue-200" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+                          {!item.dibaca && (
+                            <div className="self-center pr-1">
+                              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full block shadow-sm border border-blue-200" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="p-8 text-center text-stone-400 text-[12px] font-medium">
                       Tidak ada notifikasi baru.
@@ -296,26 +287,24 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
           </div>
         )}
 
-        {/* Simple bell for roles without dropdown */}
         {hideNotificationDropdown && (
           <button className="relative p-1 text-stone-600 hover:text-stone-900 transition cursor-pointer">
             <Bell size={20} className="stroke-2" />
           </button>
         )}
 
-        {/* Profile & Dropdown */}
         <div ref={profileRef} className="relative">
           <div
             onClick={() => setIsProfileOpen(!isProfileOpen)}
             className="flex items-center gap-3 bg-white border border-stone-200 py-1.5 px-3 rounded-xl shadow-sm cursor-pointer hover:bg-stone-50 transition"
           >
             <div className={`w-8 h-8 rounded-full ${avatarStyles.bg} ${avatarStyles.text} font-bold text-[13px] flex items-center justify-center shadow-inner`}>
-              {getInitials(profile?.nama || "")}
+              {getInitials(profile?.nama || "Daisaq Hadya")}
             </div>
 
             <div className="flex flex-col pr-2 select-none">
               <span className="text-[12px] font-bold text-stone-800 leading-tight">
-                {profile?.nama || ""}
+                {profile?.nama || "Daisaq Hadya Albar"}
               </span>
               <span className="text-[10px] text-stone-500 max-w-[150px] truncate">
                 {profile?.proyek ? `${activeRole} · ${profile.proyek.nama}` : activeRole}
@@ -323,19 +312,17 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
             </div>
           </div>
 
-          {/* Profile Dropdown */}
           {isProfileOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 overflow-hidden py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="px-4 py-2 border-b border-stone-100 flex flex-col mb-1 select-none">
                 <span className="text-[11px] font-bold text-stone-800 truncate">
-                  {profile?.nama || ""}
+                  {profile?.nama || "Daisaq Hadya Albar"}
                 </span>
                 <span className="text-[9px] text-stone-400 truncate mt-0.5">
-                  {profile?.email || ""}
+                  {profile?.email || "admin@digimoney.com"}
                 </span>
               </div>
 
-              {/* Switch Project Option for members — only Karyawan & Project Manager */}
               {profile?.assignments && profile.assignments.length > 0 &&
                (activeRole === "Karyawan" || activeRole === "Project Manager") && (
                 <div className="border-b border-stone-100 py-1 mb-1">
@@ -355,7 +342,6 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                 </div>
               )}
 
-              {/* Dashboard Switcher for non-project staff (Admins/Finance) */}
               {(!profile?.assignments || profile.assignments.length === 0) && profile?.roles && profile.roles.length > 1 && (
                 <div className="border-b border-stone-100 py-1 mb-1">
                   <div className="px-4 py-1 text-[9px] font-bold text-stone-400 uppercase tracking-wider">

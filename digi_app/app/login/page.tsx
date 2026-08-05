@@ -60,6 +60,8 @@ export default function LoginPage() {
           router.push('/keuangan');
         } else if (role === 'Direktur / Manajemen') {
           router.push('/manager');
+        } else if (role === 'Superadmin'){
+          router.push('/superadmin')
         } else {
           router.push('/select-project');
         }
