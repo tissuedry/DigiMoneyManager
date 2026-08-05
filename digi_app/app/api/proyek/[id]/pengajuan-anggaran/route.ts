@@ -36,13 +36,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     for (const [i, item] of items.entries()) {
-      if (!['SUB_ANGGARAN', 'KETERANGAN'].includes(item.tipe)) {
-        return NextResponse.json({ message: `items[${i}].tipe must be SUB_ANGGARAN or KETERANGAN` }, { status: 400 });
+      if (!['MAIN_ANGGARAN', 'SUB_ANGGARAN', 'KETERANGAN'].includes(item.tipe)) {
+        return NextResponse.json({ message: `items[${i}].tipe must be MAIN_ANGGARAN, SUB_ANGGARAN or KETERANGAN` }, { status: 400 });
       }
       if (!['TAMBAH', 'UBAH', 'HAPUS'].includes(item.aksi)) {
         return NextResponse.json({ message: `items[${i}].aksi must be TAMBAH, UBAH, or HAPUS` }, { status: 400 });
       }
-      if (item.aksi === 'TAMBAH' && !item.parentId) {
+      if (item.aksi === 'TAMBAH' && item.tipe !== 'MAIN_ANGGARAN' && !item.parentId) {
         return NextResponse.json({ message: `items[${i}].parentId required for TAMBAH` }, { status: 400 });
       }
       if (item.aksi === 'UBAH' && !item.targetId) {

@@ -31,6 +31,10 @@ type AjukanMain = {
   id: number;
   nama: string;
   alokasi: number;
+  status?: string;
+  isDraft?: boolean;
+  isLocalDraft?: boolean;
+  isPendingServer?: boolean;
   subPos: AjukanSub[];
 };
 
@@ -38,37 +42,42 @@ const DRAFT_STORAGE_KEY = (pId: number) => `digi_ajukan_drafts_${pId}`;
 
 const saveDraftsToStorage = (pId: number, dataList: AjukanMain[]) => {
   if (typeof window === "undefined") return;
-  const draftSubs: { mainId: number; id: number; nama: string; alokasi: number }[] = [];
-  const draftKets: { subId: number; mainId: number; id: number; nama: string; alokasi: number }[] = [];
+  const draftMains: { id: number; nama: string; alokasi: number }[] = [];
+  const draftSubs: { mainId: number; mainNama?: string; id: number; nama: string; alokasi: number }[] = [];
+  const draftKets: { subId: number; mainId: number; subNama?: string; id: number; nama: string; alokasi: number }[] = [];
 
   dataList.forEach((main) => {
+    if (main.isLocalDraft || main.isDraft) {
+      draftMains.push({ id: main.id, nama: main.nama, alokasi: main.alokasi });
+    }
     main.subPos.forEach((sub) => {
       if (sub.isLocalDraft || sub.isDraft) {
-        draftSubs.push({ mainId: main.id, id: sub.id, nama: sub.nama, alokasi: sub.alokasi });
+        draftSubs.push({ mainId: main.id, mainNama: main.nama, id: sub.id, nama: sub.nama, alokasi: sub.alokasi });
       }
       sub.keterangan.forEach((ket) => {
         if (ket.isLocalDraft || ket.isDraft) {
-          draftKets.push({ subId: sub.id, mainId: main.id, id: ket.id, nama: ket.nama, alokasi: ket.alokasi });
+          draftKets.push({ subId: sub.id, mainId: main.id, subNama: sub.nama, id: ket.id, nama: ket.nama, alokasi: ket.alokasi });
         }
       });
     });
   });
 
-  if (draftSubs.length > 0 || draftKets.length > 0) {
-    localStorage.setItem(DRAFT_STORAGE_KEY(pId), JSON.stringify({ subs: draftSubs, kets: draftKets }));
+  if (draftMains.length > 0 || draftSubs.length > 0 || draftKets.length > 0) {
+    localStorage.setItem(DRAFT_STORAGE_KEY(pId), JSON.stringify({ mains: draftMains, subs: draftSubs, kets: draftKets }));
   } else {
     localStorage.removeItem(DRAFT_STORAGE_KEY(pId));
   }
 };
 
 const getDraftsFromStorage = (pId: number) => {
-  if (typeof window === "undefined") return { subs: [], kets: [] };
+  if (typeof window === "undefined") return { mains: [], subs: [], kets: [] };
   try {
     const raw = localStorage.getItem(DRAFT_STORAGE_KEY(pId));
-    if (!raw) return { subs: [], kets: [] };
-    return JSON.parse(raw);
+    if (!raw) return { mains: [], subs: [], kets: [] };
+    const parsed = JSON.parse(raw);
+    return { mains: parsed.mains || [], subs: parsed.subs || [], kets: parsed.kets || [] };
   } catch {
-    return { subs: [], kets: [] };
+    return { mains: [], subs: [], kets: [] };
   }
 };
 
@@ -134,8 +143,24 @@ export default function AjukanPosModal({
     const savedDrafts = getDraftsFromStorage(proyekId);
     const autoExpandMains: Record<number, boolean> = {};
 
+    (savedDrafts.mains || []).forEach((dMain: any) => {
+      if (!mapped.some((m) => m.nama.toUpperCase().trim() === dMain.nama.toUpperCase().trim())) {
+        const id = dMain.id || Date.now();
+        mapped.push({
+          id,
+          nama: dMain.nama,
+          alokasi: dMain.alokasi,
+          status: "DRAFT",
+          isLocalDraft: true,
+          isPendingServer: false,
+          subPos: [],
+        });
+        autoExpandMains[id] = true;
+      }
+    });
+
     (savedDrafts.subs || []).forEach((dSub: any) => {
-      const main = mapped.find((m) => m.id === dSub.mainId);
+      const main = mapped.find((m) => m.id === dSub.mainId || m.nama.toUpperCase().trim() === dSub.mainNama?.toUpperCase().trim());
       if (main) {
         autoExpandMains[main.id] = true;
         if (!main.subPos.some((s) => s.nama.toUpperCase().trim() === dSub.nama.toUpperCase().trim())) {
@@ -184,6 +209,11 @@ export default function AjukanPosModal({
     }
   }, [data, expandedMain]);
 
+  // Adding Main state
+  const [isAddingMain, setIsAddingMain] = useState(false);
+  const [newMainName, setNewMainName] = useState("");
+  const [newMainAlokasi, setNewMainAlokasi] = useState("");
+
   // Adding Sub state
   const [addingSubMainId, setAddingSubMainId] = useState<number | null>(null);
   const [newSubName, setNewSubName] = useState("");
@@ -215,16 +245,46 @@ export default function AjukanPosModal({
 
           // Merge pending items from server into data tree
           setData((prevData) => {
-            if (prevData.length === 0) return prevData;
             let changed = false;
             const autoExpandMains: Record<number, boolean> = {};
+            let updatedData = [...prevData];
 
-            const updated = prevData.map((main) => {
+            // 0. Pending MAIN_ANGGARAN
+            allItems
+              .filter((item: any) => item.tipe === "MAIN_ANGGARAN")
+              .forEach((item: any) => {
+                const targetId = item.targetId || item.id || Date.now();
+                autoExpandMains[targetId] = true;
+                if (!updatedData.some((m) => m.nama.toUpperCase().trim() === item.nama?.toUpperCase().trim())) {
+                  updatedData.push({
+                    id: targetId,
+                    nama: item.nama,
+                    alokasi: Number(item.nominalAlokasi) || 0,
+                    status: "MENUNGGU",
+                    isLocalDraft: false,
+                    isPendingServer: true,
+                    subPos: [],
+                  });
+                  changed = true;
+                }
+              });
+
+            const updated = updatedData.map((main) => {
               const subList = [...main.subPos];
 
               // 1. Pending SUB_ANGGARAN
               allItems
-                .filter((item: any) => item.tipe === "SUB_ANGGARAN" && item.parentId === main.id)
+                .filter(
+                  (item: any) =>
+                    item.tipe === "SUB_ANGGARAN" &&
+                    (item.parentId === main.id ||
+                      allItems.some(
+                        (pMain: any) =>
+                          pMain.tipe === "MAIN_ANGGARAN" &&
+                          pMain.nama?.toUpperCase().trim() === main.nama.toUpperCase().trim() &&
+                          pMain.targetId === item.parentId
+                      ))
+                )
                 .forEach((item: any) => {
                   autoExpandMains[main.id] = true;
                   if (!subList.some((s) => s.nama.toUpperCase().trim() === item.nama?.toUpperCase().trim())) {
@@ -252,7 +312,6 @@ export default function AjukanPosModal({
                         allItems.some(
                           (pSub: any) =>
                             pSub.tipe === "SUB_ANGGARAN" &&
-                            pSub.parentId === main.id &&
                             pSub.nama?.toUpperCase().trim() === sub.nama.toUpperCase().trim() &&
                             pSub.targetId === item.parentId
                         ))
@@ -403,6 +462,46 @@ export default function AjukanPosModal({
   const toggleMain = (id: number) => setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
   const toggleSub = (id: number) => setExpandedSub((p) => ({ ...p, [id]: !p[id] }));
 
+  const handleRemoveMainDraft = (mainId: number) => {
+    const nextData = data.filter((m) => m.id !== mainId);
+    setData(nextData);
+    saveDraftsToStorage(proyekId, nextData);
+  };
+
+  const handleAddMain = () => {
+    if (!newMainName || !newMainAlokasi) {
+      alert("Harap isi semua kolom untuk mengajukan Main Pos baru!");
+      return;
+    }
+    const alokasiVal = parseRupiahInput(newMainAlokasi);
+
+    const currentTotal = data.reduce((sum, m) => sum + m.alokasi, 0);
+    if (currentTotal + alokasiVal > totalRAB) {
+      alert("Total alokasi Main Pos melebihi Nilai Proyek (total RAB)!");
+      return;
+    }
+
+    const newMainId = Date.now();
+    const newMainItem: AjukanMain = {
+      id: newMainId,
+      nama: newMainName,
+      alokasi: alokasiVal,
+      status: "DRAFT",
+      isLocalDraft: true,
+      isPendingServer: false,
+      subPos: [],
+    };
+
+    const nextData = [...data, newMainItem];
+    setData(nextData);
+    saveDraftsToStorage(proyekId, nextData);
+    setExpandedMain((prev) => ({ ...prev, [newMainId]: true }));
+
+    setIsAddingMain(false);
+    setNewMainName("");
+    setNewMainAlokasi("");
+  };
+
   const handleRemoveSubDraft = (mainId: number, subId: number) => {
     const nextData = data.map((main) => {
       if (main.id === mainId) {
@@ -529,31 +628,41 @@ export default function AjukanPosModal({
   const handleSubmit = () => {
     const items: any[] = [];
 
-    // ponytail: draft id Sub baru (Date.now(), 13-digit) gak muat di kolom targetId (Int32).
-    // Remap setiap draft Sub id ke index negatif (-1, -2, ...) — muat Int32, gak nabrak
-    // real autoincrement id (selalu positif). Backend pakai targetId ini sebagai key
-    // subIdMap lalu resolve parentId KET yang nested di Sub baru → real DB id.
     const draftIdMap = new Map<number, number>();
     let draftIdx = 0;
-    const draftRef = (draftSubId: number) => {
-      if (!draftIdMap.has(draftSubId)) {
+    const draftRef = (draftId: number) => {
+      if (!draftIdMap.has(draftId)) {
         draftIdx += 1;
-        draftIdMap.set(draftSubId, -draftIdx);
+        draftIdMap.set(draftId, -draftIdx);
       }
-      return draftIdMap.get(draftSubId)!;
+      return draftIdMap.get(draftId)!;
     };
 
     data.forEach((main) => {
+      const isDraftMain = main.isLocalDraft || main.status === "MENUNGGU";
+      const mainParentRef = isDraftMain ? draftRef(main.id) : main.id;
+
+      if (main.isLocalDraft) {
+        items.push({
+          tipe: "MAIN_ANGGARAN",
+          aksi: "TAMBAH",
+          parentId: proyekId,
+          targetId: mainParentRef,
+          nama: main.nama,
+          nominalAlokasi: main.alokasi,
+        });
+      }
+
       main.subPos.forEach((sub) => {
         const isDraftSub = sub.isLocalDraft || sub.status === "MENUNGGU";
-        // parent ref untuk KET: Sub lama → id asli; Sub baru → index negatif remap.
+        const subParentRef = isDraftMain ? mainParentRef : main.id;
         const ketParentRef = isDraftSub ? draftRef(sub.id) : sub.id;
 
         if (sub.isLocalDraft) {
           items.push({
             tipe: "SUB_ANGGARAN",
             aksi: "TAMBAH",
-            parentId: main.id,
+            parentId: subParentRef,
             targetId: ketParentRef,
             nama: sub.nama,
             nominalAlokasi: sub.alokasi,
@@ -612,6 +721,12 @@ export default function AjukanPosModal({
     }
   };
 
+  const isMainInPending = (mainName: string) =>
+    pendingItems.some((item) =>
+      item.tipe === "MAIN_ANGGARAN" &&
+      item.nama?.toUpperCase().trim() === mainName.toUpperCase().trim()
+    );
+
   const isSubInPending = (mainId: number, subName: string) =>
     pendingItems.some((item) =>
       item.tipe === "SUB_ANGGARAN" &&
@@ -667,6 +782,9 @@ export default function AjukanPosModal({
   let localDraftCount = 0;
   let serverPendingCount = 0;
   data.forEach((main) => {
+    if (main.isLocalDraft) localDraftCount++;
+    else if (main.isPendingServer || main.status === "MENUNGGU") serverPendingCount++;
+
     main.subPos.forEach((sub) => {
       if (sub.isLocalDraft) localDraftCount++;
       else if (sub.isPendingServer || sub.status === "MENUNGGU") serverPendingCount++;
@@ -742,9 +860,102 @@ export default function AjukanPosModal({
             </div>
           </div>
 
-          <p className="text-[12.5px] font-semibold text-[#14130f] px-0.5">
-            Anggaran Proyek — klik &quot;+ Tambah&quot; untuk mengajukan Sub / Keterangan baru
-          </p>
+          <div className="flex items-center justify-between px-0.5">
+            <p className="text-[12.5px] font-semibold text-[#14130f]">
+              Anggaran Proyek — klik &quot;+ Tambah&quot; untuk mengajukan Main / Sub / Keterangan baru
+            </p>
+            {!isAddingMain && (
+              <button
+                onClick={() => setIsAddingMain(true)}
+                className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#d97706] hover:underline cursor-pointer"
+              >
+                <Plus size={13} /> Tambah Main
+              </button>
+            )}
+          </div>
+
+          {isAddingMain && (
+            <div className="space-y-3 my-2 bg-white px-4">
+              {/* Budget summary for Main Pos */}
+              {(() => {
+                const totalMain = data.reduce((s, m) => s + m.alokasi, 0);
+                const inputVal = parseRupiahInput(newMainAlokasi);
+                const liveTotalMain = totalMain + inputVal;
+                const sisaMain = totalRAB - liveTotalMain;
+                const isOverMain = sisaMain < 0;
+                return (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+                      <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total MAIN Teralokasi</p>
+                      <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalMain)}</p>
+                    </div>
+                    {isOverMain ? (
+                      <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
+                        <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
+                        <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaMain)}</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+                        <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa RAB Belum Dialokasikan</p>
+                        <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaMain)}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <span className="text-[12px] font-medium text-[#14130f] shrink-0 min-w-24">Main Baru:</span>
+                <div className="flex-1 min-w-0">
+                  <select
+                    value={newMainName}
+                    onChange={(e) => setNewMainName(e.target.value)}
+                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#ea580c] text-[#14130f] h-[37px]"
+                  >
+                    <option value="">Pilih Main</option>
+                    {masterMainList
+                      .filter((m: any) => !data.some((d) => d.nama.toUpperCase().trim() === m.nama.toUpperCase().trim()))
+                      .map((m: any) => (
+                        <option key={m.id} value={m.nama}>
+                          {m.nama}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="w-full sm:w-40 shrink-0">
+                  <input
+                    type="text"
+                    value={newMainAlokasi}
+                    onChange={(e) => setNewMainAlokasi(formatInputRupiah(e.target.value))}
+                    placeholder="Alokasi"
+                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#ea580c] font-mono text-[#14130f] h-[37px]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  onClick={handleAddMain}
+                  disabled={!newMainName || (!!newMainName && (data.some((m) => m.nama === newMainName) || isMainInPending(newMainName)))}
+                  className="px-3.5 py-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  Simpan Draft
+                </button>
+                <button
+                  onClick={() => { setIsAddingMain(false); setNewMainName(""); setNewMainAlokasi(""); }}
+                  className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer shrink-0"
+                >
+                  Batal
+                </button>
+                {newMainName && data.some((m) => m.nama === newMainName) && (
+                  <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Main Pos sudah pernah ditambahkan atau diajukan</span>
+                )}
+                {newMainName && !data.some((m) => m.nama === newMainName) && isMainInPending(newMainName) && (
+                  <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Main Pos sudah diajukan dan menunggu persetujuan Direktur</span>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="border border-[#e6e1d4] rounded-[12px] divide-y divide-[#e6e1d4] overflow-hidden bg-white">
             {data.map((main) => {
@@ -761,14 +972,42 @@ export default function AjukanPosModal({
                     onClick={() => toggleMain(main.id)}
                     className="bg-white px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-[#fbfaf6] transition select-none"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <div className="p-0.5 rounded transition shrink-0 text-[#14130f]">
                         {isMainOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </div>
-                      <span className="text-[11px] font-bold text-[#14130f] uppercase tracking-wide shrink-0">MAIN</span>
-                      <span className="text-[12.5px] font-bold text-[#14130f]">{main.nama}</span>
+                      <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">MAIN</span>
+                      {main.isLocalDraft ? (
+                        <span className="text-[12.5px] font-medium text-[#2c2a24]">
+                          Main Baru: <span className="text-[#c2410c] font-semibold">{main.nama}</span>
+                        </span>
+                      ) : (
+                        <span className="text-[12.5px] font-bold text-[#14130f]">{main.nama}</span>
+                      )}
                     </div>
-                    <span className="text-[11.5px] font-normal text-[#9a948b] font-mono text-right min-w-[90px]">{formatShort(main.alokasi)}</span>
+
+                    <div className="flex items-center gap-3 ml-auto">
+                      {main.isLocalDraft ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveMainDraft(main.id);
+                          }}
+                          className="group/btn text-[9px] font-bold px-2 py-0.5 rounded bg-[#ffedd5] text-[#c2410c] border border-[#fed7aa] hover:bg-[#fdf3f2] hover:text-[#902f33] hover:border-[#f3d1ce] tracking-wider cursor-pointer transition-all duration-150"
+                          title="Klik untuk membatalkan draft"
+                        >
+                          <span className="group-hover/btn:hidden">DRAFT</span>
+                          <span className="hidden group-hover/btn:inline">Batal</span>
+                        </button>
+                      ) : (main.isPendingServer || main.status === "MENUNGGU") ? (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#ffedd5] text-[#c2410c] border border-[#fed7aa] tracking-wider select-none">
+                          MENUNGGU
+                        </span>
+                      ) : null}
+
+                      <span className="text-[11.5px] font-normal text-[#9a948b] font-mono text-right min-w-[90px]">{formatShort(main.alokasi)}</span>
+                    </div>
                   </div>
 
                   {isMainOpen && (
@@ -786,9 +1025,8 @@ export default function AjukanPosModal({
                             {/* Sub Pos Header */}
                             <div
                               onClick={() => canExpandSub && toggleSub(sub.id)}
-                              className={`pl-10 pr-4 py-1.5 flex items-center justify-between transition select-none ${
-                                canExpandSub ? "cursor-pointer hover:bg-[#fbfaf6]" : ""
-                              }`}
+                              className={`pl-10 pr-4 py-1.5 flex items-center justify-between transition select-none ${canExpandSub ? "cursor-pointer hover:bg-[#fbfaf6]" : ""
+                                }`}
                             >
                               <div className="flex items-center gap-2 flex-wrap">
                                 {canExpandSub ? (
@@ -839,7 +1077,13 @@ export default function AjukanPosModal({
                                   <div key={ket.id} className="flex items-center justify-between py-1 text-[12px] text-[#6a6660]">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">KET</span>
-                                      <span className="font-normal text-[#6a6660]">{ket.nama}</span>
+                                      {ket.isLocalDraft ? (
+                                        <span className="text-[12.5px] font-normal text-[#6a6660]">
+                                          Ket Baru: <span className="text-[#005d8d] font-semibold">{ket.nama}</span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-[12.5px] font-normal text-[#6a6660]">{ket.nama}</span>
+                                      )}
                                     </div>
 
                                     <div className="flex items-center gap-3 ml-auto">
@@ -847,14 +1091,14 @@ export default function AjukanPosModal({
                                         <button
                                           type="button"
                                           onClick={() => handleRemoveKetDraft(sub.id, ket.id)}
-                                          className="group/btn text-[9px] font-bold px-2 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] hover:bg-[#fdf3f2] hover:text-[#902f33] hover:border-[#f3d1ce] tracking-wider cursor-pointer transition-all duration-150"
+                                          className="group/btn text-[9px] font-bold px-2 py-0.5 rounded bg-[#e0f2fe] text-[#005d8d] border border-[#bae6fd] hover:bg-[#fdf3f2] hover:text-[#902f33] hover:border-[#f3d1ce] tracking-wider cursor-pointer transition-all duration-150"
                                           title="Klik untuk membatalkan draft"
                                         >
                                           <span className="group-hover/btn:hidden">DRAFT</span>
                                           <span className="hidden group-hover/btn:inline">Batal</span>
                                         </button>
                                       ) : (ket.isPendingServer || ket.status === "MENUNGGU") ? (
-                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider select-none">
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#e0f2fe] text-[#005d8d] border border-[#bae6fd] tracking-wider select-none">
                                           MENUNGGU
                                         </span>
                                       ) : null}
@@ -909,11 +1153,11 @@ export default function AjukanPosModal({
                                               <select
                                                 value={newKetName}
                                                 onChange={(e) => setNewKetName(e.target.value)}
-                                                className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
+                                                className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] text-[#14130f] h-[37px]"
                                               >
                                                 {(ketOptions[sub.id] || []).length > 0 ? (
                                                   <>
-                                                    <option value="">Pilih Keterangan</option>
+                                                    <option value="">Pilih Keterangan Pos</option>
                                                     {(ketOptions[sub.id] || []).map((opt: any) => (
                                                       <option key={opt.id} value={opt.nama}>
                                                         {opt.nama}
@@ -921,7 +1165,7 @@ export default function AjukanPosModal({
                                                     ))}
                                                   </>
                                                 ) : (
-                                                  <option value="">Tidak ada pilihan keterangan</option>
+                                                  <option value="">Tidak ada pilihan keterangan pos</option>
                                                 )}
                                               </select>
                                             )}
@@ -932,7 +1176,7 @@ export default function AjukanPosModal({
                                               value={newKetAlokasi}
                                               onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))}
                                               placeholder="Alokasi"
-                                              className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] font-mono text-[#14130f] h-[37px]"
+                                              className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] font-mono text-[#14130f] h-[37px]"
                                             />
                                           </div>
                                         </div>
@@ -941,7 +1185,7 @@ export default function AjukanPosModal({
                                           <button
                                             onClick={() => handleAddKet(sub.id)}
                                             disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0 || (!!newKetName && (sub.keterangan.some(k => k.nama === newKetName) || isKetInPending(sub, main.id, newKetName)))}
-                                            className="px-3.5 py-1.5 bg-[#009162] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer disabled:opacity-50"
+                                            className="px-3.5 py-1.5 bg-[#005d8d] hover:bg-[#00476d] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer disabled:opacity-50"
                                           >
                                             Simpan Draft
                                           </button>
@@ -1024,7 +1268,7 @@ export default function AjukanPosModal({
                                     >
                                       {(subOptions[main.id] || []).length > 0 ? (
                                         <>
-                                          <option value="">Pilih Sub Pos</option>
+                                          <option value="">Pilih Sub</option>
                                           {(subOptions[main.id] || []).map((opt: any) => (
                                             <option key={opt.id} value={opt.nama}>
                                               {opt.nama}

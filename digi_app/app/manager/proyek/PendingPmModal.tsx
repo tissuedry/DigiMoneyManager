@@ -81,13 +81,31 @@ export default function PendingPmModal({
     setSelectedPendingIds(next);
   };
 
-  const handleToggleItem = (itemId: number, type: 'SUB' | 'KET', parentIdOrTargetId?: number) => {
+  const handleToggleItem = (itemId: number, type: 'MAIN' | 'SUB' | 'KET', parentIdOrTargetId?: number) => {
     setSelectedPendingIds(prev => {
       const next = { ...prev };
       const currentVal = !prev[itemId];
       next[itemId] = currentVal;
 
-      if (type === 'SUB') {
+      if (type === 'MAIN') {
+        const mainItem = submissions.find(s => s.id === itemId);
+        if (mainItem && mainItem.tipe === 'MAIN_ANGGARAN') {
+          if (!currentVal) {
+            const childSubs = submissions.filter(
+              c => c.tipe === 'SUB_ANGGARAN' && Number(c.parentId) === Number(mainItem.targetId)
+            );
+            childSubs.forEach(s => {
+              next[s.id] = false;
+              const childKets = submissions.filter(
+                k => k.tipe === 'KETERANGAN' && Number(k.parentId) === Number(s.targetId)
+              );
+              childKets.forEach(k => {
+                next[k.id] = false;
+              });
+            });
+          }
+        }
+      } else if (type === 'SUB') {
         const subItem = submissions.find(s => s.id === itemId);
         if (subItem && subItem.tipe === 'SUB_ANGGARAN') {
           // Only uncheck children when the parent sub-budget is unchecked.
@@ -99,6 +117,13 @@ export default function PendingPmModal({
             childKets.forEach(c => {
               next[c.id] = false;
             });
+          } else if (currentVal && parentIdOrTargetId != null) {
+            const parentMain = submissions.find(
+              m => m.tipe === 'MAIN_ANGGARAN' && Number(m.targetId) === Number(parentIdOrTargetId)
+            );
+            if (parentMain) {
+              next[parentMain.id] = true;
+            }
           }
         }
       } else if (type === 'KET') {
@@ -108,6 +133,14 @@ export default function PendingPmModal({
           );
           if (parentSub) {
             next[parentSub.id] = true;
+            if (parentSub.parentId != null) {
+              const parentMain = submissions.find(
+                m => m.tipe === 'MAIN_ANGGARAN' && Number(m.targetId) === Number(parentSub.parentId)
+              );
+              if (parentMain) {
+                next[parentMain.id] = true;
+              }
+            }
           }
         }
       }
@@ -191,6 +224,279 @@ export default function PendingPmModal({
               </div>
 
               <div style={{ borderRadius: 10, border: '1px solid #E6E1D4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {/* Pending MAIN_ANGGARAN Items (MAIN BARU - Orange Badge & Dropdown Tree for Children) */}
+                {submissions.filter((r: any) => r.tipe === 'MAIN_ANGGARAN').map((r: any) => {
+                  const isChecked = !!selectedPendingIds[r.id];
+                  const mainName = r.nama || 'Main Baru';
+                  const itemDate = r.createdAt || new Date();
+                  const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                  const submitterName = r.user?.nama || 'Project Manager';
+                  const nominal = r.nominal || 0;
+
+                  // Child pending SUB_ANGGARAN items under this pending MAIN_ANGGARAN
+                  const childPendingSubs = submissions.filter(
+                    (c: any) => c.tipe === 'SUB_ANGGARAN' && Number(c.parentId) === Number(r.targetId)
+                  );
+
+                  const mainKey = `pending-main-${r.id}`;
+                  const isMainOpen = expandedSub[mainKey] !== false;
+                  const hasChildren = childPendingSubs.length > 0;
+
+                  return (
+                    <div key={mainKey} style={{ borderBottom: '1px solid #E6E1D4', display: 'flex', flexDirection: 'column' }}>
+                      {/* Main Header Row */}
+                      <div
+                        style={{
+                          background: isChecked ? '#D5F4E3' : 'white',
+                          padding: '10px 14px',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 6,
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        {/* Chevron toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedSub(prev => ({ ...prev, [mainKey]: !isMainOpen }))}
+                          style={{ background: 'transparent', border: 'none', padding: '4px 2px', cursor: hasChildren ? 'pointer' : 'default', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                        >
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 10 10"
+                            fill="none"
+                            style={{
+                              transition: 'transform 0.15s ease',
+                              transform: isMainOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                              opacity: hasChildren ? 1 : 0,
+                            }}
+                          >
+                            <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+
+                        {/* Checkbox */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleItem(r.id, 'MAIN')}
+                          style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                        >
+                          <div style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: 4,
+                            background: isChecked ? '#009162' : 'white',
+                            border: isChecked ? 'none' : '1px solid #6A6660',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            {isChecked && (
+                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ color: '#c2410c', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
+                              MAIN BARU
+                            </span>
+                            <span style={{ color: '#14130F', fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                              {mainName}
+                            </span>
+                            <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                              MENUNGGU
+                            </span>
+                          </div>
+                          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", paddingTop: 2 }}>
+                            Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                          </div>
+                        </div>
+
+                        <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          Rp {Number(nominal).toLocaleString('id-ID')}
+                        </div>
+                      </div>
+
+                      {/* Child SUB_ANGGARAN items */}
+                      {isMainOpen && hasChildren && (
+                        <div style={{ background: 'white' }}>
+                          {childPendingSubs.map((sub: any) => {
+                            const isSubChecked = !!selectedPendingIds[sub.id];
+                            const subName = sub.nama || 'Sub Baru';
+                            const subDate = sub.createdAt || new Date();
+                            const subFormattedDate = new Date(subDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                            const subSubmitterName = sub.user?.nama || 'Project Manager';
+                            const subNominal = sub.nominal || 0;
+
+                            const childPendingKets = submissions.filter(
+                              (k: any) => k.tipe === 'KETERANGAN' && Number(k.parentId) === Number(sub.targetId)
+                            );
+
+                            const subKey = `pending-sub-${sub.id}`;
+                            const isSubOpen = expandedSub[subKey] !== false;
+                            const hasKetChildren = childPendingKets.length > 0;
+
+                            return (
+                              <div key={subKey} style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div
+                                  style={{
+                                    background: isSubChecked ? '#D5F4E3' : 'white',
+                                    padding: '7px 12px 7px 32px',
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: 6,
+                                    transition: 'background-color 0.2s ease',
+                                  }}
+                                >
+                                  {/* Chevron for Sub */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
+                                    style={{ background: 'transparent', border: 'none', padding: '4px 2px', cursor: hasKetChildren ? 'pointer' : 'default', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                                  >
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 10 10"
+                                      fill="none"
+                                      style={{
+                                        transition: 'transform 0.15s ease',
+                                        transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                                        opacity: hasKetChildren ? 1 : 0,
+                                      }}
+                                    >
+                                      <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  </button>
+
+                                  {/* Sub Checkbox */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleItem(sub.id, 'SUB', r.targetId)}
+                                    style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                                  >
+                                    <div style={{
+                                      width: 14,
+                                      height: 14,
+                                      borderRadius: 4,
+                                      background: isSubChecked ? '#009162' : 'white',
+                                      border: isSubChecked ? 'none' : '1px solid #6A6660',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}>
+                                      {isSubChecked && (
+                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                          <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                  </button>
+
+                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                      <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
+                                        SUB BARU
+                                      </span>
+                                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                        {subName}
+                                      </span>
+                                      <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                        MENUNGGU
+                                      </span>
+                                    </div>
+                                    <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                      Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{subSubmitterName}</span> · {subFormattedDate}
+                                    </div>
+                                  </div>
+
+                                  <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                    Rp {Number(subNominal).toLocaleString('id-ID')}
+                                  </div>
+                                </div>
+
+                                {/* Child KETERANGAN items */}
+                                {isSubOpen && hasKetChildren && (
+                                  <div style={{ background: 'white' }}>
+                                    {childPendingKets.map((ket: any) => {
+                                      const isKetChecked = !!selectedPendingIds[ket.id];
+                                      const ketName = ket.nama || 'Keterangan Baru';
+                                      const ketDate = ket.createdAt || new Date();
+                                      const ketFormattedDate = new Date(ketDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                      const ketSubmitterName = ket.user?.nama || 'Project Manager';
+                                      const ketNominal = ket.nominal || 0;
+
+                                      return (
+                                        <div key={ket.id} style={{
+                                          background: isKetChecked ? '#D5F4E3' : 'white',
+                                          padding: '7px 12px 7px 56px',
+                                          display: 'flex',
+                                          alignItems: 'flex-start',
+                                          gap: 8,
+                                          transition: 'background-color 0.2s ease',
+                                        }}>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleToggleItem(ket.id, 'KET', sub.targetId)}
+                                            style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                          >
+                                            <div style={{
+                                              width: 14,
+                                              height: 14,
+                                              borderRadius: 4,
+                                              background: isKetChecked ? '#009162' : 'white',
+                                              border: isKetChecked ? 'none' : '1px solid #6A6660',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                            }}>
+                                              {isKetChecked && (
+                                                <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                                  <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                              )}
+                                            </div>
+                                          </button>
+
+                                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                              <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
+                                                KETERANGAN BARU
+                                              </span>
+                                              <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                                {ketName}
+                                              </span>
+                                              <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                                                MENUNGGU
+                                              </span>
+                                            </div>
+                                            <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", paddingTop: 2 }}>
+                                              Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{ketSubmitterName}</span> · {ketFormattedDate}
+                                            </div>
+                                          </div>
+
+                                          <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                            Rp {Number(ketNominal).toLocaleString('id-ID')}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
                 {mainAnggaranList.map((main: any, gi: number) => {
                   const mainPending = submissions.filter((r: any) => {
                     if (r.tipe === 'SUB_ANGGARAN') {
@@ -251,7 +557,7 @@ export default function PendingPmModal({
                                 display: 'flex',
                                 alignItems: 'center',
                                 padding: '7px 12px 7px 14px',
-                                borderBottom: (hasChildren && isSubOpen) ? '1px solid #E6E1D4' : 'none',
+                                borderBottom: 'none',
                                 background: 'white',
                                 cursor: 'pointer',
                                 userSelect: 'none',
@@ -290,7 +596,6 @@ export default function PendingPmModal({
                                   return (
                                     <div key={`existing-ket-${ket.id}`} style={{
                                       background: 'white',
-                                      borderBottom: '1px solid #E6E1D4',
                                       padding: '7px 12px 7px 34px',
                                       display: 'flex',
                                       alignItems: 'center',
@@ -322,7 +627,6 @@ export default function PendingPmModal({
                                   return (
                                     <div key={`pending-ket-${r.id}`} style={{
                                       background: isChecked ? '#D5F4E3' : 'white',
-                                      borderBottom: '1px solid #E6E1D4',
                                       padding: '7px 12px 7px 34px',
                                       display: 'flex',
                                       alignItems: 'flex-start',
@@ -339,7 +643,7 @@ export default function PendingPmModal({
                                           height: 14,
                                           borderRadius: 4,
                                           background: isChecked ? '#009162' : 'white',
-                                          border: isChecked ? 'none' : '1.20px solid #E6E1D4',
+                                          border: isChecked ? 'none' : '1px solid #6A6660',
                                           display: 'flex',
                                           alignItems: 'center',
                                           justifyContent: 'center',
@@ -408,7 +712,6 @@ export default function PendingPmModal({
                             <div
                               style={{
                                 background: isChecked ? '#D5F4E3' : 'white',
-                                borderTop: '1px solid #E6E1D4',
                                 padding: '7px 12px 7px 14px',
                                 display: 'flex',
                                 alignItems: 'flex-start',
@@ -491,7 +794,6 @@ export default function PendingPmModal({
                               return (
                                 <div key={c.id} style={{
                                   background: isChildChecked ? '#D5F4E3' : 'white',
-                                  borderTop: '1px solid #E6E1D4',
                                   padding: '7px 12px 7px 44px',
                                   display: 'flex',
                                   alignItems: 'flex-start',
