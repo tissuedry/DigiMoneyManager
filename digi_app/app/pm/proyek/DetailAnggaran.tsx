@@ -306,9 +306,21 @@ export default function DetailAnggaranModal({
   // Realisasi Ket = sum reimbursement APPROVED (dicairkan keuangan)
   // Realisasi Sub = sum realisasi seluruh Ket di bawahnya
   // Realisasi Main = sum realisasi seluruh Sub di bawahnya
-  const mapped: MainPosItem[] = posAnggaran.map((main) => {
-    const subPos = (main.subAnggaran || []).map((sub: any) => {
-      const keterangan = (sub.keterangan || []).map((ket: any) => {
+  const sortedPosAnggaran = [...posAnggaran].sort(
+    (a, b) => (Number(a.id) || 0) - (Number(b.id) || 0)
+  );
+
+  const mapped: MainPosItem[] = sortedPosAnggaran.map((main) => {
+    const sortedSubAnggaran = [...(main.subAnggaran || [])].sort(
+      (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
+    );
+
+    const subPos = sortedSubAnggaran.map((sub: any) => {
+      const sortedKeterangan = [...(sub.keterangan || [])].sort(
+        (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
+      );
+
+      const keterangan = sortedKeterangan.map((ket: any) => {
         // Reimbursement dari data posAnggaran (embedded)
         const childReimbursements = ket.reimbursements || [];
 
