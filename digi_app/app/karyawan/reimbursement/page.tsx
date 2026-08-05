@@ -688,6 +688,7 @@ function AjukanReimbursementContent() {
                           className={`w-full bg-white border rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all [color-scheme:light] ${
                             formErrors.tanggal ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
                           }`}
+                          onClick={(e) => e.currentTarget.showPicker()}
                         />
                       </div>
                       {formErrors.tanggal && (
