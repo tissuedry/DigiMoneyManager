@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Filter, Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
+import { Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import ConfirmDialog from '@/components/confirm-dialog';
