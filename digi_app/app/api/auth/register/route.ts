@@ -15,7 +15,8 @@ export async function POST(req: Request) {
     }
     const { nama, email, password, role, proyekId } = result.data;
 
-    const trimmedEmail = email;
+    // PERBAIKAN: Gunakan .trim() untuk menghapus spasi yang tidak sengaja terketik
+    const trimmedEmail = email.trim();
 
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
@@ -28,24 +29,33 @@ export async function POST(req: Request) {
 
     const hashedPassword = await hashPassword(password);
 
+    // PERBAIKAN: Normalisasi Role agar selalu konsisten di database
+    const safeRole = (role || '').trim();
+    const roleLower = safeRole.toLowerCase();
+    let normalizedRole = safeRole;
+
+    if (roleLower === 'superadmin' || roleLower === 'super admin') {
+      normalizedRole = 'Superadmin'; // Baku-kan menjadi "Superadmin"
+    }
+
     const user = await prisma.user.create({
       data: {
         nama,
         email: trimmedEmail,
         passwordHash: hashedPassword,
-        role, // Role utama (termasuk Super Admin) disimpan di sini
+        role: normalizedRole, // Simpan role yang sudah dibakukan
       },
     });
 
     if (proyekId) {
-      // PERUBAHAN: Menyesuaikan pemetaan role pada proyek agar role manajerial/admin tidak turun menjadi Anggota Lapangan
+      // Penyesuaian pemetaan role pada proyek
       let projectRole = 'Anggota Lapangan';
-      if (role === 'Project Manager') {
+      if (normalizedRole === 'Project Manager') {
         projectRole = 'Project Manager';
-      } else if (role === 'Superadmin' || role === 'superadmin') {
-        projectRole = 'Super Admin';
-      } else if (role === 'Direktur / Manajemen' || role === 'Tim Keuangan') {
-        projectRole = role;
+      } else if (normalizedRole === 'Superadmin') {
+        projectRole = 'Superadmin'; // Disamakan dengan role utamanya agar tidak bingung
+      } else if (normalizedRole === 'Direktur / Manajemen' || normalizedRole === 'Tim Keuangan') {
+        projectRole = normalizedRole;
       }
 
       await prisma.userProyek.create({
@@ -62,7 +72,7 @@ export async function POST(req: Request) {
       data: {
         userId: user.id,
         aksi: 'register',
-        detail: `User ${nama} terdaftar dengan role ${role}.`,
+        detail: `User ${nama} terdaftar dengan role ${normalizedRole}.`,
       },
     });
 

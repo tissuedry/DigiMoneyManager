@@ -7,6 +7,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const result = loginSchema.safeParse(body);
+
     if (!result.success) {
       return NextResponse.json({ 
         message: 'Invalid input parameters', 
@@ -15,7 +16,8 @@ export async function POST(req: Request) {
     }
     const { email, password } = result.data;
 
-    const trimmedEmail = email;
+    // Bersihkan email dari spasi tidak sengaja
+    const trimmedEmail = email.trim();
 
     const user = await prisma.user.findUnique({
       where: { email: trimmedEmail },
@@ -36,18 +38,31 @@ export async function POST(req: Request) {
     });
     const userProyekId = userProyeks.length > 0 ? userProyeks[0].proyekId : null;
 
-    // Map project roles dynamically for regular members
     const rolesSet = new Set<string>();
-    let primaryRole = user.role;
+    
+    // PERBAIKAN: Bersihkan spasi dan ubah ke huruf kecil semua untuk pengecekan
+    const safeRole = (user.role || '').trim();
+    const dbRoleLower = safeRole.toLowerCase();
 
-    // PERUBAHAN: Menambahkan 'Super Admin' ke dalam pengecekan root access
+    let primaryRole = safeRole;
+
+    // Mengecek segala kemungkinan penulisan di database yang sudah dinormalisasi
+    const isSuperAdmin = dbRoleLower === 'superadmin' || dbRoleLower === 'super admin';
+
     if (
-      user.role === 'Direktur / Manajemen' || 
-      user.role === 'Tim Keuangan' || 
-      user.role === 'Superadmin' || 
-      user.role === 'superadmin'
-    ) {
-      rolesSet.add(user.role);
+      dbRoleLower === 'direktur / manajemen' || 
+      dbRoleLower === 'tim keuangan' || 
+      isSuperAdmin
+    ) 
+    
+    {
+      if (isSuperAdmin) {
+        primaryRole = 'Superadmin'; 
+        rolesSet.add('Superadmin');
+      } else {
+        // Menggunakan role yang sudah di-trim untuk estetika
+        rolesSet.add(safeRole); 
+      }
     } else {
       const hasPM = userProyeks.some((up: any) => up.role === 'Project Manager');
       const hasKaryawan = userProyeks.some((up: any) => up.role === 'Anggota Lapangan') || !hasPM;
@@ -57,7 +72,15 @@ export async function POST(req: Request) {
       
       primaryRole = hasPM ? 'Project Manager' : 'Karyawan';
     }
+    
     const allowedRoles = Array.from(rolesSet);
+
+    // DEBUGGING TAHAP 1: Cek di terminal saat Anda login
+    console.log("=== ROLE CHECK ===", {
+      roleAsliDariDB: user.role,
+      roleSetelahDibersihkan: primaryRole,
+      isSuperAdmin: isSuperAdmin
+    });
 
     // Sign JWT Token
     const token = signToken({
@@ -66,7 +89,7 @@ export async function POST(req: Request) {
       email: user.email,
       role: primaryRole,
       roles: allowedRoles,
-      proyekId: null,
+      proyekId: null, 
     });
 
     // Create audit trail log
@@ -82,17 +105,16 @@ export async function POST(req: Request) {
     const { passwordHash: _, ...userWithoutPassword } = user;
     const responseUser = {
       ...userWithoutPassword,
+      role: primaryRole,
       proyekId: userProyekId,
     };
 
-    // Create Response
     const response = NextResponse.json({
       message: 'Login successful',
       token,
       user: responseUser,
     });
 
-    // Set token in Cookie (httpOnly, secure, lax, expires in 24h)
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -102,6 +124,7 @@ export async function POST(req: Request) {
     });
 
     return response;
+
   } catch (error: any) {
     console.error('Login error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

@@ -66,8 +66,20 @@ export async function GET(req: NextRequest) {
     let primaryRole = user.role;
     const rolesSet = new Set<string>();
 
-    if (user.role === 'Direktur / Manajemen' || user.role === 'Tim Keuangan' || user.role === 'Super Admin' || user.role === 'superadmin') {
-      rolesSet.add(user.role);
+    // 1. Normalisasi string role untuk pengecekan kebal huruf besar/kecil/spasi
+    const roleLower = (user.role || '').toLowerCase().trim();
+    const isSuperAdmin = roleLower === 'superadmin' || roleLower === 'super admin';
+
+    if (
+      roleLower === 'direktur / manajemen' || 
+      roleLower === 'tim keuangan' || 
+      isSuperAdmin
+    ) {
+      // 2. Pembakuan mutlak penulisan role agar selalu dikenali sebagai "Superadmin"
+      if (isSuperAdmin) {
+        primaryRole = 'Superadmin';
+      }
+      rolesSet.add(primaryRole);
     } else {
       const hasPM = user.proyek.some((up: any) => up.role === 'Project Manager');
       const hasKaryawan = user.proyek.some((up: any) => up.role === 'Anggota Lapangan') || !hasPM;
