@@ -204,6 +204,4 @@ Untuk endpoint yang membutuhkan login, gunakan JWT token dari response `/api/aut
 - Gunakan HTTPS untuk environment production.
 - Rotasi kredensial jika pernah terpapar secara publik.
 
-## Lisensi
 
-MIT
