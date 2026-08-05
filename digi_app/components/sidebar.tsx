@@ -61,23 +61,23 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Kelola Akun", href: "/superadmin/kelola-akun", icon: Users, hasBadge: false },
     
     { name: "DIREKTUR", href: "", isSection: true },
-    { name: "Kelola Proyek", href: "/superadmin/direktur/proyek", icon: FolderKanban, hasBadge: false },
-    { name: "Smart Chat", href: "/superadmin/direktur/chat", icon: MessageSquare, hasBadge: false },
-    { name: "Laporan", href: "/superadmin/direktur/laporan", icon: FileText, hasBadge: false },
+    { name: "Kelola Proyek", href: "/superadmin/proyek", icon: FolderKanban, hasBadge: false },
+    { name: "Smart Chat", href: "/superadmin/chat", icon: MessageSquare, hasBadge: false },
+    { name: "Laporan", href: "/superadmin/laporan", icon: FileText, hasBadge: false },
     
     { name: "PROJECT MANAGER", href: "", isSection: true },
-    { name: "Kelola Proyek", href: "/superadmin/pm/proyek", icon: FolderKanban, hasBadge: false },
-    { name: "Antrian Approval", href: "/superadmin/pm/approval", icon: Monitor, hasBadge: true, badgeCount: 2 },
+    { name: "Kelola Proyek", href: "/superadmin/detail-proyek", icon: FolderKanban, hasBadge: false },
+    { name: "Antrian Approval", href: "/superadmin/approval", icon: Monitor, hasBadge: true, badgeCount: 2 },
     
     { name: "TIM KEUANGAN", href: "", isSection: true },
-    { name: "Pencairan", href: "/superadmin/keuangan/pencairan", icon: Wallet, hasBadge: true, badgeCount: 2 },
-    { name: "Budget Proyek", href: "/superadmin/keuangan/budget", icon: BarChart3, hasBadge: false },
-    { name: "Jurnal Akuntansi", href: "/superadmin/keuangan/jurnal", icon: BookOpen, hasBadge: false },
-    { name: "Chart of Accounts", href: "/superadmin/keuangan/coa", icon: CreditCard, hasBadge: false },
+    { name: "Pencairan", href: "/superadmin/pencairan", icon: Wallet, hasBadge: true, badgeCount: 2 },
+    { name: "Budget Proyek", href: "/superadmin/budget", icon: BarChart3, hasBadge: false },
+    { name: "Jurnal Akuntansi", href: "/superadmin/jurnal", icon: BookOpen, hasBadge: false },
+    { name: "Chart of Accounts", href: "/superadmin/coa", icon: CreditCard, hasBadge: false },
     
     { name: "KARYAWAN", href: "", isSection: true },
-    { name: "Ajukan Reimbursement", href: "/superadmin/karyawan/reimbursement", icon: Plus, hasBadge: false },
-    { name: "Riwayat Pengajuan", href: "/superadmin/karyawan/riwayat", icon: History, hasBadge: false },
+    { name: "Ajukan Reimbursement", href: "/superadmin/reimbursement", icon: Plus, hasBadge: false },
+    { name: "Riwayat Pengajuan", href: "/superadmin/riwayat", icon: History, hasBadge: false },
   ],
 };
 
