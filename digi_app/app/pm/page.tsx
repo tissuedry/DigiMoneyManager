@@ -268,7 +268,10 @@ export default function PMDashboardPage() {
                                 <p className="text-[11px] text-stone-400 mt-0.5">Penyerapan per kategori alokasi</p>
                               </div>
                               <Link
-                                href="/pm/proyek"
+                                href={{
+                                  pathname: "/pm/proyek",
+                                  query: { detailModal: 'true' },
+                                }}
                                 className="inline-flex items-center gap-1 text-[11px] font-bold text-[#008f5d] hover:underline"
                               >
                                 Detail Budget

@@ -25,6 +25,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useApi, useInvalidate } from "@/lib/use-api";
+import { useSearchParams } from "next/navigation";
 
 type PosAnggaran = {
   id: number;
@@ -268,6 +269,7 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
 }
 
 export default function KelolaProyekPage() {
+  const searchParams = useSearchParams();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAjukanOpen, setIsAjukanOpen] = useState(false);
@@ -305,7 +307,10 @@ export default function KelolaProyekPage() {
       setEditableRows(nonPm.map((m) => ({ userId: m.id, nama: m.nama, divisi: m.divisi || "" })));
       setDirtyTim(false);
     }
-  }, [proyek]);
+    if (searchParams.get('detailModal')) {
+      setIsDetailOpen(true);
+    }
+  }, [proyek, searchParams]);
 
   const handleSaveTim = () => {
     if (!proyek) return;
@@ -506,7 +511,7 @@ export default function KelolaProyekPage() {
                       Lihat Detail Anggaran
                     </button>
                     <button
-                      onClick={() => setIsAjukanOpen(true)}
+                      onClick={() => setIsDetailOpen(true)}
                       className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
                     >
                       <Plus size={13} />
