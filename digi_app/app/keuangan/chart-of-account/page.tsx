@@ -417,23 +417,6 @@ export default function ChartOfAccountPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="px-4 py-2 bg-white border border-[#E4E0D9] rounded-xl text-sm text-[#14130F] placeholder-[#9A948B] focus:outline-none focus:ring-2 focus:ring-[#009162] w-full max-w-xs transition-all"
               />
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleCSVUpload}
-                accept=".csv"
-                className="hidden"
-              />
-              
-              <button 
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="h-10 px-4 bg-white border border-[#E4E0D9] rounded-xl text-sm font-medium text-[#14130F] hover:bg-gray-50 flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <span>Import</span>
-              </button>
-
               <button 
                 type="button"
                 onClick={() => setShowAddModal(true)}
