@@ -87,10 +87,14 @@ export async function GET(req: NextRequest) {
           budget: {
             include: {
               mainAnggaran: {
+                orderBy: { id: 'asc' },
                 include: {
                   subAnggaran: {
+                    orderBy: { id: 'asc' },
                     include: {
-                      keterangan: true,
+                      keterangan: {
+                        orderBy: { id: 'asc' },
+                      },
                     },
                   },
                 },

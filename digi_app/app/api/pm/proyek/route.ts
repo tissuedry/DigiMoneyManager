@@ -25,7 +25,18 @@ export async function GET(req: NextRequest) {
             budget: {
               include: {
                 mainAnggaran: {
-                  include: { subAnggaran: { include: { keterangan: { include: { reimbursements: { include: { approvals: true } } } } } } },
+                  orderBy: { id: 'asc' },
+                  include: {
+                    subAnggaran: {
+                      orderBy: { id: 'asc' },
+                      include: {
+                        keterangan: {
+                          orderBy: { id: 'asc' },
+                          include: { reimbursements: { include: { approvals: true } } },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
