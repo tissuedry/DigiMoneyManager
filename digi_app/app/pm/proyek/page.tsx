@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, use } from "react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import DetailAnggaranModal from "./DetailAnggaran";
@@ -16,16 +16,14 @@ import {
   Eye,
   Plus,
   Users,
-  UserPlus,
   Trash2,
   Settings,
-  X,
   Loader2,
   Check,
   AlertCircle,
 } from "lucide-react";
 import { useApi, useInvalidate } from "@/lib/use-api";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type PosAnggaran = {
   id: number;
@@ -268,8 +266,14 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
   );
 }
 
-export default function KelolaProyekPage() {
-  const searchParams = useSearchParams();
+export default function KelolaProyekPage({ searchParams }: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const query = use(searchParams);
+  return <KelolaProyekContent openDetailModal={Boolean(query.detailModal)} />;
+}
+
+function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -308,11 +312,10 @@ export default function KelolaProyekPage() {
       setEditableRows(nonPm.map((m) => ({ userId: m.id, nama: m.nama, divisi: m.divisi || "" })));
       setDirtyTim(false);
     }
-    
-    if (searchParams.get('detailModal')) {
+    if (openDetailModal) {
       setIsDetailOpen(true);
     }
-  }, [proyek, searchParams]);
+  }, [proyek, openDetailModal]);
 
   const handleSaveTim = () => {
     if (!proyek) return;
