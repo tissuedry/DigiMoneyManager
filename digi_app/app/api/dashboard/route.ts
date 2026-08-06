@@ -475,7 +475,7 @@ export async function GET(req: NextRequest) {
       dashboardData.reimbursementPipeline = reimbursementPipeline;
       dashboardData.projectList = projectProfitability;
 
-    } else if (role === 'Super Admin' || role === 'superadmin') {
+    } else if (role === 'Superadmin' || role === 'superadmin') {
       
       const totalPengajuan = await prisma.reimbursement.count();
 
@@ -495,7 +495,12 @@ export async function GET(req: NextRequest) {
 
       const totalUserAktif = await prisma.user.count(); 
 
+      // PERBAIKAN: Hitung Total Nilai Proyek dengan menjumlahkan rabTotal
+      const budgets = await prisma.budget.findMany();
+      const totalNilaiProyek = budgets.reduce((sum, b) => sum + Number(b.rabTotal), 0);
+
       dashboardData.metrics = {
+        totalNilaiProyek, // Menambahkan perhitungan nilai proyek untuk Super Admin
         totalPengajuan,
         totalMenungguApproval,
         totalSiapDicairkan,

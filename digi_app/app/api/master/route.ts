@@ -47,7 +47,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
-
 // POST: Menambahkan data master baru
 export async function POST(req: NextRequest) {
   try {
@@ -58,7 +57,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Forbidden: Hanya Super Admin yang dapat menambah data master' }, { status: 403 });
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      // Amankan parsing JSON untuk menghindari "Unexpected end of JSON input"
+      body = await req.json();
+    } catch (parseError) {
+      return NextResponse.json({ message: 'Request body kosong atau JSON tidak valid' }, { status: 400 });
+    }
+
     const { type, nama, parentId } = body;
 
     if (!type || !nama) {

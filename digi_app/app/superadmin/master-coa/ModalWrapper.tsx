@@ -1,5 +1,7 @@
+"use client";
+
 import React from "react";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 
 interface ModalWrapperProps {
   isOpen: boolean;
@@ -8,6 +10,8 @@ interface ModalWrapperProps {
   children: React.ReactNode;
   breadcrumbs?: React.ReactNode;
   actionLabel?: string;
+  onAction?: () => void;
+  isLoading?: boolean;
 }
 
 export default function ModalWrapper({ 
@@ -16,7 +20,9 @@ export default function ModalWrapper({
   title, 
   children, 
   breadcrumbs, 
-  actionLabel = "Terapkan" 
+  actionLabel = "Terapkan",
+  onAction,
+  isLoading = false
 }: ModalWrapperProps) {
   if (!isOpen) return null;
 
@@ -46,12 +52,20 @@ export default function ModalWrapper({
         
         <div className="px-6 py-4 border-t border-stone-100 bg-white flex justify-end gap-3">
           <button 
+            type="button"
             onClick={onClose} 
-            className="px-5 py-2.5 text-[13px] font-bold text-stone-700 bg-white border border-stone-200 rounded-xl hover:bg-stone-50 transition shadow-sm cursor-pointer"
+            disabled={isLoading}
+            className="px-5 py-2.5 text-[13px] font-bold text-stone-700 bg-white border border-stone-200 rounded-xl hover:bg-stone-50 transition shadow-sm cursor-pointer disabled:opacity-50"
           >
             Batal
           </button>
-          <button className="px-5 py-2.5 text-[13px] font-bold text-white bg-[#1a1a1a] rounded-xl hover:bg-black transition shadow-sm cursor-pointer">
+          <button 
+            type="button"
+            onClick={onAction}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-5 py-2.5 text-[13px] font-bold text-white bg-[#1a1a1a] rounded-xl hover:bg-black transition shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            {isLoading && <Loader2 size={14} className="animate-spin" />}
             {actionLabel}
           </button>
         </div>
