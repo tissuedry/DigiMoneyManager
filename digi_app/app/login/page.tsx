@@ -54,27 +54,27 @@ export default function LoginPage() {
       setLoginPassword('');
 
       // Redirect based on role
-        const role = data.user.role || '';
-        const roleLower = String(role).trim().toLowerCase();
-        const roles: string[] = Array.isArray(data.user.roles)
-          ? data.user.roles.map((r: any) => String(r).trim().toLowerCase())
-          : [roleLower];
+      const role = data.user.role || '';
+      const roleLower = String(role).trim().toLowerCase();
+      const roles: string[] = Array.isArray(data.user.roles)
+        ? data.user.roles.map((r: any) => String(r).trim().toLowerCase())
+        : [roleLower];
 
-        const isSuperAdmin = 
-          roleLower === 'superadmin' || 
-          roleLower === 'super admin' || 
-          roles.includes('superadmin') || 
-          roles.includes('super admin');
+      const isSuperAdmin =
+        roleLower === 'superadmin' ||
+        roleLower === 'super admin' ||
+        roles.includes('superadmin') ||
+        roles.includes('super admin');
 
-        if (isSuperAdmin) {
-          router.push('/superadmin');
-        } else if (role === 'Tim Keuangan' || roles.includes('tim keuangan')) {
-          router.push('/keuangan');
-        } else if (role === 'Direktur / Manajemen' || roles.includes('direktur / manajemen')) {
-          router.push('/manager');
-        } else {
-          router.push('/select-project');
-        }
+      if (isSuperAdmin) {
+        router.push('/superadmin');
+      } else if (role === 'Tim Keuangan' || roles.includes('tim keuangan')) {
+        router.push('/keuangan');
+      } else if (role === 'Direktur / Manajemen' || roles.includes('direktur / manajemen')) {
+        router.push('/manager');
+      } else {
+        router.push('/select-project');
+      }
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Email atau password salah.');
@@ -136,7 +136,7 @@ export default function LoginPage() {
                 <BookOpen size={18} />
               </div>
               <div className="space-y-1">
-                <h4 className="font-bold text-sm text-emerald-100">Jurnal Debit–Kredit otomatis</h4>
+                <h4 className="font-bold text-sm text-emerald-100">Jurnal otomatis</h4>
                 <p className="text-xs text-emerald-100/50 leading-relaxed font-medium">
                   Setiap pencairan langsung jadi entri jurnal yang seimbang.
                 </p>
