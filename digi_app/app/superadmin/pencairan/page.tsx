@@ -1,539 +1,1081 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Filter, Download, Check, X as XIcon, Search, CheckCircle2, ChevronDown } from "lucide-react";
-import TolakPengajuanModal from "./TolakPengajuanModal"; 
+import React, { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import {
+  Download, X, Check, Filter, ZoomIn, AlertTriangle
+} from "lucide-react";
 
-// --- MOCK DATA ---
-const PENCAIRAN_DATA = [
-  {
-    id: "RB-0074",
-    title: "Pembelian RPG Controller",
-    type: "REIMBURSEMENT",
-    typeLabel: "REIMB",
-    pengaju: "Muhammad Alvin Ababil",
-    tanggal: "4 Ags 2026",
-    nominal: "Rp 875.000",
-    status: "Menunggu Keuangan",
-    proyek: "Penyebaran Laptop Daerah Bojongsoang",
-    main: "Biaya Produksi Proyek",
-    sub: "Biaya Pengadaan Barang dan Jasa",
-    keterangan: "Pembelian Software",
-    tglTransaksi: "16 Nov 2019", 
-    catatanPengaju: "Pembelian RPG Controller",
-    catatanPM: "-",
-  },
-  {
-    id: "RB-0071",
-    title: "Gaji Gweh - QA-Alif Week 6",
-    type: "REALISASI",
-    typeLabel: "REAL",
-    pengaju: "Muhammad Zaini",
-    tanggal: "3 Ags 2026",
-    nominal: "Rp 20.000.000",
-    status: "Menunggu Keuangan",
-    proyek: "Penyebaran Laptop Daerah Bojongsoang",
-    main: "Biaya Produksi Proyek",
-    sub: "Biaya Personil",
-    keterangan: "Gaji Personil",
-    tglTransaksi: "3 Ags 2026",
-    catatanPengaju: "-",
-    catatanPM: "Auto-approved",
-  },
-  {
-    id: "RB-0070",
-    title: "Gaji Alif - QA-Alif",
-    type: "REALISASI",
-    typeLabel: "REAL",
-    pengaju: "Muhammad Zaini",
-    tanggal: "3 Ags 2026",
-    nominal: "Rp 25.000.000",
-    status: "Menunggu Keuangan",
-    proyek: "Penyebaran Laptop Daerah Bojongsoang",
-    main: "Biaya Produksi Proyek",
-    sub: "Biaya Personil",
-    keterangan: "Gaji Personil",
-    tglTransaksi: "3 Ags 2026",
-    catatanPengaju: "-",
-    catatanPM: "Auto-approved",
-  },
-  {
-    id: "RB-0049",
-    title: "Gaji Sangkuriang - QA-Zaini",
-    type: "REALISASI",
-    typeLabel: "REAL",
-    pengaju: "Muhammad Zaini",
-    tanggal: "2 Ags 2026",
-    nominal: "Rp 1.000.000",
-    status: "Menunggu Keuangan",
-    proyek: "Penyebaran Laptop Daerah Bojongsoang",
-    main: "Biaya Produksi Proyek",
-    sub: "Biaya Personil",
-    keterangan: "Gaji Personil",
-    tglTransaksi: "2 Ags 2026",
-    catatanPengaju: "-",
-    catatanPM: "Auto-approved",
-  },
-  {
-    id: "RB-0048",
-    title: "Gaji Alvin - QA-Alif",
-    type: "REALISASI",
-    typeLabel: "REAL",
-    pengaju: "Muhammad Zaini",
-    tanggal: "2 Ags 2026",
-    nominal: "Rp 10.000.000",
-    status: "Menunggu Keuangan",
-    proyek: "Penyebaran Laptop Daerah Bojongsoang",
-    main: "Biaya Produksi Proyek",
-    sub: "Biaya Personil",
-    keterangan: "Gaji Personil",
-    tglTransaksi: "2 Ags 2026",
-    catatanPengaju: "-",
-    catatanPM: "Auto-approved",
-  },
-  {
-    id: "RB-0047",
-    title: "Beli Cemilan Client - QA-Zaini",
-    type: "REIMBURSEMENT",
-    typeLabel: "REIMB",
-    pengaju: "Muhammad Alvin Ababil",
-    tanggal: "2 Ags 2026",
-    nominal: "Rp 43.500",
-    status: "Menunggu Keuangan",
-    proyek: "Penyebaran Laptop Daerah Bojongsoang",
-    main: "Biaya Marketing Proyek",
-    sub: "Entertain",
-    keterangan: "Beli Snack",
-    tglTransaksi: "2 Ags 2026",
-    catatanPengaju: "Snack untuk meeting",
-    catatanPM: "Sesuai",
+import ConfirmDialog from '@/components/confirm-dialog';
+import SuccessDialog from '@/components/success-dialog';
+import Toast from '@/components/toast';
+import RejectModal from './RejectModal';
+import ImagePreviewModal from './ImagePreviewModal';
+import { useApi, useInvalidate } from '@/lib/use-api';
+
+function formatTanggal(iso: string) {
+  if (!iso) return "";
+  const parts = iso.split("-");
+  if (parts.length < 3) return iso;
+  const [y, m, d] = parts;
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+  const mIdx = parseInt(m) - 1;
+  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+}
+
+function formatTanggalWaktu(isoStr: string | null | undefined) {
+  if (!isoStr) return "-";
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) {
+      return formatTanggal(isoStr);
+    }
+    const day = d.getDate();
+    const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+    const month = bulan[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+
+    return `${day} ${month} ${year}, ${hours}:${minutes}`;
+  } catch {
+    return isoStr;
   }
-];
+}
 
-export default function AntrianPencairanPage() {
-  const [activeTab, setActiveTab] = useState("Diteruskan");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItem, setSelectedItem] = useState<any>(PENCAIRAN_DATA[0]);
-  const [catatanKeuangan, setCatatanKeuangan] = useState("");
-  
-  // State Filter Proyek
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectedProjectFilter, setSelectedProjectFilter] = useState("Semua Proyek");
+const AVATAR_COLORS = [
+  "bg-teal-100 text-teal-700",
+  "bg-blue-100 text-blue-700",
+  "bg-violet-100 text-violet-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+];
+const getAvatarColor = (initials: string) => AVATAR_COLORS[(initials || 'AI').charCodeAt(0) % AVATAR_COLORS.length];
+
+const StepIcon = ({ state, number }: { state: "done" | "active" | "pending" | "rejected"; number: number }) => {
+  if (state === "done")
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#2d6a4f] flex items-center justify-center shrink-0">
+        <Check size={14} className="text-white" strokeWidth={2.5} />
+      </div>
+    );
+  if (state === "rejected")
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#be123c] flex items-center justify-center shrink-0">
+        <X size={14} className="text-white" strokeWidth={2.5} />
+      </div>
+    );
+  if (state === "active")
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#0277bd] flex items-center justify-center shrink-0">
+        <span className="text-[11px] font-bold text-white">{number}</span>
+      </div>
+    );
+  return (
+    <div className="w-7 h-7 rounded-full border-2 border-stone-200 bg-white flex items-center justify-center shrink-0">
+      <span className="text-[11px] font-semibold text-stone-400">{number}</span>
+    </div>
+  );
+};
+
+function PencairanContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const idParam = searchParams.get("id");
+  const selectParam = searchParams.get("select");
+
+  const [activeTab, setActiveTab] = useState<'diteruskan' | 'selesai'>('diteruskan');
+  const [selectedId, setSelectedId] = useState<string | null>(idParam);
+  const [isAllSelected, setIsAllSelected] = useState(selectParam === 'all');
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [showApproveSuccess, setShowApproveSuccess] = useState(false);
+  const [approvedLabel, setApprovedLabel] = useState('');
+  const [showAccountWarning, setShowAccountWarning] = useState(false);
+  const [showRejectSuccess, setShowRejectSuccess] = useState(false);
+  const [rejectedLabel, setRejectedLabel] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // State untuk Dropdown Filter Proyek
+  const [selectedProyekFilter, setSelectedProyekFilter] = useState<string>("");
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
-  // State Modal Tolak
-  const [isTolakModalOpen, setIsTolakModalOpen] = useState(false);
-
-  // List Proyek Unik
-  const uniqueProjects = [
-    "Semua Proyek",
-    ...Array.from(new Set(PENCAIRAN_DATA.map((item) => item.proyek)))
-  ];
-
-  // Filter Data List
-  const filteredData = PENCAIRAN_DATA.filter((item) => {
-    // 1. Pencarian Teks
-    const matchSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        item.pengaju.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        item.proyek.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // 2. Filter Status (Tab)
-    const matchTab = activeTab === "Diteruskan" ? item.status === "Menunggu Keuangan" : item.status !== "Menunggu Keuangan";
-    
-    // 3. Filter Proyek
-    const matchProject = selectedProjectFilter === "Semua Proyek" || item.proyek === selectedProjectFilter;
-    
-    return matchSearch && matchTab && matchProject;
-  });
-
-  // Effect untuk select item pertama ketika data difilter
-  React.useEffect(() => {
-    if (filteredData.length > 0) {
-      const isStillInList = filteredData.some((item) => item.id === selectedItem?.id);
-      if (!isStillInList) setSelectedItem(filteredData[0]);
-    } else {
-      setSelectedItem(null);
-    }
-  }, [searchQuery, activeTab, selectedProjectFilter]);
-
-  // Effect untuk click outside filter dropdown
-  React.useEffect(() => {
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
-        setIsFilterOpen(false);
+        setShowFilterDropdown(false);
       }
     }
-    if (isFilterOpen) document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isFilterOpen]);
+  }, []);
 
-  const renderTypeBadge = (typeLabel: string) => {
-    if (typeLabel === "REAL") return <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 font-extrabold rounded text-[9px]">REAL</span>;
-    return <span className="px-1.5 py-0.5 bg-sky-100 text-sky-700 font-extrabold rounded text-[9px]">REIMB</span>;
+  const handleOpenZoom = (url: string) => {
+    setZoomImageUrl(url);
   };
 
+  const handleSelect = (id: string | null, all = false) => {
+    setIsAllSelected(all);
+    setSelectedId(id);
+    if (all) {
+      router.replace(`${pathname}?select=all`, { scroll: false });
+    } else if (id) {
+      router.replace(`${pathname}?id=${id}`, { scroll: false });
+    } else {
+      router.replace(pathname, { scroll: false });
+    }
+  };
+
+  const [debitAccount, setDebitAccount] = useState("");
+  const [creditAccount, setCreditAccount] = useState("");
+  const [catatan, setCatatan] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const invalidate = useInvalidate();
+
+  const { data: rData, isLoading } = useApi<any>("/api/reimbursements");
+  const { data: cData } = useApi<any>("/api/coa");
+  const reimbursements = rData?.reimbursements ?? [];
+  const coaList = cData?.coa ?? [];
+
+  // Mengambil daftar proyek unik dari seluruh data reimbursement untuk ditampilkan di dropdown filter
+  const uniqueProjects = Array.from(
+    new Map(
+      reimbursements
+        .filter((r: any) => r.proyek && r.proyek.id)
+        .map((r: any) => [r.proyek.id, r.proyek])
+    ).values()
+  );
+
+  const filteredList = reimbursements.filter((item: any) => {
+    const matchesTab = activeTab === 'diteruskan'
+      ? item.status === 'APPROVED_BY_PM'
+      : (item.status === 'APPROVED' || item.status === 'REJECTED');
+
+    const matchesSearch = searchQuery
+      ? (item.user?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.proyek?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(item.id).toLowerCase().includes(searchQuery.toLowerCase()))
+      : true;
+
+    const matchesProyek = selectedProyekFilter ? String(item.proyek?.id) === selectedProyekFilter : true;
+
+    return matchesTab && matchesSearch && matchesProyek;
+  });
+
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Perhitungan counter tab disesuaikan dengan filter yang sedang aktif
+  const countDiteruskan = reimbursements.filter((item: any) => 
+    item.status === 'APPROVED_BY_PM' && 
+    (selectedProyekFilter ? String(item.proyek?.id) === selectedProyekFilter : true)
+  ).length;
+
+  const countSelesai = reimbursements.filter((item: any) => 
+    (item.status === 'APPROVED' || item.status === 'REJECTED') &&
+    (selectedProyekFilter ? String(item.proyek?.id) === selectedProyekFilter : true)
+  ).length;
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeTab, searchQuery, selectedProyekFilter]);
+
+  const visibleList = filteredList.slice(0, visibleCount);
+  const pendingCount = Math.min(PAGE_SIZE, filteredList.length - visibleCount);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredList.length) return;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
+
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+      setTimeout(() => {
+        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredList.length));
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }, 500);
+    };
+
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [filteredList.length, visibleCount]);
+
+  const selectedItem = filteredList.find((item: any) => String(item.id) === String(selectedId)) || filteredList[0] || null;
+
+  useEffect(() => {
+    if (selectedItem && String(selectedItem.id) !== String(selectedId)) {
+      setSelectedId(String(selectedItem.id));
+    }
+  }, [filteredList, selectedItem, selectedId]);
+
+  useEffect(() => {
+    if (selectedItem && selectedItem.status === 'APPROVED_BY_PM') {
+      setCreditAccount("");
+
+      const posName = (selectedItem.posAnggaran?.deskripsi || selectedItem.posAnggaran?.keterangan || "").toLowerCase();
+      if (posName.includes("perlengkapan") || posName.includes("atk")) {
+        setDebitAccount("50001");
+      } else if (posName.includes("bahan") || posName.includes("sipil") || posName.includes("bangunan")) {
+        setDebitAccount("50002");
+      } else if (posName.includes("transportasi") || posName.includes("logistik")) {
+        setDebitAccount("50003");
+      } else {
+        const expenseCoa = coaList.find((c: any) => {
+          const t = (c.tipe || '').toLowerCase();
+          return t === 'beban' || t === 'expense';
+        });
+        setDebitAccount(expenseCoa ? String(expenseCoa.nomorAkun) : "50001");
+      }
+      setCatatan("");
+    }
+  }, [selectedId, selectedItem, coaList]);
+
+  const handleProcess = async (action: 'APPROVE' | 'REJECT', alasanPenolakan?: string) => {
+    if (!selectedItem) return;
+
+    if (action === 'APPROVE') {
+      if (!creditAccount) {
+        setShowAccountWarning(true);
+        return;
+      }
+      if (!debitAccount) {
+        const expenseCoa = coaList.find((c: any) => {
+          const t = (c.tipe || '').toLowerCase();
+          return t === 'beban' || t === 'expense';
+        });
+        setDebitAccount(expenseCoa ? String(expenseCoa.nomorAkun) : "50001");
+      }
+      setShowApproveConfirm(true);
+      return;
+    }
+
+    setIsSubmittingReject(true);
+
+    try {
+      const res = await fetch(`/api/reimbursements/${selectedItem.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          catatan,
+          alasan: alasanPenolakan,
+          noAkunDebit: debitAccount,
+          noAkunKredit: creditAccount
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRejectedLabel(selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || 'Pengajuan');
+        setIsRejectModalOpen(false);
+        invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
+        setShowRejectSuccess(true);
+      } else {
+        setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMessage("Terjadi kesalahan sistem saat memproses pengajuan.");
+    } finally {
+      setIsSubmittingReject(false);
+    }
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!selectedItem) return;
+    setIsApproving(true);
+
+    try {
+      const res = await fetch(`/api/reimbursements/${selectedItem.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'APPROVE',
+          catatan,
+          noAkunDebit: debitAccount,
+          noAkunKredit: creditAccount
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setApprovedLabel(selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || 'Pengajuan');
+        setShowApproveConfirm(false);
+        invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
+        setShowApproveSuccess(true);
+      } else {
+        setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMessage("Terjadi kesalahan sistem saat memproses pengajuan.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const pmApproval = selectedItem?.approvals?.find((a: any) => a.level === 'PM' || a.approver?.role === 'Project Manager');
+  const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN' || a.approver?.role === 'Tim Keuangan');
+  const rejectedApproval = selectedItem?.approvals?.find((a: any) => a.status === 'REJECTED');
+  const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
+  const isSelectedRealisasi = selectedItem?.tipe === 'Realisasi Anggaran';
+
+  const baseApprovalSteps = selectedItem ? [
+    {
+      label: "Pengajuan dikirim",
+      sublabel: `${selectedItem.user?.nama || 'Karyawan'} • ${formatTanggalWaktu(selectedItem.createdAt)}`,
+      state: "done" as const
+    },
+    ...(!isSelectedRealisasi ? [{
+      label: "Validasi Project Manager",
+      sublabel: pmApproval
+        ? `${pmApproval.approver?.nama || 'Project Manager'} • ${formatTanggalWaktu(pmApproval.timestamp)}`
+        : (selectedItem.status === 'SUBMITTED' ? "Menunggu" : "Menunggu • –"),
+      state: pmApproval
+        ? (pmApproval.status === 'REJECTED' ? "rejected" as const : "done" as const)
+        : (selectedItem.status === 'SUBMITTED' ? "active" as const : "pending" as const)
+    }] : []),
+    {
+      label: "Verifikasi Tim Keuangan",
+      sublabel: financeApproval
+        ? `${financeApproval.approver?.nama || 'Tim Keuangan'} • ${formatTanggalWaktu(financeApproval.timestamp)}`
+        : (selectedItem.status === 'APPROVED_BY_PM' ? "Menunggu • -" : "Menunggu • –"),
+      state: financeApproval
+        ? (financeApproval.status === 'REJECTED' ? "rejected" as const : "done" as const)
+        : (selectedItem.status === 'APPROVED_BY_PM' ? "active" as const : "pending" as const)
+    },
+    {
+      label: "Dicairkan",
+      sublabel: selectedItem.status === 'APPROVED'
+        ? `Jurnal otomatis • ${financeApproval ? formatTanggalWaktu(financeApproval.timestamp) : ''}`
+        : "Jurnal otomatis • –",
+      state: selectedItem.status === 'APPROVED' ? "done" as const : "pending" as const
+    }
+  ] : [];
+  const approvalSteps = baseApprovalSteps;
+
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] lg:h-[calc(100vh-80px)] p-6 lg:p-8 bg-[#fdfcf9] overflow-hidden">
-      
-      {/* Page Title & Desc */}
-      <div className="mb-6 shrink-0">
-        <h1 className="text-[24px] font-bold text-stone-900 mb-1">Antrian Pencairan</h1>
-        <p className="text-[13px] text-stone-500">
-          Pengajuan yang telah divalidasi PM dan siap dicairkan. Jurnal Debit-Kredit akan ter-generate otomatis.
-        </p>
-      </div>
-
-      {/* Tabs & Controls */}
-      <div className="flex justify-between items-center mb-6 shrink-0">
-        <div className="flex items-center gap-2 bg-stone-100 p-1 rounded-full">
-          {["Diteruskan", "Selesai"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-1.5 rounded-full text-[12px] font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeTab === tab ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700"
-              }`}
-            >
-              {tab} 
-              {tab === "Diteruskan" && <span className="bg-stone-200 text-stone-700 px-1.5 py-0.5 rounded text-[10px]">{filteredData.length}</span>}
-              {tab === "Selesai" && <span className="px-1.5 py-0.5 text-stone-400 text-[10px]">31</span>}
-            </button>
-          ))}
-        </div>
+    <div className="min-h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 flex flex-col">
+      <main className="flex-1 flex flex-col px-4 lg:px-8 py-6 w-full max-w-[1600px] mx-auto overflow-hidden">
         
-        <div className="flex items-center gap-3">
-          {/* Input Search */}
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input 
-              type="text" 
-              placeholder="Cari nama pengaju atau proyek..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-stone-200 rounded-full text-[12px] w-[260px] focus:outline-none focus:border-stone-400 transition"
-            />
-          </div>
+        <div className="shrink-0 mb-6">
+          <h1 className="text-2xl font-bold text-stone-900">Antrian Pencairan</h1>
+          <p className="text-sm text-stone-500 mt-1.5">
+            Pengajuan yang telah divalidasi PM dan siap dicairkan. Jurnal Debit-Kredit akan ter-generate otomatis.
+          </p>
 
-          {/* Dropdown Filter Proyek */}
-          <div className="relative" ref={filterRef}>
-            <button 
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-full text-[12px] font-bold transition shadow-xs cursor-pointer ${
-                selectedProjectFilter !== "Semua Proyek" 
-                  ? "bg-sky-50 border-sky-200 text-[#0277bd]" 
-                  : "bg-white border-stone-200 text-stone-700 hover:bg-stone-50"
-              }`}
-            >
-              <Filter size={14} /> 
-              <span className="max-w-[120px] truncate">
-                {selectedProjectFilter === "Semua Proyek" ? "Filter Proyek" : selectedProjectFilter}
-              </span>
-              <ChevronDown size={14} className={selectedProjectFilter !== "Semua Proyek" ? "text-[#0277bd]" : "text-stone-400"} />
-            </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
+            <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 overflow-x-auto">
+              <button
+                onClick={() => { setActiveTab('diteruskan'); handleSelect(null); }}
+                className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'diteruskan'
+                  ? "bg-white text-stone-900 font-semibold shadow-sm"
+                  : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                  }`}
+              >
+                Diteruskan
+                <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'diteruskan' ? "bg-stone-100 text-stone-600" : "bg-stone-200/70 text-stone-400"}`}>
+                  {countDiteruskan}
+                </span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('selesai'); handleSelect(null); }}
+                className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'selesai'
+                  ? "bg-white text-stone-900 font-semibold shadow-sm"
+                  : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                  }`}
+              >
+                Selesai
+                <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'selesai' ? "bg-stone-100 text-stone-600" : "bg-stone-200/70 text-stone-400"}`}>
+                  {countSelesai}
+                </span>
+              </button>
+            </div>
 
-            {isFilterOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden z-50 animate-in fade-in duration-150">
-                <div className="p-3 border-b border-stone-100 bg-[#fdfcf9] text-[10px] font-bold text-stone-400 uppercase tracking-wider">
-                  Filter berdasarkan Proyek
-                </div>
-                <div className="max-h-60 overflow-y-auto py-1">
-                  {uniqueProjects.map((proj) => (
-                    <button
-                      key={proj}
-                      onClick={() => {
-                        setSelectedProjectFilter(proj);
-                        setIsFilterOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2.5 text-[12px] transition flex items-center justify-between cursor-pointer hover:bg-stone-50 ${
-                        selectedProjectFilter === proj ? "bg-sky-50/50 text-[#0277bd] font-bold" : "text-stone-700 font-medium"
-                      }`}
-                    >
-                      <span className="truncate">{proj}</span>
-                      {selectedProjectFilter === proj && <Check size={14} className="text-[#0277bd] shrink-0" />}
-                    </button>
-                  ))}
-                </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="text"
+                placeholder="Cari nama pengaju atau ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full sm:w-64 px-4 py-2 text-xs bg-white border border-stone-200 rounded-full outline-none focus:border-stone-400 transition text-stone-800 placeholder:text-stone-400"
+              />
+              
+              <div className="relative" ref={filterRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  className={`flex items-center gap-2 px-4 py-2 border rounded-full shadow-sm text-[13px] font-medium transition cursor-pointer ${
+                    selectedProyekFilter ? "bg-stone-800 text-white border-stone-800 hover:bg-stone-700" : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                  }`}
+                >
+                  <Filter size={14} className={selectedProyekFilter ? "text-stone-300" : "text-stone-500"} />
+                  <span className="hidden sm:inline max-w-[120px] truncate">
+                    {selectedProyekFilter
+                      ? (uniqueProjects.find((p: any) => String(p.id) === selectedProyekFilter) as any)?.nama || "Filter Aktif"
+                      : "Semua Proyek"}
+                  </span>
+                </button>
+
+                {showFilterDropdown && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-stone-200 rounded-xl shadow-lg z-50 py-2">
+                    <div className="px-3 py-1.5 text-[11px] font-bold text-stone-400 uppercase tracking-wider">
+                      Filter Berdasarkan Proyek
+                    </div>
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                      <button
+                        onClick={() => { setSelectedProyekFilter(""); setShowFilterDropdown(false); }}
+                        className={`w-full text-left px-4 py-2 text-[12px] hover:bg-stone-50 transition cursor-pointer ${!selectedProyekFilter ? "font-bold text-[#2d6a4f] bg-[#e8f4ef]/50" : "text-stone-700"}`}
+                      >
+                        Semua Proyek
+                      </button>
+                      {uniqueProjects.map((p: any) => (
+                        <button
+                          key={p.id}
+                          onClick={() => { setSelectedProyekFilter(String(p.id)); setShowFilterDropdown(false); }}
+                          className={`w-full text-left px-4 py-2 text-[12px] hover:bg-stone-50 transition cursor-pointer truncate ${selectedProyekFilter === String(p.id) ? "font-bold text-[#2d6a4f] bg-[#e8f4ef]/50" : "text-stone-700"}`}
+                        >
+                          {p.nama}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0">
+          {/* Sisi Kiri: List Pengajuan */}
+          <div ref={listRef} className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
+            {isLoading ? (
+              <>
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="bg-white border border-stone-200 rounded-2xl px-4 py-3.5 flex justify-between items-center">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse shrink-0" />
+                      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                        <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
+                        <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                      <div className="h-3 w-16 rounded bg-stone-200 animate-pulse" />
+                      <div className="h-4 w-20 rounded-full bg-stone-200/60 animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : filteredList.length === 0 ? (
+              <div className="bg-white border border-stone-200 rounded-2xl p-8 text-center text-stone-400 text-[13px]">
+                Tidak ada pengajuan pencairan.
+              </div>
+            ) : (
+              <>
+                {visibleList.map((item: any) => {
+                  const initials = item.user?.nama ? item.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'AI';
+                  const active = isAllSelected || String(selectedItem?.id) === String(item.id);
+                  const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
+                  const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
+                  const isRealisasi = item.tipe === 'Realisasi Anggaran';
+
+                  const vendorTitle = item.merchant || item.nama || item.posAnggaran?.deskripsi || (isRealisasi ? 'Realisasi Anggaran' : 'Pengajuan Reimbursement');
+                  const projectTitle = item.proyek?.nama || 'Proyek';
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleSelect(String(item.id))}
+                      className={`w-full text-left rounded-2xl border px-4 py-3.5 transition-all duration-150 cursor-pointer ${active
+                        ? "bg-[#e8f4ef] border-[#a8d5be] shadow-sm scale-[0.99]"
+                        : "bg-white border-stone-200 hover:bg-stone-50"
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold mt-0.5 ${getAvatarColor(initials)}`}>
+                          {initials}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <div className="group relative min-w-0 flex items-center gap-1.5">
+                              <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide border ${isRealisasi
+                                ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
+                                : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
+                                }`}>
+                                {isRealisasi ? 'REAL' : 'REIMB'}
+                              </span>
+                              <p className="text-[12px] font-bold text-stone-800 truncate">
+                                {vendorTitle} · {projectTitle}
+                              </p>
+                            </div>
+                            <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
+                              <span className="text-stone-400 text-[11px]">Rp </span>{formattedNominal}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="group relative min-w-0">
+                              <p className="text-[11px] text-stone-400 truncate">
+                                {item.user?.nama || 'Karyawan'} <span className="font-normal text-stone-400 font-mono">· {itemCode}</span>
+                              </p>
+                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${item.status === 'APPROVED_BY_PM' ? 'bg-[#e1f5fe] text-[#0277bd]' :
+                              item.status === 'APPROVED' ? 'bg-[#e2f1eb] text-[#117a5b]' :
+                                'bg-[#fee2e2] text-[#be123c]'
+                              }`}>
+                              {item.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
+                                item.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </>
             )}
           </div>
 
-        </div>
-      </div>
+          {/* Sisi Kanan: Detail Pengajuan */}
+          <div className="flex-1 flex flex-col bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden h-full min-h-[500px]">
+            {isLoading ? (
+              <div className="flex-1 p-6 space-y-5">
+                <div className="flex justify-between items-start border-b border-stone-100 pb-4">
+                  <div className="space-y-2">
+                    <div className="h-3 w-16 rounded bg-stone-200 animate-pulse" />
+                    <div className="h-6 w-48 rounded bg-stone-200 animate-pulse" />
+                    <div className="h-3 w-60 rounded bg-stone-200/60 animate-pulse" />
+                  </div>
+                  <div className="h-6 w-24 rounded-full bg-stone-200 animate-pulse" />
+                </div>
+              </div>
+            ) : !selectedItem ? (
+              <div className="flex-1 flex items-center justify-center text-stone-400 font-semibold text-xs">
+                Pilih pengajuan dari daftar antrian untuk melihat detail
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
 
-      {/* Content Layout */}
-      <div className="flex gap-6 flex-1 overflow-hidden">
-        
-        {/* List Column */}
-        <div className="w-[380px] flex flex-col gap-3 overflow-y-auto pr-2 pb-4 scrollbar-hide shrink-0">
-          {filteredData.length > 0 ? (
-            filteredData.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => setSelectedItem(item)}
-                className={`p-4 border rounded-2xl cursor-pointer transition ${
-                  selectedItem?.id === item.id 
-                    ? "bg-[#f5fbfa] border-sky-200 shadow-xs" 
-                    : "bg-white border-stone-200 hover:border-stone-300"
-                }`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">
-                      {item.pengaju.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()}
+                  {(() => {
+                    const isRealisasiDetail = selectedItem.tipe === 'Realisasi Anggaran';
+                    const detailVendorTitle = selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama;
+                    const detailTanggal = selectedItem.createdAt || null;
+                    return (
+                      <div className="border-b border-stone-100 pb-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-[12px] text-stone-400 font-medium font-mono">RB-{String(selectedItem.id).padStart(4, '0')}</p>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${isRealisasiDetail
+                              ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
+                              : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
+                              }`}>
+                              {isRealisasiDetail ? 'REALISASI' : 'REIMBURSEMENT'}
+                            </span>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${selectedItem.status === 'APPROVED_BY_PM' ? 'bg-[#e1f5fe] text-[#0277bd]' :
+                            selectedItem.status === 'APPROVED' ? 'bg-[#e2f1eb] text-[#117a5b]' :
+                              'bg-[#fee2e2] text-[#be123c]'
+                            }`}>
+                            {selectedItem.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
+                              selectedItem.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak'}
+                          </span>
+                        </div>
+                        <h2 className="text-[22px] font-bold text-stone-900 leading-tight">
+                          {detailVendorTitle}
+                        </h2>
+                        <p className="text-[13px] text-stone-400 mt-0.5">
+                          diajukan oleh <span className="font-semibold text-stone-600">{selectedItem.user?.nama}</span>
+                          {detailTanggal ? <> pada {formatTanggalWaktu(detailTanggal)}</> : <span className="italic text-stone-300"> · tanggal tidak tersedia</span>}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  {selectedItem.status === "REJECTED" && (
+                    <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
+                      <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[12px] font-bold text-[#be123c] mb-1">Alasan Penolakan</p>
+                        <p className="text-[12px] text-stone-700 leading-relaxed">
+                          {rejectionReason || "Tidak ada alasan spesifik yang diberikan."}
+                        </p>
+                      </div>
                     </div>
+                  )}
+
+                  <div className="divide-y divide-stone-200 text-[13px]">
+                    <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                      <span className="text-stone-400">Proyek</span>
+                      <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.proyek?.nama || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                      <span className="text-stone-400">Main</span>
+                      <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.posAnggaran?.namaPos || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                      <span className="text-stone-400">Sub</span>
+                      <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                      <span className="text-stone-400">Keterangan</span>
+                      <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                      <span className="text-stone-400">Tanggal Transaksi</span>
+                      <span className="font-semibold text-stone-800 text-right max-w-[60%]">
+                        {selectedItem.tanggalStruk ? formatTanggal(selectedItem.tanggalStruk.split('T')[0]) : '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                      <span className="text-stone-400">Pengaju</span>
+                      <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.user?.nama || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                      <span className="text-stone-400">Nominal</span>
+                      <span className="font-bold font-mono text-stone-900 text-right">
+                        <span className="text-stone-400 font-normal">Rp </span>{Number(selectedItem.nominal).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedItem.strukUrl && (
+                    <div className="space-y-1">
+                      <label className="text-[13px] text-stone-500">
+                        {selectedItem.tipe === 'Realisasi Anggaran' ? 'Bukti Gambar' : 'Bukti Struk'}
+                      </label>
+                      <div
+                        onClick={() => handleOpenZoom(selectedItem.strukUrl)}
+                        className="border border-stone-200 rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
+                      >
+                        <img
+                          src={selectedItem.strukUrl}
+                          alt="Bukti Struk"
+                          loading="lazy"
+                          className="w-full h-auto object-contain max-h-48 rounded-lg group-hover:opacity-90 transition"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/bukti_struk.png';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                          <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                            <ZoomIn size={14} /> Klik untuk Memperbesar
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <div className="text-[13px] font-bold text-stone-800 mb-1.5">Preview Jurnal Akuntansi (Auto-generated)</div>
+                    <div className="bg-[#f5f4ef] border border-stone-200/80 rounded-xl p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-mono text-stone-400 text-[12px] font-bold">
+                          {selectedItem.jurnalAkuntansi?.[0] ? `JE-${String(selectedItem.jurnalAkuntansi[0].id).substring(0, 8).toUpperCase()}` : `JE-2026-${String(selectedItem.id).padStart(4, '0')}`}
+                        </span>
+                      </div>
+                      <div className="text-stone-800 font-medium text-[12px]">
+                        Pencairan reimbursement {selectedItem.user?.nama} - {selectedItem.posAnggaran?.deskripsi || selectedItem.posAnggaran?.namaPos}
+                      </div>
+
+                      {selectedItem.status === 'APPROVED_BY_PM' ? (
+                        <div className="space-y-2 pt-2 border-t border-stone-200">
+                          <div className="flex items-center justify-between gap-2 text-[12px]">
+                            <span className="text-[#2d6a4f] font-bold shrink-0">Dr</span>
+                            <div className="flex-1 flex items-center gap-1.5 flex-wrap text-[12px] bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 min-w-0">
+                              <div className="inline-flex items-center gap-1 min-w-0">
+                                <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                  MAIN
+                                </span>
+                                <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                <span className="font-bold text-stone-800 truncate">
+                                  {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
+                                </span>
+                              </div>
+
+                              <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                              <div className="inline-flex items-center gap-1 min-w-0">
+                                <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                  SUB
+                                </span>
+                                <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                <span className="font-bold text-stone-800 truncate">
+                                  {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
+                                </span>
+                              </div>
+
+                              <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                              <div className="inline-flex items-center gap-1 min-w-0">
+                                <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                  KET
+                                </span>
+                                <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                <span className="font-bold text-stone-800 truncate">
+                                  {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="font-mono text-stone-900 text-[12px] shrink-0 font-bold">
+                              Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 text-[12px] pl-3">
+                            <span className="text-[#be123c] font-bold shrink-0">Cr</span>
+                            <select
+                              value={creditAccount}
+                              onChange={(e) => setCreditAccount(e.target.value)}
+                              className="flex-1 text-[12px] font-mono bg-white border border-stone-200 rounded-lg p-1.5 outline-none focus:ring-1 focus:ring-emerald-500 text-stone-800"
+                            >
+                              <option value="">Pilih Akun Kredit</option>
+                              {coaList
+                                .filter((coa: any) => {
+                                  const t = (coa.tipe || '').toLowerCase();
+                                  return t === 'aset' || t === 'asset';
+                                })
+                                .map((coa: any) => (
+                                  <option key={coa.nomorAkun} value={coa.nomorAkun}>
+                                    {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
+                                  </option>
+                                ))}
+                            </select>
+                            <span className="font-mono text-stone-900 text-[12px] shrink-0 font-bold">
+                              Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 pt-2 border-t border-stone-200 text-[12px]">
+                          {selectedItem.jurnalAkuntansi && selectedItem.jurnalAkuntansi.length > 0 ? (
+                            selectedItem.jurnalAkuntansi.map((j: any) => (
+                              <React.Fragment key={j.id}>
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[#2d6a4f] font-bold shrink-0">Dr</span>
+                                    <div className="inline-flex items-center gap-1 flex-wrap min-w-0">
+                                      <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                        MAIN
+                                      </span>
+                                      <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                      <span className="font-bold text-stone-800 truncate">
+                                        {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
+                                      </span>
+
+                                      <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                      <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                        SUB
+                                      </span>
+                                      <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                      <span className="font-bold text-stone-800 truncate">
+                                        {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
+                                      </span>
+
+                                      <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                      <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                        KET
+                                      </span>
+                                      <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                      <span className="font-bold text-stone-800 truncate">
+                                        {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                </div>
+                                <div className="flex justify-between items-center pl-3">
+                                  <span>
+                                    <span className="text-[#be123c] font-bold mr-1">Cr</span>
+                                    <span className="text-stone-600"> {j.noAkunKredit} {j.akunKredit?.namaAkun || coaList.find((c: any) => c.nomorAkun === j.noAkunKredit)?.namaAkun || 'Bank BCA - Operasional'}</span>
+                                  </span>
+                                  <span className="font-mono text-stone-900 font-bold">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                </div>
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            <React.Fragment>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-[#2d6a4f] font-bold shrink-0">Dr</span>
+                                  <div className="inline-flex items-center gap-1 flex-wrap min-w-0">
+                                    <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                      MAIN
+                                    </span>
+                                    <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                    <span className="font-bold text-stone-800 truncate">
+                                      {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
+                                    </span>
+
+                                    <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                    <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                      SUB
+                                    </span>
+                                    <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                    <span className="font-bold text-stone-800 truncate">
+                                      {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
+                                    </span>
+
+                                    <span className="text-stone-300 font-normal text-[11px] shrink-0 mx-0.5">&gt;</span>
+
+                                    <span className="text-stone-400 font-extrabold text-[11px] tracking-wider uppercase shrink-0">
+                                      KET
+                                    </span>
+                                    <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
+                                    <span className="font-bold text-stone-800 truncate">
+                                      {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
+                              </div>
+                              <div className="flex justify-between items-center pl-3">
+                                <span>
+                                  <span className="text-[#be123c] font-bold mr-1">Cr</span>
+                                  <span className="text-stone-600"> 1-1102 Bank BCA - Operasional</span>
+                                </span>
+                                <span className="font-mono text-stone-900 font-bold">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
+                              </div>
+                            </React.Fragment>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
+                    <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
+                      {selectedItem.nama || '-'}
+                    </div>
+                  </div>
+
+                  {selectedItem.tipe !== 'Realisasi Anggaran' && (
                     <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        {renderTypeBadge(item.typeLabel)}
-                        <h3 className="text-[12px] font-bold text-stone-900 leading-tight line-clamp-1">{item.title}</h3>
+                      <p className="text-[13px] text-stone-500 mb-2">Catatan dari Project Manager</p>
+                      <div className="bg-[#f5f4ef] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
+                        {pmApproval?.catatan || '-'}
                       </div>
-                      <p className="text-[11px] text-stone-400 mt-1">{item.pengaju} · {item.id}</p>
+                    </div>
+                  )}
+
+                  {selectedItem.status === 'APPROVED_BY_PM' ? (
+                    <div>
+                      <p className="text-[13px] text-stone-500 mb-2">Catatan dari Keuangan (opsional)</p>
+                      <textarea
+                        rows={2}
+                        placeholder="Tambahkan catatan jika ada..."
+                        value={catatan}
+                        onChange={(e) => setCatatan(e.target.value)}
+                        className="w-full border border-stone-200 rounded-xl p-3 text-[13px] text-stone-700 placeholder:text-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 focus:border-[#2d6a4f] transition bg-white h-18"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-[13px] text-stone-500 mb-2">Catatan dari Keuangan</p>
+                      <div className="bg-[#f5f4ef] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
+                        {financeApproval?.catatan || '-'}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-[13px] font-bold text-stone-800 mb-4">Alur Approval</p>
+                    <div className="flex flex-col gap-0">
+                      {approvalSteps.map((step: any, i: number) => (
+                        <div key={i} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <StepIcon state={step.state} number={i + 1} />
+                            {i < approvalSteps.length - 1 && (
+                              <div
+                                className={`w-px flex-1 my-1 ${step.state === "done" ? "bg-[#2d6a4f]" : "bg-stone-200"
+                                  }`}
+                                style={{ minHeight: "20px" }}
+                              />
+                            )}
+                          </div>
+                          <div className="pb-4">
+                            <p className={`text-[13px] font-semibold ${step.state === "pending" ? "text-stone-400" : "text-stone-800"
+                              }`}>
+                              {step.label}
+                            </p>
+                            <p className="text-[11px] text-stone-400 mt-0.5">{step.sublabel}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
+
                 </div>
-                <div className="flex items-end justify-between mt-2">
-                  <span className="px-2 py-0.5 bg-sky-50 text-sky-600 border border-sky-100 font-bold rounded-full text-[10px]">
-                    {item.status}
-                  </span>
-                  <p className="text-[12px] font-bold text-stone-900">{item.nominal}</p>
+
+                <div className="flex items-center justify-between px-6 py-4 border-t border-stone-100 bg-white shrink-0">
+                  {selectedItem.strukUrl ? (
+                    <a
+                      href={selectedItem.strukUrl}
+                      download={`bukti-${selectedItem.id}.png`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-600 hover:bg-stone-50 transition cursor-pointer"
+                    >
+                      <Download size={14} />
+                      <span>Download bukti</span>
+                    </a>
+                  ) : (
+                    <button className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-600 hover:bg-stone-50 transition opacity-50 cursor-not-allowed" disabled>
+                      <Download size={14} />
+                      <span>Download bukti</span>
+                    </button>
+                  )}
+
+                  {selectedItem.status === 'APPROVED_BY_PM' && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsRejectModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#fee2e2] text-[#be123c] rounded-full text-[13px] font-semibold hover:bg-[#fecaca] transition cursor-pointer"
+                      >
+                        <X size={14} />
+                        <span>Tolak</span>
+                      </button>
+                      <button
+                        onClick={() => handleProcess('APPROVE')}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#2d6a4f] text-white rounded-full text-[13px] font-semibold hover:bg-[#245c43] transition shadow-sm cursor-pointer"
+                      >
+                        <Check size={14} />
+                        <span>Cairkan & Generate Jurnal</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-10 bg-white border border-stone-200 rounded-2xl border-dashed">
-              <p className="text-stone-400 text-[12px] font-medium">Tidak ada data ditemukan.</p>
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
+      </main>
 
-        {/* Detail Column */}
-        {selectedItem ? (
-          <div className="flex-1 flex flex-col bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-xs relative">
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-              
-              {/* Detail Header */}
-              <div className="flex justify-between items-start mb-6 border-b border-stone-100 pb-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[11px] font-bold text-stone-400">{selectedItem.id}</span>
-                    <span className="px-1.5 py-0.5 bg-sky-50 text-sky-600 font-extrabold rounded text-[9px] border border-sky-100">{selectedItem.type}</span>
-                  </div>
-                  <h2 className="text-[24px] font-bold text-stone-900 mb-1">{selectedItem.title}</h2>
-                  <p className="text-[13px] text-stone-500">diajukan oleh <b className="text-stone-800">{selectedItem.pengaju}</b> pada {selectedItem.tanggal}</p>
-                </div>
-                <div>
-                  <span className="px-3 py-1 bg-sky-50 text-sky-600 border border-sky-100 font-bold rounded-full text-[11px]">
-                    {selectedItem.status}
-                  </span>
-                </div>
-              </div>
+      <RejectModal
+        isOpen={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        onSubmit={(alasanTeks: string) => handleProcess('REJECT', alasanTeks)}
+        data={
+          selectedItem
+            ? {
+              merchant: selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama || 'Pengajuan',
+              userName: selectedItem.user?.nama || 'Karyawan',
+              nominal: Number(selectedItem.nominal)
+            }
+            : undefined
+        }
+        isLoading={isSubmittingReject}
+      />
 
-              {/* Data Grid */}
-              <div className="space-y-4 text-[13px] mb-8">
-                <div className="flex justify-between border-b border-stone-100 pb-3">
-                  <span className="text-stone-400">Proyek</span>
-                  <span className="font-bold text-stone-800 text-right">{selectedItem.proyek}</span>
+      <ConfirmDialog
+        open={showApproveConfirm && !!selectedItem}
+        title="Cairkan & Generate Jurnal"
+        description={
+          selectedItem && (
+            <div className="space-y-2.5">
+              <p>Apakah Anda yakin ingin mencairkan pengajuan ini dan men-generate jurnal?</p>
+              <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-stone-400 font-medium shrink-0">Pemohon</dt>
+                  <dd className="font-bold text-stone-800 text-right truncate">{selectedItem.user?.nama || '-'}</dd>
                 </div>
-                <div className="flex justify-between border-b border-stone-100 pb-3">
-                  <span className="text-stone-400">Main</span>
-                  <span className="font-bold text-stone-800 text-right">{selectedItem.main}</span>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-stone-400 font-medium shrink-0">Nominal</dt>
+                  <dd className="font-bold text-stone-800 text-right">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</dd>
                 </div>
-                <div className="flex justify-between border-b border-stone-100 pb-3">
-                  <span className="text-stone-400">Sub</span>
-                  <span className="font-bold text-stone-800 text-right">{selectedItem.sub}</span>
+                
+                {/* Text Wrap Fix: Items start with break-words */}
+                <div className="flex justify-between gap-4 items-start">
+                  <dt className="text-stone-400 font-medium shrink-0 mt-0.5">Akun Debit (Auto)</dt>
+                  <dd className="font-bold text-stone-800 text-right break-words max-w-[65%]">
+                    {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'} &gt; {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'} &gt; {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                  </dd>
                 </div>
-                <div className="flex justify-between border-b border-stone-100 pb-3">
-                  <span className="text-stone-400">Keterangan</span>
-                  <span className="font-bold text-stone-800 text-right">{selectedItem.keterangan}</span>
+                
+                <div className="flex justify-between gap-4 items-start">
+                  <dt className="text-stone-400 font-medium shrink-0 mt-0.5">Akun Kredit</dt>
+                  <dd className="font-bold text-right break-words max-w-[65%]">
+                    {creditAccount ? (
+                      <span className="text-stone-800 font-bold">
+                        {creditAccount} {coaList.find((c: any) => String(c.nomorAkun) === String(creditAccount))?.namaAkun || ''}
+                      </span>
+                    ) : (
+                      <span className="text-red-500 font-bold">Akun Kredit belum dipilih</span>
+                    )}
+                  </dd>
                 </div>
-                <div className="flex justify-between border-b border-stone-100 pb-3">
-                  <span className="text-stone-400">Tanggal Transaksi</span>
-                  <span className="font-bold text-stone-800 text-right">{selectedItem.tglTransaksi}</span>
-                </div>
-                <div className="flex justify-between border-b border-stone-100 pb-3">
-                  <span className="text-stone-400">Pengaju</span>
-                  <span className="font-bold text-stone-800 text-right">{selectedItem.pengaju}</span>
-                </div>
-                <div className="flex justify-between border-b border-stone-100 pb-3">
-                  <span className="text-stone-400">Nominal</span>
-                  <span className="font-black text-stone-900 text-right text-[15px]">{selectedItem.nominal}</span>
-                </div>
-              </div>
-
-              {/* Bukti Struk */}
-              <div className="mb-10">
-                <span className="text-[13px] font-bold text-stone-800 mb-3 block">Bukti Struk</span>
-                <div className="w-full max-w-[400px] h-64 bg-stone-50 rounded-xl border border-stone-200 overflow-hidden flex items-center justify-center p-2 relative shadow-inner">
-                  <div className="bg-white w-full h-full border border-stone-200 rounded p-4 text-[9px] font-mono text-stone-600 flex flex-col shadow-sm">
-                    <p className="text-center font-bold text-[11px] text-stone-900">SURYA ELEKTRONIK</p>
-                    <p className="text-center border-b border-stone-200 pb-2 mb-2">Jl. Veteran Utara No. 248B<br/>Sabtu, 16 November 2019</p>
-                    <div className="flex justify-between"><span>PPG</span><span>500.000</span></div>
-                    <div className="flex justify-between"><span>Pulse Sensor</span><span>150.000</span></div>
-                    <div className="flex justify-between"><span>Pointer</span><span>225.000</span></div>
-                    <div className="mt-auto border-t border-dashed border-stone-300 pt-2 flex justify-between font-bold text-stone-900">
-                      <span>Total Belanja</span><span>{selectedItem.nominal}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Preview Jurnal Akuntansi */}
-              <div className="mb-10">
-                <span className="text-[13px] font-bold text-stone-800 mb-3 block">Preview Jurnal Akuntansi (Auto-generated)</span>
-                <div className="bg-stone-50 border border-stone-200 rounded-xl p-5 shadow-sm">
-                  <div className="text-[11px] font-mono text-stone-500 mb-2">JE-2026-0074</div>
-                  <p className="text-[13px] text-stone-800 mb-5 font-medium">
-                    Pencairan {selectedItem.type.toLowerCase()} {selectedItem.pengaju} - {selectedItem.keterangan}
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[13px] font-bold text-[#008f5d] w-6">Dr</span>
-                      <select className="flex-1 p-2.5 bg-white border border-stone-200 rounded-lg text-[12px] text-stone-700 outline-none focus:border-stone-400">
-                        <option>-- Pilih Akun Debit (Beban) --</option>
-                        <option>Biaya Pengadaan Barang & Jasa</option>
-                        <option>Biaya Personil</option>
-                      </select>
-                      <span className="text-[13px] font-bold text-stone-900 w-24 text-right">{selectedItem.nominal}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[13px] font-bold text-rose-600 w-6">Cr</span>
-                      <select className="flex-1 p-2.5 bg-white border border-stone-200 rounded-lg text-[12px] text-stone-700 outline-none focus:border-stone-400">
-                        <option>-- Pilih Akun Kredit (Kas/Bank) --</option>
-                        <option>Kas Kecil Proyek</option>
-                        <option>Bank Mandiri - Pusat</option>
-                      </select>
-                      <span className="text-[13px] font-bold text-stone-900 w-24 text-right">{selectedItem.nominal}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes Sections */}
-              <div className="space-y-6 mb-10">
-                <div>
-                  <span className="text-[12px] font-medium text-stone-500 mb-2 block">Catatan dari Pengaju</span>
-                  <div className="p-3.5 bg-stone-50 border border-stone-100 rounded-xl text-[13px] text-stone-700 italic">
-                    {selectedItem.catatanPengaju}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-[12px] font-medium text-stone-500 mb-2 block">Catatan dari Project Manager</span>
-                  <div className="p-3.5 bg-stone-50 border border-stone-100 rounded-xl text-[13px] text-stone-700 italic">
-                    {selectedItem.catatanPM}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-[12px] font-medium text-stone-500 mb-2 block">Catatan dari Keuangan (opsional)</span>
-                  <textarea 
-                    rows={3}
-                    placeholder="Tambahkan catatan jika ada..."
-                    value={catatanKeuangan}
-                    onChange={(e) => setCatatanKeuangan(e.target.value)}
-                    className="w-full p-3.5 bg-white border border-stone-200 rounded-xl text-[13px] text-stone-800 outline-none focus:border-stone-400 resize-none"
-                  />
-                </div>
-              </div>
-
-              {/* Timeline / Alur Approval */}
-              <div className="mb-4">
-                <span className="text-[14px] font-bold text-stone-900 mb-5 block">Alur Approval</span>
-                <div className="flex flex-col relative pl-1">
-                  <div className="flex gap-4 relative pb-6">
-                    <div className="absolute left-[13px] top-7 bottom-0 w-[2px] bg-[#008f5d]" />
-                    <div className="relative z-10 shrink-0 mt-0.5">
-                      <div className="w-7 h-7 rounded-full bg-[#008f5d] text-white flex items-center justify-center">
-                        <Check size={16} strokeWidth={2.5} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col pt-1">
-                      <p className="text-[14px] font-medium text-stone-900 leading-none">Pengajuan dikirim</p>
-                      <p className="text-[12px] text-stone-500 mt-1.5">{selectedItem.pengaju} • 4 Ags 2026</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 relative pb-6">
-                    <div className="absolute left-[13px] top-7 bottom-0 w-[2px] bg-[#008f5d]" />
-                    <div className="relative z-10 shrink-0 mt-0.5">
-                      <div className="w-7 h-7 rounded-full bg-[#008f5d] text-white flex items-center justify-center">
-                        <Check size={16} strokeWidth={2.5} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col pt-1">
-                      <p className="text-[14px] font-medium text-stone-900 leading-none">Validasi Project Manager</p>
-                      <p className="text-[12px] text-stone-500 mt-1.5">Muhammad Zaini • 4 Ags 2026</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 relative pb-6">
-                    <div className="absolute left-[13px] top-7 bottom-0 w-[2px] bg-stone-200" />
-                    <div className="relative z-10 shrink-0 mt-0.5">
-                      <div className="w-7 h-7 rounded-full bg-[#0277bd] text-white flex items-center justify-center text-[13px] font-bold shadow-sm">
-                        3
-                      </div>
-                    </div>
-                    <div className="flex flex-col pt-1">
-                      <p className="text-[14px] font-medium text-stone-900 leading-none">Verifikasi Tim Keuangan</p>
-                      <p className="text-[12px] text-stone-400 mt-1.5">Menunggu • -</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 relative">
-                    <div className="relative z-10 shrink-0 mt-0.5">
-                      <div className="w-7 h-7 rounded-full border border-dashed border-stone-300 bg-[#fafafa] text-stone-400 flex items-center justify-center text-[13px] font-medium">
-                        4
-                      </div>
-                    </div>
-                    <div className="flex flex-col pt-1">
-                      <p className="text-[14px] font-medium text-stone-400 leading-none">Dicairkan</p>
-                      <p className="text-[12px] text-stone-400 mt-1.5">Jurnal otomatis • -</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
+              </dl>
             </div>
+          )
+        }
+        confirmLabel="Cairkan"
+        isLoading={isApproving}
+        onCancel={() => setShowApproveConfirm(false)}
+        onConfirm={handleConfirmApprove}
+      />
 
-            {/* Action Bar Sticky Bottom */}
-            <div className="p-5 bg-white border-t border-stone-100 shrink-0 flex items-center justify-between shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
-              <button className="flex items-center gap-2 px-5 py-2.5 border border-stone-200 rounded-xl text-[13px] font-bold text-stone-700 hover:bg-stone-50 transition cursor-pointer shadow-xs">
-                <Download size={16} /> Download bukti
-              </button>
-              
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setIsTolakModalOpen(true)}
-                  className="flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-bold text-rose-600 bg-white border border-rose-200 rounded-xl hover:bg-rose-50 transition cursor-pointer shadow-xs"
-                >
-                  <XIcon size={16} /> Tolak
-                </button>
-                <button 
-                  className="flex items-center gap-2 px-6 py-2.5 text-[13px] font-bold text-white bg-[#008f5d] border border-[#008f5d] rounded-xl hover:bg-[#007a4f] transition cursor-pointer shadow-xs"
-                >
-                  <Check size={16} /> Cairkan & Generate Jurnal
-                </button>
-              </div>
-            </div>
+      <SuccessDialog
+        open={showApproveSuccess}
+        title="Berhasil Dicairkan"
+        description={<>Pengajuan <span className="font-semibold text-[#14130F]">{approvedLabel}</span> berhasil dicairkan dan jurnal akuntansi telah di-generate.</>}
+        onClose={() => setShowApproveSuccess(false)}
+      />
 
-          </div>
-        ) : (
-          <div className="flex-1 bg-stone-50/50 border border-stone-200 rounded-2xl flex flex-col items-center justify-center text-stone-400 p-8 border-dashed">
-            <CheckCircle2 size={48} className="mb-4 text-stone-300" />
-            <p className="text-[14px] font-bold text-stone-500">Pilih pengajuan untuk melihat detail pencairan</p>
-          </div>
-        )}
-      </div>
+      <SuccessDialog
+        open={showAccountWarning}
+        variant="warning"
+        title="Lengkapi Data Akun Pencairan"
+        description="Harap pilih Akun Kredit terlebih dahulu sebelum mencairkan pengajuan."
+        closeLabel="Mengerti"
+        onClose={() => setShowAccountWarning(false)}
+      />
 
-      {/* Render Modal Tolak */}
-      <TolakPengajuanModal 
-        isOpen={isTolakModalOpen}
-        onClose={() => setIsTolakModalOpen(false)}
-        itemName={selectedItem?.title}
-        pengaju={selectedItem?.pengaju}
-        nominal={selectedItem?.nominal}
-        onSubmit={(alasan) => {
-          console.log("Penolakan oleh Keuangan untuk ID:", selectedItem?.id, "dengan alasan:", alasan);
-        }}
+      <Toast
+        open={showRejectSuccess}
+        message={`Pengajuan ${rejectedLabel} berhasil ditolak.`}
+        onClose={() => setShowRejectSuccess(false)}
+      />
+
+      <Toast
+        open={!!errorMessage}
+        variant="error"
+        message={errorMessage || ""}
+        onClose={() => setErrorMessage(null)}
+      />
+
+      <ImagePreviewModal
+        isOpen={!!zoomImageUrl}
+        onClose={() => setZoomImageUrl(null)}
+        imageUrl={zoomImageUrl || ""}
       />
     </div>
+  );
+}
+
+export default function PencairanPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#f9f8f4]">
+        <div className="text-stone-400 font-medium text-xs">Memuat halaman...</div>
+      </div>
+    }>
+      <PencairanContent />
+    </Suspense>
   );
 }

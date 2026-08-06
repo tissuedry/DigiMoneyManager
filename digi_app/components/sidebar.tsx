@@ -67,10 +67,10 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     
     { name: "PROJECT MANAGER", href: "", isSection: true },
     { name: "Kelola Proyek", href: "/superadmin/detail-proyek", icon: FolderKanban, hasBadge: false },
-    { name: "Antrian Approval", href: "/superadmin/approval", icon: Monitor, hasBadge: true, badgeCount: 2 },
+    { name: "Antrian Approval", href: "/superadmin/approval", icon: Monitor, hasBadge: true, badgeCount: 0 },
     
     { name: "TIM KEUANGAN", href: "", isSection: true },
-    { name: "Pencairan", href: "/superadmin/pencairan", icon: Wallet, hasBadge: true, badgeCount: 2 },
+    { name: "Pencairan", href: "/superadmin/pencairan", icon: Wallet, hasBadge: true, badgeCount: 0 },
     { name: "Budget Proyek", href: "/superadmin/budget", icon: BarChart3, hasBadge: false },
     { name: "History Pencairan", href: "/superadmin/jurnal", icon: BookOpen, hasBadge: false },
     
