@@ -62,7 +62,6 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     
     { name: "DIREKTUR", href: "", isSection: true },
     { name: "Kelola Proyek", href: "/superadmin/proyek", icon: FolderKanban, hasBadge: false },
-    { name: "Smart Chat", href: "/superadmin/chat", icon: MessageSquare, hasBadge: false },
     { name: "Laporan", href: "/superadmin/laporan", icon: FileText, hasBadge: false },
     
     { name: "PROJECT MANAGER", href: "", isSection: true },
