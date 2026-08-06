@@ -1,243 +1,366 @@
 "use client";
 
-import React, { useState } from "react";
-import { Check, Download, ChevronDown, Wallet } from "lucide-react";
-import EditBudgetModal from "./EditBudgetModal"; // Pastikan berada di folder yang sama
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Loader2,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  AlertCircle,
+  Wallet,
+  FolderOpen,
+  FileSpreadsheet, 
+} from "lucide-react";
+import Toast from "@/components/toast";
+import BudgetFormModal from "./BudgetFormModal";
 
-// --- MOCK DATA ---
-const BUDGET_DATA = [
-  {
-    id: "P-01",
-    title: "QA-Alif Week 6",
-    status: "DONE",
-    date: "4 Agu 2026",
-    rabTotal: "Rp 100.00 jt",
-    terpakaiAmount: "Rp 0",
-    terpakaiPercent: 0,
-    sisaAmount: "Rp 100.00 jt",
-    posCount: 3,
-    posList: [
-      { nama: "Biaya Marketing Proyek", terpakai: "Rp 0", total: "Rp 10.00 jt" },
-      { nama: "Biaya Administrasi Proyek", terpakai: "Rp 0", total: "Rp 10.00 jt" },
-      { nama: "Biaya Produksi Proyek", terpakai: "Rp 0", total: "Rp 80.00 jt" },
-    ]
-  },
-  {
-    id: "P-02",
-    title: "FTTH RANCAMANYAR",
-    status: "AKTIF",
-    date: "30 Jul 2026",
-    rabTotal: "Rp 50.00 jt",
-    terpakaiAmount: "Rp 117.000",
-    terpakaiPercent: 0,
-    sisaAmount: "Rp 49.88 jt",
-    posCount: 3,
-    posList: [
-      { nama: "Biaya Material Fiber", terpakai: "Rp 117.000", total: "Rp 25.00 jt" },
-      { nama: "Biaya Jasa Penarikan", terpakai: "Rp 0", total: "Rp 15.00 jt" },
-      { nama: "Biaya Perizinan", terpakai: "Rp 0", total: "Rp 10.00 jt" },
-    ]
-  },
-  {
-    id: "P-03",
-    title: "Penyebaran Laptop Daerah Bojongsoang",
-    status: "AKTIF",
-    date: "30 Jul 2026",
-    rabTotal: "Rp 5.00 M",
-    terpakaiAmount: "Rp 594.00 jt",
-    terpakaiPercent: 12,
-    sisaAmount: "Rp 4.41 M",
-    posCount: 3,
-    posList: [
-      { nama: "Biaya Produksi Proyek", terpakai: "Rp 500.00 jt", total: "Rp 4.00 M" },
-      { nama: "Biaya Administrasi Proyek", terpakai: "Rp 44.00 jt", total: "Rp 500.00 jt" },
-      { nama: "Biaya Marketing Proyek", terpakai: "Rp 50.00 jt", total: "Rp 500.00 jt" },
-    ]
-  },
-  {
-    id: "P-04",
-    title: "QA-Alif",
-    status: "AKTIF",
-    date: "28 Jul 2026",
-    rabTotal: "Rp 1.00 jt",
-    terpakaiAmount: "Rp 649.950",
-    terpakaiPercent: 65,
-    sisaAmount: "Rp 350.050",
-    posCount: 3,
-    posList: [
-      { nama: "Biaya Operasional", terpakai: "Rp 400.000", total: "Rp 500.000" },
-      { nama: "Biaya Konsumsi", terpakai: "Rp 249.950", total: "Rp 300.000" },
-      { nama: "Biaya Lain-lain", terpakai: "Rp 0", total: "Rp 200.000" },
-    ]
-  }
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtRupiah(n: number) {
+  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(2)} M`;
+  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(2)} jt`;
+  return `Rp ${n.toLocaleString("id-ID")}`;
+}
 
-export default function BudgetProyekPage() {
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<any>(null);
-  
-  // State untuk menyimpan ID proyek mana saja yang sedang di-expand (dibuka pos anggarannya)
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+// ─── Types ────────────────────────────────────────────────────────────────────
+type PosAnggaranDB = {
+  id: number;
+  namaPos: string;
+  nominalAlokasi: string;
+  nominalTerpakai: string;
+};
 
-  const openEditModal = (project: any) => {
-    setSelectedProject(project);
-    setIsEditModalOpen(true);
-  };
+type BudgetDB = {
+  id: number;
+  rabTotal: string;
+  totalPengeluaran: string;
+  sisaBudget: string;
+  posAnggaran: PosAnggaranDB[];
+};
 
-  const toggleExpand = (id: string) => {
-    setExpandedCards((prev) => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
+type Proyek = {
+  id: number;
+  nama: string;
+  status: string;
+  tanggalMulai: string;
+  tanggalSelesai: string | null;
+  budget: BudgetDB | null;
+};
 
-  const renderStatusBadge = (status: string) => {
-    if (status === "DONE") {
-      return <span className="px-2 py-0.5 bg-stone-100 text-stone-600 font-bold rounded text-[10px]">DONE</span>;
+// ─── Project Card Component ───────────────────────────────────────────────────
+function ProyekCard({
+  proyek,
+  onManageBudget,
+}: {
+  proyek: Proyek;
+  onManageBudget: (p: Proyek) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [toastError, setToastError] = useState<string | null>(null);
+
+  const budget = proyek.budget;
+  const rab = budget ? Number(budget.rabTotal) : 0;
+  const terpakai = budget ? Number(budget.totalPengeluaran) : 0;
+  const sisa = budget ? Number(budget.sisaBudget) : 0;
+  const pct = rab > 0 ? Math.round((terpakai / rab) * 100) : 0;
+
+  // Handler Export Excel
+  const handleExport = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExporting(true);
+    try {
+      const res = await fetch(`/api/proyek/${proyek.id}/budget/laporan`);
+      if (!res.ok) throw new Error("Gagal export excel");
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Laporan_Budget_${proyek.nama.replace(/\s+/g, "_")}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Export error", error);
+      setToastError("Gagal mengunduh Excel. Pastikan data budget valid.");
+    } finally {
+      setIsExporting(false);
     }
-    return <span className="px-2 py-0.5 bg-emerald-50 text-[#008f5d] font-bold rounded text-[10px]">AKTIF</span>;
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] lg:h-[calc(100vh-80px)] overflow-y-auto bg-[#fdfcf9] custom-scrollbar">
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto w-full">
-        
-        {/* Page Title & Desc */}
-        <div className="mb-8">
-          <h1 className="text-[26px] font-bold text-stone-900 mb-2">Manajemen Budget Proyek</h1>
-          <p className="text-[13px] text-stone-500">
-            Inisialisasi dan kelola RAB (Rencana Anggaran Biaya) per proyek. Budget yang diinisialisasi memungkinkan PM menambah pos anggaran.
-          </p>
+    <>
+    <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+      {/* Card Header */}
+      <div className="p-5 flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+          <Wallet size={18} className="text-emerald-600" />
         </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-[13px] font-medium text-stone-500 mb-3">Total Proyek</h3>
-            <p className="text-[32px] font-bold text-stone-900">4</p>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-[13px] font-medium text-stone-500 mb-3">Budget Belum Diinisialisasi</h3>
-            <p className="text-[32px] font-bold text-[#008f5d]">0</p>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-[13px] font-medium text-stone-500 mb-3">Budget Aktif</h3>
-            <p className="text-[32px] font-bold text-[#008f5d]">4</p>
-          </div>
-        </div>
-
-        {/* Section Title */}
-        <div className="flex items-center gap-2 mb-6">
-          <Check size={18} className="text-[#008f5d]" />
-          <h2 className="text-[14px] font-bold text-stone-900">Budget Aktif (4)</h2>
-        </div>
-
-        {/* Budget Cards Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-10">
-          {BUDGET_DATA.map((project) => {
-            const isExpanded = expandedCards[project.id];
-
-            return (
-              <div key={project.id} className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 self-start">
-                
-                {/* Card Header */}
-                <div className="flex items-start justify-between mb-8">
-                  <div className="flex gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-[#e6f4ef] flex items-center justify-center shrink-0">
-                      <Wallet size={20} className="text-[#008f5d]" />
-                    </div>
-                    <div>
-                      <h3 className="text-[16px] font-bold text-stone-900 mb-1.5">{project.title}</h3>
-                      <div className="flex items-center gap-2">
-                        {renderStatusBadge(project.status)}
-                        <span className="text-[12px] text-stone-400">{project.date}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 border border-[#008f5d] text-[#008f5d] hover:bg-[#e6f4ef] rounded-lg text-[12px] font-bold transition">
-                      <Download size={14} /> Export
-                    </button>
-                    <button 
-                      onClick={() => openEditModal(project)}
-                      className="px-4 py-1.5 border border-stone-200 text-stone-700 hover:bg-stone-50 rounded-lg text-[12px] font-bold transition"
-                    >
-                      Edit Budget
-                    </button>
-                  </div>
-                </div>
-
-                {/* RAB Total */}
-                <div className="flex justify-between items-end mb-3">
-                  <span className="text-[13px] text-stone-500">RAB Total</span>
-                  <span className="text-[16px] font-bold text-stone-900">{project.rabTotal}</span>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="w-full h-2.5 bg-stone-100 rounded-full mb-3 overflow-hidden">
-                  <div 
-                    className="h-full bg-[#00cf83] rounded-full transition-all duration-500 ease-in-out"
-                    style={{ width: `${project.terpakaiPercent}%` }}
-                  />
-                </div>
-
-                {/* Terpakai & Sisa */}
-                <div className="flex justify-between items-center mb-6">
-                  <span className="text-[12px] text-stone-400">
-                    Terpakai: <span className="text-stone-500">{project.terpakaiAmount} ({project.terpakaiPercent}%)</span>
-                  </span>
-                  <span className="text-[12px] text-stone-400">
-                    Sisa: <span className="text-stone-500">{project.sisaAmount}</span>
-                  </span>
-                </div>
-
-                {/* Accordion Trigger */}
-                <button 
-                  onClick={() => toggleExpand(project.id)}
-                  className="flex items-center gap-1.5 text-[12px] font-medium text-stone-500 hover:text-stone-800 transition outline-none cursor-pointer"
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[14px] font-bold text-stone-900 leading-tight truncate">{proyek.nama}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    proyek.status === "AKTIF"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-stone-100 text-stone-500"
+                  }`}
                 >
-                  <ChevronDown 
-                    size={14} 
-                    className={`transition-transform duration-300 ${isExpanded ? "rotate-180" : "rotate-0"}`} 
-                  /> 
-                  {isExpanded ? "Tutup pos anggaran" : `Lihat pos anggaran (${project.posCount})`}
-                </button>
+                  {proyek.status}
+                </span>
+                <span className="text-[11px] text-stone-400">
+                  {new Date(proyek.tanggalMulai).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+            </div>
 
-                {/* Accordion Content (List Pos Anggaran) */}
-                {isExpanded && (
-                  <div className="mt-4 pt-4 border-t border-stone-100 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                    {project.posList.map((pos, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-[12px]">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-stone-300"></div>
-                          <span className="text-stone-600 font-medium">{pos.nama}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-stone-900 font-bold">{pos.terpakai}</span>
-                          <span className="text-stone-400"> / {pos.total}</span>
-                        </div>
-                      </div>
-                    ))}
+            {/* Tombol Aksi */}
+            {budget ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isExporting ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
+                  Export
+                </button>
+                <button
+                  onClick={() => onManageBudget(proyek)}
+                  className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  Edit Budget
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => onManageBudget(proyek)}
+                className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white hover:bg-[#1e5038] transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus size={12} />
+                Buat Budget
+              </button>
+            )}
+          </div>
+
+          {/* Budget Summary */}
+          {budget ? (
+            <div className="mt-3 space-y-2">
+              <div className="flex justify-between text-[12px]">
+                <span className="text-stone-500">RAB Total</span>
+                <span className="font-bold text-stone-800">{fmtRupiah(rab)}</span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-500" : "bg-emerald-500"
+                  }`}
+                  style={{ width: `${Math.min(pct, 100)}%` }}
+                />
+              </div>
+
+              <div className="flex justify-between text-[11px] text-stone-400">
+                <span>Terpakai: {fmtRupiah(terpakai)} ({pct}%)</span>
+                <span>Sisa: {fmtRupiah(sisa)}</span>
+              </div>
+
+              {/* Expand toggle */}
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-stone-400 hover:text-stone-700 transition cursor-pointer mt-1"
+              >
+                {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                {expanded ? "Sembunyikan" : "Lihat"} pos anggaran ({budget.posAnggaran.length})
+              </button>
+            </div>
+          ) : (
+            <p className="text-[11px] text-stone-400 mt-2 flex items-center gap-1">
+              <AlertCircle size={12} className="text-amber-500" />
+              Budget belum diinisialisasi — PM belum bisa tambah pos anggaran
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded Pos Anggaran */}
+      {expanded && budget && budget.posAnggaran.length > 0 && (
+        <div className="border-t border-stone-100 divide-y divide-stone-50">
+          {budget.posAnggaran.map((pos) => {
+            const aloc = Number(pos.nominalAlokasi);
+            const pakai = Number(pos.nominalTerpakai);
+            const posPct = aloc > 0 ? Math.round((pakai / aloc) * 100) : 0;
+            return (
+              <div key={pos.id} className="px-5 py-3 flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold text-stone-800">{pos.namaPos}</p>
+                  <div className="h-1.5 bg-stone-100 rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        posPct >= 90 ? "bg-red-400" : posPct >= 70 ? "bg-amber-400" : "bg-emerald-400"
+                      }`}
+                      style={{ width: `${Math.min(posPct, 100)}%` }}
+                    />
                   </div>
-                )}
-                
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[12px] font-bold text-stone-800">{fmtRupiah(aloc)}</p>
+                  <p className="text-[10px] text-stone-400">
+                    {fmtRupiah(pakai)} terpakai · {posPct}%
+                  </p>
+                </div>
               </div>
             );
           })}
         </div>
+      )}
+    </div>
 
-      </div>
+    <Toast
+      open={!!toastError}
+      variant="error"
+      message={toastError || ''}
+      onClose={() => setToastError(null)}
+    />
+    </>
+  );
+}
 
-      {/* Render Edit Budget Modal */}
-      <EditBudgetModal 
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        projectName={selectedProject?.title}
-        initialTotal={selectedProject?.rabTotal}
-      />
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+export default function KeuanganBudgetPage() {
+  const [proyekList, setProyekList] = useState<Proyek[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProyek, setSelectedProyek] = useState<Proyek | null>(null);
+  const [successMsg, setSuccessMsg] = useState("");
 
+  const fetchProyek = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/proyek");
+      const data = await res.json();
+      setProyekList(data.projects ?? []);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchProyek(); }, [fetchProyek]);
+
+  const handleSuccess = () => {
+    setSelectedProyek(null);
+    setSuccessMsg("Pembaruan Budget berhasil disimpan!");
+    fetchProyek();
+    setTimeout(() => setSuccessMsg(""), 4000);
+  };
+
+  const noBudget = proyekList.filter((p) => !p.budget);
+  const hasBudget = proyekList.filter((p) => !!p.budget);
+
+  return (
+    <div className="min-h-screen w-full bg-[#f6f4f0] text-stone-800 flex flex-col">
+      <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
+        {/* Page Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-stone-900">Manajemen Budget Proyek</h1>
+          <p className="text-sm text-stone-500 mt-1">
+            Inisialisasi dan kelola RAB (Rencana Anggaran Biaya) per proyek. Budget yang diinisialisasi memungkinkan PM menambah pos anggaran.
+          </p>
+        </div>
+
+        {/* Success Banner */}
+        {successMsg && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
+            <Check size={16} />
+            {successMsg}
+          </div>
+        )}
+
+        {/* Summary Cards */}
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { label: "Total Proyek Aktif", value: proyekList.length, color: "text-stone-800" },
+              {
+                label: "Budget Belum Diinisialisasi",
+                value: noBudget.length,
+                color: noBudget.length > 0 ? "text-amber-600" : "text-emerald-600",
+              },
+              { label: "Budget Aktif", value: hasBudget.length, color: "text-emerald-700" },
+            ].map((c) => (
+              <div key={c.label} className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+                <p className="text-[12px] text-stone-500 font-medium">{c.label}</p>
+                <p className={`text-[26px] font-bold mt-1 ${c.color}`}>{c.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Projects Without Budget — Priority */}
+        {!loading && noBudget.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle size={15} className="text-amber-500" />
+              <h2 className="text-[13px] font-bold text-stone-700">Perlu Diinisialisasi ({noBudget.length})</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {noBudget.map((p) => (
+                <ProyekCard key={p.id} proyek={p} onManageBudget={setSelectedProyek} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Projects With Budget */}
+        {!loading && hasBudget.length > 0 && (
+          <div>
+            <h2 className="text-[13px] font-bold text-stone-700 mb-3 flex items-center gap-2">
+              <Check size={15} className="text-emerald-600" />
+              Budget Aktif ({hasBudget.length})
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {hasBudget.map((p) => (
+                <ProyekCard key={p.id} proyek={p} onManageBudget={setSelectedProyek} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center justify-center py-20 gap-3 text-stone-400">
+            <Loader2 size={22} className="animate-spin" />
+            <span className="text-sm">Memuat data proyek...</span>
+          </div>
+        )}
+
+        {/* Empty */}
+        {!loading && proyekList.length === 0 && (
+          <div className="text-center py-20 text-stone-400">
+            <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
+            <p className="text-sm font-medium">Belum ada proyek di sistem.</p>
+          </div>
+        )}
+      </main>
+
+      {/* Budget Modal */}
+      {selectedProyek && (
+        <BudgetFormModal
+          proyek={selectedProyek}
+          onClose={() => setSelectedProyek(null)}
+          onSuccess={handleSuccess}
+        />
+      )}
     </div>
   );
 }
