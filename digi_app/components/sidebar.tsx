@@ -52,7 +52,6 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Kelola Proyek", href: "/manager/proyek", icon: Wallet, hasBadge: false },
     { name: "Profitabilitas", href: "/manager/profitabilitas", icon: TrendingUp, hasBadge: false },
     { name: "Laporan", href: "/manager/laporan", icon: FileText, hasBadge: false },
-    { name: "Registrasi Anggota", href: "/manager/anggota", icon: Users, hasBadge: false },
   ],
   "Superadmin": [
     { name: "SUPER ADMIN", href: "", isSection: true },
