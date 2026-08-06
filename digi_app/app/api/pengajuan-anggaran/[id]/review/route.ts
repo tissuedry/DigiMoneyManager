@@ -54,8 +54,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (targetStatus === 'REJECT') {
       let closed: { status: string } | null = null;
 
+      // Kalau yang ditolak adalah MAIN BARU / SUB BARU (draft, aksi TAMBAH) yang belum pernah ada di DB, item
+      // yang masih pending di bawahnya otomatis ikut ditolak — parentId draft-nya tidak akan pernah valid.
       const cascadeIds = new Set<number>();
       targetItems.forEach((item) => {
+        if (item.tipe === 'MAIN_ANGGARAN' && item.aksi === 'TAMBAH' && item.targetId) {
+          const subTargetIds = new Set<number>();
+          pengajuan.items.forEach((i) => {
+            if (i.tipe === 'SUB_ANGGARAN' && i.parentId === item.targetId) {
+              cascadeIds.add(i.id);
+              if (i.targetId) subTargetIds.add(i.targetId);
+            } else if (i.tipe === 'KETERANGAN' && i.parentId === item.targetId) {
+              cascadeIds.add(i.id);
+            }
+          });
+          pengajuan.items.forEach((i) => {
+            if (i.tipe === 'KETERANGAN' && i.parentId && subTargetIds.has(i.parentId)) {
+              cascadeIds.add(i.id);
+            }
+          });
+        }
         if (item.tipe === 'SUB_ANGGARAN' && item.aksi === 'TAMBAH' && item.targetId) {
           pengajuan.items.forEach((i) => {
             if (i.tipe === 'KETERANGAN' && i.parentId === item.targetId) {
@@ -123,19 +141,36 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
+    // DISETUJUI — eksekusi perubahan dalam transaction.
+    // Process MAIN_ANGGARAN -> SUB_ANGGARAN -> KETERANGAN agar real ID tersedia untuk turunan yg reference draft parents.
     type Item = { id: number; tipe: string; aksi: string; targetId: number | null; parentId: number | null; nama: string | null; nominalAlokasi: number | null };
 
-      const subItems = targetItems.filter((i) => i.tipe === 'SUB_ANGGARAN') as Item[];
-      const ketItems = targetItems.filter((i) => i.tipe === 'KETERANGAN') as Item[];
+    const mainItems = targetItems.filter((i) => i.tipe === 'MAIN_ANGGARAN') as Item[];
+    const subItems = targetItems.filter((i) => i.tipe === 'SUB_ANGGARAN') as Item[];
+    const ketItems = targetItems.filter((i) => i.tipe === 'KETERANGAN') as Item[];
 
-      const missingParentKet = ketItems.find((ket) => {
+    // Guard: SUB_ANGGARAN yang parent-nya masih berupa MAIN BARU draft wajib disetujui bersamaan
+    const missingParentSub = subItems.find((sub) => {
+      const parentDraftMain = pengajuan.items.find(
+        (i) => i.tipe === 'MAIN_ANGGARAN' && i.aksi === 'TAMBAH' && i.targetId === sub.parentId,
+      );
+      return parentDraftMain && !targetItemIds.includes(parentDraftMain.id);
+    });
+    if (missingParentSub) {
+      return NextResponse.json(
+        { message: `Item "${missingParentSub.nama}" membutuhkan MAIN BARU induknya untuk disetujui dalam batch yang sama` },
+        { status: 400 },
+      );
+    }
 
+    // Guard: KETERANGAN yang parent-nya masih berupa SUB BARU (draft, belum punya ID asli) wajib
+    // disetujui bersamaan dengan parent-nya dalam batch yang sama, karena resolving parentId hanya
+    // mungkin kalau parent SUB_ANGGARAN turut diproses sekarang.
+    const missingParentKet = ketItems.find((ket) => {
       const parentDraftSub = pengajuan.items.find(
         (i) => i.tipe === 'SUB_ANGGARAN' && i.aksi === 'TAMBAH' && i.targetId === ket.parentId,
       );
-
       return parentDraftSub && !targetItemIds.includes(parentDraftSub.id);
-
     });
 
     if (missingParentKet) {
@@ -145,6 +180,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
+    // Map untuk resolve draft parentId: Date.now()→real DB id
+    const mainIdMap = new Map<number, number>();
     const subIdMap = new Map<number, number>();
     let closed = false;
 
@@ -154,12 +191,58 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         throw new Error('RACE_CONDITION');
       }
 
-      for (const item of subItems) {
+      const budget = await tx.budget.findUnique({ where: { proyekId: pengajuan.proyekId } });
+      if (!budget) throw new Error(`Budget for proyek ${pengajuan.proyekId} not found`);
+
+      // 1.5 Process MAIN_ANGGARAN first — bangun mainIdMap
+      for (const item of mainItems) {
         if (item.aksi === 'TAMBAH') {
-          if (!item.parentId) throw new Error('parentId required for SUB_ANGGARAN TAMBAH');
+          const created = await tx.mainAnggaran.create({
+            data: {
+              budgetId: budget.id,
+              namaMain: item.nama || '',
+              nominalAlokasi: item.nominalAlokasi ?? 0,
+            },
+          });
+          if (item.targetId) mainIdMap.set(item.targetId, created.id);
+        } else if (item.aksi === 'UBAH') {
+          if (!item.targetId) continue;
+          await tx.mainAnggaran.update({
+            where: { id: item.targetId },
+            data: {
+              ...(item.nama != null && { namaMain: item.nama }),
+              ...(item.nominalAlokasi != null && { nominalAlokasi: item.nominalAlokasi }),
+            },
+          });
+        } else if (item.aksi === 'HAPUS') {
+          if (!item.targetId) continue;
+          const hasSub = await tx.subAnggaran.count({ where: { mainAnggaranId: item.targetId } });
+          if (hasSub > 0) {
+            throw new Error(`MainAnggaran id=${item.targetId} masih memiliki ${hasSub} sub pos. Hapus sub pos-nya dulu.`);
+          }
+          await tx.mainAnggaran.delete({ where: { id: item.targetId } });
+        }
+      }
+
+      for (const [draftId, realId] of mainIdMap.entries()) {
+        await tx.pengajuanAnggaranItem.updateMany({
+          where: { pengajuanId, parentId: draftId, id: { notIn: targetItemIds } },
+          data: { parentId: realId },
+        });
+      }
+
+      // 2. Process SUB_ANGGARAN — resolve draft main parentId
+      for (const item of subItems) {
+        let resolvedParentId = item.parentId;
+        if (resolvedParentId && mainIdMap.has(resolvedParentId)) {
+          resolvedParentId = mainIdMap.get(resolvedParentId)!;
+        }
+
+        if (item.aksi === 'TAMBAH') {
+          if (!resolvedParentId) throw new Error('parentId required for SUB_ANGGARAN TAMBAH');
           const created = await tx.subAnggaran.create({
             data: {
-              mainAnggaranId: item.parentId,
+              mainAnggaranId: resolvedParentId,
               namaSub: item.nama || '',
               nominalAlokasi: item.nominalAlokasi ?? 0,
             },

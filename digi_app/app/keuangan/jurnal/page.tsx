@@ -344,7 +344,7 @@ function JurnalAkuntansiContent() {
 
           {/* Judul Halaman */}
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-[#14130F]">Jurnal Akuntansi</h1>
+            <h1 className="text-2xl font-bold text-[#14130F]">History Pencairan</h1>
             <p className="text-[13px] text-stone-500 mt-1.5">
               Pencatatan Debit-Kredit otomatis dari setiap transaksi sistem. Sesuai standar PSAK.
             </p>

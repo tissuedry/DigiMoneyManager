@@ -44,11 +44,22 @@ export default function EditProjectModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
-              <input type="date" required value={editForm.tanggalMulai} onChange={(e) => setEditForm({ ...editForm, tanggalMulai: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
+              <input 
+              type="date" 
+              required 
+              value={editForm.tanggalMulai} 
+              onChange={(e) => setEditForm({ ...editForm, tanggalMulai: e.target.value })} 
+              onClick={(e) => e.currentTarget.showPicker()}
+              className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
             </div>
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai</label>
-              <input type="date" value={editForm.tanggalSelesai} onChange={(e) => setEditForm({ ...editForm, tanggalSelesai: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
+              <input 
+              type="date" 
+              value={editForm.tanggalSelesai} 
+              onChange={(e) => setEditForm({ ...editForm, tanggalSelesai: e.target.value })} 
+              onClick={(e) => e.currentTarget.showPicker()}
+              className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
             </div>
           </div>
           <div>

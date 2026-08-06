@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Filter, Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
+import { Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import ConfirmDialog from '@/components/confirm-dialog';
@@ -62,17 +62,19 @@ function formatTanggal(iso: string) {
   return `${date} ${bulan[m]} ${y}`;
 }
 
-// PERBARUAN: Menghapus jam, hanya menampilkan tanggal
 function formatDateTime(dateInput: string | Date | null | undefined) {
   if (!dateInput) return "";
   const d = parseDateSafe(dateInput);
   if (!d) return String(dateInput);
 
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const day = d.getDate();
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+  const month = bulan[d.getMonth()];
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+
+  return `${day} ${month} ${year}, ${hours}:${minutes}`;
 }
 
 const getStatusBadge = (status: ApprovalStatus) => {
@@ -222,14 +224,14 @@ const RejectModal: React.FC<RejectModalProps> = ({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-type Tab = "Menunggu Saya" | "Diteruskan" | "Selesai";
+type Tab = "Menunggu Approval" | "Diteruskan" | "Selesai";
 
 export default function AntrianApprovalPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("Menunggu Saya");
+  const [activeTab, setActiveTab] = useState<Tab>("Menunggu Approval");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [catatan, setCatatan] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // State untuk kontrol Modal Penolakan
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -284,7 +286,7 @@ export default function AntrianApprovalPage() {
   const { data, isLoading: isReimbLoading } = useApi<any>("/api/reimbursements?role=Project+Manager");
 
   const allProjects = proyekData?.projects ?? [];
-  const activeProyekId = selectedProjectId ?? meData?.user?.proyekId ?? meData?.user?.proyek?.id ?? allProjects[0]?.id ?? null;
+  const activeProyekId = meData?.user?.proyekId ?? meData?.user?.proyek?.id ?? allProjects[0]?.id ?? null;
 
   const isLoading = isReimbLoading || isMeLoading;
 
@@ -391,10 +393,17 @@ export default function AntrianApprovalPage() {
 
   // Filter data berdasarkan tab
   const filteredData = mappedSubmissions.filter((item: any) => {
-    if (activeTab === "Menunggu Saya") return item.status === "Menunggu PM";
-    if (activeTab === "Diteruskan") return item.status === "Menunggu Keuangan";
-    if (activeTab === "Selesai") return item.status === "Dicairkan" || item.status === "Ditolak";
-    return false;
+    const matchesTab = activeTab === "Menunggu Approval"  
+      ? item.status === "Menunggu PM" : activeTab === "Diteruskan" 
+      ? item.status === "Menunggu Keuangan" 
+      : (item.status === "Dicairkan" || item.status === "Ditolak");
+
+    const matchesSearch = searchQuery
+      ? (item.merchant?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.pengaju?.toLowerCase().includes(searchQuery.toLowerCase()))
+      : true;
+
+    return matchesTab && matchesSearch;
   });
 
   // Derived selected submission
@@ -501,7 +510,7 @@ export default function AntrianApprovalPage() {
   const closeSidebar = () => setIsSidebarOpen(false);
 
   const tabCounts: Record<Tab, number> = {
-    "Menunggu Saya": mappedSubmissions.filter((s: any) => s.status === "Menunggu PM").length,
+    "Menunggu Approval": mappedSubmissions.filter((s: any) => s.status === "Menunggu PM").length,
     Diteruskan: mappedSubmissions.filter((s: any) => s.status === "Menunggu Keuangan").length,
     Selesai: mappedSubmissions.filter((s: any) => s.status === "Dicairkan" || s.status === "Ditolak").length,
   };
@@ -530,7 +539,7 @@ export default function AntrianApprovalPage() {
             {/* Filter & Tab Switcher Bar */}
             <div className="flex items-center justify-between gap-4 mt-6">
               <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60">
-                {(["Menunggu Saya", "Diteruskan", "Selesai"] as Tab[]).map((tab) => (
+                {(["Menunggu Approval", "Diteruskan", "Selesai"] as Tab[]).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => handleTabChange(tab)}
@@ -551,13 +560,13 @@ export default function AntrianApprovalPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full shadow-sm text-[13px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
-                >
-                  <Filter size={14} className="text-stone-500" />
-                  <span>Filter</span>
-                </button>
+                <input
+                  type="text"
+                  placeholder="Cari nama pengaju atau reimbursement..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="px-3.5 py-2 text-xs bg-white border border-stone-200 rounded-full outline-none focus:border-stone-400 transition w-58 sm:w-70 text-stone-800 placeholder:text-stone-400"
+                />
               </div>
             </div>
           </div>

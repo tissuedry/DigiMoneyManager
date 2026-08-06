@@ -9,6 +9,25 @@ function isSuperAdmin(role: string | null) {
 export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
+    const { searchParams } = new URL(req.url);
+    const mainId = searchParams.get("mainId");
+    const subId = searchParams.get("subId");
+
+    if (subId) {
+      const keterangan = await prisma.masterKeterangan.findMany({
+        where: { subId: parseInt(subId) },
+        orderBy: { id: 'asc' }
+      });
+      return NextResponse.json(keterangan);
+    }
+
+    if (mainId) {
+      const sub = await prisma.masterSub.findMany({
+        where: { mainId: parseInt(mainId) },
+        orderBy: { id: 'asc' }
+      });
+      return NextResponse.json(sub);
+    }
     
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || 'all';

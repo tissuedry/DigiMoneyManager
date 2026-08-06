@@ -40,10 +40,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           budget: {
             include: {
               mainAnggaran: {
+                orderBy: { id: 'asc' },
                 include: {
                   subAnggaran: {
+                    orderBy: { id: 'asc' },
                     include: {
                       keterangan: {
+                        orderBy: { id: 'asc' },
                         include: {
                           reimbursements: {
                             include: {

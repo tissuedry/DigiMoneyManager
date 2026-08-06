@@ -119,19 +119,19 @@ export default function KeuanganDashboardPage() {
     {
       label: "Dicairkan Hari ini",
       value: formatRupiah(metrics?.disbursedTodayNominal ?? 0),
-      sub: `${metrics?.disbursedTodayCount ?? 0} pengajuan`,
+      sub: `${metrics?.disbursedTodayCount ?? 0} pencairan`,
       icon: <Check size={18} className="text-emerald-600" />,
       iconBg: "bg-emerald-50",
     },
     {
-      label: `Jurnal (${getCurrentMonthName()})`,
+      label: `Jumlah Pencairan (${getCurrentMonthName()})`,
       value: String(metrics?.jurnalCountThisMonth ?? 0),
       sub: "otomatis dari sistem",
       icon: <Notebook size={18} className="text-blue-500" />,
       iconBg: "bg-blue-50",
     },
     {
-      label: "Total Debit = Kredit",
+      label: "Total Dicairkan",
       value: formatRupiah(metrics?.totalDebit ?? 0),
       sub: isBalanced ? "✓ Seimbang" : `Selisih: Rp ${selisih.toLocaleString('id-ID')}`,
       icon: isBalanced ? <Check size={18} className="text-emerald-600" /> : <X size={18} className="text-rose-600" />,

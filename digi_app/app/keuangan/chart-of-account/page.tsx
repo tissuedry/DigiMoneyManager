@@ -388,10 +388,10 @@ export default function ChartOfAccountPage() {
           </div>
 
           {/* Action Bar (Filters, Search, Buttons) */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row items-center w-full gap-4">
             
             {/* Filter Tabs - Fokus visual diperbaiki dengan latar belakang putih kontras */}
-            <div className="p-1 bg-[#F1EEE6] rounded-xl border border-[#E6E1D4] inline-flex items-center gap-1 overflow-x-auto z-10 relative">
+            <div className="p-1 bg-[#F1EEE6] rounded-xl border border-[#E6E1D4] flex items-center gap-1 overflow-x-auto z-10 relative shrink-0 w-full lg:w-auto">
               {filterTabs.map((tab) => (
                 <button
                   key={tab}
@@ -409,35 +409,19 @@ export default function ChartOfAccountPage() {
             </div>
 
             {/* Input & Action Buttons */}
-            <div className="flex items-center gap-3 self-end lg:self-auto w-full lg:w-auto justify-end">
+            <div className="flex items-center gap-3 w-full flex-1">
               <input
                 type="text"
                 placeholder="Cari kode atau nama akun..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-4 py-2 bg-white border border-[#E4E0D9] rounded-xl text-sm text-[#14130F] placeholder-[#9A948B] focus:outline-none focus:ring-2 focus:ring-[#009162] w-full max-w-xs transition-all"
+                className="flex-1 min-w-0 px-4 py-2 bg-white border border-[#E4E0D9] rounded-xl text-sm text-[#14130F] placeholder-[#9A948B] focus:outline-none focus:ring-2 focus:ring-[#009162] transition-all"
               />
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleCSVUpload}
-                accept=".csv"
-                className="hidden"
-              />
-              
-              <button 
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="h-10 px-4 bg-white border border-[#E4E0D9] rounded-xl text-sm font-medium text-[#14130F] hover:bg-gray-50 flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <span>Import</span>
-              </button>
 
               <button 
                 type="button"
                 onClick={() => setShowAddModal(true)}
-                className="h-10 px-4 bg-[#009162] hover:bg-[#00734D] active:bg-[#005836] text-white text-sm font-medium rounded-xl flex items-center gap-2 transition-all shadow-sm whitespace-nowrap cursor-pointer"
+                className="h-10 px-4 bg-[#009162] hover:bg-[#00734D] active:bg-[#005836] text-white text-sm font-medium rounded-xl flex items-center gap-2 transition-all shadow-sm whitespace-nowrap cursor-pointer shrink-0"
               >
                 <span>+ Tambah Akun</span>
               </button>

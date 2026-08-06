@@ -142,6 +142,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
 
         clearCache('dashboard:');
+        clearCache('proyek:');
         clearCache('reimb:');
         clearCache('notif:');
 
@@ -298,6 +299,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
 
         clearCache('dashboard:');
+        clearCache('proyek:');
         clearCache('reimb:');
         clearCache('notif:');
         clearCache('coa');
@@ -354,6 +356,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
 
         clearCache('dashboard:');
+        clearCache('proyek:');
         clearCache('reimb:');
         clearCache('notif:');
 

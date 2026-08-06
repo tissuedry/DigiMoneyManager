@@ -31,7 +31,18 @@ export async function GET(req: NextRequest) {
           budget: {
             include: {
               mainAnggaran: {
-                include: { subAnggaran: { include: { keterangan: { include: { reimbursements: { include: { approvals: true } } } } } } },
+                orderBy: { id: 'asc' },
+                include: {
+                  subAnggaran: {
+                    orderBy: { id: 'asc' },
+                    include: {
+                      keterangan: {
+                        orderBy: { id: 'asc' },
+                        include: { reimbursements: { include: { approvals: true } } },
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -42,7 +53,6 @@ export async function GET(req: NextRequest) {
           },
         },
       });
-
     } else {
       const userProyeks = await prisma.userProyek.findMany({
         where: { userId: parseInt(userId, 10), role: 'Project Manager' },
@@ -52,7 +62,18 @@ export async function GET(req: NextRequest) {
               budget: {
                 include: {
                   mainAnggaran: {
-                    include: { subAnggaran: { include: { keterangan: { include: { reimbursements: { include: { approvals: true } } } } } } },
+                    orderBy: { id: 'asc' },
+                    include: {
+                      subAnggaran: {
+                        orderBy: { id: 'asc' },
+                        include: {
+                          keterangan: {
+                            orderBy: { id: 'asc' },
+                            include: { reimbursements: { include: { approvals: true } } },
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },

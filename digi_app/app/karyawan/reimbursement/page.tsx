@@ -17,7 +17,8 @@ import {
   RefreshCw,
   Loader2,
   Search,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
 
@@ -283,6 +284,11 @@ function AjukanReimbursementContent() {
   };
 
   const processFile = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setToastError('Ukuran file terlalu besar (Maksimal 10MB). Silakan pilih file yang lebih kecil.');
+      return;
+    }
+
     setSelectedFile(file);
 
     // Create object URL for preview
@@ -509,18 +515,18 @@ function AjukanReimbursementContent() {
                   ref={fileInputRef}
                   onChange={handleFileChange}
                   className="hidden"
-                  accept="image/*"
+                  accept="image/*,.pdf,application/pdf"
                 />
                 <div className="md:col-span-6 space-y-4">
-                  <h2 className="text-lg font-bold text-stone-900">Upload foto struk atau nota</h2>
+                  <h2 className="text-lg font-bold text-stone-900">Upload bukti transaksi (Struk, Nota, atau PDF Invoice)</h2>
                   <p className="text-xs text-stone-400 leading-relaxed">
-                    Pastikan struk terlihat jelas, tidak terlipat, dan seluruh informasi (tanggal, nominal) terbaca. Format yang didukung: JPG, PNG, HEIC, atau format gambar lainnya dengan ukuran maksimal 10MB.
+                    Pastikan struk/dokumen terlihat jelas dan seluruh informasi (tanggal & nominal) terbaca. Format yang didukung: JPG, PNG, WEBP, atau file PDF (Maksimal 10 Halaman / 10MB).
                   </p>
                   <div className="flex items-center gap-2.5 pt-2">
-                    <button onClick={handleUploadTrigger} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#008F5D] hover:bg-[#007A4F] text-white text-xs font-bold rounded-xl transition shadow-sm">
+                    <button onClick={handleUploadTrigger} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#008F5D] hover:bg-[#007A4F] text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer">
                       <Camera size={14} /> Ambil foto
                     </button>
-                    <button onClick={handleUploadTrigger} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-xs font-bold rounded-xl transition shadow-sm">
+                    <button onClick={handleUploadTrigger} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-xs font-bold rounded-xl transition shadow-sm cursor-pointer">
                       <Upload size={14} /> Unggah File
                     </button>
                   </div>
@@ -541,8 +547,8 @@ function AjukanReimbursementContent() {
                   }`}>
                     <Upload size={16} />
                   </div>
-                  <span className="pointer-events-none text-xs font-bold text-stone-700">Klik atau drop struk di sini</span>
-                  <span className="pointer-events-none text-[10px] text-stone-400">JPG, PNG, HEIC, dll. maks. 10MB</span>
+                  <span className="pointer-events-none text-xs font-bold text-stone-700">Klik atau drop bukti di sini</span>
+                  <span className="pointer-events-none text-[10px] text-stone-400">JPG, PNG, WEBP, atau PDF (maks. 10MB / 10 Hal)</span>
                 </div>
               </div>
             </>
@@ -556,11 +562,19 @@ function AjukanReimbursementContent() {
                 <div className="animate-scan" />
                 <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 pointer-events-none z-10 animate-pulse" />
 
-                <img
-                  src={filePreview}
-                  alt="Bukti Struk"
-                  className="w-full h-full object-cover"
-                />
+                {selectedFile?.type === 'application/pdf' || selectedFile?.name?.toLowerCase().endsWith('.pdf') ? (
+                  <div className="w-full h-full bg-red-50 border border-red-200 rounded-xl flex flex-col items-center justify-center p-4 text-center">
+                    <FileText size={48} className="text-red-500 mb-2" />
+                    <span className="text-xs font-bold text-stone-800 truncate max-w-full px-2">{selectedFile.name}</span>
+                    <span className="text-[10px] text-stone-400 font-mono mt-1">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Dokumen PDF</span>
+                  </div>
+                ) : (
+                  <img
+                    src={filePreview}
+                    alt="Bukti Struk"
+                    className="w-full h-full object-cover"
+                  />
+                )}
               </div>
 
               {/* Sisi Kanan Logika Loading Stepper Progress */}
@@ -674,6 +688,7 @@ function AjukanReimbursementContent() {
                           className={`w-full bg-white border rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all [color-scheme:light] ${
                             formErrors.tanggal ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
                           }`}
+                          onClick={(e) => e.currentTarget.showPicker()}
                         />
                       </div>
                       {formErrors.tanggal && (
@@ -772,11 +787,19 @@ function AjukanReimbursementContent() {
                   onClick={() => setIsPreviewModalOpen(true)}
                   className="w-full rounded-xl overflow-hidden bg-stone-50 border border-stone-200 aspect-3/4 relative flex items-center justify-center shadow-inner cursor-zoom-in hover:opacity-95 transition-all group"
                 >
-                  <img
-                    src={filePreview}
-                    alt="Bukti Struk"
-                    className="w-full h-full object-cover"
-                  />
+                  {selectedFile?.type === 'application/pdf' || selectedFile?.name?.toLowerCase().endsWith('.pdf') ? (
+                    <div className="w-full h-full bg-stone-100 rounded-xl flex flex-col items-center justify-center p-4 text-center">
+                      <FileText size={56} className="text-red-500 mb-2" />
+                      <span className="text-xs font-bold text-stone-800 truncate max-w-[180px]">{selectedFile.name}</span>
+                      <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold mt-2">Dokumen PDF</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={filePreview}
+                      alt="Bukti Struk"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                   {/* Overlay efek hover transparan */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 flex items-center justify-center transition-all">
                     <span className="bg-stone-900/80 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-all font-medium">
@@ -872,18 +895,26 @@ function AjukanReimbursementContent() {
             onMouseUp={() => setIsDragging(false)}
             onMouseLeave={() => setIsDragging(false)}
           >
-            <img
-              src={filePreview}
-              alt="Bukti Struk Full Preview"
-              draggable={false}
-              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
-              style={{
-                transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${previewZoomScale})`,
-              }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/bukti_struk.png';
-              }}
-            />
+            {selectedFile?.type === 'application/pdf' || selectedFile?.name?.toLowerCase().endsWith('.pdf') ? (
+              <iframe
+                src={filePreview}
+                className="w-[85vw] max-w-4xl h-[80vh] rounded-2xl bg-white shadow-2xl border border-stone-200"
+                title="Preview PDF"
+              />
+            ) : (
+              <img
+                src={filePreview}
+                alt="Bukti Struk Full Preview"
+                draggable={false}
+                className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
+                style={{
+                  transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${previewZoomScale})`,
+                }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/bukti_struk.png';
+                }}
+              />
+            )}
           </div>
         </div>
       )}
