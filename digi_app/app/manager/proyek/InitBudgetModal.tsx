@@ -45,10 +45,22 @@ export default function InitBudgetModal({
         const res = await fetch("/api/master");
         if (res.ok && isMounted) {
           const data = await res.json();
-          setMainOptions(data);
+          // Memastikan data yang dimasukkan ke state selalu berbentuk array
+          if (Array.isArray(data)) {
+            setMainOptions(data);
+          } else if (data && Array.isArray(data.mainOptions)) {
+            setMainOptions(data.mainOptions);
+          } else if (data && Array.isArray(data.data)) {
+            setMainOptions(data.data);
+          } else {
+            setMainOptions([]);
+          }
         }
       } catch (err) {
-        if (isMounted) console.error("Gagal memuat master main budget:", err);
+        if (isMounted) {
+          console.error("Gagal memuat master main budget:", err);
+          setMainOptions([]);
+        }
       } finally {
         if (isMounted) setLoadingOptions(false);
       }
@@ -60,31 +72,27 @@ export default function InitBudgetModal({
   }, [showInitBudget?.id]);
 
   useEffect(() => {
-  if (!showInitBudget) return;
+    if (!showInitBudget) return;
 
-  // 1. Dapatkan array pos anggaran dari berbagai kemungkinan nama properti dari backend
-  const existingList = 
-    detailedProjectInfo?.posAnggaran || 
-    detailedProjectInfo?.budget?.posAnggaran ||
-    detailedProjectInfo?.rincianPos ||
-    detailedProjectInfo?.mainBudgets ||
-    [];
+    const existingList = 
+      detailedProjectInfo?.posAnggaran || 
+      detailedProjectInfo?.budget?.posAnggaran ||
+      detailedProjectInfo?.rincianPos ||
+      detailedProjectInfo?.mainBudgets ||
+      [];
 
-  // 2. Pastikan ID proyek pada detailedProjectInfo SAMA dengan ID proyek yang sedang dibuka (showInitBudget)
-  const isCorrectProject = detailedProjectInfo?.id === showInitBudget.id || detailedProjectInfo?.projectId === showInitBudget.id;
+    const isCorrectProject = detailedProjectInfo?.id === showInitBudget.id || detailedProjectInfo?.projectId === showInitBudget.id;
 
-  if (isCorrectProject && Array.isArray(existingList) && existingList.length > 0) {
-    // Jika benar data milik Proyek B DAN memang punya pos anggaran
-    const formattedList = existingList.map((item: any) => ({
-      deskripsi: item.nama || item.deskripsi || item.namaPos || "",
-      nominalAlokasi: formatRibuan(String(item.alokasi || item.nominalAlokasi || item.nominal || 0)),
-    }));
-    setPosAnggaranList(formattedList);
-  } else {
-    // JIKA TIDAK (Proyek baru/Proyek B belum ada data), PAKSA RESET SAMA SEKALI!
-    setPosAnggaranList([{ deskripsi: "", nominalAlokasi: "" }]);
-  }
-}, [showInitBudget?.id, detailedProjectInfo]);
+    if (isCorrectProject && Array.isArray(existingList) && existingList.length > 0) {
+      const formattedList = existingList.map((item: any) => ({
+        deskripsi: item.nama || item.deskripsi || item.namaPos || "",
+        nominalAlokasi: formatRibuan(String(item.alokasi || item.nominalAlokasi || item.nominal || 0)),
+      }));
+      setPosAnggaranList(formattedList);
+    } else {
+      setPosAnggaranList([{ deskripsi: "", nominalAlokasi: "" }]);
+    }
+  }, [showInitBudget?.id, detailedProjectInfo]);
 
   if (!showInitBudget) return null;
 
@@ -110,7 +118,7 @@ export default function InitBudgetModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (hasDuplicateOptions) return; // Mencegah submit jika ada opsi duplikat
+    if (hasDuplicateOptions) return;
     onSubmit(e);
   };
 
@@ -321,7 +329,7 @@ export default function InitBudgetModal({
                       <option value="" disabled hidden>
                         {loadingOptions ? "Memuat data..." : "-- Pilih Nama Budget/Pos --"}
                       </option>
-                      {mainOptions.map((opt) => (
+                      {Array.isArray(mainOptions) && mainOptions.map((opt) => (
                         <option key={opt.id} value={opt.nama}>
                           {opt.nama}
                         </option>
