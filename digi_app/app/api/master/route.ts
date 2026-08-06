@@ -28,8 +28,7 @@ export async function GET(req: NextRequest) {
       });
       return NextResponse.json(sub);
     }
-    
-    const { searchParams } = new URL(req.url);
+
     const type = searchParams.get('type') || 'all';
 
     if (type === 'all') {

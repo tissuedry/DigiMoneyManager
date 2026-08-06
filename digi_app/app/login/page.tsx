@@ -54,19 +54,27 @@ export default function LoginPage() {
       setLoginPassword('');
 
       // Redirect based on role
-      setTimeout(() => {
-        const role = data.user.role;
-        if (role === 'Tim Keuangan') {
+        const role = data.user.role || '';
+        const roleLower = String(role).trim().toLowerCase();
+        const roles: string[] = Array.isArray(data.user.roles)
+          ? data.user.roles.map((r: any) => String(r).trim().toLowerCase())
+          : [roleLower];
+
+        const isSuperAdmin = 
+          roleLower === 'superadmin' || 
+          roleLower === 'super admin' || 
+          roles.includes('superadmin') || 
+          roles.includes('super admin');
+
+        if (isSuperAdmin) {
+          router.push('/superadmin');
+        } else if (role === 'Tim Keuangan' || roles.includes('tim keuangan')) {
           router.push('/keuangan');
-        } else if (role === 'Direktur / Manajemen') {
+        } else if (role === 'Direktur / Manajemen' || roles.includes('direktur / manajemen')) {
           router.push('/manager');
-        } else if (role === 'Superadmin'){
-          router.push('/superadmin')
         } else {
           router.push('/select-project');
         }
-        router.refresh();
-      }, 800);
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Email atau password salah.');
