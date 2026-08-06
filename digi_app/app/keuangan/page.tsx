@@ -340,16 +340,9 @@ export default function KeuanganDashboardPage() {
                     <div className="flex items-center gap-2">
                       <BookOpen size={16} className="text-stone-400" />
                       <h2 className="text-[15px] font-bold text-stone-900">
-                        Jurnal Terbaru
+                        Riwayat Pencairan
                       </h2>
                     </div>
-                    <Link
-                      href="/keuangan/jurnal?tab=Buku Besar"
-                      className="flex items-center gap-1 text-[12px] font-semibold text-[#008f5d] hover:text-[#00754c] transition"
-                    >
-                      Buku Besar
-                      <ChevronRight size={14} />
-                    </Link>
                   </div>
 
                   <div className="divide-y divide-stone-100 overflow-y-auto max-h-[420px]">
@@ -415,7 +408,7 @@ export default function KeuanganDashboardPage() {
                         href="/keuangan/jurnal"
                         className="w-full py-3 flex items-center justify-center gap-2 text-stone-600 hover:text-stone-900 font-bold text-[12px] transition hover:bg-stone-50"
                       >
-                        Lihat semua jurnal <ArrowRight size={14} />
+                        Lihat Riwayat<ArrowRight size={14} />
                       </Link>
                     </div>
                   )}

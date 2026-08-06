@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, Suspense } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Calendar, Filter, Download, ArrowUp, ArrowDown, Check, BookOpen, ChevronDown, X,
 } from "lucide-react";
@@ -24,23 +23,7 @@ type JournalEntry = {
   lines: JournalLine[];
 };
 
-type LedgerTransaction = {
-  tanggal: string;
-  keterangan: string;
-  debit: string | null;
-  kredit: string | null;
-};
 
-type LedgerAccount = {
-  kode: string;
-  nama: string;
-  saldo: string;
-  transaksi: LedgerTransaction[];
-  totalDebit: number;
-  totalKredit: number;
-};
-
-const tabs = ["Jurnal Umum", "Buku Besar", "Neraca", "Laba Rugi"];
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
@@ -60,19 +43,7 @@ function periodeLabel(start: string, end: string) {
 }
 
 function JurnalAkuntansiContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const tabParam = searchParams.get("tab");
-  const initialTab = tabs.includes(tabParam ?? "") ? tabParam! : "Jurnal Umum";
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(initialTab);
-
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`, { scroll: false });
-  };
   const [showPeriode, setShowPeriode] = useState(false);
   const [draftStart, setDraftStart] = useState("2026-05-01");
   const [draftEnd, setDraftEnd] = useState("2026-06-30");
@@ -80,8 +51,6 @@ function JurnalAkuntansiContent() {
   const [appliedEnd, setAppliedEnd] = useState("2026-06-30");
   const [selectedRangeOption, setSelectedRangeOption] = useState<string>("");
   const [reportData, setReportData] = useState<any[]>([]);
-  const [neracaData, setNeracaData] = useState<any[]>([]);
-  const [labaRugiData, setLabaRugiData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -136,41 +105,9 @@ function JurnalAkuntansiContent() {
     }
   };
 
-  const fetchNeraca = async () => {
-    try {
-      const res = await fetch('/api/laporan?type=neraca');
-      const data = await res.json();
-      if (data.report) {
-        setNeracaData(data.report);
-      }
-    } catch (e) {
-      console.error("Error fetching neraca report:", e);
-    }
-  };
-
-  const fetchLabaRugi = async () => {
-    try {
-      const res = await fetch('/api/laporan?type=laba-rugi');
-      const data = await res.json();
-      if (data.report) {
-        setLabaRugiData(data.report);
-      }
-    } catch (e) {
-      console.error("Error fetching laba rugi report:", e);
-    }
-  };
-
   useEffect(() => {
     fetchData();
   }, []);
-
-  useEffect(() => {
-    if (activeTab === "Neraca") {
-      fetchNeraca();
-    } else if (activeTab === "Laba Rugi") {
-      fetchLabaRugi();
-    }
-  }, [activeTab]);
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
@@ -217,65 +154,6 @@ function JurnalAkuntansiContent() {
     });
   }, [filteredReport]);
 
-  // Parse reportData into Buku Besar Accounts
-  const bukuBesarData = useMemo(() => {
-    const ledgerMap: { [kode: string]: { nama: string; transaksi: LedgerTransaction[]; totalDebit: number; totalKredit: number } } = {};
-
-    filteredReport.forEach((item) => {
-      const [dbCode, ...dbNameParts] = item['Akun Debit'].split(' - ');
-      const dbName = dbNameParts.join(' - ');
-
-      const [crCode, ...crNameParts] = item['Akun Kredit'].split(' - ');
-      const crName = crNameParts.join(' - ');
-
-      const nominal = Number(item.Nominal);
-      const formattedNominal = nominal.toLocaleString('id-ID');
-
-      // Debit entry
-      if (!ledgerMap[dbCode]) {
-        ledgerMap[dbCode] = { nama: dbName, transaksi: [], totalDebit: 0, totalKredit: 0 };
-      }
-      ledgerMap[dbCode].transaksi.push({
-        tanggal: formatTanggal(item.Tanggal),
-        keterangan: item.Keterangan,
-        debit: formattedNominal,
-        kredit: null
-      });
-      ledgerMap[dbCode].totalDebit += nominal;
-
-      // Credit entry
-      if (!ledgerMap[crCode]) {
-        ledgerMap[crCode] = { nama: crName, transaksi: [], totalDebit: 0, totalKredit: 0 };
-      }
-      ledgerMap[crCode].transaksi.push({
-        tanggal: formatTanggal(item.Tanggal),
-        keterangan: item.Keterangan,
-        debit: null,
-        kredit: formattedNominal
-      });
-      ledgerMap[crCode].totalKredit += nominal;
-    });
-
-    return Object.keys(ledgerMap).map((kode) => {
-      const acc = ledgerMap[kode];
-      const firstChar = kode.trim()[0];
-      let balance = 0;
-      if (firstChar === '1' || firstChar === '5') {
-        balance = acc.totalDebit - acc.totalKredit;
-      } else {
-        balance = acc.totalKredit - acc.totalDebit;
-      }
-
-      return {
-        kode,
-        nama: acc.nama,
-        saldo: Math.abs(balance).toLocaleString('id-ID'),
-        transaksi: acc.transaksi,
-        totalDebit: acc.totalDebit,
-        totalKredit: acc.totalKredit
-      };
-    });
-  }, [filteredReport]);
 
   const parseFormattedNumber = (val: string | null): number => {
     if (!val) return 0;
@@ -320,11 +198,7 @@ function JurnalAkuntansiContent() {
 
   const handleExport = (format: 'csv' | 'pdf') => {
     setIsExporting(true);
-    let typeParam = 'buku-besar';
-    if (activeTab === 'Neraca') typeParam = 'neraca';
-    if (activeTab === 'Laba Rugi') typeParam = 'laba-rugi';
-
-    const url = `/api/laporan?type=${typeParam}&export=${format}`;
+    const url = `/api/laporan?type=buku-besar&export=${format}`;
     window.open(url, '_blank');
     setIsExporting(false);
   };
@@ -344,9 +218,9 @@ function JurnalAkuntansiContent() {
 
           {/* Judul Halaman */}
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-[#14130F]">History Pencairan</h1>
+            <h1 className="text-2xl font-bold text-[#14130F]">Riwayat Pencairan</h1>
             <p className="text-[13px] text-stone-500 mt-1.5">
-              Pencatatan Debit-Kredit otomatis dari setiap transaksi sistem. Sesuai standar PSAK.
+              Pencatatan jurnal umum otomatis dari setiap transaksi pencairan. Sesuai standar PSAK.
             </p>
           </div>
 
@@ -416,23 +290,9 @@ function JurnalAkuntansiContent() {
             </div>
           </div>
 
-          {/* Baris Tab + Kontrol */}
+          {/* Kontrol Periode + Export */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-0 mb-4">
-            <div className="p-1 bg-[#F1EEE6] rounded-xl border border-[#E6E1D4] inline-flex items-center gap-1 overflow-x-auto">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => handleTabChange(tab)}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer shrink-0 ${
-                    activeTab === tab
-                      ? "bg-white text-[#14130F] shadow-sm font-semibold border border-[#E4E0D9]/40"
-                      : "text-[#6A6660] hover:text-[#14130F] hover:bg-white/20"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+            <div />
 
             <div className="flex items-center gap-2 flex-wrap">
               {/* Wrapper unified Ref container */}
@@ -553,10 +413,10 @@ function JurnalAkuntansiContent() {
           </div>
 
           {/* Panel Tabel */}
-          <div className={activeTab === "Buku Besar" ? "" : "bg-white border border-stone-200/80 rounded-xl shadow-sm overflow-hidden"}>
+          <div className="bg-white border border-stone-200/80 rounded-xl shadow-sm overflow-hidden">
 
             {/* Tabel Jurnal Umum */}
-            {activeTab === "Jurnal Umum" && (
+            {(
               <div className="overflow-x-auto">
                 <table className="w-full min-w-200">
                   <thead>
@@ -684,170 +544,6 @@ function JurnalAkuntansiContent() {
                       </tr>
                     </tfoot>
                   )}
-                </table>
-              </div>
-            )}
-
-            {/* Buku Besar */}
-            {activeTab === "Buku Besar" && (
-              <div className="space-y-4">
-                {isLoading ? (
-                  <div className="text-center py-12 text-stone-400 font-medium text-xs">
-                    Memuat data Buku Besar...
-                  </div>
-                ) : bukuBesarData.length === 0 ? (
-                  <div className="text-center py-12 text-stone-400 font-medium text-xs">
-                    Tidak ada transaksi Buku Besar pada periode ini.
-                  </div>
-                ) : (
-                  bukuBesarData.map((account) => (
-                    <div key={account.kode} className="border border-stone-200 rounded-xl overflow-hidden">
-                      <div className="flex justify-between items-center px-5 py-3.5 border-b border-stone-100 bg-white">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-[12px] font-mono text-stone-400">{account.kode}</span>
-                          <span className="text-[13px] font-semibold text-stone-800">{account.nama}</span>
-                        </div>
-                        <span className="text-[12px] text-stone-500 font-medium">
-                          Saldo Akhir:{" "}
-                          <span className="font-mono font-bold text-stone-900">Rp {account.saldo}</span>
-                        </span>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left min-w-[600px]">
-                          <thead>
-                            <tr className="bg-[#fafaf9] border-b border-stone-200">
-                              <th className="text-[11px] font-semibold text-stone-400 tracking-wider px-5 py-3 uppercase w-32">
-                                Tanggal
-                              </th>
-                              <th className="text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3 uppercase">
-                                Keterangan
-                              </th>
-                              <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3 uppercase w-36">
-                                Debit
-                              </th>
-                              <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-5 py-3 uppercase w-36">
-                                Kredit
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {account.transaksi.map((tx, i) => (
-                              <tr
-                                key={i}
-                                className={`bg-white hover:bg-stone-50/20 transition-colors ${
-                                  i < account.transaksi.length - 1 ? "border-b border-stone-100" : ""
-                                }`}
-                              >
-                                <td className="px-5 py-3 text-[12px] text-stone-500 whitespace-nowrap">
-                                  {tx.tanggal}
-                                </td>
-                                <td className="px-4 py-3 text-[12px] text-stone-700">
-                                  {tx.keterangan}
-                                </td>
-                                <td className="px-4 py-3 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
-                                  {tx.debit ? `Rp ${tx.debit}` : "—"}
-                                </td>
-                                <td className="px-5 py-3 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
-                                  {tx.kredit ? `Rp ${tx.kredit}` : "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="border-t-2 border-stone-200 bg-stone-50">
-                              <td colSpan={2} className="px-5 py-3 text-right text-[11px] font-semibold text-stone-500 uppercase tracking-wider">
-                                Total
-                              </td>
-                              <td className="px-4 py-3 text-right text-[12px] font-mono font-bold text-stone-900 whitespace-nowrap">
-                                Rp {account.totalDebit.toLocaleString('id-ID')}
-                              </td>
-                              <td className="px-5 py-3 text-right text-[12px] font-mono font-bold text-stone-900 whitespace-nowrap">
-                                Rp {account.totalKredit.toLocaleString('id-ID')}
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Neraca */}
-            {activeTab === "Neraca" && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[800px]">
-                  <thead>
-                    <tr className="border-b border-stone-200 bg-[#fafaf9] text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
-                      <th className="px-6 py-3.5">Proyek</th>
-                      <th className="px-4 py-3.5 text-right">Kas / Sisa Budget (Asset)</th>
-                      <th className="px-4 py-3.5 text-right">Biaya Terpakai (Asset/Cost)</th>
-                      <th className="px-4 py-3.5 text-right font-bold">Total Aset</th>
-                      <th className="px-4 py-3.5 text-right">Utang Reimbursement (Liabilitas)</th>
-                      <th className="px-4 py-3.5 text-right">Modal RAB (Ekuitas)</th>
-                      <th className="px-6 py-3.5 text-right font-bold">Total Liabilitas & Ekuitas</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100 text-[12px]">
-                    {neracaData.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-12 text-stone-400 font-medium">
-                          Memuat data Neraca...
-                        </td>
-                      </tr>
-                    ) : (
-                      neracaData.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/40 transition">
-                          <td className="px-6 py-3 font-semibold text-stone-850">{item.Proyek}</td>
-                          <td className="px-4 py-3 text-right font-mono text-stone-600">Rp {Number(item['Kas / Sisa Budget (Asset)']).toLocaleString('id-ID')}</td>
-                          <td className="px-4 py-3 text-right font-mono text-stone-600">Rp {Number(item['Biaya Terpakai (Asset/Cost)']).toLocaleString('id-ID')}</td>
-                          <td className="px-4 py-3 text-right font-mono font-bold text-stone-800">Rp {Number(item['Total Aset']).toLocaleString('id-ID')}</td>
-                          <td className="px-4 py-3 text-right font-mono text-stone-600">Rp {Number(item['Utang Reimbursement (Liabilitas)']).toLocaleString('id-ID')}</td>
-                          <td className="px-4 py-3 text-right font-mono text-stone-600">Rp {Number(item['Modal RAB (Ekuitas)']).toLocaleString('id-ID')}</td>
-                          <td className="px-6 py-3 text-right font-mono font-bold text-stone-800">Rp {Number(item['Total Liabilitas & Ekuitas']).toLocaleString('id-ID')}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Laba Rugi */}
-            {activeTab === "Laba Rugi" && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[600px]">
-                  <thead>
-                    <tr className="border-b border-stone-200 bg-[#fafaf9] text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
-                      <th className="px-6 py-3.5">Proyek</th>
-                      <th className="px-4 py-3.5 text-right">Pendapatan / Alokasi RAB</th>
-                      <th className="px-4 py-3.5 text-right">Total Beban / Pengeluaran</th>
-                      <th className="px-6 py-3.5 text-right font-bold">Laba (Rugi) Bersih</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100 text-[12px]">
-                    {labaRugiData.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="text-center py-12 text-stone-400 font-medium">
-                          Memuat data Laba Rugi...
-                        </td>
-                      </tr>
-                    ) : (
-                      labaRugiData.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/40 transition">
-                          <td className="px-6 py-3 font-semibold text-stone-850">{item.Proyek}</td>
-                          <td className="px-4 py-3 text-right font-mono text-emerald-600 font-semibold">Rp {Number(item['Pendapatan / Alokasi RAB']).toLocaleString('id-ID')}</td>
-                          <td className="px-4 py-3 text-right font-mono text-red-650 font-semibold">Rp {Number(item['Total Beban / Pengeluaran']).toLocaleString('id-ID')}</td>
-                          <td className={`px-6 py-3 text-right font-mono font-bold ${
-                            Number(item['Laba (Rugi) Bersih']) >= 0 ? 'text-emerald-700' : 'text-red-700'
-                          }`}>
-                            Rp {Number(item['Laba (Rugi) Bersih']).toLocaleString('id-ID')}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
                 </table>
               </div>
             )}
