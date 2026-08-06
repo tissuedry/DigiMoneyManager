@@ -1,0 +1,481 @@
+"use client";
+
+import React from "react";
+import { X, Download, RefreshCw, AlertTriangle, ZoomIn } from "lucide-react";
+
+function formatTanggalLong(iso: string) {
+  if (!iso) return "";
+
+  const d = new Date(iso);
+
+  if (isNaN(d.getTime())) return iso;
+  const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+type StepStatus = "done" | "active" | "waiting" | "rejected";
+
+interface ApprovalStep {
+  label: string;
+  sublabel: string;
+  status: StepStatus;
+}
+
+function getApprovalSteps(raw: any, allRaw: any[] = []): ApprovalStep[] {
+  const status = raw.status;
+  const approvals = raw.approvals || [];
+  const pmApproval = approvals.find((a: any) => a.level === "PM");
+  const financeApproval = approvals.find((a: any) => a.level === "FINANCE" || a.level === "KEUANGAN");
+
+  const pmApprover = pmApproval?.approver?.nama || "Muhammad Alvin Ababli";
+  const financeApprover = financeApproval?.approver?.nama || "Muhammad Zaini";
+
+  const formatApprovalDate = (ts: string) => {
+    if (!ts) return "";
+
+    const d = new Date(ts);
+
+    if (isNaN(d.getTime())) return "";
+    return `${d.getDate()} ${["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"][d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  };
+
+  const submittedDate = raw.createdAt;
+  const submitterName = raw.user?.nama || "Karyawan";
+  const submittedLabel = submittedDate
+    ? `${submitterName} • ${formatApprovalDate(submittedDate)}`
+    : submitterName;
+
+  let steps: ApprovalStep[];
+
+  if (status === "SUBMITTED") {
+    steps = [
+      { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+      { label: "Validasi Project Manager", sublabel: `${pmApprover} • Menunggu`, status: "active" },
+      { label: "Verifikasi Tim Keuangan", sublabel: "Menunggu • —", status: "waiting" },
+      { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
+    ];
+
+  } else if (status === "APPROVED_BY_PM") {
+    const pmDate = pmApproval ? formatApprovalDate(pmApproval.timestamp) : "";
+    steps = [
+      { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+      { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "done" },
+      { label: "Verifikasi Tim Keuangan", sublabel: "Menunggu • —", status: "active" },
+      { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
+    ];
+
+  } else if (status === "APPROVED") {
+    const pmDate = pmApproval ? formatApprovalDate(pmApproval.timestamp) : "";
+    const finDate = financeApproval ? formatApprovalDate(financeApproval.timestamp) : "";
+    const disbursedDate = raw.disbursedAt ? formatApprovalDate(raw.disbursedAt) : finDate;
+    steps = [
+      { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+      { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "done" },
+      { label: "Verifikasi Tim Keuangan", sublabel: `${financeApprover}${finDate ? " • " + finDate : ""}`, status: "done" },
+      { label: "Dicairkan", sublabel: `Jurnal otomatis${disbursedDate ? " • " + disbursedDate : ""}`, status: "done" },
+    ];
+
+  } else if (status === "REJECTED") {
+    const pmDate = pmApproval ? formatApprovalDate(pmApproval.timestamp) : "";
+    const finDate = financeApproval ? formatApprovalDate(financeApproval.timestamp) : "";
+
+    if (pmApproval?.status === "APPROVED_BY_PM" && financeApproval) {
+      steps = [
+        { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+        { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "done" },
+        { label: "Verifikasi Tim Keuangan", sublabel: `${financeApprover}${finDate ? " • " + finDate : ""}`, status: "rejected" },
+        { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
+      ];
+
+    } else {
+      steps = [
+        { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+        { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "rejected" },
+        { label: "Verifikasi Tim Keuangan", sublabel: "Menunggu • —", status: "waiting" },
+        { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
+      ];
+    }
+
+  } else {
+    steps = [
+      { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+      { label: "Validasi Project Manager", sublabel: "Menunggu", status: "active" },
+      { label: "Verifikasi Tim Keuangan", sublabel: "Menunggu", status: "waiting" },
+      { label: "Dicairkan", sublabel: "Jurnal otomatis", status: "waiting" },
+    ];
+  }
+
+  const resubmitFromId = raw.ocrData?.resubmitFrom;
+  const original = resubmitFromId ? allRaw.find((r: any) => r.id === resubmitFromId) : null;
+
+  if (original) {
+    const originalSubmittedDate = original.createdAt;
+    const originalSubmitterName = original.user?.nama || "Karyawan";
+    const originalSubmittedLabel = originalSubmittedDate
+      ? `${originalSubmitterName} • ${formatApprovalDate(originalSubmittedDate)}`
+      : originalSubmitterName;
+
+    const originalApprovals = original.approvals || [];
+    const rejectedApproval = originalApprovals.find((a: any) => a.status === "REJECTED");
+    const rejectedByFinance = rejectedApproval?.level === "FINANCE" || rejectedApproval?.level === "KEUANGAN";
+    const rejecterLabel = rejectedByFinance ? "Ditolak oleh Tim Keuangan" : "Ditolak oleh Project Manager";
+    const rejecterName = rejectedApproval?.approver?.nama || (rejectedByFinance ? "Muhammad Zaini" : "Muhammad Alvin Ababli");
+    const rejectedDate = rejectedApproval ? formatApprovalDate(rejectedApproval.timestamp) : "";
+
+    steps[0] = { ...steps[0], label: "Pengajuan ulang dikirim" };
+    steps.unshift(
+      { label: "Pengajuan dikirim", sublabel: originalSubmittedLabel, status: "done" },
+      { label: rejecterLabel, sublabel: `${rejecterName}${rejectedDate ? " • " + rejectedDate : ""}`, status: "rejected" },
+    );
+  }
+
+  return steps;
+}
+
+function StepIcon({ status, number }: { status: StepStatus; number: number }) {
+  if (status === "done") {
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#1a7a5e] flex items-center justify-center flex-shrink-0">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+  }
+
+  if (status === "rejected") {
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#be123c] flex items-center justify-center flex-shrink-0">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 2L10 10M10 2L2 10" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </div>
+    );
+  }
+
+  if (status === "active") {
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#d97706] flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
+        {number}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="w-7 h-7 rounded-full bg-white border-2 border-stone-200 flex items-center justify-center flex-shrink-0 text-stone-400 text-xs font-semibold">
+      {number}
+    </div>
+  );
+}
+
+// MAKE DISPLAY ID FUNC FOR RELATED
+function makeDisplayId(id: string, index: number) {
+  const num = String(index + 1).padStart(3, "0");
+  return `RB-2026-${num}`;
+}
+
+interface ReimbursementDetailPanelProps {
+  isOpen: boolean;
+  raw: any;
+  displayId: string;
+  allRaw: any[];
+  onClose: () => void;
+  onRequestCancel: () => void;
+  onResubmit: () => void;
+  onViewRelated: (dbId: number, displayId: string) => void;
+  onOpenImage: (url: string) => void;
+  actionLoading: boolean;
+  actionError: string | null;
+}
+
+export default function ReimbursementDetailPanel({
+  isOpen,
+  raw,
+  displayId,
+  allRaw,
+  onClose,
+  onRequestCancel,
+  onResubmit,
+  onViewRelated,
+  onOpenImage,
+  actionLoading,
+  actionError
+}: ReimbursementDetailPanelProps) {
+
+  if (!raw) return null;
+
+  const status = raw.status;
+  const uiStatus =
+    status === "SUBMITTED" ? "Menunggu PM" :
+    status === "APPROVED_BY_PM" ? "Menunggu Keuangan" :
+    status === "APPROVED" ? "Dicairkan" :
+    raw.ocrData?.resubmitFrom ? "Pengajuan Ulang Ditolak" : "Ditolak";
+
+  const steps = getApprovalSteps(raw, allRaw);
+  
+  const rejectedApproval = raw.approvals?.find((a: any) => a.status === "REJECTED");
+  const rejectionNote = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
+  const rejectedByFinance = rejectedApproval?.level === "FINANCE" || rejectedApproval?.level === "KEUANGAN";
+  const rejecterRoleLabel = rejectedApproval ? (rejectedByFinance ? "Tim Keuangan" : "Project Manager") : "";
+
+  const resubmittedRecord = allRaw.find((r: any) => r.ocrData?.resubmitFrom === raw.id);
+  const resubmittedAs = resubmittedRecord
+    ? { dbId: resubmittedRecord.id, displayId: makeDisplayId(String(resubmittedRecord.id), allRaw.findIndex((r: any) => r.id === resubmittedRecord.id)) }
+    : null;
+
+  const nominalFormatted = `Rp ${Number(raw.nominal).toLocaleString("id-ID")}`;
+  const tanggal = raw.tanggalStruk ? formatTanggalLong(raw.tanggalStruk.split('T')[0]) : "N/A";
+
+  const statusCardClass =
+    status === "SUBMITTED" ? "bg-[#fdf9f2] border-[#f5e4c0]" :
+    status === "APPROVED_BY_PM" ? "bg-[#f0f8ff] border-[#bce0f7]" :
+    status === "APPROVED" ? "bg-[#f0faf5] border-[#b3dece]" :
+    "bg-[#fff5f5] border-[#fbc9c9]";
+
+  const statusTextClass =
+    status === "SUBMITTED" ? "text-[#b46b2b] bg-[#fdf3e6]" :
+    status === "APPROVED_BY_PM" ? "text-[#0277bd] bg-[#e1f5fe]" :
+    status === "APPROVED" ? "text-[#117a5b] bg-[#e2f1eb]" :
+    "text-[#be123c] bg-[#fee2e2]";
+
+  const nominalClass =
+    status === "SUBMITTED" ? "text-[#b46b2b]" :
+    status === "APPROVED_BY_PM" ? "text-[#0277bd]" :
+    status === "APPROVED" ? "text-[#117a5b]" :
+    "text-[#be123c]";
+
+  return (
+    <>
+      <div
+        className={`fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+      <div
+        className={`fixed top-0 right-0 h-full z-50 w-full max-w-md bg-white shadow-2xl border-l border-stone-200 flex flex-col transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-lg hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-700 transition z-10 cursor-pointer"
+        >
+          <X size={16} />
+        </button>
+
+        <div className="flex flex-col h-full">
+          <div className="px-6 pt-5 pb-4 border-b border-stone-150 mt-8">
+            <p className="text-[11px] font-mono text-stone-400 mb-1">{displayId}</p>
+            <h2 className="text-[20px] font-bold text-stone-900 leading-tight">{raw.merchant || raw.nama || "N/A"}</h2>
+            <p className="text-[13px] text-stone-500 mt-0.5">{raw.proyek?.nama || "N/A"}</p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div className={`rounded-xl border p-4 ${statusCardClass}`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wide mb-1.5">STATUS</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block px-3 py-1 rounded-full text-[11px] font-bold ${statusTextClass}`}>
+                      {uiStatus}
+                    </span>
+                    {raw.ocrData?.resubmitFrom && status !== "REJECTED" && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold bg-[#ede9fe] text-[#6d28d9]">
+                        <RefreshCw size={10} />
+                        Pengajuan Ulang
+                      </span>
+                    )}
+                    {status === "REJECTED" && resubmittedAs && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold bg-[#ede9fe] text-[#6d28d9]">
+                        <RefreshCw size={10} />
+                        Sudah Diajukan Ulang
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wide mb-1.5">NOMINAL</p>
+                  <p className={`text-[22px] font-bold tracking-tight ${nominalClass}`}>{nominalFormatted}</p>
+                </div>
+              </div>
+            </div>
+
+            {status === "REJECTED" && (
+              <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
+                <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[12px] font-bold text-[#be123c] mb-1">
+                    Alasan Penolakan
+                    {rejecterRoleLabel && (
+                      <span className="font-normal text-[11px] text-[#be123c]/70"> • Ditolak oleh {rejecterRoleLabel}</span>
+                    )}
+                  </p>
+                  <p className="text-[12px] text-stone-700 leading-relaxed">
+                    {rejectionNote || "Tidak ada alasan spesifik yang diberikan."}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {status === "REJECTED" && resubmittedAs && (
+              <div className="rounded-xl border border-[#bce0f7] bg-[#f0f8ff] p-4 flex items-center justify-between gap-3">
+                <div className="flex gap-3">
+                  <RefreshCw size={16} className="text-[#0277bd] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[12px] font-bold text-[#0277bd] mb-1">Sudah diajukan ulang</p>
+                    <p className="text-[12px] text-stone-700 leading-relaxed">
+                      Pengajuan ini sudah diajukan ulang sebagai <span className="font-semibold">{resubmittedAs.displayId}</span>.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onViewRelated(resubmittedAs.dbId, resubmittedAs.displayId)}
+                  className="flex-shrink-0 px-3 py-1.5 bg-white border border-[#bce0f7] hover:bg-[#e1f5fe] text-[#0277bd] rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                >
+                  Lihat
+                </button>
+              </div>
+            )}
+
+            <div>
+              <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Detail Pengajuan</p>
+              <div className="rounded-xl border border-stone-200 bg-white overflow-hidden">
+                {[
+                  { label: "Main", value: raw.posAnggaran?.namaPos || "N/A" },
+                  { label: "Sub", value: raw.posAnggaran?.subAnggaran?.namaSub || "N/A" },
+                  { label: "Keterangan", value: raw.posAnggaran?.keterangan || raw.posAnggaran?.deskripsi || "N/A" },
+                  { label: "Tanggal Transaksi", value: tanggal },
+                  { label: "Nama Reimbursement", value: raw.merchant || raw.nama || "N/A" },
+                  { label: "Status Indikasi", value: raw.fraudFlag ? "Terindikasi Fraud" : "Aman" },
+                ].map((row, i, arr) => (
+                  <div key={row.label} className={`flex justify-between items-center px-4 py-3 ${i < arr.length - 1 ? "border-b border-stone-100" : ""}`}>
+                    <span className="text-[12px] text-stone-500">{row.label}</span>
+                    <span className="text-[12px] font-semibold text-stone-800 text-right max-w-[55%]">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Catatan Pengaju</p>
+              <div className="rounded-xl border border-stone-200 bg-[#fcfbf8] px-4 py-3">
+                <p className="text-[12px] text-stone-600 italic leading-relaxed">&quot;{raw.nama || "-"}&quot;</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-3">Riwayat Approval</p>
+              <div className="space-y-0">
+                {steps.map((step, i) => (
+                  <div key={i} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <StepIcon status={step.status} number={i + 1} />
+                      {i < steps.length - 1 && (
+                        <div className={`w-0.5 flex-1 my-1 min-h-[20px] ${step.status === "done" ? "bg-[#1a7a5e]" : "bg-stone-200"}`} />
+                      )}
+                    </div>
+                    <div className="pb-4 pt-0.5">
+                      <p className={`text-[13px] font-semibold leading-tight ${step.status === "waiting" ? "text-stone-400" : "text-stone-800"}`}>
+                        {step.label}
+                      </p>
+                      <p className={`text-[11px] mt-0.5 ${step.status === "waiting" ? "text-stone-300" : "text-stone-400"}`}>
+                        {step.sublabel}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Bukti Struk</p>
+                  <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] flex items-center justify-center">
+                    {raw.strukUrl ? (
+                      <>
+                        <img
+                          src={raw.strukUrl}
+                          alt="Bukti Struk"
+                          loading="lazy"
+                          className="w-full h-full object-cover cursor-pointer group-hover:opacity-90 transition"
+                          onClick={() => onOpenImage(raw.strukUrl)}
+                          onError={(e) => { (e.target as HTMLImageElement).src = "/bukti_struk.png"; }}
+                        />
+                        <div className="pointer-events-none absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                          <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                            <ZoomIn size={14} /> Klik untuk Memperbesar
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <img
+                        src="/bukti_struk.png"
+                        alt="Bukti Struk"
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-stone-150 bg-white flex flex-col gap-2.5">
+            {actionError && (
+              <p className="text-[11px] text-[#be123c] bg-[#fff5f5] border border-[#fbc9c9] rounded-lg px-3 py-2">
+                {actionError}
+              </p>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              {raw.strukUrl ? (
+                <a
+                  href={raw.strukUrl}
+                  download={`bukti-${displayId}.png`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-xl text-[12px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+                >
+                  <Download size={14} />
+                  Download bukti
+                </a>
+              ) : (
+                <button className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-xl text-[12px] font-medium text-stone-700 hover:bg-stone-50 transition opacity-50 cursor-not-allowed" disabled>
+                  <Download size={14} />
+                  Download bukti
+                </button>
+              )}
+              <div className="flex items-center gap-2">
+                {status === "REJECTED" && !resubmittedAs && (
+                  <button
+                    onClick={onResubmit}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#1a7a5e] hover:bg-[#15644c] text-white rounded-xl text-[12px] font-semibold transition cursor-pointer"
+                  >
+                    <RefreshCw size={14} />
+                    Ajukan ulang
+                  </button>
+                )}
+                {status === "SUBMITTED" && (
+                  <button
+                    onClick={onRequestCancel}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-3 py-2 border border-stone-200 rounded-xl text-[12px] font-medium text-stone-500 hover:bg-stone-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <X size={14} />
+                    Batalkan
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[12px] font-semibold transition cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
