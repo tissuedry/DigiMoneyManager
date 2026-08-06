@@ -72,7 +72,7 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "TIM KEUANGAN", href: "", isSection: true },
     { name: "Pencairan", href: "/superadmin/pencairan", icon: Wallet, hasBadge: true, badgeCount: 2 },
     { name: "Budget Proyek", href: "/superadmin/budget", icon: BarChart3, hasBadge: false },
-    { name: "Jurnal Akuntansi", href: "/superadmin/jurnal", icon: BookOpen, hasBadge: false },
+    { name: "History Pencairan", href: "/superadmin/jurnal", icon: BookOpen, hasBadge: false },
     
     { name: "KARYAWAN", href: "", isSection: true },
     { name: "Ajukan Reimbursement", href: "/superadmin/reimbursement", icon: Plus, hasBadge: false },

@@ -1,384 +1,705 @@
 "use client";
 
-import React, { useState } from "react";
-import { 
-  BookOpen, ArrowUpRight, ArrowDownRight, CheckCircle2, 
-  Filter, Download, FileText, Calendar 
-} from "lucide-react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { Download, ArrowUp, ArrowDown, Check, BookOpen, X } from "lucide-react";
+import PeriodeSelector from "./PeriodeSelector"; // Pastikan path ini sesuai dengan lokasimu
 
-// --- MOCK DATA ---
-
-const JURNAL_UMUM_DATA = Array(5).fill({
-  id: "JE-2026-0092",
-  tanggal: "18/05/2026",
-  keterangan: "Pencairan reimbursement Alif Ihsan - Perlengkapan & ATK",
-  ref: "RB-2026-0138",
-  lines: [
-    { type: "Dr", akun: "5-5101 Beban Material Proyek", debit: "1.875.000", kredit: "—" },
-    { type: "Cr", akun: "1-1102 Bank BCA - Operasional", debit: "—", kredit: "1.875.000" }
-  ]
-});
-
-const BUKU_BESAR_DATA = [
-  {
-    akun: "5-5101 Beban Material Proyek",
-    saldo: "6.695.000",
-    lines: [
-      { tanggal: "10 Mei", keterangan: "RB-0134 Kabel CCTV", debit: "4.820.000", kredit: "—" },
-      { tanggal: "13 Mei", keterangan: "RB-0134 Kabel CCTV", debit: "1.875.000", kredit: "—" }
-    ]
-  },
-  {
-    akun: "5-5201 Beban Transportasi Proyek",
-    saldo: "68.000",
-    lines: [
-      { tanggal: "11 Mei", keterangan: "RB-0135 Gojek site visit", debit: "68.000", kredit: "—" }
-    ]
-  },
-  {
-    akun: "1-1102 Bank BCA - Operasional",
-    saldo: "8.003.000",
-    lines: [
-      { tanggal: "10 Mei", keterangan: "Pembayaran RB-0134", debit: "—", kredit: "4.820.000" },
-      { tanggal: "11 Mei", keterangan: "RB-0135 Gojek site visit", debit: "—", kredit: "68.000" },
-      { tanggal: "12 Mei", keterangan: "RB-0135 Gojek site visit", debit: "—", kredit: "1.240.000" },
-      { tanggal: "13 Mei", keterangan: "RB-0135 Gojek site visit", debit: "—", kredit: "1.875.000" }
-    ]
-  }
-];
-
-const NERACA_DATA = {
-  aset: [
-    { nama: "1-1101 Kas", nominal: "120.500.000" },
-    { nama: "1-1102 Bank BCA", nominal: "2.840.300.000" },
-    { nama: "1-1103 Bank Mandiri", nominal: "1.420.000.000" },
-    { nama: "1-1201 Piutang Usaha", nominal: "3.860.000.000" },
-    { nama: "1-1301 Persediaan Material", nominal: "540.200.000" }
-  ],
-  totalAset: "8.781.000.000",
-  liabilitasEkuitas: [
-    { nama: "2-2101 Hutang Reimbursement", nominal: "120.500.000" },
-    { nama: "2-2102 Hutang Usaha", nominal: "1.420.000.000" },
-    { nama: "3-3101 Modal Disetor", nominal: "5.000.000.000" },
-    { nama: "3-3102 Laba Ditahan", nominal: "1.849.000.000" },
-    { nama: "3-3103 Laba Periode Berjalan", nominal: "336.750.000" }
-  ],
-  totalLiabilitasEkuitas: "8.781.000.000"
+type JournalLine = {
+  type: "Dr" | "Cr";
+  kode: string;
+  akun: string;
+  debit: string | null;
+  kredit: string | null;
 };
 
-const LABA_RUGI_DATA = {
-  pendapatan: [
-    { nama: "4-4101 Pendapatan Jasa Proyek", nominal: "120.500.000" }
-  ],
-  beban: [
-    { nama: "2-2101 Hutang Reimbursement", nominal: "120.500.000" },
-    { nama: "2-2102 Hutang Usaha", nominal: "1.420.000.000" },
-    { nama: "3-3101 Modal Disetor", nominal: "5.000.000.000" },
-    { nama: "3-3102 Laba Ditahan", nominal: "1.849.000.000" },
-    { nama: "3-3103 Laba Periode Berjalan", nominal: "336.750.000" }
-  ],
-  totalBeban: "8.781.000.000",
-  labaBersih: "336.750.000"
+type JournalEntry = {
+  id: string;
+  tanggal: string;
+  keterangan: string;
+  ref: string;
+  lines: JournalLine[];
 };
 
-// --- COMPONENTS ---
+type LedgerTransaction = {
+  tanggal: string;
+  keterangan: string;
+  debit: string | null;
+  kredit: string | null;
+};
 
-export default function JurnalAkuntansiPage() {
-  const [activeTab, setActiveTab] = useState("Jurnal Umum");
+type LedgerAccount = {
+  kode: string;
+  nama: string;
+  saldo: string;
+  transaksi: LedgerTransaction[];
+  totalDebit: number;
+  totalKredit: number;
+};
 
-  const TABS = ["Jurnal Umum", "Buku Besar", "Neraca", "Laba Rugi"];
+const tabs = ["Jurnal Umum", "Buku Besar", "Neraca", "Laba Rugi"];
+
+function formatTanggal(iso: string) {
+  if (!iso) return "";
+  const parts = iso.split("-");
+  if (parts.length < 3) return iso;
+  const [y, m, d] = parts;
+  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+  const mIdx = parseInt(m) - 1;
+  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
+}
+
+function JurnalAkuntansiContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const tabParam = searchParams.get("tab");
+  const initialTab = tabs.includes(tabParam ?? "") ? tabParam! : "Jurnal Umum";
+
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`, { scroll: false });
+  };
+
+  const [appliedStart, setAppliedStart] = useState("2026-05-01");
+  const [appliedEnd, setAppliedEnd] = useState("2026-06-30");
+  const [reportData, setReportData] = useState<any[]>([]);
+  const [neracaData, setNeracaData] = useState<any[]>([]);
+  const [labaRugiData, setLabaRugiData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/laporan?type=buku-besar');
+      const data = await res.json();
+      if (data.report) {
+        setReportData(data.report);
+      }
+    } catch (e) {
+      console.error("Error fetching ledger report:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchNeraca = async () => {
+    try {
+      const res = await fetch('/api/laporan?type=neraca');
+      const data = await res.json();
+      if (data.report) {
+        setNeracaData(data.report);
+      }
+    } catch (e) {
+      console.error("Error fetching neraca report:", e);
+    }
+  };
+
+  const fetchLabaRugi = async () => {
+    try {
+      const res = await fetch('/api/laporan?type=laba-rugi');
+      const data = await res.json();
+      if (data.report) {
+        setLabaRugiData(data.report);
+      }
+    } catch (e) {
+      console.error("Error fetching laba rugi report:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "Neraca") {
+      fetchNeraca();
+    } else if (activeTab === "Laba Rugi") {
+      fetchLabaRugi();
+    }
+  }, [activeTab]);
+
+  // Client-side date filter for General Ledger (buku-besar) data
+  const filteredReport = useMemo(() => {
+    return reportData.filter((item: any) => {
+      if (!item.Tanggal || item.Tanggal === 'N/A') return true;
+      if (appliedStart && item.Tanggal < appliedStart) return false;
+      if (appliedEnd && item.Tanggal > appliedEnd) return false;
+      return true;
+    });
+  }, [reportData, appliedStart, appliedEnd]);
+
+  // Parse reportData into Journal Entries
+  const journalEntries = useMemo(() => {
+    return filteredReport.map((item: any) => {
+      const [dbCode, ...dbNameParts] = item['Akun Debit'].split(' - ');
+      const dbName = dbNameParts.join(' - ');
+
+      const [crCode, ...crNameParts] = item['Akun Kredit'].split(' - ');
+      const crName = crNameParts.join(' - ');
+
+      const formattedNominal = Number(item.Nominal).toLocaleString('id-ID');
+
+      const entry: JournalEntry = {
+        id: `JE-${String(item.ID).substring(0, 8).toUpperCase()}`,
+        tanggal: formatTanggal(item.Tanggal),
+        keterangan: item.Keterangan,
+        ref: `RB-${String(item.ID).substring(0, 8).toUpperCase()}`,
+        lines: [
+          { type: "Dr", kode: dbCode, akun: dbName, debit: formattedNominal, kredit: null },
+          { type: "Cr", kode: crCode, akun: crName, debit: null, kredit: formattedNominal }
+        ]
+      };
+      return entry;
+    });
+  }, [filteredReport]);
+
+  // Parse reportData into Buku Besar Accounts
+  const bukuBesarData = useMemo(() => {
+    const ledgerMap: { [kode: string]: { nama: string; transaksi: LedgerTransaction[]; totalDebit: number; totalKredit: number } } = {};
+
+    filteredReport.forEach((item: any) => {
+      const [dbCode, ...dbNameParts] = item['Akun Debit'].split(' - ');
+      const dbName = dbNameParts.join(' - ');
+
+      const [crCode, ...crNameParts] = item['Akun Kredit'].split(' - ');
+      const crName = crNameParts.join(' - ');
+
+      const nominal = Number(item.Nominal);
+      const formattedNominal = nominal.toLocaleString('id-ID');
+
+      // Debit entry
+      if (!ledgerMap[dbCode]) {
+        ledgerMap[dbCode] = { nama: dbName, transaksi: [], totalDebit: 0, totalKredit: 0 };
+      }
+      ledgerMap[dbCode].transaksi.push({
+        tanggal: formatTanggal(item.Tanggal),
+        keterangan: item.Keterangan,
+        debit: formattedNominal,
+        kredit: null
+      });
+      ledgerMap[dbCode].totalDebit += nominal;
+
+      // Credit entry
+      if (!ledgerMap[crCode]) {
+        ledgerMap[crCode] = { nama: crName, transaksi: [], totalDebit: 0, totalKredit: 0 };
+      }
+      ledgerMap[crCode].transaksi.push({
+        tanggal: formatTanggal(item.Tanggal),
+        keterangan: item.Keterangan,
+        debit: null,
+        kredit: formattedNominal
+      });
+      ledgerMap[crCode].totalKredit += nominal;
+    });
+
+    return Object.keys(ledgerMap).map((kode) => {
+      const acc = ledgerMap[kode];
+      const firstChar = kode.trim()[0];
+      let balance = 0;
+      if (firstChar === '1' || firstChar === '5') {
+        balance = acc.totalDebit - acc.totalKredit;
+      } else {
+        balance = acc.totalKredit - acc.totalDebit;
+      }
+
+      return {
+        kode,
+        nama: acc.nama,
+        saldo: Math.abs(balance).toLocaleString('id-ID'),
+        transaksi: acc.transaksi,
+        totalDebit: acc.totalDebit,
+        totalKredit: acc.totalKredit
+      };
+    });
+  }, [filteredReport]);
+
+  const parseFormattedNumber = (val: string | null): number => {
+    if (!val) return 0;
+    return parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+  };
+
+  // Compute Metrics
+  const totalDebit = useMemo(() => {
+    return journalEntries.reduce((sum, entry) => {
+      return sum + entry.lines.reduce((lineSum, line) => {
+        if (line.debit) {
+          return lineSum + parseFormattedNumber(line.debit);
+        }
+        return lineSum;
+      }, 0);
+    }, 0);
+  }, [journalEntries]);
+
+  const totalKredit = useMemo(() => {
+    return journalEntries.reduce((sum, entry) => {
+      return sum + entry.lines.reduce((lineSum, line) => {
+        if (line.kredit) {
+          return lineSum + parseFormattedNumber(line.kredit);
+        }
+        return lineSum;
+      }, 0);
+    }, 0);
+  }, [journalEntries]);
+
+  const isBalanced = Math.abs(totalDebit - totalKredit) < 0.01;
+  const selisih = Math.abs(totalDebit - totalKredit);
+
+  const formatRupiahShort = (value: number): string => {
+    if (value >= 1_000_000_000) {
+      return `${(value / 1_000_000_000).toFixed(1)} M`;
+    } else if (value >= 1_000_000) {
+      return `${(value / 1_000_000).toFixed(1)} Jt`;
+    } else {
+      return value.toLocaleString('id-ID');
+    }
+  };
+
+  const handleExport = (format: 'csv' | 'pdf') => {
+    setIsExporting(true);
+    let typeParam = 'buku-besar';
+    if (activeTab === 'Neraca') typeParam = 'neraca';
+    if (activeTab === 'Laba Rugi') typeParam = 'laba-rugi';
+
+    const url = `/api/laporan?type=${typeParam}&export=${format}`;
+    window.open(url, '_blank');
+    setIsExporting(false);
+  };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] lg:h-[calc(100vh-80px)] overflow-y-auto bg-[#fdfcf9] custom-scrollbar">
-      <div className="p-6 lg:p-8 max-w-[1400px] mx-auto w-full">
-        
-        {/* Page Title */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-[26px] font-bold text-stone-900">Jurnal Akuntansi</h1>
-            <span className="px-2.5 py-0.5 bg-stone-200 text-stone-700 text-[10px] font-bold rounded-md">Tim Keuangan</span>
-          </div>
-          <p className="text-[13px] text-stone-500">
+    <div className="min-h-screen w-full bg-[#f6f4f0] text-stone-800 flex flex-col">
+      <main className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 max-w-7xl mx-auto w-full">
+
+        {/* Judul Halaman */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-[#14130F]">History Pencairan</h1>
+          <p className="text-[13px] text-stone-500 mt-1.5">
             Pencatatan Debit-Kredit otomatis dari setiap transaksi sistem. Sesuai standar PSAK.
           </p>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-[12px] font-medium text-stone-500">Total Jurnal</span>
-              <BookOpen size={16} className="text-[#0277bd]" />
-            </div>
-            <div>
-              <p className="text-[28px] font-bold text-stone-900 mb-1">2</p>
-              <p className="text-[11px] text-stone-400">Mei 2026</p>
-            </div>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-[12px] font-medium text-stone-500">Total Debit</span>
-              <ArrowUpRight size={16} className="text-[#008f5d]" />
-            </div>
-            <div>
-              <p className="text-[28px] font-bold text-stone-900 mb-1">Rp 1.3 M</p>
-            </div>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-[12px] font-medium text-stone-500">Total Kredit</span>
-              <ArrowDownRight size={16} className="text-rose-500" />
-            </div>
-            <div>
-              <p className="text-[28px] font-bold text-stone-900 mb-1">Rp 1.3 M</p>
-            </div>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-[12px] font-medium text-stone-500">Saldo</span>
-              <div className="w-5 h-5 rounded-full bg-emerald-50 flex items-center justify-center">
-                <CheckCircle2 size={12} className="text-[#008f5d]" />
+        {/* Kartu Ringkasan */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* Kartu 1: Total Jurnal */}
+          <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-[12px] text-stone-500 font-medium">Total Jurnal</span>
+              <div className="w-7 h-7 border border-stone-300 rounded flex items-center justify-center">
+                <BookOpen size={13} className="text-stone-500 stroke-[1.75]" />
               </div>
             </div>
-            <div>
-              <p className="text-[20px] font-bold text-stone-900 mb-1">Seimbang</p>
-              <p className="text-[11px] text-stone-400 flex items-center gap-1">
-                <CheckCircle2 size={12} /> Dr = Cr
+            <p className="text-[32px] font-bold text-stone-900 leading-none">{journalEntries.length}</p>
+            <p className="text-[11px] text-stone-400 mt-2">Periode Terpilih</p>
+          </div>
+
+          {/* Kartu 2: Total Debit */}
+          <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-[12px] text-stone-500 font-medium">Total Debit</span>
+              <ArrowUp size={18} className="text-emerald-500 stroke-[2.5]" />
+            </div>
+            <p className="text-[11px] text-stone-400 mb-0.5">Rp</p>
+            <p className="text-[28px] font-bold text-stone-900 leading-none">{formatRupiahShort(totalDebit)}</p>
+          </div>
+
+          {/* Kartu 3: Total Kredit */}
+          <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-[12px] text-stone-500 font-medium">Total Kredit</span>
+              <ArrowDown size={18} className="text-red-500 stroke-[2.5]" />
+            </div>
+            <p className="text-[11px] text-stone-400 mb-0.5">Rp</p>
+            <p className="text-[28px] font-bold text-stone-900 leading-none">{formatRupiahShort(totalKredit)}</p>
+          </div>
+
+          {/* Kartu 4: Saldo */}
+          <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-[12px] text-stone-500 font-medium">Status Saldo</span>
+              {isBalanced ? (
+                <div className="w-7 h-7 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center">
+                  <Check size={13} className="text-emerald-600 stroke-[3]" />
+                </div>
+              ) : (
+                <div className="w-7 h-7 bg-rose-50 border border-rose-200 rounded-full flex items-center justify-center">
+                  <X size={13} className="text-rose-600 stroke-[3]" />
+                </div>
+              )}
+            </div>
+            <p className={`text-[22px] font-bold leading-none ${isBalanced ? "text-stone-900" : "text-rose-600"}`}>
+              {isBalanced ? "Seimbang" : "Tidak Seimbang"}
+            </p>
+            {isBalanced ? (
+              <p className="text-[11px] text-emerald-600 font-semibold mt-2 flex items-center gap-1">
+                <Check size={10} className="stroke-[3.5]" />
+                Dr = Cr (Seimbang)
               </p>
-            </div>
+            ) : (
+              <p className="text-[11px] text-rose-600 font-semibold mt-2 flex items-center gap-1">
+                <X size={10} className="stroke-[3.5]" />
+                Selisih: Rp {selisih.toLocaleString('id-ID')}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Toolbar & Tabs */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-stone-200/60 pb-4">
-          
-          {/* Tabs */}
-          <div className="flex items-center gap-6">
-            {TABS.map((tab) => {
-              const isActive = activeTab === tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`text-[13px] font-bold pb-4 -mb-4 border-b-2 transition-all ${
-                    isActive 
-                      ? "text-stone-900 border-stone-900" 
-                      : "text-stone-400 border-transparent hover:text-stone-600"
-                  }`}
-                >
-                  {tab}
-                </button>
-              );
-            })}
+        {/* Baris Tab + Kontrol */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-0 mb-4">
+          <div className="p-1 bg-[#F1EEE6] rounded-xl border border-[#E6E1D4] inline-flex items-center gap-1 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer shrink-0 ${
+                  activeTab === tab
+                    ? "bg-white text-[#14130F] shadow-sm font-semibold border border-[#E4E0D9]/40"
+                    : "text-[#6A6660] hover:text-[#14130F] hover:bg-white/20"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-[12px] font-medium text-stone-500 mr-2">
-              <Calendar size={14} /> Periode: 01 - 31 Mei 2026
-            </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-xl text-[12px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-xs">
-              <Filter size={14} /> Filter
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-xl text-[12px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-xs">
-              <Download size={14} /> Export Excel
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-black border border-black rounded-xl text-[12px] font-bold text-white hover:bg-stone-800 transition shadow-xs">
-              <FileText size={14} /> Export PDF
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Menggunakan Komponen Pemilih Periode yang Diekstrak dengan penambahan Type string eksplisit */}
+            <PeriodeSelector
+              appliedStart={appliedStart}
+              appliedEnd={appliedEnd}
+              onApply={(start: string, end: string) => {
+                setAppliedStart(start);
+                setAppliedEnd(end);
+              }}
+            />
+            
+            <button 
+              onClick={() => handleExport('csv')}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 text-[12px] font-medium text-stone-700 border border-stone-200 bg-white px-3 py-1.5 rounded-lg hover:bg-stone-50 transition shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
             </button>
           </div>
         </div>
 
-        {/* --- TAB CONTENTS --- */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-2">
-          
-          {/* 1. JURNAL UMUM */}
+        {/* Panel Tabel */}
+        <div className={activeTab === "Buku Besar" ? "" : "bg-white border border-stone-200/80 rounded-xl shadow-sm overflow-hidden"}>
+
+          {/* Tabel Jurnal Umum */}
           {activeTab === "Jurnal Umum" && (
-            <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left border-collapse">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-200">
                 <thead>
-                  <tr className="border-b border-stone-100">
-                    <th className="py-4 px-6 text-[10px] font-bold text-stone-400 uppercase tracking-wider w-[12%]">NO. JURNAL</th>
-                    <th className="py-4 px-6 text-[10px] font-bold text-stone-400 uppercase tracking-wider w-[10%]">TANGGAL</th>
-                    <th className="py-4 px-6 text-[10px] font-bold text-stone-400 uppercase tracking-wider w-[25%]">KETERANGAN</th>
-                    <th className="py-4 px-6 text-[10px] font-bold text-stone-400 uppercase tracking-wider">AKUN</th>
-                    <th className="py-4 px-6 text-[10px] font-bold text-stone-400 uppercase tracking-wider text-right w-[10%]">DEBIT</th>
-                    <th className="py-4 px-6 text-[10px] font-bold text-stone-400 uppercase tracking-wider text-right w-[10%]">KREDIT</th>
-                    <th className="py-4 px-6 text-[10px] font-bold text-stone-400 uppercase tracking-wider text-right w-[10%]">REF</th>
+                  <tr className="border-b border-stone-200 bg-[#fafaf9]">
+                    <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-6 py-3.5 uppercase">
+                      No. Jurnal
+                    </th>
+                    <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase whitespace-nowrap">
+                      Tanggal
+                    </th>
+                    <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase">
+                      Keterangan
+                    </th>
+                    <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase">
+                      Akun
+                    </th>
+                    <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase">
+                      Debit
+                    </th>
+                    <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase">
+                      Kredit
+                    </th>
+                    <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-6 py-3.5 uppercase">
+                      Ref
+                    </th>
                   </tr>
                 </thead>
-                {JURNAL_UMUM_DATA.map((trx: any, idx: number) => (
-                  <tbody key={idx} className="border-b border-stone-100 last:border-0 hover:bg-[#faf9f5] transition duration-150">
-                    {trx.lines.map((line: any, lIdx: number) => (
-                      <tr key={lIdx}>
-                        {lIdx === 0 && (
-                          <>
-                            <td rowSpan={trx.lines.length} className="px-6 py-5 align-top text-[12px] font-mono text-stone-600">{trx.id}</td>
-                            <td rowSpan={trx.lines.length} className="px-6 py-5 align-top text-[12px] text-stone-600">{trx.tanggal}</td>
-                            <td rowSpan={trx.lines.length} className="px-6 py-5 align-top text-[12px] text-stone-600">{trx.keterangan}</td>
-                          </>
-                        )}
-                        <td className="px-6 py-2">
-                          <div className="flex items-center gap-3">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold w-6 text-center shrink-0 ${
-                              line.type === "Dr" ? "bg-emerald-50 border border-emerald-200 text-[#008f5d]" : "bg-rose-50 border border-rose-200 text-rose-600 ml-4"
-                            }`}>
-                              {line.type}
-                            </span>
-                            <span className="text-[12px] font-medium text-stone-700">{line.akun}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-2 text-right text-[12px] font-bold text-stone-800">{line.debit}</td>
-                        <td className="px-6 py-2 text-right text-[12px] font-bold text-stone-800">{line.kredit}</td>
-                        {lIdx === 0 && (
-                          <td rowSpan={trx.lines.length} className="px-6 py-5 align-top text-right text-[12px] font-bold text-[#0277bd] hover:underline cursor-pointer">
-                            {trx.ref}
+                <tbody>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-stone-400 font-medium text-xs">
+                        Memuat data jurnal...
+                      </td>
+                    </tr>
+                  ) : journalEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-stone-400 font-medium text-xs">
+                        Tidak ada catatan jurnal pada periode ini.
+                      </td>
+                    </tr>
+                  ) : (
+                    journalEntries.map((entry, entryIdx) =>
+                      entry.lines.map((line, lineIdx) => (
+                        <tr
+                          key={`${entry.id}-${lineIdx}`}
+                          className={`${
+                            lineIdx < entry.lines.length - 1
+                              ? "border-b border-stone-100"
+                              : entryIdx < journalEntries.length - 1
+                              ? "border-b-2 border-stone-200"
+                              : ""
+                          } hover:bg-stone-50/30 transition-colors`}
+                        >
+                          {lineIdx === 0 && (
+                            <td
+                              rowSpan={entry.lines.length}
+                              className="px-6 py-3 align-top text-[12px] font-mono font-semibold text-stone-800 whitespace-nowrap"
+                            >
+                              {entry.id}
+                            </td>
+                          )}
+                          {lineIdx === 0 && (
+                            <td
+                              rowSpan={entry.lines.length}
+                              className="px-4 py-3 align-top text-[12px] text-stone-600 whitespace-nowrap"
+                            >
+                              {entry.tanggal}
+                            </td>
+                          )}
+                          {lineIdx === 0 && (
+                            <td
+                              rowSpan={entry.lines.length}
+                              className="px-4 py-3 align-top text-[12px] text-stone-600 max-w-60"
+                            >
+                              {entry.keterangan}
+                            </td>
+                          )}
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2 text-[12px] font-mono text-stone-700">
+                              <span
+                                className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                  line.type === "Dr"
+                                    ? "bg-[#d1fae5] text-[#065f46]"
+                                    : "bg-[#fee2e2] text-[#991b1b]"
+                                }`}
+                              >
+                                {line.type}
+                              </span>
+                              <span className="text-stone-400">{line.kode}</span>
+                              <span className="text-stone-700">{line.akun}</span>
+                            </div>
                           </td>
-                        )}
-                      </tr>
-                    ))}
-                    {/* Spacer Row for clean layout inside tbody */}
-                    <tr><td colSpan={7} className="h-3"></td></tr>
-                  </tbody>
-                ))}
+                          <td className="px-4 py-2.5 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
+                            {line.debit ? `Rp ${line.debit}` : "—"}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
+                            {line.kredit ? `Rp ${line.kredit}` : "—"}
+                          </td>
+                          {lineIdx === 0 && (
+                            <td
+                              rowSpan={entry.lines.length}
+                              className="px-6 py-3 align-top text-[12px] font-mono text-[#0277bd] font-medium whitespace-nowrap"
+                            >
+                              {entry.ref}
+                            </td>
+                          )}
+                        </tr>
+                      ))
+                    )
+                  )}
+                </tbody>
+                {!isLoading && journalEntries.length > 0 && (
+                  <tfoot>
+                    <tr className="border-t-2 border-stone-200 bg-[#fafaf9]">
+                      <td colSpan={4} className="px-6 py-3.5 text-right text-[11px] font-semibold text-stone-500 uppercase tracking-wider">
+                        Total
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-[12px] font-mono font-bold text-stone-900 whitespace-nowrap">
+                        Rp {totalDebit.toLocaleString('id-ID')}
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-[12px] font-mono font-bold text-stone-900 whitespace-nowrap">
+                        Rp {totalKredit.toLocaleString('id-ID')}
+                      </td>
+                      <td className="px-6 py-3.5"></td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           )}
 
-          {/* 2. BUKU BESAR */}
+          {/* Buku Besar */}
           {activeTab === "Buku Besar" && (
-            <div className="w-full flex flex-col gap-6 p-4">
-              {BUKU_BESAR_DATA.map((buku: any, idx: number) => (
-                <div key={idx} className="border border-stone-200 rounded-xl overflow-hidden">
-                  <div className="px-6 py-4 bg-[#fdfcf9] border-b border-stone-200 flex justify-between items-center">
-                    <h3 className="text-[13px] font-bold text-stone-800">{buku.akun}</h3>
-                    <p className="text-[12px] font-bold text-stone-600">Saldo: <span className="text-stone-900">{buku.saldo}</span></p>
-                  </div>
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-stone-50 border-b border-stone-200">
-                        <th className="py-3 px-6 text-[10px] font-bold text-stone-400 uppercase w-[15%]">TANGGAL</th>
-                        <th className="py-3 px-6 text-[10px] font-bold text-stone-400 uppercase">KETERANGAN</th>
-                        <th className="py-3 px-6 text-[10px] font-bold text-stone-400 uppercase text-right w-[20%]">DEBIT</th>
-                        <th className="py-3 px-6 text-[10px] font-bold text-stone-400 uppercase text-right w-[20%]">KREDIT</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {buku.lines.map((line: any, lIdx: number) => (
-                        <tr key={lIdx} className="border-b border-stone-100 last:border-0 hover:bg-stone-50/50">
-                          <td className="px-6 py-3.5 text-[12px] text-stone-600">{line.tanggal}</td>
-                          <td className="px-6 py-3.5 text-[12px] text-stone-700">{line.keterangan}</td>
-                          <td className="px-6 py-3.5 text-right text-[12px] font-bold text-stone-800">{line.debit}</td>
-                          <td className="px-6 py-3.5 text-right text-[12px] font-bold text-stone-800">{line.kredit}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <div className="space-y-4">
+              {isLoading ? (
+                <div className="text-center py-12 text-stone-400 font-medium text-xs">
+                  Memuat data Buku Besar...
                 </div>
-              ))}
+              ) : bukuBesarData.length === 0 ? (
+                <div className="text-center py-12 text-stone-400 font-medium text-xs">
+                  Tidak ada transaksi Buku Besar pada periode ini.
+                </div>
+              ) : (
+                bukuBesarData.map((account) => (
+                  <div key={account.kode} className="border border-stone-200 rounded-xl overflow-hidden">
+                    <div className="flex justify-between items-center px-5 py-3.5 border-b border-stone-100 bg-white">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[12px] font-mono text-stone-400">{account.kode}</span>
+                        <span className="text-[13px] font-semibold text-stone-800">{account.nama}</span>
+                      </div>
+                      <span className="text-[12px] text-stone-500 font-medium">
+                        Saldo Akhir:{" "}
+                        <span className="font-mono font-bold text-stone-900">Rp {account.saldo}</span>
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left min-w-[600px]">
+                        <thead>
+                          <tr className="bg-[#fafaf9] border-b border-stone-200">
+                            <th className="text-[11px] font-semibold text-stone-400 tracking-wider px-5 py-3 uppercase w-32">
+                              Tanggal
+                            </th>
+                            <th className="text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3 uppercase">
+                              Keterangan
+                            </th>
+                            <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3 uppercase w-36">
+                              Debit
+                            </th>
+                            <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-5 py-3 uppercase w-36">
+                              Kredit
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {account.transaksi.map((tx, i) => (
+                            <tr
+                              key={i}
+                              className={`bg-white hover:bg-stone-50/20 transition-colors ${
+                                i < account.transaksi.length - 1 ? "border-b border-stone-100" : ""
+                              }`}
+                            >
+                              <td className="px-5 py-3 text-[12px] text-stone-500 whitespace-nowrap">
+                                {tx.tanggal}
+                              </td>
+                              <td className="px-4 py-3 text-[12px] text-stone-700">
+                                {tx.keterangan}
+                              </td>
+                              <td className="px-4 py-3 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
+                                {tx.debit ? `Rp ${tx.debit}` : "—"}
+                              </td>
+                              <td className="px-5 py-3 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
+                                {tx.kredit ? `Rp ${tx.kredit}` : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-stone-200 bg-stone-50">
+                            <td colSpan={2} className="px-5 py-3 text-right text-[11px] font-semibold text-stone-500 uppercase tracking-wider">
+                              Total
+                            </td>
+                            <td className="px-4 py-3 text-right text-[12px] font-mono font-bold text-stone-900 whitespace-nowrap">
+                              Rp {account.totalDebit.toLocaleString('id-ID')}
+                            </td>
+                            <td className="px-5 py-3 text-right text-[12px] font-mono font-bold text-stone-900 whitespace-nowrap">
+                              Rp {account.totalKredit.toLocaleString('id-ID')}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
 
-          {/* 3. NERACA */}
+          {/* Neraca */}
           {activeTab === "Neraca" && (
-            <div className="flex flex-col lg:flex-row gap-6 p-4">
-              
-              {/* Kolom Aset */}
-              <div className="flex-1 bg-stone-50 border border-stone-200 rounded-xl flex flex-col">
-                <div className="p-6 pb-2 border-b border-stone-200/50">
-                  <h3 className="text-[15px] font-bold text-stone-900 mb-6">Aset</h3>
-                  <div className="space-y-4">
-                    {NERACA_DATA.aset.map((item: any, i: number) => (
-                      <div key={i} className="flex justify-between items-center text-[13px]">
-                        <span className="text-stone-600 font-medium">{item.nama}</span>
-                        <span className="text-stone-900 font-bold">{item.nominal}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="p-6 mt-auto bg-white rounded-b-xl border-t border-stone-200 flex justify-between items-center">
-                  <span className="text-[14px] font-bold text-stone-900">Total Aset</span>
-                  <span className="text-[16px] font-black text-stone-900">{NERACA_DATA.totalAset}</span>
-                </div>
-              </div>
-
-              {/* Kolom Liabilitas & Ekuitas */}
-              <div className="flex-1 bg-stone-50 border border-stone-200 rounded-xl flex flex-col">
-                <div className="p-6 pb-2 border-b border-stone-200/50">
-                  <h3 className="text-[15px] font-bold text-stone-900 mb-6">Liabilitas & Ekuitas</h3>
-                  <div className="space-y-4">
-                    {NERACA_DATA.liabilitasEkuitas.map((item: any, i: number) => (
-                      <div key={i} className="flex justify-between items-center text-[13px]">
-                        <span className="text-stone-600 font-medium">{item.nama}</span>
-                        <span className="text-stone-900 font-bold">{item.nominal}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="p-6 mt-auto bg-white rounded-b-xl border-t border-stone-200 flex justify-between items-center">
-                  <span className="text-[14px] font-bold text-stone-900">Total Aset</span>
-                  <span className="text-[16px] font-black text-stone-900">{NERACA_DATA.totalLiabilitasEkuitas}</span>
-                </div>
-              </div>
-
+            <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[800px]">
+                <thead>
+                  <tr className="border-b border-stone-200 bg-[#fafaf9] text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
+                    <th className="px-6 py-3.5">Proyek</th>
+                    <th className="px-4 py-3.5 text-right">Kas / Sisa Budget (Asset)</th>
+                    <th className="px-4 py-3.5 text-right">Biaya Terpakai (Asset/Cost)</th>
+                    <th className="px-4 py-3.5 text-right font-bold">Total Aset</th>
+                    <th className="px-4 py-3.5 text-right">Utang Reimbursement (Liabilitas)</th>
+                    <th className="px-4 py-3.5 text-right">Modal RAB (Ekuitas)</th>
+                    <th className="px-6 py-3.5 text-right font-bold">Total Liabilitas & Ekuitas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 text-[12px]">
+                  {neracaData.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-stone-400 font-medium">
+                        Memuat data Neraca...
+                      </td>
+                    </tr>
+                  ) : (
+                    neracaData.map((item: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-slate-50/40 transition">
+                        <td className="px-6 py-3 font-semibold text-stone-850">{item.Proyek}</td>
+                        <td className="px-4 py-3 text-right font-mono text-stone-600">Rp {Number(item['Kas / Sisa Budget (Asset)']).toLocaleString('id-ID')}</td>
+                        <td className="px-4 py-3 text-right font-mono text-stone-600">Rp {Number(item['Biaya Terpakai (Asset/Cost)']).toLocaleString('id-ID')}</td>
+                        <td className="px-4 py-3 text-right font-mono font-bold text-stone-800">Rp {Number(item['Total Aset']).toLocaleString('id-ID')}</td>
+                        <td className="px-4 py-3 text-right font-mono text-stone-600">Rp {Number(item['Utang Reimbursement (Liabilitas)']).toLocaleString('id-ID')}</td>
+                        <td className="px-4 py-3 text-right font-mono text-stone-600">Rp {Number(item['Modal RAB (Ekuitas)']).toLocaleString('id-ID')}</td>
+                        <td className="px-6 py-3 text-right font-mono font-bold text-stone-800">Rp {Number(item['Total Liabilitas & Ekuitas']).toLocaleString('id-ID')}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {/* 4. LABA RUGI */}
+          {/* Laba Rugi */}
           {activeTab === "Laba Rugi" && (
-            <div className="p-4 flex justify-center">
-              <div className="w-full max-w-4xl border border-stone-200 rounded-xl overflow-hidden bg-white">
-                
-                <div className="p-6 border-b border-stone-200 bg-stone-50/50">
-                  <h2 className="text-[16px] font-bold text-stone-900">Laporan Laba Rugi - Mei 2026</h2>
-                </div>
-
-                <div className="p-6 space-y-6">
-                  {/* Pendapatan Section */}
-                  <div>
-                    <h3 className="text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-4">PENDAPATAN</h3>
-                    <div className="space-y-3 pl-2">
-                      {LABA_RUGI_DATA.pendapatan.map((item: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center text-[13px]">
-                          <span className="text-stone-600 font-medium">{item.nama}</span>
-                          <span className="text-stone-900 font-bold">{item.nominal}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="h-px bg-stone-100 w-full my-2"></div>
-
-                  {/* Beban Section */}
-                  <div>
-                    <h3 className="text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-4">BEBAN OPERASIONAL</h3>
-                    <div className="space-y-3 pl-2 mb-6">
-                      {LABA_RUGI_DATA.beban.map((item: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center text-[13px]">
-                          <span className="text-stone-600 font-medium">{item.nama}</span>
-                          <span className="text-stone-900 font-bold">{item.nominal}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between items-center border-t border-stone-200 pt-4">
-                      <span className="text-[14px] font-bold text-stone-800">Total Beban</span>
-                      <span className="text-[14px] font-bold text-stone-900">{LABA_RUGI_DATA.totalBeban}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Laba Bersih Footer */}
-                <div className="p-6 bg-emerald-50 border-t border-emerald-100 flex justify-between items-center rounded-b-xl">
-                  <span className="text-[16px] font-bold text-[#008f5d]">Laba Bersih</span>
-                  <span className="text-[20px] font-black text-[#008f5d]">Rp {LABA_RUGI_DATA.labaBersih}</span>
-                </div>
-
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-stone-200 bg-[#fafaf9] text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
+                    <th className="px-6 py-3.5">Proyek</th>
+                    <th className="px-4 py-3.5 text-right">Pendapatan / Alokasi RAB</th>
+                    <th className="px-4 py-3.5 text-right">Total Beban / Pengeluaran</th>
+                    <th className="px-6 py-3.5 text-right font-bold">Laba (Rugi) Bersih</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 text-[12px]">
+                  {labaRugiData.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="text-center py-12 text-stone-400 font-medium">
+                        Memuat data Laba Rugi...
+                      </td>
+                    </tr>
+                  ) : (
+                    labaRugiData.map((item: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-slate-50/40 transition">
+                        <td className="px-6 py-3 font-semibold text-stone-850">{item.Proyek}</td>
+                        <td className="px-4 py-3 text-right font-mono text-emerald-600 font-semibold">Rp {Number(item['Pendapatan / Alokasi RAB']).toLocaleString('id-ID')}</td>
+                        <td className="px-4 py-3 text-right font-mono text-red-650 font-semibold">Rp {Number(item['Total Beban / Pengeluaran']).toLocaleString('id-ID')}</td>
+                        <td className={`px-6 py-3 text-right font-mono font-bold ${
+                          Number(item['Laba (Rugi) Bersih']) >= 0 ? 'text-emerald-700' : 'text-red-700'
+                        }`}>
+                          Rp {Number(item['Laba (Rugi) Bersih']).toLocaleString('id-ID')}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
 
         </div>
-      </div>
+      </main>
     </div>
+  );
+}
+
+export default function JurnalAkuntansiPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#f6f4f0]">
+        <div className="text-stone-400 font-medium text-xs">Memuat halaman...</div>
+      </div>
+    }>
+      <JurnalAkuntansiContent />
+    </Suspense>
   );
 }
