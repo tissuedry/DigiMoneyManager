@@ -250,7 +250,7 @@ export async function GET(req: NextRequest) {
           akunKredit: { select: { nomorAkun: true, namaAkun: true } },
         },
         orderBy: { id: 'desc' },
-        take: 8,
+        take: 5,
       });
 
       const recentJournals = recentJournalsRaw.map((j) => {
