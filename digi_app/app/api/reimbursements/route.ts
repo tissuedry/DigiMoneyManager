@@ -34,11 +34,14 @@ async function processImageToWebp(input: Buffer | string): Promise<string> {
       .toBuffer();
 
     return `data:image/webp;base64,${webpBuffer.toString('base64')}`;
+
   } catch (error) {
     console.error('Failed to convert image to WebP with sharp:', error);
+
     if (Buffer.isBuffer(input)) {
       return `data:image/jpeg;base64,${input.toString('base64')}`;
     }
+
     return input;
   }
 }
@@ -73,6 +76,7 @@ export async function GET(req: NextRequest) {
 
     const cacheKey = `reimb:${urlRole}:${userId}:${userProyekId || ''}`;
     const cached = getCached(cacheKey);
+
     if (cached) return NextResponse.json(cached);
 
     const filter: any = {};
@@ -82,6 +86,7 @@ export async function GET(req: NextRequest) {
       if (userProyekId) {
         filter.proyekId = parseInt(userProyekId, 10);
       }
+
     } else if (urlRole === 'Project Manager') {
       const pmProyeks = await prisma.userProyek.findMany({
         where: { 
@@ -90,9 +95,12 @@ export async function GET(req: NextRequest) {
         },
         select: { proyekId: true },
       });
+
       const projectIds = pmProyeks.map((up) => up.proyekId);
+
       if (projectIds.length > 0) {
         filter.proyekId = { in: projectIds };
+
       } else {
         return NextResponse.json({ reimbursements: [] });
       }
@@ -128,6 +136,7 @@ export async function GET(req: NextRequest) {
     const mapped = reimbursements.map(mapReimbursement);
     setCache(cacheKey, { reimbursements: mapped });
     return NextResponse.json({ reimbursements: mapped });
+
   } catch (error: any) {
     console.error('Fetch reimbursements error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -155,7 +164,7 @@ export async function POST(req: NextRequest) {
     let merchant = '';
     let tanggalStruk: Date | null = null;
     let kategoriBukti = '';
-    let createdAt: Date | undefined = undefined; // Tambahan penampung createdAt
+    let createdAt: Date | undefined = undefined; 
 
     const contentType = req.headers.get('content-type') || '';
 
@@ -176,22 +185,27 @@ export async function POST(req: NextRequest) {
       if (rawCreatedAt) createdAt = new Date(rawCreatedAt as string);
 
       const ocrDataStr = formData.get('ocrData') as string;
+
       if (ocrDataStr) {
         try {
           ocrData = JSON.parse(ocrDataStr);
+
         } catch (e) {
           ocrData = { raw: ocrDataStr };
         }
       }
 
       const file = formData.get('file') as File | null;
+
       if (file) {
         const buffer = Buffer.from(await file.arrayBuffer());
         strukUrl = await processImageToWebp(buffer);
+
       } else {
         const rawStrukUrl = (formData.get('strukUrl') as string) || '';
         strukUrl = rawStrukUrl ? await processImageToWebp(rawStrukUrl) : '/uploads/placeholder.png';
       }
+
     } else {
       const body = await req.json();
       proyekId = body.proyekId;
@@ -200,9 +214,11 @@ export async function POST(req: NextRequest) {
       
       nama = body.nama || body.namaRealisasi || '';
       merchant = body.merchant || '';
+
       if (body.tanggalStruk || body.tanggal) {
         tanggalStruk = new Date(body.tanggalStruk || body.tanggal);
       }
+
       kategoriBukti = body.kategoriBukti || '';
 
       // Ekstrak createdAt jika dikirim dari frontend
@@ -219,8 +235,6 @@ export async function POST(req: NextRequest) {
     if (!kategoriBukti && ocrData.kategoriBukti) kategoriBukti = ocrData.kategoriBukti;
     if (!tanggalStruk && ocrData.tanggal) tanggalStruk = new Date(ocrData.tanggal);
     if (!nama && ocrData.keterangan) nama = ocrData.keterangan;
-    
-    // Set fallback createdAt dari ocrData jika ada
     if (!createdAt && ocrData.submittedAt) createdAt = new Date(ocrData.submittedAt);
 
     if (!proyekId || !keteranganAnggaranId || isNaN(nominal) || nominal <= 0) {
@@ -238,11 +252,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invalid KeteranganAnggaran or Proyek match' }, { status: 400 });
     }
 
-    // --- LOGIKA BYPASS UNTUK PM & PENENTUAN TIPE ---
+    const isSuperAdmin = role === 'Superadmin' || role === 'superadmin';
+    const isDirektur = role === 'Direktur / Manajemen';
     const isPM = role === 'Project Manager';
-    const initialStatus = isPM ? 'APPROVED_BY_PM' : 'SUBMITTED';
-    const tipePengajuan = isPM ? 'Realisasi Anggaran' : 'Reimbursement';
-    // -----------------------------------------------
+    
+    const isAutoApprove = isPM || isDirektur || isSuperAdmin;
+    const initialStatus = isAutoApprove ? 'APPROVED_BY_PM' : 'SUBMITTED';
+    const tipePengajuan = isAutoApprove ? 'Realisasi Anggaran' : 'Reimbursement';
 
     const reimbursement = await prisma.reimbursement.create({
       data: {
@@ -272,11 +288,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    let actor = 'Karyawan';
+    if (isSuperAdmin) actor = 'Superadmin';
+    else if (isDirektur) actor = 'Direktur';
+    else if (isPM) actor = 'Project Manager';
+    else if (role === 'Tim Keuangan') actor = 'Tim Keuangan';
+
     await prisma.auditTrail.create({
       data: {
         userId: parseInt(userId, 10),
         aksi: 'submit_pengajuan',
-        detail: `Mengajukan ${tipePengajuan} Rp ${nominal.toLocaleString()} untuk proyek ${reimbursement.proyek.nama}`,
+        detail: `${actor} mengajukan ${tipePengajuan} Rp ${nominal.toLocaleString()} untuk proyek ${reimbursement.proyek.nama}`,
       },
     });
 
@@ -297,6 +319,7 @@ export async function POST(req: NextRequest) {
           },
         });
       }
+
     } else {
       await prisma.approval.create({
         data: {
@@ -304,7 +327,7 @@ export async function POST(req: NextRequest) {
           approverId: parseInt(userId, 10),
           level: 'PM',
           status: 'APPROVED_BY_PM',
-          catatan: 'Auto-approved (Pengajuan langsung oleh Project Manager)',
+          catatan: 'Auto-approved (Pengajuan langsung oleh level Manajerial/Admin)',
         },
       });
 
@@ -317,17 +340,13 @@ export async function POST(req: NextRequest) {
           data: {
             userId: finance.id,
             tipe: 'approval_request',
-            pesan: `Pengajuan Realisasi baru dari PM ${reimbursement.user.nama} (Proyek: ${reimbursement.proyek.nama}) menunggu pencairan Keuangan.`,
+            pesan: `Pengajuan Realisasi baru dari ${actor} ${reimbursement.user.nama} (Proyek: ${reimbursement.proyek.nama}) menunggu pencairan Keuangan.`,
           },
         });
       }
     }
-    // ---------------------------------------------
-
-    const userIdInt = parseInt(userId, 10);
-    clearCache(`reimb:Karyawan:${userIdInt}`);
-    clearCache(`reimb:Project+Manager:`);
-    clearCache('reimb:Tim Keuangan:');
+    
+    clearCache('reimb:');
     clearCache('dashboard:');
     clearCache('notif:');
 
@@ -335,6 +354,7 @@ export async function POST(req: NextRequest) {
       message: `${tipePengajuan} submitted successfully`,
       reimbursement: mapReimbursement(reimbursement)
     }, { status: 201 });
+    
   } catch (error: any) {
     console.error('Submit pengajuan error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

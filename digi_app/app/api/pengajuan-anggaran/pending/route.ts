@@ -1,11 +1,12 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: Semua pengajuan pending untuk Direktur review
+// GET: Semua pengajuan pending untuk Direktur / Super Admin review
 export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
-    if (role !== 'Direktur / Manajemen') {
+    
+    if (role !== 'Direktur / Manajemen' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({ pengajuan: list });
+    
   } catch (error) {
     console.error('Get pending pengajuan error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

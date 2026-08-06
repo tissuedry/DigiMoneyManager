@@ -138,15 +138,30 @@ export async function proxy(req: NextRequest) {
   }
 
   // 5. Enforce RBAC (Amankan ekstraksi roles dari payload)
-  const role = payload.role || '';
+  const rawRole = payload.role || '';
+  const role = String(rawRole).trim(); // Hapus spasi di awal/akhir
+  
   const roles: string[] = Array.isArray(payload.roles)
-    ? payload.roles
+    ? payload.roles.map((r: any) => String(r).trim()) // <-- Tambahkan (r: any) di sini
     : typeof payload.roles === 'string'
-    ? [payload.roles]
+    ? [String(payload.roles).trim()]
     : [role].filter(Boolean);
+
+  // Helper yang jauh lebih kebal terhadap typo, spasi, dan case-sensitive
+  const roleLower = role.toLowerCase();
+  const rolesLower = roles.map((r: string) => r.toLowerCase()); // <-- Tambahkan (r: string) di sini
+  
+  const isSuperAdmin = 
+    rolesLower.includes('superadmin') || 
+    rolesLower.includes('super admin') || 
+    roleLower === 'superadmin' || 
+    roleLower === 'super admin';
 
   // Jika mengunjungi root page, arahkan ke dashboard masing-masing
   if (pathname === '/') {
+    if (isSuperAdmin) {
+      return NextResponse.redirect(new URL('/superadmin', req.url));
+    }
     if (roles.includes('Direktur / Manajemen')) {
       return NextResponse.redirect(new URL('/manager', req.url));
     }
@@ -165,7 +180,11 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/select-project', req.url));
   }
 
+  // Mencegah role tingkat atas masuk ke halaman pilih proyek
   if (pathname.startsWith('/select-project')) {
+    if (isSuperAdmin) {
+      return NextResponse.redirect(new URL('/superadmin', req.url));
+    }
     if (roles.includes('Direktur / Manajemen')) {
       return NextResponse.redirect(new URL('/manager', req.url));
     }
@@ -181,6 +200,7 @@ export async function proxy(req: NextRequest) {
     }
   }
 
+  // Pengecekan akses rute halaman (Frontend)
   if (pathname.startsWith('/karyawan') && role !== 'Karyawan') {
     return NextResponse.redirect(new URL('/', req.url));
   }
@@ -197,14 +217,21 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/', req.url));
   }
 
-  if (pathname.startsWith('/api/manager') && !roles.includes('Direktur / Manajemen')) {
+  // Pengecekan rute Superadmin
+  if (pathname.startsWith('/superadmin') && !isSuperAdmin) {
+    return NextResponse.redirect(new URL('/', req.url));
+  }
+
+  // Pengecekan akses rute API (Backend)
+  // Menambahkan Superadmin agar tidak terblokir saat mengakses API manajemen
+  if (pathname.startsWith('/api/manager') && !roles.includes('Direktur / Manajemen') && !isSuperAdmin) {
     return new NextResponse(
       JSON.stringify({ message: 'Forbidden: Only Direktur / Manajemen can access manager APIs' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  if (pathname.startsWith('/api/coa') && !roles.includes('Tim Keuangan')) {
+  if (pathname.startsWith('/api/coa') && !roles.includes('Tim Keuangan') && !isSuperAdmin) {
     return new NextResponse(
       JSON.stringify({ message: 'Forbidden: Only Tim Keuangan can manage CoA' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
@@ -216,7 +243,8 @@ export async function proxy(req: NextRequest) {
     (pathname.endsWith('/budget') || pathname.endsWith('/pos')) && 
     !roles.includes('Project Manager') && 
     !roles.includes('Tim Keuangan') && 
-    !roles.includes('Direktur / Manajemen')
+    !roles.includes('Direktur / Manajemen') &&
+    !isSuperAdmin
   ) {
     return new NextResponse(
       JSON.stringify({ message: 'Forbidden: Only Project Manager, Tim Keuangan, or Direktur / Manajemen can modify budget' }),
@@ -229,7 +257,7 @@ export async function proxy(req: NextRequest) {
   requestHeaders.set('x-user-id', payload.id ? String(payload.id) : '');
   requestHeaders.set('x-user-email', payload.email ? String(payload.email) : '');
   requestHeaders.set('x-user-role', String(role));
-  requestHeaders.set('x-user-roles', roles.join(',')); // Sekarang dijamin aman karena 'roles' pasti Array
+  requestHeaders.set('x-user-roles', roles.join(',')); 
   
   if (payload.proyekId !== undefined && payload.proyekId !== null) {
     requestHeaders.set('x-user-proyek-id', String(payload.proyekId));
@@ -243,5 +271,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/select-project/:path*', '/karyawan/:path*', '/pm/:path*', '/keuangan/:path*', '/manager/:path*', '/api/:path*'],
+  matcher: ['/', '/select-project/:path*', '/karyawan/:path*', '/pm/:path*', '/keuangan/:path*', '/manager/:path*', '/superadmin/:path*', '/api/:path*'],
 };

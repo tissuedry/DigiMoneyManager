@@ -38,6 +38,12 @@ type AjukanMain = {
   subPos: AjukanSub[];
 };
 
+let draftIdCounter = Date.now();
+const generateDraftId = () => {
+  draftIdCounter += 1;
+  return draftIdCounter;
+};
+
 const DRAFT_STORAGE_KEY = (pId: number) => `digi_ajukan_drafts_${pId}`;
 
 const saveDraftsToStorage = (pId: number, dataList: AjukanMain[]) => {
@@ -247,7 +253,7 @@ export default function AjukanPosModal({
           setData((prevData) => {
             let changed = false;
             const autoExpandMains: Record<number, boolean> = {};
-            let updatedData = [...prevData];
+            const updatedData = [...prevData];
 
             // 0. Pending MAIN_ANGGARAN
             allItems
@@ -481,7 +487,7 @@ export default function AjukanPosModal({
       return;
     }
 
-    const newMainId = Date.now();
+    const newMainId = generateDraftId();
     const newMainItem: AjukanMain = {
       id: newMainId,
       nama: newMainName,

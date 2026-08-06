@@ -15,7 +15,8 @@ export async function POST(req: Request) {
     }
     const { nama, email, password, role, proyekId } = result.data;
 
-    const trimmedEmail = email;
+    // PERBAIKAN: Gunakan .trim() untuk menghapus spasi yang tidak sengaja terketik
+    const trimmedEmail = email.trim();
 
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
@@ -28,21 +29,40 @@ export async function POST(req: Request) {
 
     const hashedPassword = await hashPassword(password);
 
+    // PERBAIKAN: Normalisasi Role agar selalu konsisten di database
+    const safeRole = (role || '').trim();
+    const roleLower = safeRole.toLowerCase();
+    let normalizedRole = safeRole;
+
+    if (roleLower === 'superadmin' || roleLower === 'super admin') {
+      normalizedRole = 'Superadmin'; // Baku-kan menjadi "Superadmin"
+    }
+
     const user = await prisma.user.create({
       data: {
         nama,
         email: trimmedEmail,
         passwordHash: hashedPassword,
-        role,
+        role: normalizedRole, // Simpan role yang sudah dibakukan
       },
     });
 
     if (proyekId) {
+      // Penyesuaian pemetaan role pada proyek
+      let projectRole = 'Anggota Lapangan';
+      if (normalizedRole === 'Project Manager') {
+        projectRole = 'Project Manager';
+      } else if (normalizedRole === 'Superadmin') {
+        projectRole = 'Superadmin'; // Disamakan dengan role utamanya agar tidak bingung
+      } else if (normalizedRole === 'Direktur / Manajemen' || normalizedRole === 'Tim Keuangan') {
+        projectRole = normalizedRole;
+      }
+
       await prisma.userProyek.create({
         data: {
           userId: user.id,
           proyekId: typeof proyekId === 'number' ? proyekId : parseInt(proyekId, 10),
-          role: role === 'Project Manager' ? 'Project Manager' : 'Anggota Lapangan',
+          role: projectRole,
         },
       });
     }
@@ -52,7 +72,7 @@ export async function POST(req: Request) {
       data: {
         userId: user.id,
         aksi: 'register',
-        detail: `User ${nama} terdaftar dengan role ${role}.`,
+        detail: `User ${nama} terdaftar dengan role ${normalizedRole}.`,
       },
     });
 

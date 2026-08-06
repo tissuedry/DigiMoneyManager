@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
 
-    if (role !== 'Direktur / Manajemen') {
+    if (role !== 'Direktur / Manajemen' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
       limit,
       hasMore,
     });
+
   } catch (error: any) {
     console.error('Get members error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
 
-    if (role !== 'Direktur / Manajemen') {
+    if (role !== 'Direktur / Manajemen' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -154,13 +155,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Audit trail
-    const direktorId = req.headers.get('x-user-id');
-    if (direktorId) {
+    const adminId = req.headers.get('x-user-id');
+    if (adminId) {
       await prisma.auditTrail.create({
         data: {
-          userId: parseInt(direktorId, 10),
+          userId: parseInt(adminId, 10),
           aksi: 'register_member',
-          detail: `Direktur mendaftarkan anggota baru: ${nama} (${userRole})`,
+          detail: `${role === 'Superadmin' || role === 'superadmin' ? 'Super Admin' : 'Direktur'} mendaftarkan anggota baru: ${nama} (${userRole})`,
         },
       });
     }
@@ -168,6 +169,7 @@ export async function POST(req: NextRequest) {
     const { passwordHash: _, ...userWithoutPassword } = newUser;
     clearCache('dashboard:');
     return NextResponse.json({ message: 'Anggota berhasil didaftarkan', user: userWithoutPassword }, { status: 201 });
+
   } catch (error: any) {
     console.error('Register member error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -179,7 +181,7 @@ export async function PUT(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
 
-    if (role !== 'Direktur / Manajemen') {
+    if (role !== 'Direktur / Manajemen' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -199,6 +201,7 @@ export async function PUT(req: NextRequest) {
         proyek: true,
       },
     });
+
     if (!existingUser) {
       return NextResponse.json({ message: 'Anggota tidak ditemukan' }, { status: 404 });
     }
@@ -206,6 +209,7 @@ export async function PUT(req: NextRequest) {
     // Check email uniqueness if email has changed
     if (trimmedEmail !== existingUser.email) {
       const duplicate = await prisma.user.findUnique({ where: { email: trimmedEmail } });
+
       if (duplicate) {
         return NextResponse.json({ message: 'Email sudah terdaftar oleh pengguna lain' }, { status: 400 });
       }
@@ -303,13 +307,13 @@ export async function PUT(req: NextRequest) {
     }
 
     // Audit trail
-    const direktorId = req.headers.get('x-user-id');
-    if (direktorId) {
+    const adminId = req.headers.get('x-user-id');
+    if (adminId) {
       await prisma.auditTrail.create({
         data: {
-          userId: parseInt(direktorId, 10),
+          userId: parseInt(adminId, 10),
           aksi: 'update_member',
-          detail: `Direktur memperbarui data anggota: ${nama} (${userRole})`,
+          detail: `${role === 'Superadmin' || role === 'superadmin' ? 'Super Admin' : 'Direktur'} memperbarui data anggota: ${nama} (${userRole})`,
         },
       });
     }
@@ -317,6 +321,7 @@ export async function PUT(req: NextRequest) {
     const { passwordHash: _, ...userWithoutPassword } = updatedUser;
     clearCache('dashboard:');
     return NextResponse.json({ message: 'Data anggota berhasil diperbarui', user: userWithoutPassword }, { status: 200 });
+    
   } catch (error: any) {
     console.error('Update member error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

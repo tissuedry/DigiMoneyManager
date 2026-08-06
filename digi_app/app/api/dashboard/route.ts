@@ -250,7 +250,7 @@ export async function GET(req: NextRequest) {
           akunKredit: { select: { nomorAkun: true, namaAkun: true } },
         },
         orderBy: { id: 'desc' },
-        take: 8,
+        take: 5,
       });
 
       const recentJournals = recentJournalsRaw.map((j) => {
@@ -481,6 +481,41 @@ export async function GET(req: NextRequest) {
       dashboardData.cashFlow = cashFlowMonths;
       dashboardData.reimbursementPipeline = reimbursementPipeline;
       dashboardData.projectList = projectProfitability;
+
+    } else if (role === 'Superadmin' || role === 'superadmin') {
+      
+      const totalPengajuan = await prisma.reimbursement.count();
+
+      const totalMenungguApproval = await prisma.reimbursement.count({
+        where: { status: 'SUBMITTED' }
+      });
+
+      const totalSiapDicairkan = await prisma.reimbursement.count({
+        where: { status: 'APPROVED_BY_PM' }
+      });
+
+      const totalProyekAktif = await prisma.proyek.count({
+        where: { status: 'AKTIF' }
+      });
+
+      const totalCoA = await prisma.chartOfAccounts.count();
+
+      const totalUserAktif = await prisma.user.count(); 
+
+      // PERBAIKAN: Hitung Total Nilai Proyek dengan menjumlahkan rabTotal
+      const budgets = await prisma.budget.findMany();
+      const totalNilaiProyek = budgets.reduce((sum, b) => sum + Number(b.rabTotal), 0);
+
+      dashboardData.metrics = {
+        totalNilaiProyek, // Menambahkan perhitungan nilai proyek untuk Super Admin
+        totalPengajuan,
+        totalMenungguApproval,
+        totalSiapDicairkan,
+        totalProyekAktif,
+        totalCoA,
+        totalUserAktif
+      };
+
     }
 
     // ponytail: store in cache before returning

@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-// POST: Input/Set RAB budget for a project (PM or Tim Keuangan only)
+// POST: Input/Set RAB budget for a project (PM, Tim Keuangan, Direktur, atau Super Admin only)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -19,11 +19,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
-    if (!isPM && !roles.includes('Tim Keuangan') && !roles.includes('Direktur / Manajemen')) {
-      return NextResponse.json({ message: 'Forbidden: You must be the assigned Project Manager, Tim Keuangan, or Direktur / Manajemen to modify this project budget' }, { status: 403 });
+    const isSuperAdmin = 
+      roles.includes('Superadmin') || 
+      roles.includes('superadmin');
+
+    if (!isPM && !roles.includes('Tim Keuangan') && !roles.includes('Direktur / Manajemen') && !isSuperAdmin) {
+      return NextResponse.json({ message: 'Forbidden: You must be the assigned Project Manager, Tim Keuangan, Direktur / Manajemen, or Super Admin to modify this project budget' }, { status: 403 });
     }
+    
     const body = await req.json();
-    const { rabTotal, posAnggaran } = body; // posAnggaran is array of { deskripsi, nominalAlokasi } — kept for API compat
+    const { rabTotal, posAnggaran } = body; 
 
     if (!rabTotal || !posAnggaran || !Array.isArray(posAnggaran)) {
       return NextResponse.json({ message: 'rabTotal and posAnggaran (array) are required' }, { status: 400 });
@@ -48,7 +53,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Perform a differential update of the budget if it exists, or create a new one
     const result = await prisma.$transaction(async (tx) => {
-      // Check for existing budget
       const existingBudget = await tx.budget.findUnique({
         where: { proyekId: parseInt(proyekId, 10) },
         include: {
@@ -74,8 +78,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 namaMain: matchedIncoming.deskripsi,
               },
             });
+
           } else {
-            // Cascade delete subAnggaran, keteranganAnggaran, and reimbursements before deleting mainAnggaran
             const subs = await tx.subAnggaran.findMany({
               where: { mainAnggaranId: ext.id },
               select: { id: true },
@@ -133,6 +137,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           },
           select: { nominal: true },
         });
+
         const totalPengeluaran = approvedReimbursements.reduce(
           (sum, r) => sum + Number(r.nominal),
           0
@@ -151,6 +156,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
 
         return updatedBudget;
+
       } else {
         const newBudget = await tx.budget.create({
           data: {
@@ -177,11 +183,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     if (userId) {
+      let actor = 'Project Manager';
+      if (isSuperAdmin) actor = 'Super Admin';
+      else if (roles.includes('Direktur / Manajemen')) actor = 'Direktur';
+      else if (roles.includes('Tim Keuangan')) actor = 'Tim Keuangan';
+
       await prisma.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
           aksi: 'input_rab',
-          detail: `Menginput RAB proyek ${project.nama} senilai Rp ${parseFloat(rabTotal).toLocaleString()}`,
+          detail: `${actor} menginput RAB proyek ${project.nama} senilai Rp ${parseFloat(rabTotal).toLocaleString()}`,
         },
       });
     }
@@ -198,6 +209,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     clearCache('dashboard:');
     clearCache('proyek:');
     return NextResponse.json({ message: 'RAB budget initialized successfully', budget: responseBudget }, { status: 201 });
+
   } catch (error: any) {
     console.error('Input budget error:', error);
     if (error.message && error.message.startsWith('ValidationError:')) {
@@ -206,12 +218,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { status: 400 }
       );
     }
+
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
 
-// PATCH: Directly update a single pos alokasi (Main / Sub / Keterangan) — PM of project or Direktur
-// Body: { type: 'main'|'sub'|'ket', id: number, nominalAlokasi: number }
+// PATCH: Directly update a single pos alokasi (Main / Sub / Keterangan) — PM of project, Direktur, atau Super Admin
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -219,15 +231,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    // Authorization: PM assigned to project or Direktur
+    // Authorization: PM assigned to project, Direktur, or Super Admin
     const isDirektur = role === 'Direktur / Manajemen';
+    const isSuperAdmin = role === 'Superadmin' || role === 'superadmin';
+
     const isPM = userId
       ? await prisma.userProyek.findFirst({
           where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
         })
       : null;
 
-    if (!isDirektur && !isPM) {
+    if (!isDirektur && !isPM && !isSuperAdmin) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -251,11 +265,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Audit trail
     if (userId) {
+      const actor = isSuperAdmin ? 'Super Admin' : (isDirektur ? 'Direktur' : 'Project Manager');
+      
       await prisma.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
           aksi: 'edit_alokasi',
-          detail: `Edit alokasi ${type} id=${posId} pada proyek ${proyekId} menjadi Rp ${newAlokasi.toLocaleString('id-ID')}`,
+          detail: `${actor} mengedit alokasi ${type} id=${posId} pada proyek ${proyekId} menjadi Rp ${newAlokasi.toLocaleString('id-ID')}`,
         },
       });
     }
@@ -263,6 +279,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     clearCache('dashboard:');
     clearCache('proyek:');
     return NextResponse.json({ message: 'Alokasi berhasil diperbarui' });
+    
   } catch (error: any) {
     console.error('PATCH alokasi error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

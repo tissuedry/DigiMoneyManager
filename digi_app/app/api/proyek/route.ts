@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
       })
     ]);
 
-    // Mapping budget (Tetap sama seperti kodemu aslinya)
+    // Mapping budget
     const mappedProjects = projects.map((p) => {
       if (!p.budget) return p;
       return {
@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
 }
 
 
-// POST: Create a new project (PM or Tim Keuangan only)
+// POST: Create a new project (PM, Tim Keuangan, Direktur, atau Super Admin only)
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -162,7 +162,14 @@ export async function POST(req: NextRequest) {
     const roles = rolesHeader.split(',');
     const userId = req.headers.get('x-user-id');
 
-    if (!roles.includes('Project Manager') && !roles.includes('Tim Keuangan') && !roles.includes('Direktur / Manajemen')) {
+    const isAuthorized = 
+      roles.includes('Project Manager') || 
+      roles.includes('Tim Keuangan') || 
+      roles.includes('Direktur / Manajemen') ||
+      roles.includes('Superadmin') ||
+      roles.includes('superadmin');
+
+    if (!isAuthorized) {
       return NextResponse.json({ message: 'Forbidden: Unauthorized to create projects' }, { status: 403 });
     }
 
@@ -188,7 +195,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId: parseInt(userId, 10),
           aksi: 'create_proyek',
-          detail: `Membuat proyek baru: ${nama}`,
+          detail: `${roles[0] || 'Admin'} membuat proyek baru: ${nama}`,
         },
       });
     }
@@ -196,6 +203,7 @@ export async function POST(req: NextRequest) {
     clearCache('proyek:');
     clearCache('dashboard:');
     return NextResponse.json({ message: 'Project created successfully', proyek: newProject }, { status: 201 });
+    
   } catch (error: any) {
     console.error('Create project error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

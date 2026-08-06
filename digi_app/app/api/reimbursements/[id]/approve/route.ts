@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-// POST: Process reimbursement/realisasi approval / rejection (PM and Keuangan)
+// POST: Process reimbursement/realisasi approval / rejection (PM, Keuangan, and Super Admin)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -16,7 +16,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     const body = await req.json();
-    // Ekstrak variabel `alasan` dari request body
     const { action, catatan, alasan, noAkunDebit, noAkunKredit } = body; 
 
     if (!action || (action !== 'APPROVE' && action !== 'REJECT')) {
@@ -25,8 +24,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const mapReimbursement = (r: any) => {
       if (!r) return null;
+
       return {
-        ...r, // Secara otomatis membawa field 'createdAt' dari database
+        ...r,
         strukUrl: r.urlStruk,
         posAnggaran: r.keteranganAnggaran ? {
           ...r.keteranganAnggaran,
@@ -53,7 +53,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const nominal = Number(reimbursement.nominal);
     
-    // Identifikasi apakah ini realisasi PM atau reimbursement staff berdasarkan kolom tipe di DB
     const tipePengajuan = reimbursement.tipe || (reimbursement.user.role === 'Project Manager' ? 'Realisasi Anggaran' : 'Reimbursement');
 
     const isPM = await prisma.userProyek.findFirst({
@@ -64,32 +63,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
-    if (isPM || role === 'Direktur / Manajemen' || roles.includes('Direktur / Manajemen')) {
+    const isDirektur = role === 'Direktur / Manajemen' || roles.includes('Direktur / Manajemen');
+    const isKeuangan = role === 'Tim Keuangan' || roles.includes('Tim Keuangan');
+    const isSuperAdmin = roles.includes('Superadmin') || roles.includes('superadmin');
+
+    // TAHAP 1: APPROVAL PM / DIREKTUR / SUPER ADMIN
+    if (isPM || isDirektur || (isSuperAdmin && reimbursement.status === 'SUBMITTED')) {
       if (reimbursement.status !== 'SUBMITTED') {
-        if (role !== 'Tim Keuangan') {
+        if (!isKeuangan && !isSuperAdmin) {
           return NextResponse.json({ message: 'Pengajuan is not pending PM approval' }, { status: 400 });
         }
+
       } else {
         const nextStatus = action === 'APPROVE' ? 'APPROVED_BY_PM' : 'REJECTED';
         const actionText = action === 'APPROVE' ? 'menyetujui' : 'menolak';
-        const approvalLevel = (role === 'Direktur / Manajemen' || roles.includes('Direktur / Manajemen')) ? 'DIREKTUR' : 'PM';
+        
+        let approvalLevel = 'PM';
+        if (isSuperAdmin) approvalLevel = 'SUPER ADMIN';
+        else if (isDirektur) approvalLevel = 'DIREKTUR';
 
         const updated = await prisma.$transaction(async (tx) => {
           await tx.approval.create({
             data: {
               reimbursementId: parseInt(id, 10),
               approverId: parseInt(userId, 10),
-              level: approvalLevel,
+              level: approvalLevel === 'SUPER ADMIN' ? 'SUPER_ADMIN' : approvalLevel,
               status: nextStatus,
               catatan: catatan || null,
-              alasan: action === 'REJECT' ? (alasan || null) : null, // Simpan alasan jika ditolak PM
+              alasan: action === 'REJECT' ? (alasan || null) : null, 
             },
           });
 
           const rb = await tx.reimbursement.update({
             where: { id: parseInt(id, 10) },
             data: { status: nextStatus },
-            // Include dikembalikan agar mapReimbursement memiliki struktur lengkap saat di output
             include: {
               user: { select: { nama: true, id: true, role: true } }, 
               proyek: { select: { nama: true, id: true } },
@@ -119,6 +126,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             const keuanganUsers = await tx.user.findMany({
               where: { role: 'Tim Keuangan' },
             });
+
             for (const finance of keuanganUsers) {
               await tx.notification.create({
                 data: {
@@ -137,14 +145,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         clearCache('proyek:');
         clearCache('reimb:');
         clearCache('notif:');
+
         return NextResponse.json({ message: `Successfully processed approval: ${nextStatus}`, reimbursement: mapReimbursement(updated) });
       }
     }
 
-    if (role === 'Tim Keuangan') {
+    // TAHAP 2: PENCAIRAN KEUANGAN / SUPER ADMIN
+    if (isKeuangan || isSuperAdmin) {
       if (reimbursement.status !== 'APPROVED_BY_PM') {
         return NextResponse.json({ message: 'Pengajuan is not pending Keuangan disbursement' }, { status: 400 });
       }
+
+      const actorKeuangan = isSuperAdmin ? 'Superadmin' : 'Tim Keuangan';
 
       if (action === 'APPROVE') {
         if (!noAkunDebit || !noAkunKredit) {
@@ -204,7 +216,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             data: {
               reimbursementId: parseInt(id, 10),
               approverId: parseInt(userId, 10),
-              level: 'KEUANGAN',
+              level: isSuperAdmin ? 'SUPER_ADMIN' : 'KEUANGAN',
               status: 'APPROVED',
               catatan: catatan || null,
             },
@@ -226,7 +238,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             data: {
               userId: parseInt(userId, 10),
               aksi: 'approve_keuangan',
-              detail: `Pencairan ${tipePengajuan} Rp ${nominal.toLocaleString()} oleh ${reimbursement.user.nama}. Jurnal Debit: ${noAkunDebit}, Kredit: ${noAkunKredit}`,
+              detail: `${actorKeuangan} mencairkan ${tipePengajuan} Rp ${nominal.toLocaleString()} oleh ${reimbursement.user.nama}. Jurnal Debit: ${noAkunDebit}, Kredit: ${noAkunKredit}`,
             },
           });
 
@@ -234,7 +246,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             data: {
               userId: reimbursement.userId,
               tipe: 'disbursed',
-              pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} telah DICAIRKAN oleh Tim Keuangan.`,
+              pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} telah DICAIRKAN oleh ${actorKeuangan}.`,
             },
           });
 
@@ -256,6 +268,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                   },
                 },
               });
+
               for (const pm of pmUsers) {
                 await tx.notification.create({
                   data: {
@@ -269,6 +282,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               const keuanganUsers = await tx.user.findMany({
                 where: { role: 'Tim Keuangan' },
               });
+
               for (const finance of keuanganUsers) {
                 await tx.notification.create({
                   data: {
@@ -289,18 +303,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         clearCache('reimb:');
         clearCache('notif:');
         clearCache('coa');
+
         return NextResponse.json({
           message: 'Pengajuan successfully disbursed and journal entries generated.',
           reimbursement: mapReimbursement(result.rb),
           journal: result.journal
         });
+
       } else {
         const updated = await prisma.$transaction(async (tx) => {
           await tx.approval.create({
             data: {
               reimbursementId: parseInt(id, 10),
               approverId: parseInt(userId, 10),
-              level: 'KEUANGAN',
+              level: isSuperAdmin ? 'SUPER_ADMIN' : 'KEUANGAN',
               status: 'REJECTED',
               catatan: catatan || null,
               alasan: alasan || null, 
@@ -323,7 +339,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             data: {
               userId: parseInt(userId, 10),
               aksi: 'reject_keuangan',
-              detail: `Keuangan menolak pengajuan ${tipePengajuan} Rp ${nominal.toLocaleString()} oleh ${reimbursement.user.nama}`,
+              detail: `${actorKeuangan} menolak pengajuan ${tipePengajuan} Rp ${nominal.toLocaleString()} oleh ${reimbursement.user.nama}`,
             },
           });
 
@@ -331,22 +347,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             data: {
               userId: reimbursement.userId,
               tipe: 'rejected',
-              pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} ditolak oleh Tim Keuangan. Alasan: ${alasan || 'Tidak ada alasan yang diberikan.'}`, 
+              pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} ditolak oleh ${actorKeuangan}. Alasan: ${alasan || 'Tidak ada alasan yang diberikan.'}`, 
             },
           });
 
           return rb;
+
         });
 
         clearCache('dashboard:');
         clearCache('proyek:');
         clearCache('reimb:');
         clearCache('notif:');
-        return NextResponse.json({ message: 'Pengajuan successfully rejected by Keuangan.', reimbursement: mapReimbursement(updated) });
+
+        return NextResponse.json({ message: `Pengajuan successfully rejected by ${actorKeuangan}.`, reimbursement: mapReimbursement(updated) });
       }
     }
 
     return NextResponse.json({ message: 'Forbidden: Unauthorized role for approval' }, { status: 403 });
+    
   } catch (error: any) {
     console.error('Approve pengajuan error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

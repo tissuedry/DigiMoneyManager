@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: List proyek where current user is assigned as Project Manager
+// GET: List proyek (Semua untuk Super Admin/Direktur, Filtered untuk Project Manager)
 function formatDateInput(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -12,51 +12,89 @@ function formatDateInput(d: Date): string {
 export async function GET(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');
+    const role = req.headers.get('x-user-role');
+    
     if (!userId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // All projects where this user has UserProyek role = 'Project Manager'
-    const userProyeks = await prisma.userProyek.findMany({
-      where: { userId: parseInt(userId, 10), role: 'Project Manager' },
-      include: {
-        proyek: {
-          include: {
-            budget: {
-              include: {
-                mainAnggaran: {
-                  orderBy: { id: 'asc' },
-                  include: {
-                    subAnggaran: {
-                      orderBy: { id: 'asc' },
-                      include: {
-                        keterangan: {
-                          orderBy: { id: 'asc' },
-                          include: { reimbursements: { include: { approvals: true } } },
-                        },
+    const isSuperAdminOrDirektur = 
+      role === 'Superadmin' || 
+      role === 'superadmin' || 
+      role === 'Direktur / Manajemen';
+
+    let projectsRaw = [];
+
+    if (isSuperAdminOrDirektur) {
+      projectsRaw = await prisma.proyek.findMany({
+        include: {
+          budget: {
+            include: {
+              mainAnggaran: {
+                orderBy: { id: 'asc' },
+                include: {
+                  subAnggaran: {
+                    orderBy: { id: 'asc' },
+                    include: {
+                      keterangan: {
+                        orderBy: { id: 'asc' },
+                        include: { reimbursements: { include: { approvals: true } } },
                       },
                     },
                   },
                 },
               },
             },
-            users: {
-              include: {
-                user: { select: { id: true, nama: true, email: true, role: true } },
+          },
+          users: {
+            include: {
+              user: { select: { id: true, nama: true, email: true, role: true } },
+            },
+          },
+        },
+      });
+    } else {
+      const userProyeks = await prisma.userProyek.findMany({
+        where: { userId: parseInt(userId, 10), role: 'Project Manager' },
+        include: {
+          proyek: {
+            include: {
+              budget: {
+                include: {
+                  mainAnggaran: {
+                    orderBy: { id: 'asc' },
+                    include: {
+                      subAnggaran: {
+                        orderBy: { id: 'asc' },
+                        include: {
+                          keterangan: {
+                            orderBy: { id: 'asc' },
+                            include: { reimbursements: { include: { approvals: true } } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              users: {
+                include: {
+                  user: { select: { id: true, nama: true, email: true, role: true } },
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+      projectsRaw = userProyeks.map((up) => up.proyek);
+    }
 
-    if (userProyeks.length === 0) {
+    if (projectsRaw.length === 0) {
       return NextResponse.json({ projects: [] });
     }
 
-    const proyekIds = userProyeks.map((up) => up.proyekId);
+    const proyekIds = projectsRaw.map((p) => p.id);
 
-    // Batch all aggregates — ponytail: 2 queries instead of N+1 per project
     const [approvedList, pendingList] = await Promise.all([
       prisma.approval.findMany({
         where: {
@@ -66,22 +104,25 @@ export async function GET(req: NextRequest) {
         },
         select: { reimbursement: { select: { proyekId: true, nominal: true, status: true } } },
       }),
+
       prisma.reimbursement.findMany({
         where: { proyekId: { in: proyekIds }, status: { notIn: ['APPROVED', 'REJECTED'] } },
         select: { proyekId: true, nominal: true, status: true },
       }),
     ]);
 
-    // Index hasil batch
     const realisasiByProyek: Record<number, number> = {};
     const approvedCount: Record<number, number> = {};
+
     for (const a of approvedList) {
       const pid = a.reimbursement.proyekId;
       realisasiByProyek[pid] = (realisasiByProyek[pid] || 0) + Number(a.reimbursement.nominal);
       approvedCount[pid] = (approvedCount[pid] || 0) + 1;
     }
+
     const pendingNominal: Record<number, number> = {};
     const pendingCount: Record<number, number> = {};
+
     for (const p of pendingList) {
       pendingNominal[p.proyekId] = (pendingNominal[p.proyekId] || 0) + Number(p.nominal);
       pendingCount[p.proyekId] = (pendingCount[p.proyekId] || 0) + 1;
@@ -89,8 +130,7 @@ export async function GET(req: NextRequest) {
 
     const warnaPalette = ['#004D34', '#008f5d', '#D97706', '#DC6B19', '#7c3aed', '#6b7280'];
 
-    const projects = userProyeks.map((up) => {
-      const p = up.proyek;
+    const projects = projectsRaw.map((p) => {
       const budget = p.budget;
       const pmUser = p.users.find((u) => u.role === 'Project Manager');
 
@@ -102,6 +142,7 @@ export async function GET(req: NextRequest) {
             ),
           0
         );
+
         const terpakai = Math.max(Number(m.nominalTerpakai || 0), calculatedTerpakai);
 
         return {
@@ -114,6 +155,7 @@ export async function GET(req: NextRequest) {
             const subTerpakai = s.keterangan.reduce(
               (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
             );
+
             return {
               id: s.id,
               nama: s.namaSub,
@@ -182,6 +224,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({ projects });
+    
   } catch (error) {
     console.error('Get PM proyek error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

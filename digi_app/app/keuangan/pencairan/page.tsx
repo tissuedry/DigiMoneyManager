@@ -235,12 +235,23 @@ function PencairanContent() {
   const [catatan, setCatatan] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [selectedProyek, setSelectedProyek] = useState("Semua");
   const invalidate = useInvalidate();
 
   const { data: rData, isLoading } = useApi<any>("/api/reimbursements");
   const { data: cData } = useApi<any>("/api/coa");
   const reimbursements = rData?.reimbursements ?? [];
   const coaList = cData?.coa ?? [];
+
+  const daftarProyek = [
+    "Semua",
+    ...new Set(
+      reimbursements
+        .map((item: any) => item.proyek?.nama)
+        .filter(Boolean) // Untuk membuang nilai null atau undefined
+    ),
+  ];
 
   const filteredList = reimbursements.filter((item: any) => {
     const matchesTab = activeTab === 'diteruskan'
@@ -250,10 +261,15 @@ function PencairanContent() {
     const matchesSearch = searchQuery
       ? (item.user?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.proyek?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(item.id).toLowerCase().includes(searchQuery.toLowerCase()))
+        String(item.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        // Tambahan untuk mencari berdasarkan kolom 'nama' dan 'merchant'
+        item.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.merchant?.toLowerCase().includes(searchQuery.toLowerCase()))
       : true;
 
-    return matchesTab && matchesSearch;
+    const matchesProyek = selectedProyek === "Semua" || item.proyek?.nama === selectedProyek;
+
+    return matchesTab && matchesSearch && matchesProyek;
   });
 
   const PAGE_SIZE = 10;
@@ -506,13 +522,45 @@ function PencairanContent() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="px-3.5 py-2 text-xs bg-white border border-stone-200 rounded-full outline-none focus:border-stone-400 transition w-48 sm:w-64 text-stone-800 placeholder:text-stone-400"
                 />
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full shadow-sm text-[13px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
-                >
-                  <Filter size={14} className="text-stone-500" />
-                  <span>Filter</span>
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full shadow-sm text-[13px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+                  >
+                    <Filter size={14} className="text-stone-500" />
+                    <span className="truncate max-w-[120px]">
+                      {selectedProyek === "Semua" ? "Filter Proyek" : selectedProyek}
+                    </span>
+                  </button>
+
+                  {/* Menu Dropdown */}
+                  {isFilterOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-stone-200 rounded-xl shadow-lg z-10 py-1 overflow-hidden">
+                      <div className="px-3 py-2 text-xs font-semibold text-stone-500 bg-stone-50 border-b border-stone-100">
+                        Pilih Proyek
+                      </div>
+                      <ul className="max-h-56 overflow-y-auto">
+                        {daftarProyek.map((proyek, index) => (
+                          <li key={index}>
+                            <button
+                              onClick={() => {
+                                setSelectedProyek(proyek as string);
+                                setIsFilterOpen(false); 
+                              }}
+                              className="w-full text-left px-3 py-2 text-[13px] text-stone-700 hover:bg-stone-100 flex items-center justify-between transition"
+                            >
+                              <span className="truncate pr-2">{proyek as string}</span>
+                              {selectedProyek === proyek && (
+                                <Check size={14} className="text-blue-500 flex-shrink-0" />
+                              )}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

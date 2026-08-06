@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
     
-    if (role && role !== 'Direktur / Manajemen') {
+    if (role && role !== 'Direktur / Manajemen' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     if (status !== 'Semua') {
       whereCondition.status = status;
     }
+
     if (search) {
       whereCondition.OR = [
         { nama: { contains: search, mode: 'insensitive' } },
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
         limit
       }
     });
+
   } catch (error: any) {
     console.error('Get proyek error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
