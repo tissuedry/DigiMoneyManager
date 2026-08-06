@@ -128,7 +128,7 @@ export default function SuperAdminDashboard() {
             <h3 className="font-bold text-lg text-stone-800">Karyawan</h3>
             <p className="text-sm text-stone-500 mt-1">Reimbursement & riwayat pengajuan</p>
           </div>
-          <Link href="/superadmin/karyawan/riwayat" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
+          <Link href="/superadmin/riwayat" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
             {stats.totalPengajuan} pengajuan tercatat <ArrowRight size={16} />
           </Link>
         </div>
@@ -141,7 +141,7 @@ export default function SuperAdminDashboard() {
             <h3 className="font-bold text-lg text-stone-800">Project Manager</h3>
             <p className="text-sm text-stone-500 mt-1">Approval, kelola proyek & budget</p>
           </div>
-          <Link href="/superadmin/pm/approval" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
+          <Link href="/superadmin/approval" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
             {stats.approvalTertunda} menunggu approval <ArrowRight size={16} />
           </Link>
         </div>
@@ -154,7 +154,7 @@ export default function SuperAdminDashboard() {
             <h3 className="font-bold text-lg text-stone-800">Tim Keuangan</h3>
             <p className="text-sm text-stone-500 mt-1">Pencairan, jurnal & laporan</p>
           </div>
-          <Link href="/superadmin/keuangan/pencairan" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
+          <Link href="/superadmin/pencairan" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
             {stats.siapDicairkan} siap dicairkan <ArrowRight size={16} />
           </Link>
         </div>
@@ -167,7 +167,7 @@ export default function SuperAdminDashboard() {
             <h3 className="font-bold text-lg text-stone-800">Direktur</h3>
             <p className="text-sm text-stone-500 mt-1">Kelola proyek, profitabilitas & laporan eksekutif</p>
           </div>
-          <Link href="/superadmin/direktur/proyek" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
+          <Link href="/superadmin/proyek" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
             {stats.proyekAktif} proyek aktif <ArrowRight size={16} />
           </Link>
         </div>
