@@ -308,6 +308,7 @@ export default function KelolaProyekPage() {
       setEditableRows(nonPm.map((m) => ({ userId: m.id, nama: m.nama, divisi: m.divisi || "" })));
       setDirtyTim(false);
     }
+    
     if (searchParams.get('detailModal')) {
       setIsDetailOpen(true);
     }
@@ -517,7 +518,7 @@ export default function KelolaProyekPage() {
                       Lihat Detail Anggaran
                     </button>
                     <button
-                      onClick={() => setIsDetailOpen(true)}
+                      onClick={() => setIsAjukanOpen(true)}
                       className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
                     >
                       <Plus size={13} />
