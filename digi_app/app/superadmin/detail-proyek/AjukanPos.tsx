@@ -302,7 +302,8 @@ export default function AjukanPosModal({
       try {
         const res = await fetch("/api/master");
         if (res.ok) {
-          const data = await res.json();
+          const raw = await res.json();
+          const data = Array.isArray(raw) ? raw : (raw.data || []);
           setMasterMainList(data);
         }
       } catch (err) {
@@ -316,22 +317,23 @@ export default function AjukanPosModal({
     if (subOptions[mainId]) return;
     setLoadingSubOptions((prev) => ({ ...prev, [mainId]: true }));
     try {
-      let mainList = masterMainList;
+      let mainList = Array.isArray(masterMainList) ? masterMainList : [];
       if (mainList.length === 0) {
         const res = await fetch("/api/master");
         if (res.ok) {
-          mainList = await res.json();
+          const raw = await res.json();
+          mainList = Array.isArray(raw) ? raw : (raw.data || []);
           setMasterMainList(mainList);
         }
       }
       const matchingMain = mainList.find(
-        (m) => m.nama.toUpperCase().trim() === mainNama.toUpperCase().trim()
+        (m: any) => m.nama.toUpperCase().trim() === mainNama.toUpperCase().trim()
       );
       if (matchingMain) {
         const res = await fetch(`/api/master?mainId=${matchingMain.id}`);
         if (res.ok) {
           const subs = await res.json();
-          setSubOptions((prev) => ({ ...prev, [mainId]: subs }));
+          setSubOptions((prev) => ({ ...prev, [mainId]: Array.isArray(subs) ? subs : (subs.data || []) }));
           setNewSubName("");
         }
       }
@@ -349,17 +351,18 @@ export default function AjukanPosModal({
       const parentMain = data.find((m) => m.subPos.some((s) => s.id === subId));
       if (!parentMain) return;
 
-      let mainList = masterMainList;
+      let mainList = Array.isArray(masterMainList) ? masterMainList : [];
       if (mainList.length === 0) {
         const res = await fetch("/api/master");
         if (res.ok) {
-          mainList = await res.json();
+          const raw = await res.json();
+          mainList = Array.isArray(raw) ? raw : (raw.data || []);
           setMasterMainList(mainList);
         }
       }
 
       const matchingMain = mainList.find(
-        (m) => m.nama.toUpperCase().trim() === parentMain.nama.toUpperCase().trim()
+        (m: any) => m.nama.toUpperCase().trim() === parentMain.nama.toUpperCase().trim()
       );
       if (!matchingMain) return;
 
@@ -367,7 +370,8 @@ export default function AjukanPosModal({
       if (!subs) {
         const res = await fetch(`/api/master?mainId=${matchingMain.id}`);
         if (res.ok) {
-          subs = await res.json();
+          const rawSubs = await res.json();
+          subs = Array.isArray(rawSubs) ? rawSubs : (rawSubs.data || []);
           setSubOptions((prev) => ({ ...prev, [parentMain.id]: subs }));
         }
       }

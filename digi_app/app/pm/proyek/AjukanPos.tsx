@@ -361,7 +361,8 @@ export default function AjukanPosModal({
       try {
         const res = await fetch("/api/master");
         if (res.ok) {
-          const data = await res.json();
+          const raw = await res.json();
+          const data = Array.isArray(raw) ? raw : (raw.data || []);
           setMasterMainList(data);
         }
       } catch (err) {
@@ -375,16 +376,17 @@ export default function AjukanPosModal({
     if (subOptions[mainId]) return;
     setLoadingSubOptions((prev) => ({ ...prev, [mainId]: true }));
     try {
-      let mainList = masterMainList;
+      let mainList = Array.isArray(masterMainList) ? masterMainList : [];
       if (mainList.length === 0) {
         const res = await fetch("/api/master");
         if (res.ok) {
-          mainList = await res.json();
+          const raw = await res.json();
+          mainList = Array.isArray(raw) ? raw : (raw.data || []);
           setMasterMainList(mainList);
         }
       }
       const matchingMain = mainList.find(
-        (m) => m.nama.toUpperCase().trim() === mainNama.toUpperCase().trim()
+        (m: any) => m.nama.toUpperCase().trim() === mainNama.toUpperCase().trim()
       );
       if (matchingMain) {
         if (matchingMain.MasterSub) {
@@ -394,7 +396,7 @@ export default function AjukanPosModal({
           const res = await fetch(`/api/master?mainId=${matchingMain.id}`);
           if (res.ok) {
             const subs = await res.json();
-            setSubOptions((prev) => ({ ...prev, [mainId]: subs }));
+            setSubOptions((prev) => ({ ...prev, [mainId]: Array.isArray(subs) ? subs : (subs.data || []) }));
             setNewSubName("");
           }
         }
@@ -413,17 +415,18 @@ export default function AjukanPosModal({
       const parentMain = data.find((m) => m.subPos.some((s) => s.id === subId));
       if (!parentMain) return;
 
-      let mainList = masterMainList;
+      let mainList = Array.isArray(masterMainList) ? masterMainList : [];
       if (mainList.length === 0) {
         const res = await fetch("/api/master");
         if (res.ok) {
-          mainList = await res.json();
+          const raw = await res.json();
+          mainList = Array.isArray(raw) ? raw : (raw.data || []);
           setMasterMainList(mainList);
         }
       }
 
       const matchingMain = mainList.find(
-        (m) => m.nama.toUpperCase().trim() === parentMain.nama.toUpperCase().trim()
+        (m: any) => m.nama.toUpperCase().trim() === parentMain.nama.toUpperCase().trim()
       );
       if (!matchingMain) return;
 
@@ -928,7 +931,7 @@ export default function AjukanPosModal({
                       ))}
                   </select>
                 </div>
-                <div className="w-full sm:w-40 shrink-0">
+                <div className="w-full sm:w-60 shrink-0">
                   <input
                     type="text"
                     value={newMainAlokasi}
@@ -966,9 +969,11 @@ export default function AjukanPosModal({
           <div className="border border-[#e6e1d4] rounded-[12px] divide-y divide-[#e6e1d4] overflow-hidden bg-white">
             {data.map((main) => {
               const isMainOpen = expandedMain[main.id] ?? true;
-              const masterMain = masterMainList.find(
-                (m: any) => m.nama.toUpperCase().trim() === main.nama.toUpperCase().trim()
-              );
+              const masterMain = Array.isArray(masterMainList)
+                ? masterMainList.find(
+                  (m: any) => m.nama.toUpperCase().trim() === main.nama.toUpperCase().trim()
+                )
+                : undefined;
               const hasSubInMaster = Boolean(masterMain && masterMain.MasterSub && masterMain.MasterSub.length > 0);
 
               return (
@@ -1176,7 +1181,7 @@ export default function AjukanPosModal({
                                               </select>
                                             )}
                                           </div>
-                                          <div className="w-full sm:w-40 shrink-0">
+                                          <div className="w-full sm:w-60 shrink-0">
                                             <input
                                               type="text"
                                               value={newKetAlokasi}
@@ -1287,7 +1292,7 @@ export default function AjukanPosModal({
                                     </select>
                                   )}
                                 </div>
-                                <div className="w-full sm:w-40 shrink-0">
+                                <div className="w-full sm:w-60 shrink-0">
                                   <input
                                     type="text"
                                     value={newSubAlokasi}
