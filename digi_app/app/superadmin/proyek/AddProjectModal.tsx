@@ -1,5 +1,6 @@
 import React from "react";
 import { X, Loader2 } from "lucide-react";
+import DatePicker from "@/components/date-picker";
 
 type Props = {
   show: boolean;
@@ -56,22 +57,18 @@ export default function AddProjectModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
-              <input
-                type="date"
-                required
+              <DatePicker
                 value={projectForm.tanggalMulai}
-                onChange={(e) => setProjectForm({ ...projectForm, tanggalMulai: e.target.value })}
-                className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white"
+                onChange={(v) => setProjectForm({ ...projectForm, tanggalMulai: v })}
               />
             </div>
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai *</label>
-              <input
-                type="date"
-                required
+              <DatePicker
                 value={projectForm.tanggalSelesai}
-                onChange={(e) => setProjectForm({ ...projectForm, tanggalSelesai: e.target.value })}
-                className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white"
+                onChange={(v) => setProjectForm({ ...projectForm, tanggalSelesai: v })}
+                min={projectForm.tanggalMulai}
+                align="right"
               />
             </div>
           </div>

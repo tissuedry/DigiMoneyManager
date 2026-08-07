@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, Filter, ChevronDown } from 'lucide-react';
+import DatePicker from '@/components/date-picker';
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
@@ -131,27 +132,25 @@ export default function PeriodeSelector({ appliedStart, appliedEnd, onApply }: P
             <div className="space-y-3">
               <div>
                 <label className="text-[11px] font-medium text-stone-400 mb-1 block">Dari</label>
-                <input
-                  type="date"
+                <DatePicker
                   value={draftStart}
-                  onChange={(e) => {
-                    setDraftStart(e.target.value);
+                  onChange={(v) => {
+                    setDraftStart(v);
                     setSelectedRangeOption("");
                   }}
-                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-[12px] text-stone-700 bg-stone-50 focus:outline-none focus:border-stone-400 focus:bg-white transition cursor-pointer"
+                  size="sm"
                 />
               </div>
               <div>
                 <label className="text-[11px] font-medium text-stone-400 mb-1 block">Sampai</label>
-                <input
-                  type="date"
+                <DatePicker
                   value={draftEnd}
                   min={draftStart}
-                  onChange={(e) => {
-                    setDraftEnd(e.target.value);
+                  onChange={(v) => {
+                    setDraftEnd(v);
                     setSelectedRangeOption("");
                   }}
-                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-[12px] text-stone-700 bg-stone-50 focus:outline-none focus:border-stone-400 focus:bg-white transition cursor-pointer"
+                  size="sm"
                 />
               </div>
             </div>
