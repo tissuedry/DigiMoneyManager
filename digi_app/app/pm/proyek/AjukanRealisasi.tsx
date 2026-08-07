@@ -271,12 +271,25 @@ export default function AjukanRealisasiModal({
             onDragOver={(e) => e.preventDefault()}
             onDragLeave={() => setIsDragActive(false)}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${
-              isDragActive ? "border-stone-500 bg-stone-50" : "border-stone-200 hover:border-stone-300 hover:bg-stone-50/50"
+            className={`group relative border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${
+              isDragActive ? "border-emerald-500 bg-emerald-50/50" : "border-stone-200 bg-stone-50/50 hover:border-emerald-500 hover:bg-emerald-50/50"
             }`}
           >
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf" />
-            <Upload size={16} className={file ? "text-stone-800" : "text-stone-400"} />
+            {file && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="absolute top-2 right-2 p-1 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
+            <Upload size={16} className={file || isDragActive ? "text-emerald-600" : "text-stone-400 group-hover:text-emerald-600"} />
             <span className="text-[12px] font-medium text-stone-600">
               {file ? (
                 <span className="text-stone-900 font-bold">{file.name}</span>
