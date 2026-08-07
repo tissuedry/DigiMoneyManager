@@ -154,7 +154,7 @@ export default function EditProyekModal({
               <DatePicker value={tanggalMulai} onChange={setTanggalMulai} />
             </div>
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai</label>
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai *</label>
               <DatePicker value={tanggalSelesai} onChange={setTanggalSelesai} min={tanggalMulai} align="right" />
             </div>
           </div>
