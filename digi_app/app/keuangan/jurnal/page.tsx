@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import DatePicker from '@/components/date-picker';
 
 type JournalLine = {
   type: "Dr" | "Cr";
@@ -350,27 +351,25 @@ function JurnalAkuntansiContent() {
                       <div className="space-y-3">
                         <div>
                           <label className="text-[11px] font-medium text-stone-400 mb-1 block">Dari</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             value={draftStart}
-                            onChange={(e) => {
-                              setDraftStart(e.target.value);
+                            onChange={(v) => {
+                              setDraftStart(v);
                               setSelectedRangeOption("");
                             }}
-                            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-[12px] text-stone-700 bg-stone-50 focus:outline-none focus:border-stone-400 focus:bg-white transition"
+                            size="sm"
                           />
                         </div>
                         <div>
                           <label className="text-[11px] font-medium text-stone-400 mb-1 block">Sampai</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             value={draftEnd}
                             min={draftStart}
-                            onChange={(e) => {
-                              setDraftEnd(e.target.value);
+                            onChange={(v) => {
+                              setDraftEnd(v);
                               setSelectedRangeOption("");
                             }}
-                            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-[12px] text-stone-700 bg-stone-50 focus:outline-none focus:border-stone-400 focus:bg-white transition"
+                            size="sm"
                           />
                         </div>
                       </div>

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Toast from '@/components/toast';
+import DatePicker from '@/components/date-picker';
 import PreviewModal from './PreviewModal';
 import {
   PlusCircle,
@@ -708,17 +709,11 @@ function AjukanReimbursementContent() {
                       <label className="text-stone-700 font-bold">Tanggal Transaksi <span className="text-red-500">*</span></label>
                       <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                     </div>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={tanggal}
-                        onChange={(e) => { setTanggal(e.target.value); clearFieldError('tanggal'); }}
-                        className={`w-full bg-white border rounded-xl px-4 py-3.5 font-medium text-stone-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all [color-scheme:light] ${
-                          formErrors.tanggal ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
-                        }`}
-                        onClick={(e) => e.currentTarget.showPicker()}
-                      />
-                    </div>
+                    <DatePicker
+                      value={tanggal}
+                      onChange={(v) => { setTanggal(v); clearFieldError('tanggal'); }}
+                      error={!!formErrors.tanggal}
+                    />
                     {formErrors.tanggal && <p className="text-red-500 text-xs font-medium">{formErrors.tanggal}</p>}
                   </div>
                 </div>
