@@ -186,7 +186,13 @@ export default function InitBudgetModal({
                   type="text"
                   required
                   value={rabTotal}
-                  onChange={(e) => setRabTotal(formatRibuan(e.target.value))}
+                  onChange={(e) => {
+                          const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                    setRabTotal(formatted);
+                    requestAnimationFrame(() => {
+                      e.target.setSelectionRange(caret, caret);
+                    });
+                  }}
                   style={{
                     flex: 1,
                     border: 'none',
@@ -344,8 +350,12 @@ export default function InitBudgetModal({
                         value={pos.nominalAlokasi}
                         onChange={(e) => {
                           const newList = [...posAnggaranList];
-                          newList[idx].nominalAlokasi = formatRibuan(e.target.value);
+                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                          newList[idx].nominalAlokasi = formatted;
                           setPosAnggaranList(newList);
+                          requestAnimationFrame(() => {
+                            e.target.setSelectionRange(caret, caret);
+                          });
                         }}
                         placeholder="Alokasi (Rp)"
                         className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[13px] bg-white font-mono text-stone-900 font-bold text-left focus:outline-none focus:border-stone-400 placeholder-stone-300"

@@ -493,7 +493,7 @@ export default function ProjectDetailSidebar({
                                             >
                                                 <div className="flex items-center gap-1.5">
                                                     <ClipboardList size={13.5} className="text-stone-500" />
-                                                    <span>Pengajuan Pos PM</span>
+                                                    <span>Pengajuan dari PM</span>
                                                 </div>
                                                 <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-[9px] font-bold bg-[#005836] text-white rounded-full">
                                                     {detailedProjectInfo?.pendingPmCount || 0}

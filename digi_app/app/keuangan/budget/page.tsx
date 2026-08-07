@@ -18,8 +18,8 @@ import {
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Toast from "@/components/toast";
+import Pagination from "@/components/pagination";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtRupiah(n: number) {
   if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(2)} M`;
   if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(2)} jt`;
@@ -30,7 +30,6 @@ function parseRupiah(s: string): number {
   return parseFloat(s.replace(/[^0-9.]/g, "")) || 0;
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type PosRow = { namaPos: string; nominalAlokasi: string };
 
 type PosAnggaranDB = {
@@ -57,7 +56,6 @@ type Proyek = {
   budget: BudgetDB | null;
 };
 
-// ─── Budget Form Modal ─────────────────────────────────────────────────────────
 function BudgetFormModal({
   proyek,
   onClose,
@@ -73,7 +71,6 @@ function BudgetFormModal({
       ? proyek.budget!.posAnggaran.map((p) => ({
           namaPos: p.namaPos,
           nominalAlokasi: String(Number(p.nominalAlokasi)),
-          nominalTerpakai: String(Number(p.nominalTerpakai))
         }))
       : [{ namaPos: "", nominalAlokasi: "" }]
   );
@@ -147,7 +144,6 @@ function BudgetFormModal({
           </button>
         </div>
 
-        {/* Modal Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Pos Anggaran Rows */}
           <div>
@@ -268,7 +264,6 @@ function BudgetFormModal({
   );
 }
 
-// ─── Project Card ──────────────────────────────────────────────────────────────
 function ProyekCard({
   proyek,
   onManageBudget,
@@ -286,7 +281,6 @@ function ProyekCard({
   const sisa = budget ? Number(budget.sisaBudget) : 0;
   const pct = rab > 0 ? Math.round((terpakai / rab) * 100) : 0;
 
-  // Handler Export Excel
   const handleExport = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExporting(true);
@@ -456,38 +450,60 @@ function ProyekCard({
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
+const LIMIT = 4;
+
 export default function KeuanganBudgetPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [proyekList, setProyekList] = useState<Proyek[]>([]);
+  const [noBudgetList, setNoBudgetList] = useState<Proyek[]>([]);
+  const [hasBudgetList, setHasBudgetList] = useState<Proyek[]>([]);
+  const [noBudgetTotal, setNoBudgetTotal] = useState(0);
+  const [hasBudgetTotal, setHasBudgetTotal] = useState(0);
+  const [pageNoBudget, setPageNoBudget] = useState(1);
+  const [pageHasBudget, setPageHasBudget] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selectedProyek, setSelectedProyek] = useState<Proyek | null>(null);
   const [successMsg, setSuccessMsg] = useState("");
 
-  const fetchProyek = useCallback(async () => {
-    setLoading(true);
+  const fetchSection = useCallback(async (status: "has" | "none", page: number) => {
+    setError("");
     try {
-      const res = await fetch("/api/proyek");
+      const res = await fetch(`/api/proyek?limit=${LIMIT}&budgetStatus=${status}&page=${page}`);
       const data = await res.json();
-      setProyekList(data.projects ?? []);
+      if (!res.ok) throw new Error(data.message || "Gagal memuat data proyek.");
+      if (status === "has") {
+        setHasBudgetList(data.projects ?? []);
+        setHasBudgetTotal(data.pagination?.totalItems ?? 0);
+      } else {
+        setNoBudgetList(data.projects ?? []);
+        setNoBudgetTotal(data.pagination?.totalItems ?? 0);
+      }
     } catch {
-      /* ignore */
-    } finally {
-      setLoading(false);
+      setError("Gagal memuat data proyek. Periksa koneksi dan coba lagi.");
     }
   }, []);
 
-  useEffect(() => { fetchProyek(); }, [fetchProyek]);
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([
+      fetchSection("has", pageHasBudget),
+      fetchSection("none", pageNoBudget),
+    ]);
+    setLoading(false);
+  }, [fetchSection, pageHasBudget, pageNoBudget]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   const handleSuccess = () => {
     setSelectedProyek(null);
     setSuccessMsg("Pembaruan Budget berhasil disimpan!");
-    fetchProyek();
+    loadAll();
     setTimeout(() => setSuccessMsg(""), 4000);
   };
 
-  const noBudget = proyekList.filter((p) => !p.budget);
-  const hasBudget = proyekList.filter((p) => !!p.budget);
+  const totalProjects = noBudgetTotal + hasBudgetTotal;
+  const noBudgetPages = Math.ceil(noBudgetTotal / LIMIT);
+  const hasBudgetPages = Math.ceil(hasBudgetTotal / LIMIT);
 
   return (
     <div className="flex h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
@@ -513,17 +529,33 @@ export default function KeuanganBudgetPage() {
             </div>
           )}
 
+          {/* Error Banner */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <AlertCircle size={16} />
+                {error}
+              </span>
+              <button
+                onClick={loadAll}
+                className="shrink-0 text-[12px] font-bold px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-100 transition cursor-pointer"
+              >
+                Coba Lagi
+              </button>
+            </div>
+          )}
+
           {/* Summary Cards */}
           {!loading && (
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: "Total Proyek Aktif", value: proyekList.length, color: "text-stone-800" },
+                { label: "Total Proyek Aktif", value: totalProjects, color: "text-stone-800" },
                 {
                   label: "Budget Belum Diinisialisasi",
-                  value: noBudget.length,
-                  color: noBudget.length > 0 ? "text-amber-600" : "text-emerald-600",
+                  value: noBudgetTotal,
+                  color: noBudgetTotal > 0 ? "text-amber-600" : "text-emerald-600",
                 },
-                { label: "Budget Aktif", value: hasBudget.length, color: "text-emerald-700" },
+                { label: "Budget Aktif", value: hasBudgetTotal, color: "text-emerald-700" },
               ].map((c) => (
                 <div key={c.label} className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
                   <p className="text-[12px] text-stone-500 font-medium">{c.label}</p>
@@ -534,32 +566,48 @@ export default function KeuanganBudgetPage() {
           )}
 
           {/* Projects Without Budget — Priority */}
-          {!loading && noBudget.length > 0 && (
+          {!loading && noBudgetTotal > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <AlertCircle size={15} className="text-amber-500" />
-                <h2 className="text-[13px] font-bold text-stone-700">Perlu Diinisialisasi ({noBudget.length})</h2>
+                <h2 className="text-[13px] font-bold text-stone-700">Perlu Diinisialisasi ({noBudgetTotal})</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {noBudget.map((p) => (
+                {noBudgetList.map((p) => (
                   <ProyekCard key={p.id} proyek={p} onManageBudget={setSelectedProyek} />
                 ))}
               </div>
+              <Pagination
+                page={pageNoBudget}
+                totalPages={noBudgetPages}
+                onChange={(p) => {
+                  setPageNoBudget(p);
+                  fetchSection("none", p);
+                }}
+              />
             </div>
           )}
 
           {/* Projects With Budget */}
-          {!loading && hasBudget.length > 0 && (
+          {!loading && hasBudgetTotal > 0 && (
             <div>
               <h2 className="text-[13px] font-bold text-stone-700 mb-3 flex items-center gap-2">
                 <Check size={15} className="text-emerald-600" />
-                Budget Aktif ({hasBudget.length})
+                Budget Aktif ({hasBudgetTotal})
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {hasBudget.map((p) => (
+                {hasBudgetList.map((p) => (
                   <ProyekCard key={p.id} proyek={p} onManageBudget={setSelectedProyek} />
                 ))}
               </div>
+              <Pagination
+                page={pageHasBudget}
+                totalPages={hasBudgetPages}
+                onChange={(p) => {
+                  setPageHasBudget(p);
+                  fetchSection("has", p);
+                }}
+              />
             </div>
           )}
 
@@ -572,7 +620,7 @@ export default function KeuanganBudgetPage() {
           )}
 
           {/* Empty */}
-          {!loading && proyekList.length === 0 && (
+          {!loading && totalProjects === 0 && (
             <div className="text-center py-20 text-stone-400">
               <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
               <p className="text-sm font-medium">Belum ada proyek di sistem.</p>

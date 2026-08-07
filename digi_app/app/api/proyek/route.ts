@@ -12,11 +12,12 @@ export async function GET(req: NextRequest) {
     const urlRole = searchParams.get('role') || role;
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
-    
+    const budgetStatus = searchParams.get('budgetStatus') || 'all';
+
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '4', 10);
 
-    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}:page=${page}:limit=${limit}`;
+    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}:budgetStatus=${budgetStatus}:page=${page}:limit=${limit}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
 
@@ -66,12 +67,21 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    // Logika Filter Keberadaan Budget
+    let budgetFilter: any = {};
+    if (budgetStatus === 'has') {
+      budgetFilter = { budget: { isNot: null } };
+    } else if (budgetStatus === 'none') {
+      budgetFilter = { budget: { is: null } };
+    }
+
     // Menggabungkan semua filter ke dalam kondisi AND Prisma
     const finalWhere = {
       AND: [
         roleFilter,
         searchFilter,
-        statusFilter
+        statusFilter,
+        budgetFilter
       ]
     };
 

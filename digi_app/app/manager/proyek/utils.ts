@@ -60,11 +60,21 @@ export const formatSummaryRupiah = (num: number) => {
   return `${sign}Rp ${formatted}`;
 };
 
-export const formatRibuan = (value: string) => {
+export function formatRibuan(value: string): string;
+export function formatRibuan(value: string, caretPos: number): { formatted: string; caret: number };
+export function formatRibuan(value: string, caretPos?: number) {
   const angkaMurni = value.replace(/[^0-9]/g, "");
-  if (!angkaMurni) return "";
-  return angkaMurni.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-};
+  const formatted = angkaMurni ? angkaMurni.replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
+  if (caretPos === undefined) return formatted;
+  const digitsBefore = value.slice(0, caretPos).replace(/[^0-9]/g, "").length;
+  let caret = 0;
+  let digits = 0;
+  for (let i = 0; i < formatted.length && digits < digitsBefore; i++) {
+    caret++;
+    if (/[0-9]/.test(formatted[i])) digits++;
+  }
+  return { formatted, caret };
+}
 
 export const ribuanToNumber = (stringRibuan: string) => {
   if (!stringRibuan) return 0;
