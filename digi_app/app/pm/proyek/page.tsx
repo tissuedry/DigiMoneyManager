@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, use } from "react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import DetailAnggaranModal from "./DetailAnggaran";
@@ -16,15 +16,14 @@ import {
   Eye,
   Plus,
   Users,
-  UserPlus,
   Trash2,
   Settings,
-  X,
   Loader2,
   Check,
   AlertCircle,
 } from "lucide-react";
 import { useApi, useInvalidate } from "@/lib/use-api";
+import { useRouter } from "next/navigation";
 
 type PosAnggaran = {
   id: number;
@@ -267,7 +266,15 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
   );
 }
 
-export default function KelolaProyekPage() {
+export default function KelolaProyekPage({ searchParams }: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const query = use(searchParams);
+  return <KelolaProyekContent openDetailModal={Boolean(query.detailModal)} />;
+}
+
+function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) {
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAjukanOpen, setIsAjukanOpen] = useState(false);
@@ -305,7 +312,10 @@ export default function KelolaProyekPage() {
       setEditableRows(nonPm.map((m) => ({ userId: m.id, nama: m.nama, divisi: m.divisi || "" })));
       setDirtyTim(false);
     }
-  }, [proyek]);
+    if (openDetailModal) {
+      setIsDetailOpen(true);
+    }
+  }, [proyek, openDetailModal]);
 
   const handleSaveTim = () => {
     if (!proyek) return;
@@ -370,6 +380,11 @@ export default function KelolaProyekPage() {
     }));
     setDirtyTim(true);
   };
+
+  const handleCloseDetailModal = () => {
+    setIsDetailOpen(false);
+    router.replace("/pm/proyek", { scroll: false });
+  }
 
   const allocated = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
   const unallocated = proyek ? Math.max(0, proyek.totalRAB - allocated) : 0;
@@ -673,7 +688,7 @@ export default function KelolaProyekPage() {
           proyekNama={proyek.nama}
           posAnggaran={proyek.posAnggaran}
           totalRAB={proyek.totalRAB}
-          onClose={() => setIsDetailOpen(false)}
+          onClose={handleCloseDetailModal}
           onRefresh={() => invalidate("/api/pm/proyek")}
         />
       )}
