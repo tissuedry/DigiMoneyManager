@@ -35,7 +35,7 @@ export default function EditProjectModal({
 
         <form onSubmit={onSubmit} className="p-6 space-y-4 text-left overflow-y-auto flex-1">
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek *</label>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek <span className="text-red-500"> *</span></label>
             <input type="text" required value={editForm.nama} onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30" />
           </div>
           <div>
@@ -44,11 +44,14 @@ export default function EditProjectModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
-              <DatePicker value={editForm.tanggalMulai} onChange={(v) => setEditForm({ ...editForm, tanggalMulai: v })} />
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai <span className="text-red-500"> *</span></label>
+              <DatePicker 
+              value={editForm.tanggalMulai} 
+              onChange={(v) => setEditForm({ ...editForm, tanggalMulai: v })} 
+              />
             </div>
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai *</label>
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai <span className="text-red-500"> *</span></label>
               <DatePicker
                 value={editForm.tanggalSelesai}
                 onChange={(v) => setEditForm({ ...editForm, tanggalSelesai: v })}
@@ -58,7 +61,7 @@ export default function EditProjectModal({
             </div>
           </div>
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek <span className="text-red-500"> *</span></label>
             <div className="flex flex-wrap gap-2 mt-1">
               {[{ value: "PLANNING", label: "Planning" }, { value: "AKTIF", label: "Active" }, { value: "DONE", label: "Done" }, { value: "CANCELED", label: "Canceled" }].map((statusItem) => {
                 const isSelected = editForm.status === statusItem.value;

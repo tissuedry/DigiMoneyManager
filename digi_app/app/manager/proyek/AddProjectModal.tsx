@@ -34,7 +34,7 @@ export default function AddProjectModal({
         </div>
         <form onSubmit={onSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek *</label>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek <span className="text-red-500"> *</span></label>
             <input
               type="text"
               required
@@ -56,7 +56,7 @@ export default function AddProjectModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai <span className="text-red-500"> *</span></label>
               <DatePicker
                 value={projectForm.tanggalMulai}
                 onChange={(v) => setProjectForm({ ...projectForm, tanggalMulai: v })}
@@ -64,7 +64,7 @@ export default function AddProjectModal({
             </div>
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
-                Tanggal Selesai *
+                Tanggal Selesai <span className="text-red-500"> *</span>
               </label>
               <DatePicker
                 value={projectForm.tanggalSelesai}

@@ -232,8 +232,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json();
     const { nama, deskripsi, tanggalMulai, tanggalSelesai, status } = body;
 
-    if (!nama || !tanggalMulai || !status) {
-      return NextResponse.json({ message: 'Nama, tanggal mulai, dan status wajib diisi' }, { status: 400 });
+    if (!nama || !tanggalMulai || !status || !tanggalSelesai) {
+      return NextResponse.json({ message: 'Nama, tanggal mulai, tanggal selesai, dan status wajib diisi' }, { status: 400 });
     }
 
     const updatedProject = await prisma.proyek.update({
