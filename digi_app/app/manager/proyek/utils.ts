@@ -1,5 +1,5 @@
 export function formatReimbursementDate(r: any): string {
-  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
+  const ocrTanggal = r.tanggalStruk;
   if (ocrTanggal) {
     const d = new Date(ocrTanggal);
     if (!isNaN(d.getTime())) {
@@ -81,7 +81,7 @@ export const getStatusStyles = (status: string) => {
     case "CANCELED":
       return "bg-rose-50 text-rose-700 border-rose-100";
     case "DONE":
-      return "bg-purple-50 text-purple-700 border-purple-100";
+      return "bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]";
     default:
       return "bg-stone-50 text-stone-500 border-stone-100";
   }
@@ -114,7 +114,7 @@ export function calculateTotalTerpakai(detailedProjectInfo: any, fallbackValue: 
           const subRealisasi = hasKet
             ? sub.keterangan.reduce((accKet: number, k: any) => {
                 const reimbs = (k.reimbursements || []).filter((r: any) =>
-                  ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+                  ['APPROVED', 'PAID', 'DISBURSED'].includes(r.status)
                 );
                 const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
                 return accKet + (sumReimbs || parseFloat(k.nominalRealisasi) || 0);

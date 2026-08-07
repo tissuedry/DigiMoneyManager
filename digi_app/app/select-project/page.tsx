@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Briefcase, ChevronRight, LogOut, Loader2, FolderOpen, AlertCircle, Search, X } from 'lucide-react';
+import { Briefcase, ChevronRight, ChevronLeft, LogOut, Loader2, FolderOpen, AlertCircle, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
+import ConfirmDialog from '@/components/confirm-dialog';
 
 type ProjectAssignment = {
   proyekId: number;
@@ -43,6 +44,10 @@ export default function SelectProjectPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [selectingId, setSelectingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const ITEMS_PER_PAGE = 6;
 
   const queryClient = useQueryClient();
 
@@ -93,6 +98,7 @@ export default function SelectProjectPage() {
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       const res = await fetch('/api/auth/logout', { method: 'POST' });
       if (res.ok) {
@@ -100,6 +106,7 @@ export default function SelectProjectPage() {
       }
     } catch (err) {
       console.error('Logout error:', err);
+      setIsLoggingOut(false);
     }
   };
 
@@ -117,6 +124,13 @@ export default function SelectProjectPage() {
   // Filter assignments based on search query
   const filteredAssignments = assignments.filter((item) =>
     item.nama.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredAssignments.length / ITEMS_PER_PAGE);
+  const safePage = Math.min(currentPage, totalPages || 1);
+  const paginatedAssignments = filteredAssignments.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
   );
 
   return (
@@ -138,7 +152,7 @@ export default function SelectProjectPage() {
         </div>
 
         <button
-          onClick={handleLogout}
+          onClick={() => setShowLogoutConfirm(true)}
           className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-xl text-xs font-bold bg-white text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition cursor-pointer shadow-sm"
         >
           <LogOut size={13} />
@@ -169,13 +183,16 @@ export default function SelectProjectPage() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="Cari proyek berdasarkan nama..."
                 className="w-full bg-white border border-stone-200 rounded-2xl pl-11 pr-10 py-3.5 text-xs font-medium text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#008f5d]/10 focus:border-[#008f5d] transition-all"
               />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition"
                 >
                   <X size={14} />
@@ -194,16 +211,17 @@ export default function SelectProjectPage() {
 
         {/* Blue: Projects Grid Area */}
         <div className="w-full">
-          {filteredAssignments.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAssignments.map((assignment) => {
+          {paginatedAssignments.length > 0 ? (
+            <>
+            <div className="flex flex-wrap justify-center gap-6">
+              {paginatedAssignments.map((assignment) => {
                 const isSelecting = selectingId === assignment.proyekId;
                 const isPM = assignment.role === 'Project Manager';
                 return (
                   <div
                     key={assignment.proyekId}
                     onClick={() => !selectingId && handleSelectProject(assignment.proyekId)}
-                    className={`bg-white border border-stone-200/80 rounded-2xl p-6 shadow-sm flex flex-col justify-between transition-all duration-200 group text-left ${
+                    className={`w-full sm:w-[340px] bg-white border border-stone-200/80 rounded-2xl p-6 shadow-sm flex flex-col justify-between transition-all duration-200 group text-left ${
                       selectingId 
                         ? 'opacity-60 cursor-not-allowed' 
                         : 'cursor-pointer hover:border-[#008f5d] hover:shadow-md hover:-translate-y-1'
@@ -266,6 +284,32 @@ export default function SelectProjectPage() {
                 );
               })}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 mt-8">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-stone-200 rounded-xl text-xs font-bold bg-white text-stone-600 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
+                >
+                  <ChevronLeft size={14} />
+                  Sebelumnya
+                </button>
+                <span className="text-xs font-semibold text-stone-500 px-3">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-stone-200 rounded-xl text-xs font-bold bg-white text-stone-600 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
+                >
+                  Selanjutnya
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+            </>
           ) : (
             <div className="bg-white border border-stone-200 rounded-3xl p-16 text-center space-y-4 shadow-sm max-w-lg mx-auto">
               <FolderOpen size={48} className="mx-auto text-stone-300" />
@@ -281,7 +325,7 @@ export default function SelectProjectPage() {
               </div>
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
                   className="px-4 py-2 border border-stone-200 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-50"
                 >
                   Reset Pencarian
@@ -296,6 +340,17 @@ export default function SelectProjectPage() {
       <footer className="w-full border-t border-stone-200/60 bg-white/50 py-4 text-center text-[10px] text-stone-400 font-medium">
         © {new Date().getFullYear()} Digi Money Manager. Hak Cipta Dilindungi.
       </footer>
+
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title="Keluar dari Akun"
+        description="Apakah Anda yakin ingin keluar dari akun ini?"
+        confirmLabel="Keluar"
+        variant="danger"
+        isLoading={isLoggingOut}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 }

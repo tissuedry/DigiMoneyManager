@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { Check, X, Loader2 } from "lucide-react";
+import ConfirmDialog from "@/components/confirm-dialog";
+import DatePicker from "@/components/date-picker";
 
 type ProyekDataMinimal = {
   id: number;
@@ -34,15 +36,20 @@ export default function EditProyekModal({
   const [tanggalSelesai, setTanggalSelesai] = useState(() => toDateInput(proyek.tanggalSelesai));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!nama || !tanggalMulai) {
-      setError("Nama Proyek dan Tanggal Mulai wajib diisi!");
+    if (!nama || !tanggalMulai || !tanggalSelesai) {
+      setError("Nama Proyek, Tanggal Mulai, dan Tanggal Selesai wajib diisi!");
       return;
     }
 
+    setShowConfirm(true);
+  };
+
+  const handleConfirmSave = async () => {
     setSubmitting(true);
     try {
       const res = await fetch(`/api/proyek/${proyek.id}`, {
@@ -59,35 +66,38 @@ export default function EditProyekModal({
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Gagal memperbarui proyek");
+        setShowConfirm(false);
         return;
       }
+      setShowConfirm(false);
       onSave();
     } catch {
       setError("Terjadi kesalahan koneksi");
+      setShowConfirm(false);
     } finally {
       setSubmitting(false);
     }
   };
 
   const statusOptions = [
-    { value: "AKTIF", label: "Active" },
     { value: "PLANNING", label: "Planning" },
+    { value: "AKTIF", label: "Active" },
     { value: "DONE", label: "Done" },
     { value: "CANCELLED", label: "Cancelled" },
   ];
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
 
-        <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+        <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50 flex-shrink-0">
           <h3 className="font-bold text-[15px] text-stone-900">Edit Proyek</h3>
           <button type="button" onClick={onClose} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition cursor-pointer">
             <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-[12px] font-medium text-red-700">
               {error}
@@ -95,7 +105,7 @@ export default function EditProyekModal({
           )}
 
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek *</label>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek <span className="text-red-500"> *</span></label>
             <input
               type="text"
               required
@@ -116,7 +126,7 @@ export default function EditProyekModal({
           </div>
 
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek <span className="text-red-500"> *</span></label>
             <div className="flex flex-wrap gap-2 mt-1">
               {statusOptions.map((opt) => {
                 const isSelected = status === opt.value;
@@ -140,23 +150,12 @@ export default function EditProyekModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
-              <input
-                type="date"
-                required
-                value={tanggalMulai}
-                onChange={(e) => setTanggalMulai(e.target.value)}
-                className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white text-stone-800 font-semibold focus:outline-none"
-              />
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai <span className="text-red-500"> *</span></label>
+              <DatePicker value={tanggalMulai} onChange={setTanggalMulai} />
             </div>
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai</label>
-              <input
-                type="date"
-                value={tanggalSelesai}
-                onChange={(e) => setTanggalSelesai(e.target.value)}
-                className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white text-stone-800 font-semibold focus:outline-none"
-              />
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai <span className="text-red-500"> *</span></label>
+              <DatePicker value={tanggalSelesai} onChange={setTanggalSelesai} min={tanggalMulai} align="right" />
             </div>
           </div>
 
@@ -185,6 +184,38 @@ export default function EditProyekModal({
           </div>
         </form>
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="Simpan Perubahan Proyek"
+        description={
+          <>
+            Apakah Anda yakin ingin menyimpan perubahan berikut untuk proyek <span className="font-semibold text-stone-900">{proyek.nama}</span>?
+            <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3 mt-3 space-y-1.5">
+              <div className="flex justify-between gap-3">
+                <dt className="text-stone-400 font-medium">Nama</dt>
+                <dd className="font-bold text-stone-800 text-right">{nama}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-stone-400 font-medium">Status</dt>
+                <dd className="font-bold text-stone-800 text-right">{statusOptions.find((o) => o.value === status)?.label || status}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-stone-400 font-medium">Tanggal Mulai</dt>
+                <dd className="font-bold text-stone-800 text-right">{tanggalMulai}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-stone-400 font-medium">Tanggal Selesai</dt>
+                <dd className="font-bold text-stone-800 text-right">{tanggalSelesai || "-"}</dd>
+              </div>
+            </dl>
+          </>
+        }
+        confirmLabel="Simpan"
+        isLoading={submitting}
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={handleConfirmSave}
+      />
     </div>
   );
 }

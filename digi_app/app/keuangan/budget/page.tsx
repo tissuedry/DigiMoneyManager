@@ -13,10 +13,11 @@ import {
   X,
   PlusCircle,
   FolderOpen,
-  FileSpreadsheet, // Ditambahkan untuk tombol export
+  FileSpreadsheet, 
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
+import Toast from "@/components/toast";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtRupiah(n: number) {
@@ -72,6 +73,7 @@ function BudgetFormModal({
       ? proyek.budget!.posAnggaran.map((p) => ({
           namaPos: p.namaPos,
           nominalAlokasi: String(Number(p.nominalAlokasi)),
+          nominalTerpakai: String(Number(p.nominalTerpakai))
         }))
       : [{ namaPos: "", nominalAlokasi: "" }]
   );
@@ -276,6 +278,7 @@ function ProyekCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [toastError, setToastError] = useState<string | null>(null);
 
   const budget = proyek.budget;
   const rab = budget ? Number(budget.rabTotal) : 0;
@@ -302,13 +305,14 @@ function ProyekCard({
       document.body.removeChild(a);
     } catch (error) {
       console.error("Export error", error);
-      alert("Gagal mengunduh Excel. Pastikan data budget valid.");
+      setToastError("Gagal mengunduh Excel. Pastikan data budget valid.");
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
+    <>
     <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
       {/* Card Header */}
       <div className="p-5 flex items-start gap-4">
@@ -441,6 +445,14 @@ function ProyekCard({
         </div>
       )}
     </div>
+
+    <Toast
+      open={!!toastError}
+      variant="error"
+      message={toastError || ''}
+      onClose={() => setToastError(null)}
+    />
+    </>
   );
 }
 
@@ -505,7 +517,7 @@ export default function KeuanganBudgetPage() {
           {!loading && (
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: "Total Proyek", value: proyekList.length, color: "text-stone-800" },
+                { label: "Total Proyek Aktif", value: proyekList.length, color: "text-stone-800" },
                 {
                   label: "Budget Belum Diinisialisasi",
                   value: noBudget.length,

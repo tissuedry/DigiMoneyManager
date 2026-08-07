@@ -37,6 +37,15 @@ function getStatusRank(status: string): number {
   return 4;
 }
 
+function reimbType(s: string): string {
+  const map: Record<string, string> = {
+    "Realisasi Anggaran": "REAL",
+    "Reimbursement": "REIMB",
+  };
+
+  return map[s] || s || "REIMB";
+}
+
 const COL_CLASS =
   "flex items-center gap-3 px-6 py-1.5 hover:bg-stone-50 transition";
 const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[440px]";
@@ -427,10 +436,11 @@ export default function DetailBudgetModal({
                                                     <Row key={reimb.id} indent={3}>
                                                       <div className={NAME_CLASS} title={displayName}>
                                                         <span
-                                                          className="text-[9px] font-bold uppercase shrink-0"
-                                                          style={{ color: "#005D8D" }}
+                                                          className={`text-[9px] font-bold uppercase shrink-0 ${
+                                                            reimb.tipe === 'Realisasi Anggaran' ? 'text-[#483E90]' : 'text-[#005D8D]'
+                                                          }`}
                                                         >
-                                                          REIMB
+                                                          {reimbType(reimb.tipe)}
                                                         </span>
                                                         <span
                                                           className="text-[11px] text-stone-700 font-medium truncate shrink-1 cursor-pointer"

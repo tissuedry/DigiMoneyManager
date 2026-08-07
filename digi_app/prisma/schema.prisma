@@ -112,16 +112,25 @@ model Reimbursement {
   userId               Int                @map("user_id")
   proyekId             Int                @map("proyek_id")
   keteranganAnggaranId Int                @map("keterangan_anggaran_id")
+  
+              
+  nama                 String?            @map("nama") 
+  tipe                 String?            
+  merchant             String?            
+  tanggalStruk         DateTime?          @map("tanggal_struk")
+  kategoriBukti        String?            @map("kategori_bukti")
+  createdAt            DateTime           @default(now()) @map("created_at")
+
   nominal              Decimal            @db.Decimal(15, 2)
   urlStruk             String             @map("url_struk")
-  ocrData              Json               @map("ocr_data")
   fraudFlag            Boolean            @default(false) @map("fraud_flag")
   status               String
+
   approvals            Approval[]
   jurnalAkuntansi      JurnalAkuntansi[]
   keteranganAnggaran   KeteranganAnggaran @relation(fields: [keteranganAnggaranId], references: [id])
   proyek               Proyek             @relation(fields: [proyekId], references: [id], onDelete: Cascade)
-  user                 User               @relation(fields: [userId], references: [id])
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([keteranganAnggaranId])
   @@index([status, proyekId])
@@ -137,8 +146,9 @@ model Approval {
   level           String
   status          String
   catatan         String?
+  alasan          String?
   timestamp       DateTime      @default(now())
-  approver        User          @relation(fields: [approverId], references: [id])
+  approver        User          @relation(fields: [approverId], references: [id], onDelete: Cascade)
   reimbursement   Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
 
   @@index([reimbursementId])
@@ -200,7 +210,7 @@ model PengajuanAnggaran {
   catatan     String?
   createdAt   DateTime                @default(now()) @map("created_at")
   processedAt DateTime?               @map("diproses_pada")
-  pengaju     User                    @relation(fields: [pengajuId], references: [id])
+  pengaju     User                    @relation(fields: [pengajuId], references: [id], onDelete: Cascade)
   proyek      Proyek                  @relation(fields: [proyekId], references: [id], onDelete: Cascade)
   items       PengajuanAnggaranItem[]
 
@@ -236,7 +246,6 @@ model Notification {
   @@index([userId, dibaca, timestamp])
   @@map("notifications")
 }
-
 
 model MasterMain {
   id        Int         @id @default(autoincrement())

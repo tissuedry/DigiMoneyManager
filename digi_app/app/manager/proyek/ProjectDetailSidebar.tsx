@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check, Search, ChevronDown } from "lucide-react";
 import { Project, Member } from "./types";
 import {
     formatRupiah,
@@ -10,6 +10,154 @@ import {
     calculateBudgetProgress, 
     formatStatusLabel
 } from "./utils";
+
+function getMemberInitials(name: string) {
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+    "bg-emerald-100 text-emerald-800 border border-emerald-200/50",
+    "bg-sky-100 text-sky-800 border border-sky-200/50",
+    "bg-rose-100 text-rose-800 border border-rose-200/50",
+    "bg-indigo-100 text-indigo-800 border border-indigo-200/50",
+    "bg-amber-100 text-amber-800 border border-amber-200/50",
+    "bg-teal-100 text-teal-800 border border-teal-200/50",
+    "bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200/50",
+    "bg-purple-100 text-purple-800 border border-purple-200/50",
+];
+
+function SearchableMemberSelect({
+    value,
+    onChange,
+    members,
+    placeholder = "Pilih nama...",
+}: {
+    value: string;
+    onChange: (val: string) => void;
+    members: Member[];
+    placeholder?: string;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const [visibleLimit, setVisibleLimit] = useState(10);
+    const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+    const selectedMember = members.find((m) => String(m.id) === String(value));
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const displayValue = isOpen ? search : (selectedMember ? selectedMember.nama : "");
+
+    const filteredMembers = members
+        .filter((m) => {
+            const q = search.toLowerCase().trim();
+            if (!q) return true;
+            return (
+                m.nama.toLowerCase().includes(q) ||
+                m.email.toLowerCase().includes(q) ||
+                (m.role && m.role.toLowerCase().includes(q))
+            );
+        })
+        .sort((a, b) => a.nama.localeCompare(b.nama, undefined, { sensitivity: "base" }));
+
+    const visibleMembers = filteredMembers.slice(0, visibleLimit);
+    const hasMoreInDropdown = visibleLimit < filteredMembers.length;
+
+    const handleDropdownScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollTop + clientHeight >= scrollHeight - 15) {
+            if (hasMoreInDropdown) {
+                setVisibleLimit((prev) => prev + 10);
+            }
+        }
+    };
+
+    return (
+        <div ref={dropdownRef} className="relative w-full">
+            {/* Input Box with Blinking Cursor on Focus */}
+            <div className="relative">
+                <input
+                    type="text"
+                    value={displayValue}
+                    placeholder={placeholder}
+                    onFocus={() => {
+                        setIsOpen(true);
+                        setSearch("");
+                        setVisibleLimit(10);
+                    }}
+                    onChange={(e) => {
+                        setSearch(e.target.value);
+                        setVisibleLimit(10);
+                        if (!isOpen) setIsOpen(true);
+                    }}
+                    className="w-full border border-stone-300 focus:border-stone-600 rounded-xl px-3.5 py-2 text-[12.5px] bg-white text-stone-900 font-semibold focus:outline-none transition shadow-sm"
+                />
+            </div>
+
+            {/* Dropdown Panel with Avatars and Infinite Scroll */}
+            {isOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-stone-200 rounded-2xl shadow-2xl z-50 overflow-hidden p-1.5 animate-in fade-in zoom-in-95 duration-150">
+                    <div
+                        onScroll={handleDropdownScroll}
+                        className="max-h-56 overflow-y-auto space-y-0.5 pr-0.5 scrollbar-thin"
+                    >
+                        {filteredMembers.length === 0 ? (
+                            <div className="py-4 text-center text-[12px] text-stone-400 font-medium italic">
+                                Anggota tidak ditemukan
+                            </div>
+                        ) : (
+                            <>
+                                {visibleMembers.map((m, idx) => {
+                                    const isSelected = String(m.id) === String(value);
+                                    return (
+                                        <button
+                                            key={m.id}
+                                            type="button"
+                                            onClick={() => {
+                                                onChange(String(m.id));
+                                                setIsOpen(false);
+                                                setSearch("");
+                                            }}
+                                            className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center gap-2.5 text-[12.5px] transition cursor-pointer ${
+                                                isSelected
+                                                    ? "bg-emerald-50 text-emerald-950 font-bold"
+                                                    : "hover:bg-stone-50 text-stone-800 font-medium"
+                                            }`}
+                                        >
+                                            {/* Avatar Initials Badge */}
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 ${AVATAR_COLORS[idx % AVATAR_COLORS.length]}`}>
+                                                {getMemberInitials(m.nama)}
+                                            </div>
+
+                                            {/* Member Name */}
+                                            <span className="break-words leading-snug flex-1 py-0.5 text-[12px]">{m.nama}</span>
+                                        </button>
+                                    );
+                                })}
+
+                                {hasMoreInDropdown && (
+                                    <div className="py-2 text-center text-[10px] font-bold text-stone-400 animate-pulse bg-stone-50/50 rounded-lg mt-1">
+                                        Memuat anggota lainnya...
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 type Props = {
     showProjectDetail: Project | null;
@@ -28,6 +176,8 @@ type Props = {
     netCashNominal: number;
     sudahReimburseNominal: number;
     belumReimburseNominal: number;
+    sudahReimburseCount?: number;
+    belumReimburseCount?: number;
     detailTotalRAB: number;
     detailTotalTerpakai: number;
     detailPercentUsed: number;
@@ -71,6 +221,8 @@ export default function ProjectDetailSidebar({
     netCashNominal,
     sudahReimburseNominal,
     belumReimburseNominal,
+    sudahReimburseCount,
+    belumReimburseCount,
     detailTotalRAB,
     detailTotalTerpakai,
     detailPercentUsed,
@@ -146,7 +298,7 @@ export default function ProjectDetailSidebar({
                             </div>
                         </div>
 
-                        <div id="scroll-bridge-container" className="flex-1 flex flex-col overflow-y-auto scroll-smooth min-h-0" style={{ scrollbarWidth: 'none' }}>
+                        <div id="scroll-bridge-container" className="flex-1 flex flex-col overflow-y-auto scroll-smooth min-h-0">
                             {activeTab === "ringkasan" && (
                                 <div id="ringkasan-sec" className="px-6 py-4 space-y-5">
                                     <div className="grid grid-cols-2 gap-y-4 gap-x-6 pt-2 text-left">
@@ -229,15 +381,19 @@ export default function ProjectDetailSidebar({
                                         </h4>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 flex flex-col justify-between">
-                                                <span className="text-[11px] font-bold text-emerald-700 block">Sudah Reimburse</span>
+                                                <span className="text-[11px] font-bold text-emerald-700 block">
+                                                    Sudah Reimburse ({sudahReimburseCount ?? detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0})
+                                                </span>
                                                 <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
-                                                    {formatSummaryRupiah(sudahReimburseNominal)}
+                                                    {formatRupiah(sudahReimburseNominal)}
                                                 </span>
                                             </div>
                                             <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex flex-col justify-between">
-                                                <span className="text-[11px] font-bold text-amber-700 block">Belum Reimburse</span>
+                                                <span className="text-[11px] font-bold text-amber-700 block">
+                                                    Belum Reimburse ({belumReimburseCount ?? detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0)})
+                                                </span>
                                                 <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
-                                                    {formatSummaryRupiah(belumReimburseNominal)}
+                                                    {formatRupiah(belumReimburseNominal)}
                                                 </span>
                                             </div>
                                         </div>
@@ -395,7 +551,7 @@ export default function ProjectDetailSidebar({
                                                         const subRealisasi = hasKet
                                                             ? sub.keterangan.reduce((accKet: number, k: any) => {
                                                                 const reimbs = (k.reimbursements || []).filter((r: any) =>
-                                                                    ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+                                                                    ['APPROVED', 'PAID', 'DISBURSED'].includes(r.status)
                                                                 );
                                                                 const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
                                                                 return accKet + (sumReimbs || parseFloat(k.nominalRealisasi) || 0);
@@ -464,7 +620,7 @@ export default function ProjectDetailSidebar({
                             )}
 
                             {activeTab === "tim" && (
-                                <div id="tim-sec" className="min-h-full w-full px-6 pb-20 pt-4 text-left flex-shrink-0 space-y-3">
+                                <div id="tim-sec" className="min-h-full w-full px-6 pb-48 pt-4 text-left flex-shrink-0 space-y-3">
                                     <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
                                     <div className="space-y-3">
                                         {teamRows.map((row, idx) => (
@@ -485,29 +641,21 @@ export default function ProjectDetailSidebar({
                                                     />
                                                 </div>
                                                 <div className={row.isLocked ? "col-span-7" : "col-span-6"}>
-                                                    <select
-                                                        required
+                                                    <SearchableMemberSelect
                                                         value={row.userId}
-                                                        onChange={(e) => {
+                                                        onChange={(selectedUserId) => {
                                                             const updated = [...teamRows];
-                                                            updated[idx].userId = e.target.value;
+                                                            updated[idx].userId = selectedUserId;
                                                             setTeamRows(updated);
                                                         }}
-                                                        className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
-                                                    >
-                                                        <option value="" disabled hidden>Pilih nama...</option>
-                                                        {members
-                                                             .filter((member) => {
-                                                                 if (row.id === "row-pm") return true;
-                                                                 const pmRow = teamRows.find((r) => r.id === "row-pm");
-                                                                 const selectedPmUserId = pmRow ? pmRow.userId : "";
-                                                                 return String(member.id) !== String(selectedPmUserId);
-                                                             })
-                                                             .map((member) => (
-                                                                 <option key={member.id} value={member.id}>{member.nama}</option>
-                                                             ))
-                                                         }
-                                                    </select>
+                                                        members={members.filter((member) => {
+                                                            if (row.id === "row-pm") return true;
+                                                            const pmRow = teamRows.find((r) => r.id === "row-pm");
+                                                            const selectedPmUserId = pmRow ? pmRow.userId : "";
+                                                            return String(member.id) !== String(selectedPmUserId);
+                                                        })}
+                                                        placeholder="Pilih nama..."
+                                                    />
                                                 </div>
                                                 {!row.isLocked && (
                                                     <div className="col-span-1 flex justify-center">

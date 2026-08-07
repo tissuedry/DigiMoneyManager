@@ -20,7 +20,8 @@ type DashboardData = {
     id: number;
     nominal: string;
     status: string;
-    ocrData: any;
+    nama?: string | null;
+    merchant?: string | null;
     proyek?: { nama: string };
     posAnggaran?: { namaPos?: string; deskripsi?: string };
   }>;
@@ -181,8 +182,8 @@ export default function BerandaKaryawanPage() {
                     d.recentSubmissions.map((item) => {
                       const badge = getStatusBadge(item.status);
                       const merchantName =
-                        item.ocrData?.merchantName ||
-                        item.ocrData?.merchant ||
+                        item.nama ||
+                        item.merchant ||
                         item.posAnggaran?.namaPos ||
                         "Reimbursement";
 

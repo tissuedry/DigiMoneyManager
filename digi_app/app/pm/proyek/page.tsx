@@ -1,24 +1,29 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, use } from "react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import DetailAnggaranModal from "./DetailAnggaran";
 import AjukanPosModal from "./AjukanPos";
+import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
+import ProyekSkeleton from "./ProyekSkeleton";
+import ConfirmDialog from "@/components/confirm-dialog";
+import SuccessDialog from "@/components/success-dialog";
+import Toast from "@/components/toast";
 import {
   ChevronDown,
   Eye,
   Plus,
   Users,
-  UserPlus,
   Trash2,
   Settings,
-  X,
   Loader2,
   Check,
+  AlertCircle,
 } from "lucide-react";
-import { useApi, useMutate, useInvalidate } from "@/lib/use-api";
+import { useApi, useInvalidate } from "@/lib/use-api";
+import { useRouter } from "next/navigation";
 
 type PosAnggaran = {
   id: number;
@@ -149,10 +154,9 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
                 key={u.id}
                 type="button"
                 onClick={() => { onSelect(u.id); setOpen(false); }}
-                className={`w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium hover:bg-stone-50 transition ${
-                  u.id === selectedUserId ? "text-emerald-700 bg-emerald-50/50" : "text-stone-700"
-                }`}
-              > 
+                className={`w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium hover:bg-stone-50 transition ${u.id === selectedUserId ? "text-emerald-700 bg-emerald-50/50" : "text-stone-700"
+                  }`}
+              >
                 <span className={`w-4 h-4 rounded-full text-[1px] font-bold flex items-center justify-center shrink-0 ${avatarColor(ini)}`}>
                   {ini}
                 </span>
@@ -213,26 +217,58 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
 
 /** Per-pos progress rows */
 function PosRows({ pos }: { pos: PosAnggaran[] }) {
+  if (!pos || pos.length === 0) {
+    return <p className="text-xs text-stone-400 text-center py-4 font-medium">Belum ada pos anggaran.</p>;
+  }
+
   return (
     <div className="space-y-4 mt-2">
       {pos.map((p) => {
-        const pct = p.alokasi > 0 ? Math.min((p.terpakai / p.alokasi) * 100, 100) : 0;
+        const alloc = p.alokasi || 0;
+        const real = p.terpakai || 0;
+        const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
+        const isOverBudget = real > alloc;
+        const isWarning = pct >= 80 && !isOverBudget;
+        const rem = Math.max(0, alloc - real);
+        let barColor = 'bg-emerald-600'; // Default warna hijau (Aman)
+        if (isOverBudget) barColor = 'bg-red-500'; // Merah kalau Over Budget
+        else if (isWarning) barColor = 'bg-amber-500'; // Kuning kalau Warning
+
+
         return (
           <div key={p.id} className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-stone-800">{p.nama}</span>
-              <span
-                title={`Terpakai: Rp ${Math.round(p.terpakai || 0).toLocaleString("id-ID")} / Alokasi: Rp ${Math.round(p.alokasi || 0).toLocaleString("id-ID")}`}
-                className="text-stone-500 font-medium tabular-nums cursor-pointer hover:text-stone-900"
-              >
-                {formatShort(p.terpakai)}&nbsp;/&nbsp;{formatShort(p.alokasi)}
-              </span>
+            <div className="flex items-center justify-between text-xs font-medium">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-stone-800">{p.nama}</span>
+                {isOverBudget && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">
+                    <AlertCircle size={8} /> Over Budget
+                  </span>
+                )}
+
+                {isWarning && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
+                    <AlertCircle size={8} /> Hampir Limit
+                  </span>
+                )}
+              </div>
+              <div className="text-stone-500 font-mono">
+                <span className="font-bold text-stone-800">Rp {Math.round(real).toLocaleString("id-ID")}</span>
+                <span className="text-stone-300 mx-1">/</span>
+                <span>Rp {Math.round(alloc).toLocaleString("id-ID")}</span>
+              </div>
             </div>
-            <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden">
+
+            <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
               <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${pct}%`, backgroundColor: "#008f5d" }}
+                className={`h-full transition-all duration-500 ${barColor}`}
+                style={{ width: `${pct}%` }}
               />
+            </div>
+
+            <div className="flex justify-between text-[10px] text-stone-400 font-medium">
+              <span>Terpakai: {pct}%</span>
+              <span>Sisa: Rp {Math.round(rem).toLocaleString("id-ID")}</span>
             </div>
           </div>
         );
@@ -241,18 +277,24 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
   );
 }
 
-export default function KelolaProyekPage() {
+export default function KelolaProyekPage({ searchParams }: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const query = use(searchParams);
+  return <KelolaProyekContent openDetailModal={Boolean(query.detailModal)} />;
+}
+
+function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) {
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAjukanOpen, setIsAjukanOpen] = useState(false);
+  const [isAjukanRealisasiOpen, setIsAjukanRealisasiOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const invalidate = useInvalidate();
 
-  // ── TanStack Query (ponytail: replaces manual fetch + useState) ──
+  // ── TanStack Query ──
   const { data: proyekData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>("/api/pm/proyek");
   const { data: meData } = useApi<MeResponse>("/api/auth/me");
   const { data: usersData } = useApi<UsersResponse>("/api/pm/users");
@@ -261,9 +303,7 @@ export default function KelolaProyekPage() {
   const allUsers = usersData?.users ?? [];
   const error = proyekError?.message ?? null;
 
-  const resolvedId = selectedId ?? meData?.user?.proyekId ?? projects[0]?.id ?? null;
-
-  const selectProject = useMutate("/api/auth/select-project", "POST", ["/api/auth/me", "/api/dashboard"]);
+  const resolvedId = meData?.user?.proyekId ?? projects[0]?.id ?? null;
 
   const proyek = projects.find((p) => p.id === resolvedId);
 
@@ -271,6 +311,10 @@ export default function KelolaProyekPage() {
   const [editableRows, setEditableRows] = useState<{ userId: number; nama: string; divisi: string }[]>([]);
   const [dirtyTim, setDirtyTim] = useState(false);
   const [savingTim, setSavingTim] = useState(false);
+  const [showSaveTimConfirm, setShowSaveTimConfirm] = useState(false);
+  const [showSaveTimToast, setShowSaveTimToast] = useState(false);
+  const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Sync editable rows when project changes
   useEffect(() => {
@@ -279,9 +323,17 @@ export default function KelolaProyekPage() {
       setEditableRows(nonPm.map((m) => ({ userId: m.id, nama: m.nama, divisi: m.divisi || "" })));
       setDirtyTim(false);
     }
-  }, [proyek]);
+    if (openDetailModal) {
+      setIsDetailOpen(true);
+    }
+  }, [proyek, openDetailModal]);
 
-  const handleSaveTim = async () => {
+  const handleSaveTim = () => {
+    if (!proyek) return;
+    setShowSaveTimConfirm(true);
+  };
+
+  const handleConfirmSaveTim = async () => {
     if (!proyek) return;
     setSavingTim(true);
     try {
@@ -303,14 +355,15 @@ export default function KelolaProyekPage() {
       if (res.ok) {
         setDirtyTim(false);
         invalidate("/api/pm/proyek");
-        alert("Anggota tim proyek berhasil disimpan!");
+        setShowSaveTimConfirm(false);
+        setShowSaveTimToast(true);
       } else {
         const data = await res.json();
-        alert(data.message || "Gagal menyimpan anggota tim");
+        setErrorMessage(data.message || "Gagal menyimpan anggota tim");
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan koneksi saat menyimpan anggota tim");
+      setErrorMessage("Terjadi kesalahan koneksi saat menyimpan anggota tim");
     } finally {
       setSavingTim(false);
     }
@@ -339,65 +392,13 @@ export default function KelolaProyekPage() {
     setDirtyTim(true);
   };
 
-  // Reset selectedId when current selection no longer exists in projects
-  useEffect(() => {
-    if (projects.length > 0 && selectedId && !projects.some((p) => p.id === selectedId)) {
-      setSelectedId(projects[0].id);
-    }
-  }, [projects.length, selectedId]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#f9f8f4]">
-        <p className="text-stone-400 text-sm">Memuat data proyek...</p>
-      </div>
-    );
+  const handleCloseDetailModal = () => {
+    setIsDetailOpen(false);
+    router.replace("/pm/proyek", { scroll: false });
   }
 
-  if (error) {
-    return (
-      <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-        <Sidebar isSidebarOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} userRole="Project Manager" />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
-          <main className="flex-1 flex items-center justify-center flex-col gap-3">
-            <p className="text-stone-400 text-sm">{error}</p>
-            <button onClick={() => refetch()} className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer">Coba Lagi</button>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (projects.length === 0) {
-    return (
-      <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-        <Sidebar isSidebarOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} userRole="Project Manager" />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
-          <main className="flex-1 flex items-center justify-center">
-            <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (!proyek) return null;
-
-  const allocated = proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0);
-  const unallocated = Math.max(0, proyek.totalRAB - allocated);
+  const allocated = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
+  const unallocated = proyek ? Math.max(0, proyek.totalRAB - allocated) : 0;
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
@@ -410,302 +411,286 @@ export default function KelolaProyekPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
 
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-          {/* ── Page Header + Project Selector ── */}
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
-              <p className="text-sm text-stone-500 mt-1">
-                Pantau anggaran, ajukan pos baru, dan kelola tim untuk proyekmu.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 self-start">
-              {/* Project selector */}
-              <div className="relative" ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen((v) => !v)}
-                className="flex items-center gap-2 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition-all"
-              >
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <span className="text-xs font-bold text-stone-800 max-w-[200px] truncate">{proyek.nama}</span>
-                <ChevronDown
-                  size={13}
-                  className={`text-stone-400 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              {isDropdownOpen && projects.length > 1 && (
-                <div className="absolute right-0 mt-1.5 w-64 bg-white border border-stone-200 rounded-xl shadow-lg z-50 overflow-hidden py-1">
-                  {projects.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedId(p.id);
-                        setIsDropdownOpen(false);
-                        selectProject.mutate({ proyekId: p.id });
-                      }}
-                      className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-stone-50 flex items-center gap-2 transition ${p.id === resolvedId ? "text-emerald-700 bg-emerald-50/50" : "text-stone-700"
-                        }`}
-                    >
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${p.id === resolvedId ? "bg-emerald-500" : "bg-stone-200"}`} />
-                      {p.nama}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Edit Proyek button */}
-            <button
-              type="button"
-              onClick={() => setIsEditOpen(true)}
-              className="flex items-center gap-1.5 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition cursor-pointer"
-            >
-              <Settings size={14} className="text-stone-500" />
-              <span className="text-xs font-bold text-stone-800">Edit Proyek</span>
-            </button>
-            </div>
-          </div>
-
-          {/* ── Budget Summary Card ── */}
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-            {/* Title row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
-                <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
-                  { proyek.status == "AKTIF" ? "Active"
-                   : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
-                </span>
-                <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
-                <p
-                  title={`Rp ${Math.round(proyek.totalRAB || 0).toLocaleString("id-ID")}`}
-                  className="text-2xl font-extrabold text-stone-900 whitespace-nowrap cursor-pointer hover:opacity-80 transition"
-                >
-                  {formatShort(proyek.totalRAB)}
-                </p>
-              </div>
-            </div>
-
-            {/* Stacked bar */}
-            <StackedBar realisasi={proyek.realisasi} total={proyek.totalRAB} />
-
-            {/* Realisasi vs Sisa */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-              {/* Realisasi */}
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
-                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
-                </div>
-                <p
-                  title={`Rp ${Math.round(proyek.realisasi || 0).toLocaleString("id-ID")}`}
-                  className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
-                >
-                  {formatShort(proyek.realisasi)}
+        {isLoading ? (
+          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+            <ProyekSkeleton />
+          </main>
+        ) : error ? (
+          <main className="flex-1 flex items-center justify-center flex-col gap-3">
+            <p className="text-stone-400 text-sm">{error}</p>
+            <button onClick={() => refetch()} className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer">Coba Lagi</button>
+          </main>
+        ) : projects.length === 0 || !proyek ? (
+          <main className="flex-1 flex items-center justify-center">
+            <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
+          </main>
+        ) : (
+          <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
+            {/* ── Page Header + Project Selector ── */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
+                <p className="text-sm text-stone-500 mt-1">
+                  Pantau anggaran, ajukan pos baru, dan kelola tim untuk proyekmu.
                 </p>
               </div>
 
-              {/* Sisa */}
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 self-start">
+                {/* Edit Proyek button */}
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(true)}
+                  className="flex items-center gap-1.5 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition cursor-pointer"
+                >
+                  <Settings size={14} className="text-stone-500" />
+                  <span className="text-xs font-bold text-stone-800">Edit Proyek</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ── Budget Summary Card ── */}
+            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+              {/* Title row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
+                  <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
+                    {proyek.status == "AKTIF" ? "Active"
+                      : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
+                  </span>
+                  <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
+                  <p
+                    title={`Rp ${Math.round(proyek.totalRAB || 0).toLocaleString("id-ID")}`}
+                    className="text-2xl font-extrabold text-stone-900 whitespace-nowrap cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.totalRAB)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Stacked bar */}
+              <StackedBar realisasi={proyek.realisasi} total={proyek.totalRAB} />
+
+              {/* Realisasi vs Sisa */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+                {/* Realisasi */}
+                <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
-                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
+                    <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
+                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
                   </div>
-                  {unallocated > 0 && (
-                    <span
-                      title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`}
-                      className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap cursor-pointer"
+                  <p
+                    title={`Rp ${Math.round(proyek.realisasi || 0).toLocaleString("id-ID")}`}
+                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.realisasi)}
+                  </p>
+                </div>
+
+                {/* Sisa */}
+                <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
+                      <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
+                    </div>
+                    {unallocated > 0 && (
+                      <span
+                        title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`}
+                        className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap cursor-pointer"
+                      >
+                        {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    title={`Rp ${Math.round((proyek.totalRAB - proyek.realisasi) || 0).toLocaleString("id-ID")}`}
+                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.totalRAB - proyek.realisasi)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Bottom two columns ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* ── LEFT: Realisasi per Pos ── */}
+              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4 lg:col-span-7">
+                {/* Section header */}
+                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                  <h3 className="font-bold text-[15px] text-stone-900">Realisasi per Pos Anggaran</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsDetailOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-600 hover:text-stone-800 border border-stone-200 hover:border-stone-300 bg-white hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer"
                     >
-                      {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
-                    </span>
+                      <Eye size={13} />
+                      Lihat Detail Anggaran
+                    </button>
+                    <button
+                      onClick={() => setIsAjukanOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                    >
+                      <Plus size={13} />
+                      Ajukan Pos
+                    </button>
+                    <button
+                      onClick={() => setIsAjukanRealisasiOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                    >
+                      <Plus size={13} />
+                      Ajukan Realisasi
+                    </button>
+                  </div>
+                </div>
+
+                {/* Per-pos stacked bar */}
+                <div className="w-full bg-stone-100 h-4 rounded-full overflow-hidden flex shadow-inner">
+                  {proyek.posAnggaran.map((p) => (
+                    <div
+                      key={p.id}
+                      title={`${p.nama}: ${formatShort(p.alokasi)}`}
+                      style={{ width: `${(p.alokasi / proyek.totalRAB) * 100}%`, backgroundColor: p.warna }}
+                      className="h-full transition-all duration-500"
+                    />
+                  ))}
+                  {unallocated > 0 && (
+                    <div
+                      style={{ width: `${(unallocated / proyek.totalRAB) * 100}%` }}
+                      className="h-full bg-stone-300"
+                      title="Belum dialokasikan"
+                    />
                   )}
                 </div>
-                <p
-                  title={`Rp ${Math.round((proyek.totalRAB - proyek.realisasi) || 0).toLocaleString("id-ID")}`}
-                  className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
-                >
-                  {formatShort(proyek.totalRAB - proyek.realisasi)}
-                </p>
-              </div>
-            </div>
-          </div>
 
-          {/* ── Bottom two columns ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* ── LEFT: Realisasi per Pos ── */}
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4 lg:col-span-7">
-              {/* Section header */}
-              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                <h3 className="font-bold text-[15px] text-stone-900">Realisasi per Pos Anggaran</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsDetailOpen(true)}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-600 hover:text-stone-800 border border-stone-200 hover:border-stone-300 bg-white hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer"
-                  >
-                    <Eye size={13} />
-                    Lihat Detail Anggaran
-                  </button>
-                  <button
-                    onClick={() => setIsAjukanOpen(true)}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
-                  >
-                    <Plus size={13} />
-                    Ajukan Pos
-                  </button>
-                </div>
-              </div>
-
-              {/* Per-pos stacked bar */}
-              <div className="w-full bg-stone-100 h-4 rounded-full overflow-hidden flex shadow-inner">
-                {proyek.posAnggaran.map((p) => (
-                  <div
-                    key={p.id}
-                    title={`${p.nama}: ${formatShort(p.alokasi)}`}
-                    style={{ width: `${(p.alokasi / proyek.totalRAB) * 100}%`, backgroundColor: p.warna }}
-                    className="h-full transition-all duration-500"
-                  />
-                ))}
-                {unallocated > 0 && (
-                  <div
-                    style={{ width: `${(unallocated / proyek.totalRAB) * 100}%` }}
-                    className="h-full bg-stone-300"
-                    title="Belum dialokasikan"
-                  />
-                )}
-              </div>
-
-              {/* Legend */}
-              <div>
-                <BarLegend pos={proyek.posAnggaran} total={proyek.totalRAB} />
-              </div>
-
-              {/* Progress rows */}
-              <PosRows pos={proyek.posAnggaran} />
-            </div>
-
-            <div className="lg:col-span-5 flex flex-col gap-4">
-              <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4 border-b border-stone-100 pb-3">
-                  <h3 className="font-bold text-[15px] text-stone-900 flex items-center gap-2">
-                    <Users size={15} className="text-stone-400" />
-                    Tim Proyek
-                  </h3>
+                {/* Legend */}
+                <div>
+                  <BarLegend pos={proyek.posAnggaran} total={proyek.totalRAB} />
                 </div>
 
-                {/* Header row */}
-                <div className="grid grid-cols-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2 px-1">
-                  <span>ROLE (Divisi)</span>
-                  <span>ANGGOTA</span>
-                </div>
+                {/* Progress rows */}
+                <PosRows pos={proyek.posAnggaran} />
+              </div>
 
-                {/* PM row (read-only) */}
-                {proyek.tim.filter((m) => m.role === "Project Manager").map((pm) => (
-                  <div key={pm.id} className="flex items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2 min-w-0">
-                    <span className="flex-1 min-w-0 text-[11px] font-semibold text-emerald-700 truncate">Project Manager</span>
-                    <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${avatarColor(pm.inisial)}`}>
-                        {pm.inisial}
-                      </div>
-                      <span className="text-[11px] font-bold text-stone-800 truncate">{pm.nama}</span>
-                    </div>
+              <div className="lg:col-span-5 flex flex-col gap-4">
+                <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4 border-b border-stone-100 pb-3">
+                    <h3 className="font-bold text-[15px] text-stone-900 flex items-center gap-2">
+                      <Users size={15} className="text-stone-400" />
+                      Tim Proyek
+                    </h3>
                   </div>
-                ))}
 
-                <div className="space-y-2">
-                  {editableRows.map((row, idx) => (
-                    <div key={idx} className="flex items-center bg-stone-50 border border-stone-100 rounded-xl px-2.5 py-2 gap-2 min-w-0">
-                      <input
-                        type="text"
-                        placeholder="Role / Divisi"
-                        value={row.divisi}
-                        onChange={(e) => updateTimRow(idx, "divisi", e.target.value)}
-                        className="flex-1 min-w-0 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
-                      />
-                      <MemberSelect
-                        users={allUsers.filter((u) => {
-                          const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
-                          return !pmMember || u.id !== pmMember.id;
-                        })}
-                        selectedUserId={row.userId}
-                        onSelect={(uid) => updateTimRow(idx, "userId", uid)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeTimRow(idx)}
-                        className="p-1.5 hover:bg-red-50 rounded-lg text-stone-400 hover:text-red-500 transition cursor-pointer shrink-0"
-                        title="Hapus Anggota"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                  {/* Header row */}
+                  <div className="grid grid-cols-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2 px-1">
+                    <span>ROLE (Divisi)</span>
+                    <span>ANGGOTA</span>
+                  </div>
+
+                  {/* PM row (read-only) */}
+                  {proyek.tim.filter((m) => m.role === "Project Manager").map((pm) => (
+                    <div key={pm.id} className="flex items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2 min-w-0">
+                      <span className="flex-1 min-w-0 text-[11px] font-semibold text-emerald-700 truncate">Project Manager</span>
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${avatarColor(pm.inisial)}`}>
+                          {pm.inisial}
+                        </div>
+                        <span className="text-[11px] font-bold text-stone-800 truncate">{pm.nama}</span>
+                      </div>
                     </div>
                   ))}
-                </div>
-               
-                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-100">
-                  <button
-                    type="button"
-                    onClick={addTimRow}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-white border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
-                  >
-                    <Plus size={13} />
-                    Tambah Anggota
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveTim}
-                    disabled={savingTim || !dirtyTim}
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-bold text-white px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm ${
-                      savingTim || !dirtyTim
-                        ? "bg-stone-300 cursor-not-allowed text-stone-500"
-                        : "bg-[#008f5d] hover:bg-[#00754c]"
-                    }`}
-                  >
-                    {savingTim ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    Simpan Anggota
-                  </button>
-                </div>
-              </div>
 
-              <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-[15px] text-stone-900 mb-4 border-b border-stone-100 pb-3">
-                  Reimbursement
-                </h3>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <p className="text-[10px] font-bold text-emerald-600 tracking-wider">
-                      Sudah Reimburse ({proyek.reimbursementDisetujuiCount ?? 0})
-                    </p>
-                    <p className="text-lg font-extrabold text-black mt-1">
-                      {formatShort(proyek.reimbursementDisetujui)}
-                    </p>
+                  <div className="space-y-2">
+                    {editableRows.map((row, idx) => (
+                      <div key={idx} className="flex items-center bg-stone-50 border border-stone-100 rounded-xl px-2.5 py-2 gap-2 min-w-0">
+                        <input
+                          type="text"
+                          placeholder="Role / Divisi"
+                          value={row.divisi}
+                          onChange={(e) => updateTimRow(idx, "divisi", e.target.value)}
+                          className="flex-1 min-w-0 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
+                        />
+                        <MemberSelect
+                          users={allUsers.filter((u) => {
+                            const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
+                            return !pmMember || u.id !== pmMember.id;
+                          })}
+                          selectedUserId={row.userId}
+                          onSelect={(uid) => updateTimRow(idx, "userId", uid)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeTimRow(idx)}
+                          className="p-1.5 hover:bg-red-50 rounded-lg text-stone-400 hover:text-red-500 transition cursor-pointer shrink-0"
+                          title="Hapus Anggota"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <p className="text-[10px] font-bold text-amber-600 tracking-wider">
-                      Belum Reimburse ({proyek.reimbursementBelumDisetujuiCount ?? 0})
-                    </p>
-                    <p className="text-lg font-extrabold text-black mt-1">
-                      {formatShort(proyek.reimbursementBelumDisetujui)}
-                    </p>
+                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-100">
+                    <button
+                      type="button"
+                      onClick={addTimRow}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-white border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                    >
+                      <Plus size={13} />
+                      Tambah Anggota
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveTim}
+                      disabled={savingTim || !dirtyTim}
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-bold text-white px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm ${savingTim || !dirtyTim
+                        ? "bg-stone-300 cursor-not-allowed text-stone-500"
+                        : "bg-[#008f5d] hover:bg-[#00754c]"
+                        }`}
+                    >
+                      {savingTim ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Check size={13} />
+                      )}
+                      Simpan Anggota
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+                  <h3 className="font-bold text-[15px] text-stone-900 mb-4 border-b border-stone-100 pb-3">
+                    Reimbursement
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-emerald-600 tracking-wider">
+                        Sudah Reimburse ({proyek.reimbursementDisetujuiCount ?? 0})
+                      </p>
+                      <p className="text-lg font-extrabold text-black mt-1">
+                        {formatShort(proyek.reimbursementDisetujui)}
+                      </p>
+                    </div>
+
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-amber-600 tracking-wider">
+                        Belum Reimburse ({proyek.reimbursementBelumDisetujuiCount ?? 0})
+                      </p>
+                      <p className="text-lg font-extrabold text-black mt-1">
+                        {formatShort(proyek.reimbursementBelumDisetujui)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </main>
+          </main>
+        )}
       </div>
 
       {isDetailOpen && proyek && (
@@ -714,7 +699,7 @@ export default function KelolaProyekPage() {
           proyekNama={proyek.nama}
           posAnggaran={proyek.posAnggaran}
           totalRAB={proyek.totalRAB}
-          onClose={() => setIsDetailOpen(false)}
+          onClose={handleCloseDetailModal}
           onRefresh={() => invalidate("/api/pm/proyek")}
         />
       )}
@@ -731,17 +716,63 @@ export default function KelolaProyekPage() {
         />
       )}
 
+      {/* Ajukan Realisasi Modal */}
+      {isAjukanRealisasiOpen && proyek && (
+        <AjukanRealisasiModal
+          proyekId={proyek.id}
+          proyekNama={proyek.nama}
+          onClose={() => setIsAjukanRealisasiOpen(false)}
+          onRefresh={() => {
+            invalidate("/api/pm/proyek");
+            refetch();
+          }}
+        />
+      )}
+
       {/* Edit Proyek Modal */}
-      {isEditOpen && (
+      {isEditOpen && proyek && (
         <EditProyekModal
           proyek={proyek}
           onClose={() => setIsEditOpen(false)}
           onSave={() => {
             refetch();
             setIsEditOpen(false);
+            setShowEditProyekSuccess(true);
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={showSaveTimConfirm}
+        title="Simpan Anggota Tim"
+        description={
+          <>Apakah Anda yakin ingin menyimpan perubahan anggota tim? Total <span className="font-semibold text-[#14130F]">{editableRows.filter((r) => r.userId > 0).length}</span> anggota akan disimpan untuk proyek ini.</>
+        }
+        confirmLabel="Simpan"
+        isLoading={savingTim}
+        onCancel={() => setShowSaveTimConfirm(false)}
+        onConfirm={handleConfirmSaveTim}
+      />
+
+      <Toast
+        open={showSaveTimToast}
+        message="Anggota tim proyek berhasil disimpan."
+        onClose={() => setShowSaveTimToast(false)}
+      />
+
+      <Toast
+        open={!!errorMessage}
+        variant="error"
+        message={errorMessage || ""}
+        onClose={() => setErrorMessage(null)}
+      />
+
+      <SuccessDialog
+        open={showEditProyekSuccess}
+        title="Proyek Berhasil Diperbarui"
+        description="Perubahan proyek berhasil disimpan."
+        onClose={() => setShowEditProyekSuccess(false)}
+      />
     </div>
   );
 }

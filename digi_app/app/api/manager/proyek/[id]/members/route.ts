@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma';
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
-    if (role !== 'Direktur / Manajemen') {
+    
+    if (role !== 'Direktur / Manajemen' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }));
 
     return NextResponse.json({ members: mapped });
+
   } catch (error: any) {
     console.error('Get project members error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -46,8 +48,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
-    const direktorId = req.headers.get('x-user-id');
-    if (role !== 'Direktur / Manajemen') {
+    const adminId = req.headers.get('x-user-id');
+    
+    if (role !== 'Direktur / Manajemen' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -67,12 +70,50 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Update members inside a batch transaction (safe for PgBouncer transaction mode)
+    // Check existing project members to avoid redundant update
+    const existingMembers = await prisma.userProyek.findMany({
+      where: { proyekId },
+      select: { userId: true, role: true },
+    });
+
+    const incomingAssignments: { userId: number; role?: string }[] = members && Array.isArray(members)
+      ? members.map((m: any) => ({
+          userId: typeof m.userId === 'string' ? parseInt(m.userId, 10) : m.userId,
+          role: m.role,
+        }))
+      : (userIds && Array.isArray(userIds)
+          ? userIds.map((uid: any) => ({
+              userId: typeof uid === 'string' ? parseInt(uid, 10) : uid,
+            }))
+          : []);
+
+    const existingMap = new Map(existingMembers.map((em) => [em.userId, em.role]));
+    let membersUnchanged = existingMembers.length === incomingAssignments.length;
+
+    if (membersUnchanged) {
+      for (const inc of incomingAssignments) {
+        if (!existingMap.has(inc.userId)) {
+          membersUnchanged = false;
+          break;
+        }
+
+        if (inc.role && existingMap.get(inc.userId) !== inc.role) {
+          membersUnchanged = false;
+          break;
+        }
+      }
+    }
+
+    if (membersUnchanged) {
+      return NextResponse.json({ message: 'Tidak ada perubahan penugasan anggota pada proyek ini.' }, { status: 400 });
+    }
+
     const deleteOp = prisma.userProyek.deleteMany({
       where: { proyekId },
     });
 
     if (members && Array.isArray(members) && members.length > 0) {
+
       const userProyeks = members.map((m: any) => ({
         proyekId,
         userId: typeof m.userId === 'string' ? parseInt(m.userId, 10) : m.userId,
@@ -85,8 +126,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
 
       await prisma.$transaction([deleteOp, createOp]);
+
     } else if (userIds && Array.isArray(userIds) && userIds.length > 0) {
-      // Fetch user roles (run before batch transaction)
+     
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
         select: { id: true, role: true },
@@ -103,22 +145,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
 
       await prisma.$transaction([deleteOp, createOp]);
+
     } else {
       await deleteOp;
     }
 
     // Audit trail
-    if (direktorId) {
+    if (adminId) {
       await prisma.auditTrail.create({
         data: {
-          userId: parseInt(direktorId, 10),
+          userId: parseInt(adminId, 10),
           aksi: 'assign_project_members',
-          detail: `Direktur mengatur ulang anggota proyek ${project.nama} (${(members || userIds || []).length} orang)`,
+          detail: `${role === 'Superadmin' || role === 'superadmin' ? 'Superadmin' : 'Direktur'} mengatur ulang anggota proyek ${project.nama} (${(members || userIds || []).length} orang)`,
         },
       });
     }
 
     return NextResponse.json({ message: 'Anggota proyek berhasil diperbarui' }, { status: 200 });
+
   } catch (error: any) {
     console.error('Update project members error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

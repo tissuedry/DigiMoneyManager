@@ -119,19 +119,19 @@ export default function KeuanganDashboardPage() {
     {
       label: "Dicairkan Hari ini",
       value: formatRupiah(metrics?.disbursedTodayNominal ?? 0),
-      sub: `${metrics?.disbursedTodayCount ?? 0} pengajuan`,
+      sub: `${metrics?.disbursedTodayCount ?? 0} pencairan`,
       icon: <Check size={18} className="text-emerald-600" />,
       iconBg: "bg-emerald-50",
     },
     {
-      label: `Jurnal (${getCurrentMonthName()})`,
+      label: `Jumlah Pencairan (${getCurrentMonthName()})`,
       value: String(metrics?.jurnalCountThisMonth ?? 0),
       sub: "otomatis dari sistem",
       icon: <Notebook size={18} className="text-blue-500" />,
       iconBg: "bg-blue-50",
     },
     {
-      label: "Total Debit = Kredit",
+      label: "Total Dicairkan",
       value: formatRupiah(metrics?.totalDebit ?? 0),
       sub: isBalanced ? "✓ Seimbang" : `Selisih: Rp ${selisih.toLocaleString('id-ID')}`,
       icon: isBalanced ? <Check size={18} className="text-emerald-600" /> : <X size={18} className="text-rose-600" />,
@@ -340,16 +340,9 @@ export default function KeuanganDashboardPage() {
                     <div className="flex items-center gap-2">
                       <BookOpen size={16} className="text-stone-400" />
                       <h2 className="text-[15px] font-bold text-stone-900">
-                        Jurnal Terbaru
+                        Riwayat Pencairan
                       </h2>
                     </div>
-                    <Link
-                      href="/keuangan/jurnal?tab=Buku Besar"
-                      className="flex items-center gap-1 text-[12px] font-semibold text-[#008f5d] hover:text-[#00754c] transition"
-                    >
-                      Buku Besar
-                      <ChevronRight size={14} />
-                    </Link>
                   </div>
 
                   <div className="divide-y divide-stone-100 overflow-y-auto max-h-[420px]">
@@ -415,7 +408,7 @@ export default function KeuanganDashboardPage() {
                         href="/keuangan/jurnal"
                         className="w-full py-3 flex items-center justify-center gap-2 text-stone-600 hover:text-stone-900 font-bold text-[12px] transition hover:bg-stone-50"
                       >
-                        Lihat semua jurnal <ArrowRight size={14} />
+                        Lihat Riwayat<ArrowRight size={14} />
                       </Link>
                     </div>
                   )}

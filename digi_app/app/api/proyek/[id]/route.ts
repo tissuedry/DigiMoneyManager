@@ -3,13 +3,21 @@ import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
 async function canAccess(userId: string | null, userRole: string | null, proyekId: number, action: 'read' | 'write' | 'delete') {
-  if (userRole === 'Direktur / Manajemen') return true;
+  if (
+    userRole === 'Direktur / Manajemen' || 
+    userRole === 'Superadmin' || 
+    userRole === 'superadmin'
+  ) 
+  {
+    return true;
+  }
 
   if (action !== 'delete' && userId) {
     return !!(await prisma.userProyek.findFirst({
       where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
     }));
   }
+
   return false;
 }
 
@@ -32,10 +40,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           budget: {
             include: {
               mainAnggaran: {
+                orderBy: { id: 'asc' },
                 include: {
                   subAnggaran: {
+                    orderBy: { id: 'asc' },
                     include: {
                       keterangan: {
+                        orderBy: { id: 'asc' },
                         include: {
                           reimbursements: {
                             include: {
@@ -71,6 +82,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           },
         },
       }),
+
       prisma.approval.findMany({
         where: {
           reimbursement: { proyekId: proyekId },
@@ -80,6 +92,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         include: { reimbursement: { select: { nominal: true } } },
         orderBy: { timestamp: 'asc' },
       }),
+
       prisma.reimbursement.findMany({
         where: {
           proyekId: proyekId,
@@ -105,6 +118,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           id: 'desc',
         },
       }),
+
       prisma.pengajuanAnggaranItem.count({
         where: { pengajuan: { proyekId, status: 'PENDING' } },
       })
@@ -119,6 +133,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       roleInProyek: up.role,
       divisiInProyek: up.divisi,
     }));
+
     const mappedBudget = project.budget ? {
       ...project.budget,
       posAnggaran: (project.budget as any).mainAnggaran.map((m: any) => ({
@@ -136,6 +151,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const getCashFlowForMonths = (monthsCount: number) => {
       const flow: { bulan: string; inflow: number; outflow: number }[] = [];
       const now = new Date();
+
       for (let i = monthsCount - 1; i >= 0; i--) {
         const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
@@ -155,6 +171,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           outflow: monthOutflow,
         });
       }
+
       return flow;
     };
 
@@ -162,6 +179,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const cashFlow4m = getCashFlowForMonths(4);
     const cashFlow12m = getCashFlowForMonths(12);
     const cashFlowYtd = getCashFlowForMonths(now.getMonth() + 1);
+
+    const approvedReimbursements = approvals.map((a) => Number(a.reimbursement.nominal));
+    const calculatedApprovedNominal = approvedReimbursements.reduce((sum, n) => sum + n, 0);
+    const sudahReimburseNominal = approvals.length > 0
+      ? calculatedApprovedNominal
+      : Number(project.budget?.totalReimbursement || 0);
+    const sudahReimburseCount = approvals.length;
+
+    const belumReimburseNominal = pendingReimbursements.reduce((sum, r) => sum + Number(r.nominal || 0), 0);
+    const belumReimburseCount = pendingReimbursements.length;
 
     const responseProject = {
       ...project,
@@ -172,9 +199,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       cashFlowYtd,
       pendingPmCount: pendingPengajuanCount,
       pendingReimbursements,
+      sudahReimburseNominal,
+      sudahReimburseCount,
+      belumReimburseNominal,
+      belumReimburseCount,
+      reimbursementDisetujui: sudahReimburseNominal,
+      reimbursementDisetujuiCount: sudahReimburseCount,
+      reimbursementBelumDisetujui: belumReimburseNominal,
+      reimbursementBelumDisetujuiCount: belumReimburseCount,
     };
 
     return NextResponse.json({ project: responseProject });
+
   } catch (error: any) {
     console.error('Fetch project detail error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
@@ -196,8 +232,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json();
     const { nama, deskripsi, tanggalMulai, tanggalSelesai, status } = body;
 
-    if (!nama || !tanggalMulai || !status) {
-      return NextResponse.json({ message: 'Nama, tanggal mulai, dan status wajib diisi' }, { status: 400 });
+    if (!nama || !tanggalMulai || !status || !tanggalSelesai) {
+      return NextResponse.json({ message: 'Nama, tanggal mulai, tanggal selesai, dan status wajib diisi' }, { status: 400 });
     }
 
     const updatedProject = await prisma.proyek.update({
@@ -212,7 +248,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     if (userId) {
-      const actor = userRole === 'Direktur / Manajemen' ? 'Direktur' : 'Project Manager';
+      let actor = 'Project Manager';
+
+      if (userRole === 'Direktur / Manajemen') {
+        actor = 'Direktur';
+
+      } else if (userRole === 'Superadmin' || userRole === 'superadmin') {
+        actor = 'Super Admin';
+      }
+
       await prisma.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
@@ -225,19 +269,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     clearCache('proyek:');
     clearCache('dashboard:');
     return NextResponse.json({ message: 'Proyek berhasil diperbarui', project: updatedProject });
+
   } catch (error: any) {
     console.error('Update project error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
 
-// DELETE: Delete a project (Direktur only)
+// DELETE: Delete a project (Direktur / Super Admin only)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
     const userRole = req.headers.get('x-user-role');
-    if (userRole !== 'Direktur / Manajemen') {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    
+    if (
+      userRole !== 'Direktur / Manajemen' && 
+      userRole !== 'Superadmin' && 
+      userRole !== 'superadmin'
+    ) 
+    {
+      return NextResponse.json({ message: 'Forbidden: Only Direktur or Super Admin can delete projects' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -261,18 +312,24 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await prisma.$transaction([deleteReimbursements, deleteProject]);
 
     if (userId) {
+      // PERUBAHAN: Menyesuaikan identitas actor untuk Audit Trail
+      const actor = (userRole === 'Superadmin' || userRole === 'superadmin') 
+        ? 'Superadmin' 
+        : 'Direktur';
+
       await prisma.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
           aksi: 'delete_project',
-          detail: `Direktur menghapus proyek: ${project.nama}`,
+          detail: `${actor} menghapus proyek: ${project.nama}`,
         },
       });
     }
 
     clearCache('proyek:');
-clearCache('dashboard:');
-return NextResponse.json({ message: 'Proyek berhasil dihapus' });
+    clearCache('dashboard:');
+    return NextResponse.json({ message: 'Proyek berhasil dihapus' });
+    
   } catch (error: any) {
     console.error('Delete project error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });

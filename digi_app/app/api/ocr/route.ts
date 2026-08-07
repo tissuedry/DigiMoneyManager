@@ -1,34 +1,40 @@
 import { NextResponse, NextRequest } from 'next/server';
 import Groq from 'groq-sdk';
 
-// Helper function untuk memanggil Google Gemini Vision REST API (Zero dependency)
-async function scanWithGemini(base64Image: string, mimeType: string, promptInstruksi: string, geminiKey: string): Promise<string> {
-  // 1. Coba Endpoint Terbaru: v1alpha Interactions API (gemini-3.6-flash)
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1alpha/interactions?key=${geminiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gemini-3.6-flash',
-        input: [
-          { type: 'text', text: promptInstruksi },
-          { type: 'image', data: base64Image, mime_type: mimeType }
-        ]
-      }),
-    });
+// Helper untuk mengekstrak gambar JPEG asli yang tertanam di dalam buffer PDF
+function extractJpegsFromPdf(pdfBuffer: Buffer): string[] {
+  const images: string[] = [];
+  const soi = Buffer.from([0xff, 0xd8, 0xff]);
+  const eoi = Buffer.from([0xff, 0xd9]);
 
-    if (response.ok) {
-      const data = await response.json();
-      const text = data.outputs?.[0]?.text || data.output_text || '';
-      if (text) return text;
+  let offset = 0;
+  while (offset < pdfBuffer.length && images.length < 6) {
+    const start = pdfBuffer.indexOf(soi, offset);
+    if (start === -1) break;
+
+    const end = pdfBuffer.indexOf(eoi, start + 3);
+    if (end === -1) break;
+
+    const imgBuffer = pdfBuffer.subarray(start, end + 2);
+    // Abaikan gambar ikon/thumbnail yang sangat kecil (< 5KB)
+    if (imgBuffer.length > 5 * 1024) {
+      const base64 = imgBuffer.toString('base64');
+      images.push(`data:image/jpeg;base64,${base64}`);
     }
-  } catch (e: any) {
-    console.warn('Gemini Interactions API fallback to generateContent:', e.message);
+
+    offset = end + 2;
   }
 
-  // 2. Coba Endpoint Standar: v1beta generateContent API (gemini-2.0-flash / gemini-2.5-flash)
-  const modelsToTry = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite'];
+  return images;
+}
+
+// Helper function untuk memanggil Google Gemini Vision REST API (Zero dependency)
+async function scanWithGemini(base64Image: string, mimeType: string, promptInstruksi: string, geminiKey: string): Promise<string> {
+  const modelsToTry = [
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-3-flash-preview',
+  ];
   let lastError = '';
 
   for (const modelName of modelsToTry) {
@@ -88,7 +94,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Ambil file gambar dari FormData request Frontend
+    // 1. Ambil file gambar/PDF dari FormData request Frontend
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     if (!file) {
@@ -98,43 +104,77 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Konversi file gambar mentah ke Base64 (Lossless / Uncompressed)
+    // 2. Konversi file dokumen/gambar mentah ke Base64
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Image = buffer.toString('base64');
-    const mimeType = file.type || 'image/png';
+    const fileName = file.name || '';
+    const isPdf = file.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+    const mimeType = isPdf ? 'application/pdf' : (file.type || 'image/png');
     const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
-    // 3. Susun instruksi Prompt Fleksibel & Akurat untuk Struk Thermal, EDC, BRI Link, Kuitansi, maupun Invoice / Faktur
+    // 3. Susun instruksi Prompt Fleksibel & Akurat untuk Single/Multi Struk & Invoice PDF
     const promptInstruksi = `Bertindaklah sebagai OCR Dokumen Keuangan profesional berakurasi sangat tinggi.
-Tugas Anda adalah membaca gambar dokumen transaksi (struk thermal, struk transfer BRI LINK/EDC, nota toko, kuitansi, atau invoice tagihan) dan mengekstrak informasi kunci:
+Tugas Anda adalah membaca dokumen transaksi (struk thermal, struk transfer, nota toko, kuitansi, atau dokumen PDF yang berisi satu atau beberapa foto struk/invoice) dan mengekstrak informasi kunci:
 
-1. 'merchant': Nama toko/vendor/agen pengeluar dokumen (string). Contoh: "JIHAD BRILINK", "Indomaret", "PT SYAFTRACO".
-2. 'tanggal': Tanggal transaksi dengan format standard ISO 'YYYY-MM-DD'.
-   *PENTING*: Perhatikan format tanggal Indonesia (DD-MM-YYYY / DD/MM/YYYY). Contoh: '16-09-2023 10:56:51' ubah menjadi '2023-09-16'.
-3. 'nominal': Total nominal pembayaran / grand total akhir yang dibayarkan (integer murni tanpa huruf/simbol).
-   *PENTING*: Cari baris "Total", "Total Bayar", "Jumlah Bayar", "Grand Total", atau angka akhir transaksi. Contoh jika tertulis "Total : Rp 638.000", hasilnya adalah 638000.
+1. 'merchant': Nama toko/vendor/agen pengeluar dokumen (string). Jika ada beberapa struk dalam satu dokumen PDF, sebutkan vendor utama atau gabungkan (contoh: "Indomaret / Pertamina / Toko Jaya").
+2. 'tanggal': Tanggal transaksi dengan format standard ISO 'YYYY-MM-DD'. Ambil tanggal dari struk terbaru atau struk utama.
+3. 'nominal': Total nominal pembayaran (integer murni tanpa huruf/simbol). 
+   *PENTING*: Jika dokumen PDF berisi BEBERAPA foto struk/invoice terpisah, JUMLAHKAN SELURUH NOMINAL dari semua struk tersebut menjadi satu Grand Total akumulasi! Contoh: Struk 1 (Rp 50.000) + Struk 2 (Rp 100.000) = 150000.
 4. 'kategoriBukti': Tentukan kategori dokumen hanya dari pilihan berikut:
    - "Struk Pembelian" (jika berupa struk thermal, struk belanjaan, atau struk EDC/transfer)
-   - "Invoice / Faktur" (jika berupa faktur tagihan resmi / bill)
+   - "Invoice / Faktur" (jika berupa faktur tagihan resmi / bill / PDF invoice)
    - "Kuitansi Resmi" (jika berupa kuitansi pembayaran)
    - "Nota Kontan" (jika berupa nota manual/toko)
-5. 'keterangan': Ringkasan singkat mengenai transaksi/layanan yang dibayarkan (misal: "Pembayaran Briva PT SYAFTRACO a/n JUMIAH").
+5. 'keterangan': Ringkasan singkat mengenai transaksi/layanan yang dibayarkan (misal: "Gabungan foto struk pengeluaran operasional proyek").
 
 WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kembalikan HANYA berupa satu objek JSON valid persis dengan struktur berikut:
 {
-  "merchant": "JIHAD BRILINK",
-  "tanggal": "2023-09-16",
-  "nominal": 638000,
+  "merchant": "Indomaret & Pertamina",
+  "tanggal": "2026-08-04",
+  "nominal": 150000,
   "kategoriBukti": "Struk Pembelian",
-  "keterangan": "Pembayaran Briva PT SYAFTRACO"
+  "keterangan": "Gabungan foto struk operasional proyek"
 }`;
 
     let rawResponse = '';
     let providerUsed = '';
 
-    // 4. Coba Primary Provider: Groq Vision (qwen/qwen3.6-27b)
-    if (groqKey) {
+    // 4. Jika file berupa PDF, coba ekstrak foto-foto JPEG dari PDF untuk diproses langsung via Groq Vision
+    if (isPdf && groqKey) {
+      try {
+        const extractedJpegs = extractJpegsFromPdf(buffer);
+        if (extractedJpegs.length > 0) {
+          console.log(`Mengekstrak ${extractedJpegs.length} halaman foto dari PDF untuk Groq Vision...`);
+          const client = new Groq({ apiKey: groqKey });
+          const imageContentItems = extractedJpegs.map((url) => ({
+            type: 'image_url' as const,
+            image_url: { url },
+          }));
+
+          const chatCompletion = await client.chat.completions.create({
+            model: 'qwen/qwen3.6-27b',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: promptInstruksi },
+                  ...imageContentItems,
+                ],
+              },
+            ],
+            temperature: 0.1,
+          });
+          rawResponse = chatCompletion.choices[0]?.message?.content || '';
+          if (rawResponse) providerUsed = `Groq Vision (${extractedJpegs.length} Halaman Struk PDF)`;
+        }
+      } catch (groqPdfErr: any) {
+        console.warn('Groq Vision PDF extraction error:', groqPdfErr?.message);
+      }
+    }
+
+    // 5. Jika bukan PDF atau ekstraksi JPEG PDF kosong, gunakan Groq Vision standar untuk single image
+    if (!rawResponse && groqKey && !isPdf) {
       try {
         const client = new Groq({ apiKey: groqKey });
         const chatCompletion = await client.chat.completions.create({
@@ -160,10 +200,10 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
       }
     }
 
-    // 5. Coba Secondary Provider: Google Gemini Vision API (bila Groq gagal/rate limit)
+    // 6. Secondary Fallback Provider: Gemini Vision (jika Groq belum memproses)
     if (!rawResponse && geminiKey) {
       try {
-        console.log('Menggunakan Secondary AI Provider: Google Gemini 3.6 Flash / 2.0 Flash...');
+        console.log('Menggunakan Fallback AI Provider: Google Gemini Vision...');
         rawResponse = await scanWithGemini(base64Image, mimeType, promptInstruksi, geminiKey);
         if (rawResponse) providerUsed = 'Google Gemini Vision';
       } catch (geminiErr: any) {
@@ -174,9 +214,9 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
     // 6. Jika kedua provider gagal
     if (!rawResponse) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Layanan AI Vision sedang mencapai batas kuota harian atau mengalami gangguan. Silakan periksa API Key atau isi detail pengajuan secara manual.' 
+        {
+          success: false,
+          message: 'Layanan AI Vision sedang mencapai batas kuota harian atau mengalami gangguan. Silakan periksa API Key atau isi detail pengajuan secara manual.'
         },
         { status: 429 }
       );
@@ -197,7 +237,7 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
       // 1. Coba parse langsung
       try {
         return JSON.parse(clean);
-      } catch {}
+      } catch { }
 
       // 2. Cari substring JSON { ... } terluar
       const firstBrace = clean.indexOf('{');
@@ -206,7 +246,7 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
         const jsonCandidate = clean.substring(firstBrace, lastBrace + 1).trim();
         try {
           return JSON.parse(jsonCandidate);
-        } catch {}
+        } catch { }
       }
 
       // 3. Fallback regex matcher per baris JSON
@@ -216,7 +256,7 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
           try {
             const parsed = JSON.parse(m);
             if (parsed && typeof parsed === 'object') return parsed;
-          } catch {}
+          } catch { }
         }
       }
 
@@ -237,8 +277,8 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
     const sanitizedData = {
       merchant: String(dataJson.merchant || 'Vendor Dokumen').trim(),
       tanggal: String(dataJson.tanggal || new Date().toISOString().split('T')[0]).trim(),
-      nominal: typeof dataJson.nominal === 'number' 
-        ? Math.round(dataJson.nominal) 
+      nominal: typeof dataJson.nominal === 'number'
+        ? Math.round(dataJson.nominal)
         : parseInt(String(dataJson.nominal || '0').replace(/\D/g, ''), 10) || 0,
       kategoriBukti: String(dataJson.kategoriBukti || 'Struk Pembelian').trim(),
       keterangan: String(dataJson.keterangan || '').trim(),

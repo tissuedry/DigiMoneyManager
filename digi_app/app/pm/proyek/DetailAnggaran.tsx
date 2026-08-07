@@ -10,21 +10,9 @@ function formatFullCurrency(num: number): string {
 }
 
 function formatReimbursementDate(r: any): string {
-  const ocrTanggal = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
-  if (ocrTanggal) {
-    const d = new Date(ocrTanggal);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    }
-  }
-  const ocrSubmitted = r.ocrData && typeof r.ocrData === 'object' && 'submittedAt' in r.ocrData ? (r.ocrData as any).submittedAt : null;
-  const rawDate = r.timestamp || ocrSubmitted;
-  if (rawDate) {
-    const d = new Date(rawDate);
+  const ocrSubmitted = r.createdAt;
+  if (ocrSubmitted) {
+    const d = new Date(ocrSubmitted);
     if (!isNaN(d.getTime())) {
       return d.toLocaleDateString("id-ID", {
         day: "numeric",
@@ -95,6 +83,15 @@ function getStatusRank(status: string): number {
   if (['SUBMITTED'].includes(status)) return 2;
   if (['APPROVED_BY_PM', 'PENDING'].includes(status)) return 3;
   return 4;
+}
+
+function reimbType(s: string): string {
+  const map: Record<string, string> = {
+    "Realisasi Anggaran": "REAL",
+    "Reimbursement": "REIMB",
+  };
+
+  return map[s] || s;
 }
 
 // ponytail: shared row layout — name grows, rest are fixed-width
@@ -230,9 +227,9 @@ type AksiVariant = "main" | "sub" | "ket";
 
 const VARIANT_STYLES: Record<AksiVariant, { bg: string; border: string; text: string }> = {
   main: {
-    bg: "#f0f7fc",
-    border: "#327c9e",
-    text: "#1d6186",
+    bg: "#fdf7f2",
+    border: "#b38355",
+    text: "#8d5423",
   },
   sub: {
     bg: "#f1f7f4",
@@ -240,9 +237,9 @@ const VARIANT_STYLES: Record<AksiVariant, { bg: string; border: string; text: st
     text: "#1f6245",
   },
   ket: {
-    bg: "#fdf7f2",
-    border: "#b38355",
-    text: "#8d5423",
+    bg: "#f0f7fc",
+    border: "#327c9e",
+    text: "#1d6186",
   },
 };
 
@@ -278,8 +275,6 @@ function AksiButton({
   );
 }
 
-
-
 export default function DetailAnggaranModal({
   proyekId,
   proyekNama,
@@ -311,9 +306,21 @@ export default function DetailAnggaranModal({
   // Realisasi Ket = sum reimbursement APPROVED (dicairkan keuangan)
   // Realisasi Sub = sum realisasi seluruh Ket di bawahnya
   // Realisasi Main = sum realisasi seluruh Sub di bawahnya
-  const mapped: MainPosItem[] = posAnggaran.map((main) => {
-    const subPos = (main.subAnggaran || []).map((sub: any) => {
-      const keterangan = (sub.keterangan || []).map((ket: any) => {
+  const sortedPosAnggaran = [...posAnggaran].sort(
+    (a, b) => (Number(a.id) || 0) - (Number(b.id) || 0)
+  );
+
+  const mapped: MainPosItem[] = sortedPosAnggaran.map((main) => {
+    const sortedSubAnggaran = [...(main.subAnggaran || [])].sort(
+      (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
+    );
+
+    const subPos = sortedSubAnggaran.map((sub: any) => {
+      const sortedKeterangan = [...(sub.keterangan || [])].sort(
+        (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
+      );
+
+      const keterangan = sortedKeterangan.map((ket: any) => {
         // Reimbursement dari data posAnggaran (embedded)
         const childReimbursements = ket.reimbursements || [];
 
@@ -647,6 +654,7 @@ export default function DetailAnggaranModal({
                                                   const displayName = reimb.merchant || reimb.keterangan || reimb.nama || reimbName || 'Reimbursement';
                                                   const dateStr = formatReimbursementDate(reimb);
                                                   const displayStatus = statusLabel(reimb.status);
+
                                                   return (
                                                     <Row
                                                       key={reimb.id}
@@ -654,10 +662,10 @@ export default function DetailAnggaranModal({
                                                     >
                                                       <div className={NAME_CLASS} title={displayName}>
                                                         <span
-                                                          className="text-[9px] font-bold uppercase shrink-0"
-                                                          style={{ color: "#005D8D" }}
+                                                          className={`text-[9px] font-bold uppercase shrink-0 
+                                                            ${reimb.tipe == 'Realisasi Anggaran' ? 'text-[#483E90]' : 'text-[#005D8D]'}`}
                                                         >
-                                                          REIMB
+                                                          {reimbType(reimb.tipe)}
                                                         </span>
                                                         <span
                                                           className="text-[11px] text-stone-700 font-medium truncate shrink-1 cursor-pointer"

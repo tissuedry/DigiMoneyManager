@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
+import SuccessDialog from '@/components/success-dialog';
+import ConfirmDialog from '@/components/confirm-dialog';
+import Toast from '@/components/toast';
 
 export default function ChartOfAccountPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -28,10 +31,17 @@ export default function ChartOfAccountPage() {
   const [editNomorAkun, setEditNomorAkun] = useState('');
   const [editNamaAkun, setEditNamaAkun] = useState('');
   const [editTipe, setEditTipe] = useState('Aset');
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedAccountLabel, setDeletedAccountLabel] = useState('');
+
+  // Toast untuk error/sukses di luar modal (delete, import CSV)
+  const [toastError, setToastError] = useState<string | null>(null);
+  const [toastSuccess, setToastSuccess] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,19 +71,24 @@ export default function ChartOfAccountPage() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [activeMenuAccountId]);
 
-  const handleEditAccount = async (e: React.FormEvent) => {
+  const handleEditAccount = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
-    setIsSubmitting(true);
 
     if (!editingAccount) return;
 
     if (!editNomorAkun || !editNamaAkun || !editTipe) {
       setErrorMessage('Nomor Akun, Nama Akun, dan Tipe wajib diisi.');
-      setIsSubmitting(false);
       return;
     }
+
+    setShowEditConfirm(true);
+  };
+
+  const handleConfirmEditAccount = async () => {
+    if (!editingAccount) return;
+    setIsSubmitting(true);
 
     try {
       const res = await fetch(`/api/coa/${editingAccount.id}`, {
@@ -95,7 +110,8 @@ export default function ChartOfAccountPage() {
       }
 
       setSuccessMessage('Akun berhasil diubah!');
-      
+      setShowEditConfirm(false);
+
       // Refresh list
       const fetchRes = await fetch('/api/coa');
       const fetchData = await fetchRes.json();
@@ -110,6 +126,7 @@ export default function ChartOfAccountPage() {
       }, 1500);
     } catch (err: any) {
       setErrorMessage(err.message || 'Terjadi kesalahan sistem.');
+      setShowEditConfirm(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -137,10 +154,12 @@ export default function ChartOfAccountPage() {
         setAccounts(fetchData.coa);
       }
 
+      setDeletedAccountLabel(`${deletingAccount.nomorAkun} - ${deletingAccount.namaAkun}`);
       setShowDeleteModal(false);
       setDeletingAccount(null);
+      setShowDeleteSuccess(true);
     } catch (err: any) {
-      alert(err.message || 'Terjadi kesalahan sistem saat menghapus akun.');
+      setToastError(err.message || 'Terjadi kesalahan sistem saat menghapus akun.');
     } finally {
       setIsDeleting(false);
     }
@@ -288,8 +307,8 @@ export default function ChartOfAccountPage() {
 
         const data = await res.json();
         if (res.ok) {
-          alert(`Berhasil mengimpor ${data.createdCount} akun.`);
-          
+          setToastSuccess(`Berhasil mengimpor ${data.createdCount} akun.`);
+
           // Refresh list
           const fetchRes = await fetch('/api/coa');
           const fetchData = await fetchRes.json();
@@ -297,11 +316,11 @@ export default function ChartOfAccountPage() {
             setAccounts(fetchData.coa);
           }
         } else {
-          alert(`Gagal mengimpor akun: ${data.message}`);
+          setToastError(`Gagal mengimpor akun: ${data.message}`);
         }
       } catch (err: any) {
         console.error("Error processing CSV:", err);
-        alert(`Gagal memproses file CSV: ${err.message}`);
+        setToastError(`Gagal memproses file CSV: ${err.message}`);
       } finally {
         setIsLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -369,10 +388,10 @@ export default function ChartOfAccountPage() {
           </div>
 
           {/* Action Bar (Filters, Search, Buttons) */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row items-center w-full gap-4">
             
             {/* Filter Tabs - Fokus visual diperbaiki dengan latar belakang putih kontras */}
-            <div className="p-1 bg-[#F1EEE6] rounded-xl border border-[#E6E1D4] inline-flex items-center gap-1 overflow-x-auto z-10 relative">
+            <div className="p-1 bg-[#F1EEE6] rounded-xl border border-[#E6E1D4] flex items-center gap-1 overflow-x-auto z-10 relative shrink-0 w-full lg:w-auto">
               {filterTabs.map((tab) => (
                 <button
                   key={tab}
@@ -390,35 +409,19 @@ export default function ChartOfAccountPage() {
             </div>
 
             {/* Input & Action Buttons */}
-            <div className="flex items-center gap-3 self-end lg:self-auto w-full lg:w-auto justify-end">
+            <div className="flex items-center gap-3 w-full flex-1">
               <input
                 type="text"
                 placeholder="Cari kode atau nama akun..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-4 py-2 bg-white border border-[#E4E0D9] rounded-xl text-sm text-[#14130F] placeholder-[#9A948B] focus:outline-none focus:ring-2 focus:ring-[#009162] w-full max-w-xs transition-all"
+                className="flex-1 min-w-0 px-4 py-2 bg-white border border-[#E4E0D9] rounded-xl text-sm text-[#14130F] placeholder-[#9A948B] focus:outline-none focus:ring-2 focus:ring-[#009162] transition-all"
               />
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleCSVUpload}
-                accept=".csv"
-                className="hidden"
-              />
-              
-              <button 
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="h-10 px-4 bg-white border border-[#E4E0D9] rounded-xl text-sm font-medium text-[#14130F] hover:bg-gray-50 flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <span>Import</span>
-              </button>
 
               <button 
                 type="button"
                 onClick={() => setShowAddModal(true)}
-                className="h-10 px-4 bg-[#009162] hover:bg-[#00734D] active:bg-[#005836] text-white text-sm font-medium rounded-xl flex items-center gap-2 transition-all shadow-sm whitespace-nowrap cursor-pointer"
+                className="h-10 px-4 bg-[#009162] hover:bg-[#00734D] active:bg-[#005836] text-white text-sm font-medium rounded-xl flex items-center gap-2 transition-all shadow-sm whitespace-nowrap cursor-pointer shrink-0"
               >
                 <span>+ Tambah Akun</span>
               </button>
@@ -727,38 +730,73 @@ export default function ChartOfAccountPage() {
         </div>
       )}
 
-      {/* Modal Konfirmasi Hapus Akun */}
-      {showDeleteModal && deletingAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-[#F6F4EF] rounded-2xl border border-[#E4E0D9] shadow-xl overflow-hidden p-6 relative">
-            <h3 className="text-lg font-bold text-[#14130F] mb-2">Hapus Akun</h3>
-            <p className="text-sm text-stone-600 mb-6">
-              Apakah Anda yakin ingin menghapus akun <span className="font-semibold text-[#14130F]">{deletingAccount.nomorAkun} - {deletingAccount.namaAkun}</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
-            </p>
+      <ConfirmDialog
+        open={showEditConfirm && !!editingAccount}
+        title="Simpan Perubahan Akun"
+        description={
+          editingAccount && (
+            <>
+              Apakah Anda yakin ingin menyimpan perubahan pada akun <span className="font-semibold text-[#14130F]">{editingAccount.nomorAkun} - {editingAccount.namaAkun}</span> menjadi:
+              <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3 mt-3 space-y-1.5">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Nomor Akun</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editNomorAkun}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Nama Akun</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editNamaAkun}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-stone-400 font-medium">Tipe</dt>
+                  <dd className="font-bold text-stone-800 text-right">{editTipe}</dd>
+                </div>
+              </dl>
+            </>
+          )
+        }
+        confirmLabel={isSubmitting ? 'Menyimpan...' : 'Simpan'}
+        isLoading={isSubmitting}
+        onCancel={() => setShowEditConfirm(false)}
+        onConfirm={handleConfirmEditAccount}
+      />
 
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeletingAccount(null);
-                }}
-                className="px-4 py-2 border border-[#E4E0D9] hover:bg-gray-50 text-sm font-semibold rounded-xl text-[#6A6660] cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-all cursor-pointer"
-              >
-                {isDeleting ? 'Menghapus...' : 'Hapus Akun'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showDeleteModal && !!deletingAccount}
+        title="Hapus Akun"
+        description={
+          deletingAccount && (
+            <>Apakah Anda yakin ingin menghapus akun <span className="font-semibold text-[#14130F]">{deletingAccount.nomorAkun} - {deletingAccount.namaAkun}</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.</>
+          )
+        }
+        confirmLabel={isDeleting ? 'Menghapus...' : 'Hapus Akun'}
+        variant="danger"
+        isLoading={isDeleting}
+        onCancel={() => {
+          setShowDeleteModal(false);
+          setDeletingAccount(null);
+        }}
+        onConfirm={handleDeleteAccount}
+      />
+
+      <SuccessDialog
+        open={showDeleteSuccess}
+        title="Akun Berhasil Dihapus"
+        description={<>Akun <span className="font-semibold text-[#14130F]">{deletedAccountLabel}</span> telah dihapus dari Chart of Account.</>}
+        onClose={() => setShowDeleteSuccess(false)}
+      />
+
+      <Toast
+        open={!!toastSuccess}
+        message={toastSuccess || ''}
+        onClose={() => setToastSuccess(null)}
+      />
+
+      <Toast
+        open={!!toastError}
+        variant="error"
+        message={toastError || ''}
+        onClose={() => setToastError(null)}
+      />
     </div>
   );
 }

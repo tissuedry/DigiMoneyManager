@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
     clearCache(`me:${userIdStr}`);
     clearCache('dashboard:');
     clearCache('proyek:');
+    clearCache('reimb:');
 
     // 6. Create Response
     const redirectUrl = primaryRole === 'Project Manager' ? '/pm' : '/karyawan';

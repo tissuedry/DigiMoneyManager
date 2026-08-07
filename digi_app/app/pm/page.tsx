@@ -1,24 +1,20 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
 import {
-  Plus,
   ArrowRight,
-  FileText,
-  Loader2,
   AlertCircle,
   Check,
   TrendingUp,
   Wallet,
   FileCheck,
   ChevronRight,
-  ChevronDown,
   Bell
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
-import { useApi, useMutate } from "@/lib/use-api";
+import { useApi } from "@/lib/use-api";
+import PMSkeleton from "./PMSkeleton";
 
 // Type Definitions matching API responses
 type PosAnggaran = {
@@ -64,41 +60,20 @@ type DashboardData = {
   message?: string;
 };
 
-type ProyekResponse = {
-  projects: Array<{ id: number; nama: string }>;
-};
-
 type MeResponse = {
   user?: { proyekId?: number };
 };
 
-// Formatting helpers
-const formatRupiah = (amount: number) => {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
-const formatShort = (v: number): string => {
+// Formatting helpsers
+const formatRupiah = (v: number): string => {
   if (!v || v === 0) return "Rp 0";
   const abs = Math.abs(v);
   const sign = v < 0 ? "-" : "";
 
   let formatted = "";
-  if (abs >= 1_000_000_000_000) {
-    const num = Math.round(abs / 1_000_000_000_000);
+  if (abs >= 100_000_000_000_000) {
+    const num = Math.round(abs / 100_000_000_000_000);
     formatted = `${num} t`;
-  } else if (abs >= 1_000_000_000) {
-    const num = Math.round(abs / 1_000_000_000);
-    formatted = `${num} m`;
-  } else if (abs >= 1_000_000) {
-    const num = Math.round(abs / 1_000_000);
-    formatted = `${num} jt`;
-  } else if (abs >= 1_000) {
-    const num = Math.round(abs / 1_000);
-    formatted = `${num} rb`;
   } else {
     formatted = Math.round(abs).toLocaleString("id-ID");
   }
@@ -106,133 +81,62 @@ const formatShort = (v: number): string => {
   return `${sign}Rp ${formatted}`;
 };
 
-const formatTanggal = (isoString: string | null) => {
-  if (!isoString) return "-";
-  const date = new Date(isoString);
-  return date.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-};
-
 export default function PMDashboardPage() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const projectDropdownRef = useRef<HTMLDivElement>(null);
-
-  // ponytail: TanStack Query deduplicates — Sidebar, Header, and this page share one request
   const { data: meData } = useApi<MeResponse>("/api/auth/me");
-  const { data: proyekData } = useApi<ProyekResponse>("/api/proyek?role=Project+Manager");
 
-  const allProjects = proyekData?.projects ?? [];
-
-  // Auto-select project: resolves dynamically from selected state or user session (meData)
-  const resolvedProyekId = selectedProjectId ?? meData?.user?.proyekId ?? allProjects[0]?.id ?? null;
+  const resolvedProyekId = meData?.user?.proyekId ?? null;
 
   const dashboardUrl = resolvedProyekId
     ? `/api/dashboard?projectId=${resolvedProyekId}&role=Project+Manager`
     : "/api/dashboard?role=Project+Manager";
+
   const { data: dashData, isLoading, error: dashError } = useApi<{ dashboard: DashboardData }>(
     resolvedProyekId ? dashboardUrl : null
   );
+
   const data = dashData?.dashboard ?? null;
   const error = dashError?.message ?? null;
-
-  const selectProject = useMutate("/api/auth/select-project", "POST", ["/api/auth/me", "/api/dashboard"]);
-
-  // Close dropdown on click outside
-  React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
-        setIsProjectDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <Sidebar
-        isSidebarOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
         userRole="Project Manager"
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
         <Header
-          onOpenSidebar={() => setIsSidebarOpen(true)}
           userRole="Project Manager"
         />
 
         <main className="flex-1 p-8 overflow-y-auto space-y-6">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
-              <p className="text-sm text-stone-500 mt-1">
-                Kelola budget proyek, pantau pengeluaran lapangan, dan setujui reimbursement karyawan.
-              </p>
-            </div>
-            {data?.project && (
-              <div className="relative self-start" ref={projectDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsProjectDropdownOpen((v) => !v)}
-                  className="flex items-center gap-2 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition-all"
-                >
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  <span className="text-xs font-bold text-stone-800 max-w-[200px] truncate">
-                    {data.project.nama}
-                  </span>
-                  <ChevronDown
-                    size={13}
-                    className={`text-stone-400 transition-transform duration-200 ${isProjectDropdownOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-
-                {isProjectDropdownOpen && allProjects.length > 1 && (
-                  <div className="absolute right-0 mt-1.5 w-64 bg-white border border-stone-200 rounded-xl shadow-lg z-50 overflow-hidden py-1">
-                    {allProjects.map((proj) => (
-                      <button
-                        key={proj.id}
-                        type="button"
-                        onClick={async () => {
-                          setIsProjectDropdownOpen(false);
-                          selectProject.mutate({ proyekId: proj.id });
-                          // Optimistic: switch display immediately
-                          setSelectedProjectId(proj.id);
-                        }}
-                        className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-stone-50 flex items-center gap-2 transition ${
-                          proj.id === data.project?.id
-                            ? "text-emerald-700 bg-emerald-50/50"
-                            : "text-stone-700"
-                        }`}
-                      >
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${proj.id === data.project?.id ? "bg-emerald-500" : "bg-stone-200"}`} />
-                        {proj.nama}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-3">
-              <Loader2 className="animate-spin text-[#008f5d]" size={32} />
-              <p className="text-stone-500 text-[14px]">Memuat dasbor Project Manager...</p>
-            </div>
+            <PMSkeleton />
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs font-bold">
-              Gagal memuat dashboard: {error}
-            </div>
+            <>
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
+                  <p className="text-sm text-stone-500 mt-1">
+                    Kelola budget proyek, pantau pengeluaran lapangan, dan setujui reimbursement karyawan.
+                  </p>
+                </div>
+              </div>
+              <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs font-bold">
+                Gagal memuat dashboard: {error}
+              </div>
+            </>
           ) : data ? (
             <>
+              {/* Header Section */}
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
+                  <p className="text-sm text-stone-500 mt-1">
+                    Kelola budget proyek, pantau pengeluaran lapangan, dan setujui reimbursement karyawan.
+                  </p>
+                </div>
+              </div>
               {data.project === null ? (
                 <div className="bg-white border border-stone-200 rounded-2xl p-8 text-center shadow-sm max-w-xl mx-auto space-y-4 my-10">
                   <AlertCircle className="mx-auto text-amber-500" size={40} />
@@ -256,8 +160,8 @@ export default function PMDashboardPage() {
 
                     const statCards = [
                       {
-                        label: "Total RAB Proyek",
-                        value: formatShort(rab),
+                        label: "Total Nilai Proyek",
+                        value: formatRupiah(rab),
                         raw: formatRupiah(rab),
                         sub: "Alokasi anggaran awal",
                         icon: <Wallet size={18} className="text-stone-600" />,
@@ -265,15 +169,15 @@ export default function PMDashboardPage() {
                       },
                       {
                         label: "Total Terpakai",
-                        value: formatShort(used),
+                        value: formatRupiah(used),
                         raw: formatRupiah(used),
-                        sub: `${usedPercentage.toFixed(1)}% dari total RAB`,
+                        sub: `${usedPercentage.toFixed(1)}% dari total nilai proyek`,
                         icon: <TrendingUp size={18} className="text-rose-600" />,
                         iconBg: "bg-rose-50",
                       },
                       {
                         label: "Sisa Budget",
-                        value: formatShort(rem),
+                        value: formatRupiah(rem),
                         raw: formatRupiah(rem),
                         sub: `${remPercentage.toFixed(1)}% anggaran tersisa`,
                         icon: <Check size={18} className="text-emerald-600" />,
@@ -345,11 +249,11 @@ export default function PMDashboardPage() {
                           <div className="flex justify-between items-center text-xs font-medium text-stone-500">
                             <span title={formatRupiah(used)} className="flex items-center gap-1.5 cursor-pointer">
                               <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-                              Terpakai: {formatShort(used)}
+                              Terpakai: {formatRupiah(used)}
                             </span>
                             <span title={formatRupiah(rem)} className="flex items-center gap-1.5 cursor-pointer">
                               <span className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-                              Sisa Budget: {formatShort(rem)}
+                              Sisa Budget: {formatRupiah(rem)}
                             </span>
                           </div>
                         </div>
@@ -364,7 +268,10 @@ export default function PMDashboardPage() {
                                 <p className="text-[11px] text-stone-400 mt-0.5">Penyerapan per kategori alokasi</p>
                               </div>
                               <Link
-                                href="/pm/budget"
+                                href={{
+                                  pathname: "/pm/proyek",
+                                  query: { detailModal: 'true' },
+                                }}
                                 className="inline-flex items-center gap-1 text-[11px] font-bold text-[#008f5d] hover:underline"
                               >
                                 Detail Budget
@@ -376,15 +283,26 @@ export default function PMDashboardPage() {
                               {budget?.posAnggaran && budget.posAnggaran.length > 0 ? (
                                 budget.posAnggaran.map((pos) => {
                                   const alloc = Number(pos.nominalAlokasi);
-                                  const spent = Number(pos.nominalTerpakai);
-                                  const pct = alloc > 0 ? Math.min(Math.round((spent / alloc) * 100), 100) : 0;
-                                  const isWarning = pct >= 80;
+                                  const real = Number(pos.nominalTerpakai);
+                                  const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
+                                  const isOverBudget = real >= alloc;
+                                  const isWarning = pct >= 80 && !isOverBudget;
+                                  let barColor = 'bg-emerald-600'; // Default warna hijau (Aman)
+                                  if (isOverBudget) barColor = 'bg-red-500'; // Merah kalau Over Budget
+                                  else if (isWarning) barColor = 'bg-amber-500'; // Kuning kalau Warning
 
                                   return (
                                     <div key={pos.id} className="space-y-1.5">
                                       <div className="flex justify-between text-xs font-medium">
                                         <div className="flex items-center gap-2">
                                           <span className="font-bold text-stone-800">{pos.namaPos}</span>
+                                          {isOverBudget && (
+                                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">
+                                              <AlertCircle size={8} /> Over Budget
+                                            </span>
+                                          )}
+
+                                          {/* Badge Hampir Limit */}
                                           {isWarning && (
                                             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
                                               <AlertCircle size={8} /> Hampir Limit
@@ -392,7 +310,7 @@ export default function PMDashboardPage() {
                                           )}
                                         </div>
                                         <div className="text-stone-500 font-mono">
-                                          <span className="font-bold text-stone-800">Rp {spent.toLocaleString('id-ID')}</span>
+                                          <span className="font-bold text-stone-800">Rp {real.toLocaleString('id-ID')}</span>
                                           <span className="text-stone-300 mx-1">/</span>
                                           <span>Rp {alloc.toLocaleString('id-ID')}</span>
                                         </div>
@@ -400,14 +318,14 @@ export default function PMDashboardPage() {
 
                                       <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
                                         <div
-                                          className={`h-full transition-all duration-500 ${isWarning ? 'bg-amber-500' : 'bg-emerald-600'}`}
+                                          className={`h-full transition-all duration-500 ${barColor}`}
                                           style={{ width: `${pct}%` }}
                                         />
                                       </div>
 
                                       <div className="flex justify-between text-[10px] text-stone-400 font-medium">
                                         <span>Terpakai: {pct}%</span>
-                                        <span>Sisa: Rp {(alloc - spent).toLocaleString('id-ID')}</span>
+                                        <span>Sisa: Rp {(alloc - real).toLocaleString('id-ID')}</span>
                                       </div>
                                     </div>
                                   );

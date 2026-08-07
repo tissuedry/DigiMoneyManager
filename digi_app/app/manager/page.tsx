@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
-import { Loader2, TrendingUp, TrendingDown, Check, ArrowUpRight, ArrowRight } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { Loader2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
 
@@ -162,7 +162,6 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManagerDashboardPage() {
-  // ponytail: single useApi replaces useState + useEffect + fetch
   const { data, isLoading, error } = useApi<DashboardResponse>("/api/dashboard");
 
   const d = data?.dashboard ?? null;
@@ -243,7 +242,7 @@ export default function ManagerDashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-stone-900 leading-tight">Executive Dashboard</h1>
         <p className="text-sm text-stone-500 mt-1">
-          Ringkasan real-time arus kas, profitabilitas proyek, dan performa tim per {dateLabel}.
+          Ringkasan real-time arus kas, proyek aktif, dan performa tim per {dateLabel}.
         </p>
       </div>
 
@@ -311,9 +310,9 @@ export default function ManagerDashboardPage() {
       {/* Profitabilitas Proyek */}
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm">
         <div className="p-6 border-b border-stone-100 flex items-center justify-between">
-          <h3 className="font-bold text-[15px] text-stone-900">Profitabilitas Proyek Aktif</h3>
+          <h3 className="font-bold text-[15px] text-stone-900">Proyek Aktif</h3>
           <Link
-            href="/manager/profitabilitas"
+            href="/manager/proyek"
             className="flex items-center gap-1 text-[12px] font-bold text-stone-600 hover:text-stone-900 transition"
           >
             Lihat semua <ArrowRight size={14} />
@@ -326,24 +325,18 @@ export default function ManagerDashboardPage() {
               <tr className="text-[11px] text-stone-400 font-semibold uppercase tracking-wide border-b border-stone-100">
                 <th className="text-left px-6 py-3">Proyek</th>
                 <th className="text-left px-4 py-3">Klien</th>
-                <th className="text-right px-4 py-3">RAB</th>
+                <th className="text-right px-4 py-3">Nilai Proyek</th>
                 <th className="text-right px-4 py-3">Realisasi</th>
                 <th className="text-right px-4 py-3">Sisa</th>
-                <th className="text-left px-4 py-3 w-32">Realisasi</th>
-                <th className="text-right px-6 py-3">Margin</th>
+                <th className="text-left px-4 py-3 w-32">Utilisasi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
               {projectList.slice(0, 5).map((p) => {
-                const marginColor =
-                  p.margin >= 20 ? "text-emerald-600" :
-                  p.margin >= 12 ? "text-amber-600" :
-                  "text-red-600";
                 const barColor =
                   p.margin >= 20 ? "#2d6a4f" :
                   p.margin >= 12 ? "#c9a227" :
                   "#c0392b";
-
                 return (
                   <tr key={p.id} className="hover:bg-stone-50/70 transition-colors">
                     <td className="px-6 py-4">
@@ -367,9 +360,6 @@ export default function ManagerDashboardPage() {
                         </div>
                         <span className="text-[11px] text-stone-500 font-mono w-8 text-right">{p.realisasiPct}%</span>
                       </div>
-                    </td>
-                    <td className={`px-6 py-4 text-right text-[13px] font-bold ${marginColor}`}>
-                      {p.margin}%
                     </td>
                   </tr>
                 );

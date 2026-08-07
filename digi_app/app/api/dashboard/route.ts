@@ -24,9 +24,14 @@ export async function GET(req: NextRequest) {
     const dashboardData: any = { role };
 
     if (role === 'Karyawan') {
-      // 1. Employee Dashboard data
+      // 1. Employee Dashboard data (scoped to the currently selected project)
+      const karyawanWhere: any = { userId: parseInt(userId, 10) };
+      if (userProyekId) {
+        karyawanWhere.proyekId = parseInt(userProyekId, 10);
+      }
+
       const userReimbursements = await prisma.reimbursement.findMany({
-        where: { userId: parseInt(userId, 10) },
+        where: karyawanWhere,
         select: {
           nominal: true,
           status: true,
@@ -39,7 +44,7 @@ export async function GET(req: NextRequest) {
       const totalRejected = userReimbursements.filter(r => r.status === 'REJECTED').length;
 
       const recentSubmissions = await prisma.reimbursement.findMany({
-        where: { userId: parseInt(userId, 10) },
+        where: karyawanWhere,
         include: {
           proyek: { select: { nama: true } },
           keteranganAnggaran: {
@@ -87,7 +92,17 @@ export async function GET(req: NextRequest) {
             budget: {
               include: {
                 mainAnggaran: {
-                  include: { subAnggaran: { include: { keterangan: true } } },
+                  orderBy: { id: 'asc' },
+                  include: { 
+                    subAnggaran: { 
+                      orderBy: { id: 'asc' },
+                      include: { 
+                        keterangan: {
+                          orderBy: { id: 'asc' },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -117,6 +132,15 @@ export async function GET(req: NextRequest) {
             ...main,
             deskripsi: main.namaMain,
             namaPos: main.namaMain,
+            nominalTerpakai: String(
+              main.subAnggaran.reduce(
+                (sum: number, sub: any) =>
+                  sum + sub.keterangan.reduce(
+                    (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
+                  ),
+                0
+              )
+            ),
           })),
         } : null;
 
@@ -226,12 +250,13 @@ export async function GET(req: NextRequest) {
           akunKredit: { select: { nomorAkun: true, namaAkun: true } },
         },
         orderBy: { id: 'desc' },
-        take: 8,
+        take: 5,
       });
 
       const recentJournals = recentJournalsRaw.map((j) => {
-        const ocrData = j.reimbursement.ocrData as any;
-        const tanggal = ocrData?.tanggal || null;
+        // PERUBAHAN: Mengambil tanggal dan tipe langsung dari tabel karena ocrData dihapus
+        const tanggal = j.reimbursement.tanggalStruk || null;
+        const tipePengajuan = j.reimbursement.tipe || 'Pengajuan';
         const kategori = j.reimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
           || j.reimbursement.keteranganAnggaran?.keterangan
           || '-';
@@ -239,7 +264,8 @@ export async function GET(req: NextRequest) {
         return {
           jeId: `JE-${String(j.id).padStart(4, '0')}`,
           tanggal,
-          keterangan: j.keterangan || `Pencairan reimbursement ${j.reimbursement.user.nama} - ${kategori}`,
+          // PERUBAHAN: Teks dinamis sesuai tipe (Reimbursement / Realisasi Anggaran)
+          keterangan: j.keterangan || `Pencairan ${tipePengajuan} ${j.reimbursement.user.nama} - ${kategori}`,
           debitKode: `${j.akunDebit.nomorAkun}`,
           debitNama: j.akunDebit.namaAkun,
           kreditKode: `${j.akunKredit.nomorAkun}`,
@@ -274,6 +300,7 @@ export async function GET(req: NextRequest) {
           id: r.id,
           nominal: Number(r.nominal),
           status: r.status,
+          tipe: r.tipe, // PERUBAHAN: Mengirimkan tipe ke frontend agar Tim Keuangan tahu jenisnya
           user: {
             nama: r.user.nama,
             divisi: assignment?.divisi || null,
@@ -409,7 +436,7 @@ export async function GET(req: NextRequest) {
       };
 
       // ── Project Profitability ────────────────────────────────────
-      const projectProfitability = proyekList.map((p) => {
+      const projectProfitability = proyekList.filter(p => p.status === 'AKTIF').map((p) => {
         const rab = Number(p.budget?.rabTotal || 0);
         const expense = Number(p.budget?.totalPengeluaran || 0);
         const sisa = Number(p.budget?.sisaBudget || 0);
@@ -454,6 +481,41 @@ export async function GET(req: NextRequest) {
       dashboardData.cashFlow = cashFlowMonths;
       dashboardData.reimbursementPipeline = reimbursementPipeline;
       dashboardData.projectList = projectProfitability;
+
+    } else if (role === 'Superadmin' || role === 'superadmin') {
+      
+      const totalPengajuan = await prisma.reimbursement.count();
+
+      const totalMenungguApproval = await prisma.reimbursement.count({
+        where: { status: 'SUBMITTED' }
+      });
+
+      const totalSiapDicairkan = await prisma.reimbursement.count({
+        where: { status: 'APPROVED_BY_PM' }
+      });
+
+      const totalProyekAktif = await prisma.proyek.count({
+        where: { status: 'AKTIF' }
+      });
+
+      const totalCoA = await prisma.chartOfAccounts.count();
+
+      const totalUserAktif = await prisma.user.count(); 
+
+      // PERBAIKAN: Hitung Total Nilai Proyek dengan menjumlahkan rabTotal
+      const budgets = await prisma.budget.findMany();
+      const totalNilaiProyek = budgets.reduce((sum, b) => sum + Number(b.rabTotal), 0);
+
+      dashboardData.metrics = {
+        totalNilaiProyek, // Menambahkan perhitungan nilai proyek untuk Super Admin
+        totalPengajuan,
+        totalMenungguApproval,
+        totalSiapDicairkan,
+        totalProyekAktif,
+        totalCoA,
+        totalUserAktif
+      };
+
     }
 
     // ponytail: store in cache before returning
