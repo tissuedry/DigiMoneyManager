@@ -104,8 +104,18 @@ const SCOPE_TOPICS: Record<UserRole, string[]> = {
   ],
 };
 
-function applyInlineMarkdown(text: string): string {
+function escapeHtml(text: string): string {
   return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function applyInlineMarkdown(text: string): string {
+  const safe = escapeHtml(text);
+  return safe
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/`(.+?)`/g, "<code>$1</code>");
