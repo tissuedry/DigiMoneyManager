@@ -227,9 +227,9 @@ type AksiVariant = "main" | "sub" | "ket";
 
 const VARIANT_STYLES: Record<AksiVariant, { bg: string; border: string; text: string }> = {
   main: {
-    bg: "#f0f7fc",
-    border: "#327c9e",
-    text: "#1d6186",
+    bg: "#fdf7f2",
+    border: "#b38355",
+    text: "#8d5423",
   },
   sub: {
     bg: "#f1f7f4",
@@ -237,9 +237,9 @@ const VARIANT_STYLES: Record<AksiVariant, { bg: string; border: string; text: st
     text: "#1f6245",
   },
   ket: {
-    bg: "#fdf7f2",
-    border: "#b38355",
-    text: "#8d5423",
+    bg: "#f0f7fc",
+    border: "#327c9e",
+    text: "#1d6186",
   },
 };
 

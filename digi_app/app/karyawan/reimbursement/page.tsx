@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import Toast from '@/components/toast';
+import DatePicker from '@/components/date-picker';
 import {
   PlusCircle,
   Camera,
@@ -680,17 +681,11 @@ function AjukanReimbursementContent() {
                         <label className="text-stone-500 font-bold">Tanggal Transaksi <span className="text-red-500">*</span></label>
                         <span className="bg-[#E0F2FE] text-[#0369A1] font-bold text-[9px] px-1.5 py-0.5 rounded-md leading-none shadow-sm select-none">dari VLM</span>
                       </div>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={tanggal}
-                          onChange={(e) => { setTanggal(e.target.value); clearFieldError('tanggal'); }}
-                          className={`w-full bg-white border rounded-xl px-3 py-3 font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all [color-scheme:light] ${
-                            formErrors.tanggal ? 'border-red-300 focus:border-red-500' : 'border-stone-200 focus:border-[#008F5D]'
-                          }`}
-                          onClick={(e) => e.currentTarget.showPicker()}
-                        />
-                      </div>
+                      <DatePicker
+                        value={tanggal}
+                        onChange={(v) => { setTanggal(v); clearFieldError('tanggal'); }}
+                        error={!!formErrors.tanggal}
+                      />
                       {formErrors.tanggal && (
                         <p className="text-red-500 font-medium">{formErrors.tanggal}</p>
                       )}

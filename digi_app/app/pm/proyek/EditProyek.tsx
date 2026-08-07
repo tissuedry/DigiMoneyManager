@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Check, X, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
+import DatePicker from "@/components/date-picker";
 
 type ProyekDataMinimal = {
   id: number;
@@ -40,8 +41,8 @@ export default function EditProyekModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!nama || !tanggalMulai) {
-      setError("Nama Proyek dan Tanggal Mulai wajib diisi!");
+    if (!nama || !tanggalMulai || !tanggalSelesai) {
+      setError("Nama Proyek, Tanggal Mulai, dan Tanggal Selesai wajib diisi!");
       return;
     }
 
@@ -104,7 +105,7 @@ export default function EditProyekModal({
           )}
 
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek *</label>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek <span className="text-red-500"> *</span></label>
             <input
               type="text"
               required
@@ -125,7 +126,7 @@ export default function EditProyekModal({
           </div>
 
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek <span className="text-red-500"> *</span></label>
             <div className="flex flex-wrap gap-2 mt-1">
               {statusOptions.map((opt) => {
                 const isSelected = status === opt.value;
@@ -149,23 +150,12 @@ export default function EditProyekModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
-              <input
-                type="date"
-                required
-                value={tanggalMulai}
-                onChange={(e) => setTanggalMulai(e.target.value)}
-                className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white text-stone-800 font-semibold focus:outline-none"
-              />
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai <span className="text-red-500"> *</span></label>
+              <DatePicker value={tanggalMulai} onChange={setTanggalMulai} />
             </div>
             <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai</label>
-              <input
-                type="date"
-                value={tanggalSelesai}
-                onChange={(e) => setTanggalSelesai(e.target.value)}
-                className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white text-stone-800 font-semibold focus:outline-none"
-              />
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai <span className="text-red-500"> *</span></label>
+              <DatePicker value={tanggalSelesai} onChange={setTanggalSelesai} min={tanggalMulai} align="right" />
             </div>
           </div>
 

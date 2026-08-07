@@ -1,5 +1,6 @@
 import React from "react";
 import { X, Loader2 } from "lucide-react";
+import DatePicker from "@/components/date-picker";
 
 type Props = {
   editMode: boolean;
@@ -44,11 +45,16 @@ export default function EditProjectModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Mulai *</label>
-              <input type="date" required value={editForm.tanggalMulai} onChange={(e) => setEditForm({ ...editForm, tanggalMulai: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
+              <DatePicker value={editForm.tanggalMulai} onChange={(v) => setEditForm({ ...editForm, tanggalMulai: v })} />
             </div>
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Tanggal Selesai</label>
-              <input type="date" value={editForm.tanggalSelesai} onChange={(e) => setEditForm({ ...editForm, tanggalSelesai: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white" />
+              <DatePicker
+                value={editForm.tanggalSelesai}
+                onChange={(v) => setEditForm({ ...editForm, tanggalSelesai: v })}
+                min={editForm.tanggalMulai}
+                align="right"
+              />
             </div>
           </div>
           <div>

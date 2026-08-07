@@ -285,13 +285,24 @@ export default function PMDashboardPage() {
                                   const alloc = Number(pos.nominalAlokasi);
                                   const real = Number(pos.nominalTerpakai);
                                   const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
-                                  const isWarning = pct >= 80;
+                                  const isOverBudget = real >= alloc;
+                                  const isWarning = pct >= 80 && !isOverBudget;
+                                  let barColor = 'bg-emerald-600'; // Default warna hijau (Aman)
+                                  if (isOverBudget) barColor = 'bg-red-500'; // Merah kalau Over Budget
+                                  else if (isWarning) barColor = 'bg-amber-500'; // Kuning kalau Warning
 
                                   return (
                                     <div key={pos.id} className="space-y-1.5">
                                       <div className="flex justify-between text-xs font-medium">
                                         <div className="flex items-center gap-2">
                                           <span className="font-bold text-stone-800">{pos.namaPos}</span>
+                                          {isOverBudget && (
+                                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">
+                                              <AlertCircle size={8} /> Over Budget
+                                            </span>
+                                          )}
+
+                                          {/* Badge Hampir Limit */}
                                           {isWarning && (
                                             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
                                               <AlertCircle size={8} /> Hampir Limit
@@ -307,7 +318,7 @@ export default function PMDashboardPage() {
 
                                       <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
                                         <div
-                                          className={`h-full transition-all duration-500 ${isWarning ? 'bg-amber-500' : 'bg-emerald-600'}`}
+                                          className={`h-full transition-all duration-500 ${barColor}`}
                                           style={{ width: `${pct}%` }}
                                         />
                                       </div>

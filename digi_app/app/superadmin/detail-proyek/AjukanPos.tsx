@@ -733,269 +733,314 @@ export default function AjukanPosModal({
 
                   {isMainOpen && (
                     <div className="bg-white divide-y divide-[#e6e1d4]/60">
-                      {main.subPos.map((sub) => {
-                        const isSubOpen = expandedSub[sub.id] ?? false;
-                        const isNewSub = sub.status === "MENUNGGU";
-                        return (
-                          <div key={sub.id} className="bg-white">
-                            {/* Sub Pos Header */}
-                            <div
-                              onClick={() => toggleSub(sub.id)}
-                              className="px-3 py-2 pl-6 flex items-center justify-between cursor-pointer hover:bg-[#fbfaf6] transition select-none"
-                            >
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <div className="p-0.5 rounded transition shrink-0 text-[#6a6660]">
-                                  {isSubOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                                </div>
-                                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>SUB</span>
-                                <span className="text-[12px] font-semibold text-[#2c2a24]">
-                                  {sub.isLocalDraft ? `Sub Baru: ${sub.nama}` : sub.nama}
-                                </span>
-                                {sub.isLocalDraft ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider">
-                                    Draft
-                                  </span>
-                                ) : (sub.isPendingServer || sub.status === "MENUNGGU") ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fef3c7] text-[#92400e] border border-[#fcd34d] tracking-wider">
-                                    Menunggu
-                                  </span>
-                                ) : null}
-                              </div>
-                              <span className="text-[11px] font-normal text-[#9a948b] font-mono">{formatShort(sub.alokasi)}</span>
-                            </div>
+                      {(() => {
+                        const masterMain = Array.isArray(masterMainList)
+                          ? masterMainList.find(
+                            (m: any) => m.nama.toUpperCase().trim() === main.nama.toUpperCase().trim()
+                          )
+                          : undefined;
+                        const masterSubs = subOptions[main.id] || masterMain?.MasterSub;
+                        const hasAvailableSub = masterSubs
+                          ? masterSubs.some((ms: any) => !main.subPos.some((s) => s.nama.toUpperCase().trim() === ms.nama.toUpperCase().trim()))
+                          : true;
 
-                            {/* Keterangan List */}
-                            {isSubOpen && (
-                              <div className="pl-6 pr-3 py-1 space-y-1 bg-white">
-                                {sub.keterangan.map((ket) => (
-                                  <div key={ket.id} className="flex items-center justify-between py-1 pl-13 text-[11.5px] text-[#6a6660]">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>KET</span>
-                                      <span className="font-normal text-[#6a6660]">{ket.nama}</span>
-                                      {ket.isLocalDraft ? (
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider rounded">
+                        return (
+                          <>
+                            {main.subPos.map((sub) => {
+                              const isSubOpen = expandedSub[sub.id] ?? false;
+                              const masterSub = masterMain?.MasterSub?.find(
+                                (s: any) => s.nama.toUpperCase().trim() === sub.nama.toUpperCase().trim()
+                              );
+                              const masterKets = ketOptions[sub.id] || masterSub?.MasterKeterangan;
+                              const hasAvailableKet = masterKets
+                                ? masterKets.some((mk: any) => !sub.keterangan.some((k) => k.nama.toUpperCase().trim() === mk.nama.toUpperCase().trim()))
+                                : true;
+
+                              return (
+                                <div key={sub.id} className="bg-white">
+                                  {/* Sub Pos Header */}
+                                  <div
+                                    onClick={() => toggleSub(sub.id)}
+                                    className="px-3 py-2 pl-6 flex items-center justify-between cursor-pointer hover:bg-[#fbfaf6] transition select-none"
+                                  >
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <div className="p-0.5 rounded transition shrink-0 text-[#6a6660]">
+                                        {isSubOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                      </div>
+                                      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>SUB</span>
+                                      <span className="text-[12px] font-semibold text-[#2c2a24]">
+                                        {sub.isLocalDraft ? `Sub Baru: ${sub.nama}` : sub.nama}
+                                      </span>
+                                      {sub.isLocalDraft ? (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider">
                                           Draft
                                         </span>
-                                      ) : (ket.isPendingServer || ket.status === "MENUNGGU") ? (
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#fef3c7] text-[#92400e] border border-[#fcd34d] tracking-wider rounded">
+                                      ) : (sub.isPendingServer || sub.status === "MENUNGGU") ? (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fef3c7] text-[#92400e] border border-[#fcd34d] tracking-wider">
                                           Menunggu
                                         </span>
                                       ) : null}
                                     </div>
-                                    <span className="text-[#9a948b] font-mono text-[10.5px]">{formatShort(ket.alokasi)}</span>
+                                    <span className="text-[11px] font-normal text-[#9a948b] font-mono">{formatShort(sub.alokasi)}</span>
                                   </div>
-                                ))}
 
-                                {/* Add Keterangan inline */}
-                                <div className="py-1">
-                                  {addingKetSubId === sub.id ? (
-                                    <div className="bg-[#fbfaf6] border border-[#e6e1d4] rounded-xl p-3.5 space-y-3 my-1.5 mr-1 shadow-inner">
-                                      {/* Budget summary for this Sub */}
-                                      {(() => {
-                                        const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
-                                        const inputVal = parseRupiahInput(newKetAlokasi);
-                                        const liveTotalKet = totalKet + inputVal;
-                                        const sisaKet = sub.alokasi - liveTotalKet;
-                                        const isOverKet = sisaKet < 0;
-                                        return (
-                                          <div className="grid grid-cols-2 gap-2.5">
-                                            <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
-                                              <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
-                                              <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalKet)}</p>
-                                            </div>
-                                            {isOverKet ? (
-                                              <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3 py-2">
-                                                <p className="text-[12.5px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
-                                                <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaKet)}</p>
-                                              </div>
-                                            ) : (
-                                              <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
-                                                <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Sisa SUB · {sub.nama} Belum Dialokasikan</p>
-                                                <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaKet)}</p>
-                                              </div>
-                                            )}
+                                  {/* Keterangan List */}
+                                  {isSubOpen && (
+                                    <div className="pl-6 pr-3 py-1 space-y-1 bg-white">
+                                      {sub.keterangan.map((ket) => (
+                                        <div key={ket.id} className="flex items-center justify-between py-1 pl-13 text-[11.5px] text-[#6a6660]">
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>KET</span>
+                                            <span className="font-normal text-[#6a6660]">{ket.nama}</span>
+                                            {ket.isLocalDraft ? (
+                                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider rounded">
+                                                Draft
+                                              </span>
+                                            ) : (ket.isPendingServer || ket.status === "MENUNGGU") ? (
+                                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#fef3c7] text-[#92400e] border border-[#fcd34d] tracking-wider rounded">
+                                                Menunggu
+                                              </span>
+                                            ) : null}
                                           </div>
-                                        );
-                                      })()}
-                                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                        <div className="">
-                                          <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Keterangan Baru:</label>
-                                          {loadingKetOptions[sub.id] ? (
-                                            <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
-                                              <Loader2 size={12} className="animate-spin" />
-                                              Memuat pilihan...
+                                          <span className="text-[#9a948b] font-mono text-[10.5px]">{formatShort(ket.alokasi)}</span>
+                                        </div>
+                                      ))}
+
+                                      {/* Add Keterangan inline */}
+                                      {hasAvailableKet && (
+                                        <div className="py-1">
+                                          {addingKetSubId === sub.id ? (
+                                            <div className="bg-[#fbfaf6] border border-[#e6e1d4] rounded-xl p-3.5 space-y-3 my-1.5 mr-1 shadow-inner">
+                                              {/* Budget summary for this Sub */}
+                                              {(() => {
+                                                const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
+                                                const inputVal = parseRupiahInput(newKetAlokasi);
+                                                const liveTotalKet = totalKet + inputVal;
+                                                const sisaKet = sub.alokasi - liveTotalKet;
+                                                const isOverKet = sisaKet < 0;
+                                                return (
+                                                  <div className="grid grid-cols-2 gap-2.5">
+                                                    <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
+                                                      <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
+                                                      <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalKet)}</p>
+                                                    </div>
+                                                    {isOverKet ? (
+                                                      <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3 py-2">
+                                                        <p className="text-[12.5px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
+                                                        <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaKet)}</p>
+                                                      </div>
+                                                    ) : (
+                                                      <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
+                                                        <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Sisa SUB · {sub.nama} Belum Dialokasikan</p>
+                                                        <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaKet)}</p>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })()}
+                                              {(() => {
+                                                const availableKetOptions = (ketOptions[sub.id] || []).filter(
+                                                  (opt: any) => !sub.keterangan.some((k) => k.nama.toUpperCase().trim() === opt.nama.toUpperCase().trim())
+                                                );
+                                                return (
+                                                  <>
+                                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                                      <div className="">
+                                                        <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Keterangan Baru:</label>
+                                                        {loadingKetOptions[sub.id] ? (
+                                                          <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
+                                                            <Loader2 size={12} className="animate-spin" />
+                                                            Memuat pilihan...
+                                                          </div>
+                                                        ) : (
+                                                          <select
+                                                            value={newKetName}
+                                                            onChange={(e) => setNewKetName(e.target.value)}
+                                                            className="w-full min-w-85 text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
+                                                          >
+                                                            {availableKetOptions.length > 0 ? (
+                                                              <>
+                                                                <option value="">Pilih Keterangan</option>
+                                                                {availableKetOptions.map((opt: any) => (
+                                                                  <option key={opt.id} value={opt.nama}>
+                                                                    {opt.nama}
+                                                                  </option>
+                                                                ))}
+                                                              </>
+                                                            ) : (
+                                                              <option value="">Tidak ada pilihan keterangan</option>
+                                                            )}
+                                                          </select>
+                                                        )}
+                                                      </div>
+                                                      <div className="w-full max-w-86">
+                                                        <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Nominal:</label>
+                                                        <input
+                                                          type="text"
+                                                          value={newKetAlokasi}
+                                                          onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))}
+                                                          placeholder="Rp 0"
+                                                          className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] font-mono text-[#14130f] h-[37px]"
+                                                        />
+                                                      </div>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                                                      <button
+                                                        onClick={() => handleAddKet(sub.id)}
+                                                        disabled={loadingKetOptions[sub.id] || availableKetOptions.length === 0 || !newKetName || sub.keterangan.some(k => k.nama === newKetName) || isKetInPending(sub, main.id, newKetName)}
+                                                        className="px-3.5 py-1.5 bg-[#009162] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer disabled:opacity-50"
+                                                      >
+                                                        Simpan Draft
+                                                      </button>
+                                                      <button
+                                                        onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }}
+                                                        className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer"
+                                                      >
+                                                        Batal
+                                                      </button>
+                                                      {newKetName && sub.keterangan.some(k => k.nama === newKetName) && (
+                                                        <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah pernah ditambahkan atau diajukan</span>
+                                                      )}
+                                                      {newKetName && !sub.keterangan.some(k => k.nama === newKetName) && isKetInPending(sub, main.id, newKetName) && (
+                                                        <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah diajukan dan menunggu persetujuan Direktur</span>
+                                                      )}
+                                                    </div>
+                                                  </>
+                                                );
+                                              })()}
                                             </div>
                                           ) : (
-                                            <select
-                                              value={newKetName}
-                                              onChange={(e) => setNewKetName(e.target.value)}
-                                              className="w-full min-w-85 text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
+                                            <button
+                                              onClick={() => { setAddingKetSubId(sub.id); loadKetOptions(sub.id, sub.nama); }}
+                                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#005d8d] hover:underline cursor-pointer py-1"
                                             >
-                                              {(ketOptions[sub.id] || []).length > 0 ? (
-                                                <>
-                                                  <option value="">Pilih Keterangan</option>
-                                                  {(ketOptions[sub.id] || []).map((opt: any) => (
-                                                    <option key={opt.id} value={opt.nama}>
-                                                      {opt.nama}
-                                                    </option>
-                                                  ))}
-                                                </>
-                                              ) : (
-                                                <option value="">Tidak ada pilihan keterangan</option>
-                                              )}
-                                            </select>
+                                              <Plus size={11} /> Tambah Keterangan
+                                            </button>
                                           )}
                                         </div>
-                                        <div className="w-full max-w-86">
-                                          <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Nominal:</label>
-                                          <input
-                                            type="text"
-                                            value={newKetAlokasi}
-                                            onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))}
-                                            placeholder="Rp 0"
-                                            className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] font-mono text-[#14130f] h-[37px]"
-                                          />
-                                        </div>
-                                      </div>
-                                      <div className="flex flex-wrap items-center gap-3 pt-1">
-                                        <button
-                                          onClick={() => handleAddKet(sub.id)}
-                                          disabled={loadingKetOptions[sub.id] || (ketOptions[sub.id] || []).length === 0 || (!!newKetName && (sub.keterangan.some(k => k.nama === newKetName) || isKetInPending(sub, main.id, newKetName)))}
-                                          className="px-3.5 py-1.5 bg-[#009162] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer disabled:opacity-50"
-                                        >
-                                          Simpan Draft
-                                        </button>
-                                        <button
-                                          onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }}
-                                          className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer"
-                                        >
-                                          Batal
-                                        </button>
-                                        {newKetName && sub.keterangan.some(k => k.nama === newKetName) && (
-                                          <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah pernah ditambahkan atau diajukan</span>
-                                        )}
-                                        {newKetName && !sub.keterangan.some(k => k.nama === newKetName) && isKetInPending(sub, main.id, newKetName) && (
-                                          <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah diajukan dan menunggu persetujuan Direktur</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => { setAddingKetSubId(sub.id); loadKetOptions(sub.id, sub.nama); }}
-                                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#005d8d] hover:underline cursor-pointer py-1"
-                                    >
-                                      <Plus size={11} /> Tambah Keterangan
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {/* Add Sub inline */}
-                      <div className="px-3 py-1.5 pl-6 bg-white">
-                        {addingSubMainId === main.id ? (
-                          <div className="bg-[#fbfaf6] border border-[#e6e1d4] rounded-xl p-3.5 space-y-3 my-1.5 mr-1 shadow-inner">
-                            {/* Budget summary for this Main */}
-                            {(() => {
-                              const totalSub = main.subPos.reduce((s, sub) => s + sub.alokasi, 0);
-                              const inputVal = parseRupiahInput(newSubAlokasi);
-                              const liveTotalSub = totalSub + inputVal;
-                              const sisaSub = main.alokasi - liveTotalSub;
-                              const isOverSub = sisaSub < 0;
-                              return (
-                                <div className="grid grid-cols-2 gap-2.5">
-                                  <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
-                                    <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Total MAIN · {main.nama} Teralokasi</p>
-                                    <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalSub)}</p>
-                                  </div>
-                                  {isOverSub ? (
-                                    <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3 py-2">
-                                      <p className="text-[12.5px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
-                                      <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaSub)}</p>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
-                                      <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Sisa MAIN · {main.nama} Belum Dialokasikan</p>
-                                      <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaSub)}</p>
+                                      )}
                                     </div>
                                   )}
                                 </div>
                               );
-                            })()}
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                              <div>
-                                <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Sub Pos Baru:</label>
-                                {loadingSubOptions[main.id] ? (
-                                  <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
-                                    <Loader2 size={12} className="animate-spin" />
-                                    Memuat pilihan...
+                            })}
+
+                            {/* Add Sub inline */}
+                            {hasAvailableSub && (
+                              <div className="px-3 py-1.5 pl-6 bg-white">
+                                {addingSubMainId === main.id ? (
+                                  <div className="bg-[#fbfaf6] border border-[#e6e1d4] rounded-xl p-3.5 space-y-3 my-1.5 mr-1 shadow-inner">
+                                    {/* Budget summary for this Main */}
+                                    {(() => {
+                                      const totalSub = main.subPos.reduce((s, sub) => s + sub.alokasi, 0);
+                                      const inputVal = parseRupiahInput(newSubAlokasi);
+                                      const liveTotalSub = totalSub + inputVal;
+                                      const sisaSub = main.alokasi - liveTotalSub;
+                                      const isOverSub = sisaSub < 0;
+                                      return (
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                          <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
+                                            <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Total MAIN · {main.nama} Teralokasi</p>
+                                            <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalSub)}</p>
+                                          </div>
+                                          {isOverSub ? (
+                                            <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3 py-2">
+                                              <p className="text-[12.5px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
+                                              <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaSub)}</p>
+                                            </div>
+                                          ) : (
+                                            <div className="bg-white border border-[#e6e1d4] rounded-xl px-3 py-2">
+                                              <p className="text-[12.5px] font-semibold text-[#14130f] mb-0.5">Sisa MAIN · {main.nama} Belum Dialokasikan</p>
+                                              <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaSub)}</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                    {(() => {
+                                      const availableSubOptions = (subOptions[main.id] || []).filter(
+                                        (opt: any) => !main.subPos.some((s) => s.nama.toUpperCase().trim() === opt.nama.toUpperCase().trim())
+                                      );
+                                      return (
+                                        <>
+                                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                            <div>
+                                              <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Sub Pos Baru:</label>
+                                              {loadingSubOptions[main.id] ? (
+                                                <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
+                                                  <Loader2 size={12} className="animate-spin" />
+                                                  Memuat pilihan...
+                                                </div>
+                                              ) : (
+                                                <select
+                                                  value={newSubName}
+                                                  onChange={(e) => setNewSubName(e.target.value)}
+                                                  className="w-full min-w-85 text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
+                                                >
+                                                  {availableSubOptions.length > 0 ? (
+                                                    <>
+                                                      <option value="">Pilih Sub Pos</option>
+                                                      {availableSubOptions.map((opt: any) => (
+                                                        <option key={opt.id} value={opt.nama}>
+                                                          {opt.nama}
+                                                        </option>
+                                                      ))}
+                                                    </>
+                                                  ) : (
+                                                    <option value="">Tidak ada pilihan sub pos</option>
+                                                  )}
+                                                </select>
+                                              )}
+                                            </div>
+                                            <div className="w-full max-w-86">
+                                              <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Alokasi Anggaran:</label>
+                                              <input
+                                                type="text"
+                                                value={newSubAlokasi}
+                                                onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))}
+                                                placeholder="Rp 0"
+                                                className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] font-mono text-[#14130f] h-[37px]"
+                                              />
+                                            </div>
+                                          </div>
+                                          <div className="flex flex-wrap items-center gap-3 pt-1">
+                                            <button
+                                              onClick={() => handleAddSub(main.id)}
+                                              disabled={loadingSubOptions[main.id] || availableSubOptions.length === 0 || !newSubName || main.subPos.some(s => s.nama === newSubName) || isSubInPending(main.id, newSubName)}
+                                              className="px-3.5 py-1.5 bg-[#009162] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer shrink-0 disabled:opacity-50"
+                                            >
+                                              Simpan Draft
+                                            </button>
+                                            <button
+                                              onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }}
+                                              className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer shrink-0"
+                                            >
+                                              Batal
+                                            </button>
+                                            {newSubName && main.subPos.some(s => s.nama === newSubName) && (
+                                              <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah pernah ditambahkan atau diajukan</span>
+                                            )}
+                                            {newSubName && !main.subPos.some(s => s.nama === newSubName) && isSubInPending(main.id, newSubName) && (
+                                              <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah diajukan dan menunggu persetujuan Direktur</span>
+                                            )}
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 ) : (
-                                  <select
-                                    value={newSubName}
-                                    onChange={(e) => setNewSubName(e.target.value)}
-                                    className="w-full min-w-85 text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
+                                  <button
+                                    onClick={() => { setAddingSubMainId(main.id); loadSubOptions(main.id, main.nama); }}
+                                    className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#005836] hover:underline cursor-pointer py-1"
                                   >
-                                    {(subOptions[main.id] || []).length > 0 ? (
-                                      <>
-                                        <option value="">Pilih Sub Pos</option>
-                                        {(subOptions[main.id] || []).map((opt: any) => (
-                                          <option key={opt.id} value={opt.nama}>
-                                            {opt.nama}
-                                          </option>
-                                        ))}
-                                      </>
-                                    ) : (
-                                      <option value="">Tidak ada pilihan sub pos</option>
-                                    )}
-                                  </select>
+                                    <Plus size={12} /> Tambah Sub
+                                  </button>
                                 )}
                               </div>
-                              <div className="w-full max-w-86">
-                                <label className="block text-[10px] font-semibold text-[#6a6660] uppercase mb-1">Alokasi Anggaran:</label>
-                                <input
-                                  type="text"
-                                  value={newSubAlokasi}
-                                  onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))}
-                                  placeholder="Rp 0"
-                                  className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] font-mono text-[#14130f] h-[37px]"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-3 pt-1">
-                              <button
-                                onClick={() => handleAddSub(main.id)}
-                                disabled={loadingSubOptions[main.id] || (subOptions[main.id] || []).length === 0 || (!!newSubName && (main.subPos.some(s => s.nama === newSubName) || isSubInPending(main.id, newSubName)))}
-                                className="px-3.5 py-1.5 bg-[#009162] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer shrink-0 disabled:opacity-50"
-                              >
-                                Simpan Draft
-                              </button>
-                              <button
-                                onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }}
-                                className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer shrink-0"
-                              >
-                                Batal
-                              </button>
-                              {newSubName && main.subPos.some(s => s.nama === newSubName) && (
-                                <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah pernah ditambahkan atau diajukan</span>
-                              )}
-                              {newSubName && !main.subPos.some(s => s.nama === newSubName) && isSubInPending(main.id, newSubName) && (
-                                <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah diajukan dan menunggu persetujuan Direktur</span>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => { setAddingSubMainId(main.id); loadSubOptions(main.id, main.nama); }}
-                            className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#005836] hover:underline cursor-pointer py-1"
-                          >
-                            <Plus size={12} /> Tambah Sub
-                          </button>
-                        )}
-                      </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
