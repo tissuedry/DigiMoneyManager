@@ -287,9 +287,10 @@ export default function PMDashboardPage() {
                                   const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
                                   const isOverBudget = real >= alloc;
                                   const isWarning = pct >= 80 && !isOverBudget;
-                                  let barColor = 'bg-emerald-600'; // Default warna hijau (Aman)
-                                  if (isOverBudget) barColor = 'bg-red-500'; // Merah kalau Over Budget
-                                  else if (isWarning) barColor = 'bg-amber-500'; // Kuning kalau Warning
+
+                                  let barColor = 'bg-emerald-600';
+                                  if (isOverBudget) barColor = 'bg-red-500';
+                                  else if (isWarning) barColor = 'bg-amber-500';
 
                                   return (
                                     <div key={pos.id} className="space-y-1.5">
@@ -302,8 +303,7 @@ export default function PMDashboardPage() {
                                             </span>
                                           )}
 
-                                          {/* Badge Hampir Limit */}
-                                          {isWarning && (
+                                          {isWarning && !isOverBudget && (
                                             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
                                               <AlertCircle size={8} /> Hampir Limit
                                             </span>

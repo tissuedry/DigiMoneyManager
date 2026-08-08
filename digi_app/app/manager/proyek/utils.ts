@@ -39,22 +39,20 @@ export const formatSummaryRupiah = (num: number) => {
   if (!num || num === 0) return "Rp 0";
   const abs = Math.abs(num);
   const sign = num < 0 ? "-" : "";
+  const formatNumber = (value: number) => 
+    value.toLocaleString("id-ID", { maximumFractionDigits: 1 });
 
   let formatted = "";
   if (abs >= 1_000_000_000_000) {
-    const v = Math.round(abs / 1_000_000_000_000);
-    formatted = `${v} t`;
+    formatted = `${formatNumber(abs / 1_000_000_000_000)} t`;
   } else if (abs >= 1_000_000_000) {
-    const v = Math.round(abs / 1_000_000_000);
-    formatted = `${v} m`;
+    formatted = `${formatNumber(abs / 1_000_000_000)} m`;
   } else if (abs >= 1_000_000) {
-    const v = Math.round(abs / 1_000_000);
-    formatted = `${v} jt`;
+    formatted = `${formatNumber(abs / 1_000_000)} jt`;
   } else if (abs >= 1_000) {
-    const v = Math.round(abs / 1_000);
-    formatted = `${v} rb`;
+    formatted = `${formatNumber(abs / 1_000)} rb`;
   } else {
-    formatted = Math.round(abs).toLocaleString("id-ID");
+    formatted = abs.toLocaleString("id-ID");
   }
 
   return `${sign}Rp ${formatted}`;
