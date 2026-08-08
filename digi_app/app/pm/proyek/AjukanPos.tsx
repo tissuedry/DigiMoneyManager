@@ -1169,31 +1169,13 @@ export default function AjukanPosModal({
                                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                                 <span className="text-[12px] font-medium text-[#14130f] shrink-0 min-w-32">Keterangan Baru:</span>
                                                 <div className="flex-1 min-w-0">
-                                                  {loadingKetOptions[sub.id] ? (
-                                                    <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
-                                                      <Loader2 size={12} className="animate-spin" />
-                                                      Memuat pilihan...
-                                                    </div>
-                                                  ) : (
-                                                    <select
-                                                      value={newKetName}
-                                                      onChange={(e) => setNewKetName(e.target.value)}
-                                                      className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] text-[#14130f] h-[37px]"
-                                                    >
-                                                      {availableKetOptions.length > 0 ? (
-                                                        <>
-                                                          <option value="">Pilih Keterangan Pos</option>
-                                                          {availableKetOptions.map((opt: any) => (
-                                                            <option key={opt.id} value={opt.nama}>
-                                                              {opt.nama}
-                                                            </option>
-                                                          ))}
-                                                        </>
-                                                      ) : (
-                                                        <option value="">Tidak ada pilihan keterangan pos</option>
-                                                      )}
-                                                    </select>
-                                                  )}
+                                                  <input
+                                                    type="text"
+                                                    placeholder="Masukkan Keterangan Pos..."
+                                                    value={newKetName}
+                                                    onChange={(e) => setNewKetName(e.target.value)}
+                                                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] text-[#14130f] h-[37px]"
+                                                  />
                                                 </div>
                                                 <div className="w-full sm:w-60 shrink-0">
                                                   <input
