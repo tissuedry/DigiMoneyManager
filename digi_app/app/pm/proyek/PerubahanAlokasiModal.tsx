@@ -202,7 +202,7 @@ export default function PerubahanAlokasiModal({
           <span className="text-[11px] text-stone-500">
             Sisa Nilai Proyek:{" "}
             <span className="font-bold text-stone-700">
-              {formatFullCurrency(Math.max(0, totalRAB - sumLain))}
+              {formatFullCurrency(Math.max(0, totalRAB - sumLain - main.alokasi))}
             </span>
           </span>
         </div>
