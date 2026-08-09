@@ -119,8 +119,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         },
       }),
 
-      prisma.pengajuanAnggaranItem.count({
-        where: { pengajuan: { proyekId, status: 'PENDING' } },
+      prisma.pengajuanAnggaran.count({
+        where: { proyekId, status: 'PENDING' },
       })
     ]);
 

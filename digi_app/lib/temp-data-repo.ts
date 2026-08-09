@@ -206,9 +206,9 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
           take: 20,
           orderBy: { createdAt: 'desc' },
           include: {
-            items: true,
             pengaju: { select: { nama: true } },
             proyek: { select: { nama: true } },
+            mainAnggaran: { select: { namaMain: true } },
           },
         })
       : Promise.resolve([]),
@@ -270,7 +270,7 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
     divisi: t.divisi || null,
   }));
 
-  // Pengajuan Anggaran: usulan perubahan struktur pos anggaran (tambah/ubah/hapus pos), workflow terpisah dari Reimbursement/Realisasi
+  // Pengajuan Anggaran: usulan perubahan alokasi pos anggaran (MainAnggaran) oleh PM yang direview Direktur, workflow terpisah dari Reimbursement/Realisasi
   const pengajuanAnggaranContext = (pengajuanAnggaranRows as any[]).map((pa) => ({
     id: pa.id,
     proyek: pa.proyek.nama,
@@ -279,12 +279,9 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
     status: pa.status,
     catatan: pa.catatan || null,
     createdAt: pa.createdAt,
-    items: (pa.items || []).map((item: any) => ({
-      aksi: item.aksi, // TAMBAH | UBAH | HAPUS
-      tipe: item.tipe, // e.g. MAIN_ANGGARAN | SUB_ANGGARAN | KETERANGAN_ANGGARAN
-      nama: item.nama,
-      nominalAlokasi: item.nominalAlokasi !== null ? Number(item.nominalAlokasi) : null,
-    })),
+    mainAnggaran: pa.mainAnggaran?.namaMain ?? null,
+    alokasiLama: pa.alokasiLama !== null ? Number(pa.alokasiLama) : null,
+    alokasiBaru: pa.alokasiBaru !== null ? Number(pa.alokasiBaru) : null,
   }));
 
   const recentReimbursementsContext = recentReimbursements.map((r: any) => ({

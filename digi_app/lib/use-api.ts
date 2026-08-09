@@ -14,7 +14,7 @@ async function fetcher<T>(url: string): Promise<T> {
 
 export function useApi<T = any>(
   url: string | null,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; refetchInterval?: number }
 ) {
   return useQuery<T>({
     queryKey: [url],
