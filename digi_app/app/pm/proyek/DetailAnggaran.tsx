@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
+import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
 
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
@@ -247,10 +248,12 @@ function AksiButton({
   children,
   variant = "main",
   onClick,
+  disabled = false,
 }: {
   children: React.ReactNode;
   variant?: AksiVariant;
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   const styles = VARIANT_STYLES[variant] || VARIANT_STYLES.main;
 
@@ -259,9 +262,10 @@ function AksiButton({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          if (onClick) onClick();
+          if (onClick && !disabled) onClick();
         }}
-        className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-sm"
+        disabled={disabled}
+        className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           backgroundColor: styles.bg,
           borderColor: styles.border,
@@ -294,6 +298,40 @@ export default function DetailAnggaranModal({
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
   const [expandedKet, setExpandedKet] = useState<Record<number, boolean>>({});
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [perubahanTarget, setPerubahanTarget] = useState<{
+    id: number;
+    nama: string;
+    alokasi: number;
+  } | null>(null);
+
+  // Status pengajuan perubahan alokasi per MainAnggaran (dari server)
+  const [pengajuanStatus, setPengajuanStatus] = useState<
+    Record<number, { status: string }>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPengajuan = async () => {
+      try {
+        const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const map: Record<number, { status: string }> = {};
+        (data.pengajuan || []).forEach((p: any) => {
+          if (p.mainAnggaranId != null) {
+            map[p.mainAnggaranId] = { status: p.status };
+          }
+        });
+        if (!cancelled) setPengajuanStatus(map);
+      } catch {
+        // abaikan — tanpa status pengajuan, tombol tetap berfungsi
+      }
+    };
+    fetchPengajuan();
+    return () => {
+      cancelled = true;
+    };
+  }, [proyekId]);
 
   const toggleMain = (id: number) =>
     setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
@@ -480,6 +518,21 @@ export default function DetailAnggaranModal({
                       <span className="text-[13px] font-semibold text-stone-800 truncate">
                         {main.nama}
                       </span>
+                      {pengajuanStatus[main.id]?.status === "PENDING" && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 bg-amber-100 text-amber-700">
+                          Menunggu Persetujuan
+                        </span>
+                      )}
+                      {pengajuanStatus[main.id]?.status === "DISETUJUI" && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 bg-emerald-100 text-emerald-700">
+                          Disetujui
+                        </span>
+                      )}
+                      {pengajuanStatus[main.id]?.status === "REJECT" && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 bg-red-100 text-red-700">
+                          Ditolak
+                        </span>
+                      )}
                     </div>
                     <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
                     <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
@@ -487,20 +540,17 @@ export default function DetailAnggaranModal({
                     <AksiButton
                       variant="main"
                       onClick={() => {
-                        const totalTeralokasi = mapped.reduce((s, m) => s + (m.alokasi || 0), 0);
-                        const totalChildrenAlokasi = main.subPos.reduce((s, s2) => s + (s2.alokasi || 0), 0);
-                        setEditTarget({
-                          type: "main",
+                        if (pengajuanStatus[main.id]?.status === "PENDING") return;
+                        setPerubahanTarget({
                           id: main.id,
                           nama: main.nama,
-                          currentAlokasi: main.alokasi || 0,
-                          totalRAB: totalRAB || totalTeralokasi,
-                          totalTeralokasi,
-                          totalChildrenAlokasi,
+                          alokasi: main.alokasi || 0,
                         });
                       }}
                     >
-                      Edit Alokasi
+                      {pengajuanStatus[main.id]?.status === "PENDING"
+                        ? "Menunggu"
+                        : "Edit Alokasi"}
                     </AksiButton>
                   </Row>
 
@@ -736,6 +786,22 @@ export default function DetailAnggaranModal({
         onClose={() => setEditTarget(null)}
         onSuccess={() => {
           setEditTarget(null);
+          if (onRefresh) onRefresh();
+        }}
+      />
+    )}
+
+    {/* Perubahan Alokasi (pengajuan ke Direktur) */}
+    {perubahanTarget && (
+      <PerubahanAlokasiModal
+        proyekId={proyekId}
+        main={perubahanTarget}
+        totalRAB={totalRAB || mapped.reduce((s, m) => s + (m.alokasi || 0), 0)}
+        sumLain={mapped.reduce((s, m) => s + (m.alokasi || 0), 0) - (perubahanTarget.alokasi || 0)}
+        sumSub={mapped.find((m) => m.id === perubahanTarget.id)?.subPos.reduce((s, s2) => s + (s2.alokasi || 0), 0) || 0}
+        onClose={() => setPerubahanTarget(null)}
+        onSuccess={() => {
+          setPerubahanTarget(null);
           if (onRefresh) onRefresh();
         }}
       />
