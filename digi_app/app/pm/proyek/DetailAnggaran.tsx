@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
@@ -309,28 +309,27 @@ export default function DetailAnggaranModal({
     Record<number, { status: string }>
   >({});
 
+  const fetchPengajuanStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran`);
+      if (!res.ok) return;
+      const data = await res.json();
+      // Array diurut createdAt desc (terbaru dulu). Pakai first-wins supaya yang
+      // tersimpan adalah status pengajuan TERBARU per main.
+      const map: Record<number, { status: string }> = {};
+      (data.pengajuan || []).forEach((p: any) => {
+        if (p.mainAnggaranId != null && map[p.mainAnggaranId] == null) {
+          map[p.mainAnggaranId] = { status: p.status };
+        }
+      });
+      setPengajuanStatus(map);
+    } catch {
+      // abaikan — tanpa status pengajuan, tombol tetap berfungsi
+    }
+  }, [proyekId]);
+
   useEffect(() => {
-    let cancelled = false;
-    const fetchPengajuan = async () => {
-      try {
-        const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const map: Record<number, { status: string }> = {};
-        (data.pengajuan || []).forEach((p: any) => {
-          if (p.mainAnggaranId != null) {
-            map[p.mainAnggaranId] = { status: p.status };
-          }
-        });
-        if (!cancelled) setPengajuanStatus(map);
-      } catch {
-        // abaikan — tanpa status pengajuan, tombol tetap berfungsi
-      }
-    };
-    fetchPengajuan();
-    return () => {
-      cancelled = true;
-    };
+    fetchPengajuanStatus();
   }, [proyekId]);
 
   const toggleMain = (id: number) =>
@@ -802,6 +801,7 @@ export default function DetailAnggaranModal({
         onClose={() => setPerubahanTarget(null)}
         onSuccess={() => {
           setPerubahanTarget(null);
+          fetchPengajuanStatus();
           if (onRefresh) onRefresh();
         }}
       />
