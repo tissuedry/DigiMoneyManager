@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock, Plus} from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
@@ -313,13 +313,11 @@ export default function DetailAnggaranModal({
     Record<number, { status: string }>
   >({});
 
-  const fetchPengajuanStatus = useCallback(async () => {
+  const fetchPengajuan = async (proyekId: number) => {
     try {
       const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran`);
       if (!res.ok) return;
       const data = await res.json();
-      // Array diurut createdAt desc (terbaru dulu). Pakai first-wins supaya yang
-      // tersimpan adalah status pengajuan TERBARU per main.
       const map: Record<number, { status: string }> = {};
       (data.pengajuan || []).forEach((p: any) => {
         if (p.mainAnggaranId != null && map[p.mainAnggaranId] == null) {
@@ -330,11 +328,11 @@ export default function DetailAnggaranModal({
     } catch {
       // abaikan — tanpa status pengajuan, tombol tetap berfungsi
     }
-  }, [proyekId]);
+  };
 
   useEffect(() => {
-    fetchPengajuanStatus();
-  });
+    fetchPengajuan(proyekId);
+  }, [proyekId]);
 
   const toggleMain = (id: number) =>
     setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
@@ -535,7 +533,7 @@ export default function DetailAnggaranModal({
                         });
                       }}
                     >
-                      Ajukan Anggaran
+                      Ajukan Alokasi
                     </AksiButton>
                   </Row>
 
@@ -788,7 +786,7 @@ export default function DetailAnggaranModal({
         onClose={() => setPerubahanTarget(null)}
         onSuccess={() => {
           setPerubahanTarget(null);
-          fetchPengajuanStatus();
+          fetchPengajuan(proyekId);
           if (onRefresh) onRefresh();
         }}
       />
