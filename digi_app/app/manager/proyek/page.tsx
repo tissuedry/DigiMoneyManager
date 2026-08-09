@@ -182,9 +182,7 @@ export default function KelolaProyekPage() {
 
       const initial: Record<number, boolean> = {};
       list.forEach((prop: any) => {
-        (prop.items || []).forEach((it: any) => {
-          initial[it.id] = true;
-        });
+        initial[prop.id] = true;
       });
       setSelectedPendingIds(initial);
     } catch {
@@ -198,24 +196,10 @@ export default function KelolaProyekPage() {
     if (!detailedProjectInfo) return;
     if (loadingDetail) return;
 
-    const selectedItemIds = Object.keys(selectedPendingIds)
-      .map(Number)
-      .filter(id => selectedPendingIds[id]);
-
-    if (selectedItemIds.length === 0) return;
-
-    const itemIdsByProposal = new Map<number, number[]>();
-    const proposalsToProcess = new Set<number>();
-    (pendingPengajuan || []).forEach((prop: any) => {
-      const idsInProp = (prop.items || [])
-        .map((it: any) => it.id)
-        .filter((id: number) => selectedItemIds.includes(id));
-      if (idsInProp.length > 0) {
-        itemIdsByProposal.set(prop.id, idsInProp);
-      }
-    });
-
-    if (itemIdsByProposal.size === 0) return;
+    const selectedIds = (pendingPengajuan || [])
+      .filter((p: any) => selectedPendingIds[p.id])
+      .map((p: any) => p.id);
+    if (selectedIds.length === 0) return;
 
     setLoadingDetail(true);
     setFormError("");
@@ -223,11 +207,11 @@ export default function KelolaProyekPage() {
 
     try {
       const results = await Promise.all(
-        Array.from(itemIdsByProposal.entries()).map(([propId, itemIds]) =>
-          fetch(`/api/pengajuan-anggaran/${propId}/review`, {
+        selectedIds.map((id: number) =>
+          fetch(`/api/pengajuan-anggaran/${id}/review`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: action, catatan, itemIds }),
+            body: JSON.stringify({ status: action, catatan }),
           })
         )
       );
@@ -235,10 +219,10 @@ export default function KelolaProyekPage() {
       const allOk = results.every(res => res.ok);
       if (allOk) {
         if (action === 'REJECT') {
-          setBulkRejectedCount(selectedItemIds.length);
+          setBulkRejectedCount(selectedIds.length);
           setShowBulkRejectToast(true);
         } else {
-          setBulkApprovedCount(selectedItemIds.length);
+          setBulkApprovedCount(selectedIds.length);
           setShowBulkApproveSuccess(true);
         }
 
@@ -257,7 +241,7 @@ export default function KelolaProyekPage() {
           results.filter(res => !res.ok).map(res => res.json().catch(() => ({})))
         );
         const messages = failedBodies.map((b: any) => b.message).filter(Boolean);
-        const errorText = messages.length > 0 ? messages.join(' ') : "Beberapa item gagal diproses.";
+        const errorText = messages.length > 0 ? messages.join(' ') : "Beberapa pengajuan gagal diproses.";
         setErrorMessage(errorText);
         setFormError(errorText);
       }
@@ -1052,10 +1036,8 @@ export default function KelolaProyekPage() {
         onClose={() => setShowPendingPmModal(false)}
         detailedProjectInfo={detailedProjectInfo}
         pendingPengajuan={pendingPengajuan}
-        selectedPendingIds={selectedPendingIds}
-        setSelectedPendingIds={setSelectedPendingIds}
-        expandedSub={expandedSub}
-        setExpandedSub={setExpandedSub}
+        selectedIds={selectedPendingIds}
+        setSelectedIds={setSelectedPendingIds}
         rejectingPengajuan={rejectingPengajuan}
         setRejectingPengajuan={setRejectingPengajuan}
         rejectionReason={rejectionReason}

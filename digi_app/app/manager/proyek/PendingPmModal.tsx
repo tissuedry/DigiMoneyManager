@@ -7,10 +7,8 @@ type Props = {
   onClose: () => void;
   detailedProjectInfo: any;
   pendingPengajuan: any[];
-  selectedPendingIds: Record<number, boolean>;
-  setSelectedPendingIds: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
-  expandedSub: Record<string, boolean>;
-  setExpandedSub: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  selectedIds: Record<number, boolean>;
+  setSelectedIds: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
   rejectingPengajuan: any;
   setRejectingPengajuan: (v: any) => void;
   rejectionReason: string;
@@ -18,15 +16,17 @@ type Props = {
   handleBulkReview: (action: 'APPROVE' | 'REJECT', catatan?: string) => Promise<void>;
 };
 
+function formatRp(n: number): string {
+  return `Rp ${Math.round(Number(n) || 0).toLocaleString('id-ID')}`;
+}
+
 export default function PendingPmModal({
   showPendingPmModal,
   onClose,
   detailedProjectInfo,
   pendingPengajuan,
-  selectedPendingIds,
-  setSelectedPendingIds,
-  expandedSub,
-  setExpandedSub,
+  selectedIds,
+  setSelectedIds,
   rejectingPengajuan,
   setRejectingPengajuan,
   rejectionReason,
@@ -35,118 +35,24 @@ export default function PendingPmModal({
 }: Props) {
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [isApprovingBulk, setIsApprovingBulk] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   if (!showPendingPmModal) return null;
 
-  const mainAnggaranList = detailedProjectInfo?.budget?.mainAnggaran || [];
+  const anySelected = (pendingPengajuan || []).some((p: any) => selectedIds[p.id]);
+  const selectedCount = (pendingPengajuan || []).filter((p: any) => selectedIds[p.id]).length;
 
-  const submissions: any[] = [];
-  (pendingPengajuan || []).forEach((prop: any) => {
-    (prop.items || []).forEach((it: any) => {
-      const isSub = it.tipe === 'SUB_ANGGARAN';
-      submissions.push({
-        id: it.id,
-        pengajuanId: prop.id,
-        judul: prop.judul,
-        deskripsi: prop.deskripsi,
-        user: prop.pengaju,
-        createdAt: prop.createdAt,
-        nominal: it.nominalAlokasi != null ? Number(it.nominalAlokasi) : 0,
-        tipe: it.tipe,
-        aksi: it.aksi,
-        nama: it.nama,
-        parentId: it.parentId,
-        targetId: it.targetId,
-        subAnggaran: isSub ? {
-          namaSub: it.nama,
-          mainAnggaran: { id: it.parentId }
-        } : null,
-        keteranganAnggaran: !isSub ? {
-          keterangan: it.nama,
-          subAnggaranId: it.parentId
-        } : null,
-      });
-    });
-  });
-
-  const anySelected = submissions.some((r: any) => selectedPendingIds[r.id]);
-  const selectedCount = submissions.filter((r: any) => selectedPendingIds[r.id]).length;
-
-  const handleToggleAllSelect = () => {
-    const next: Record<number, boolean> = {};
+  const handleToggleAll = () => {
     const setTo = !anySelected;
-    submissions.forEach((r: any) => {
-      next[r.id] = setTo;
+    const next: Record<number, boolean> = {};
+    (pendingPengajuan || []).forEach((p: any) => {
+      next[p.id] = setTo;
     });
-    setSelectedPendingIds(next);
+    setSelectedIds(next);
   };
 
-  const handleToggleItem = (itemId: number, type: 'MAIN' | 'SUB' | 'KET', parentIdOrTargetId?: number) => {
-    setSelectedPendingIds(prev => {
-      const next = { ...prev };
-      const currentVal = !prev[itemId];
-      next[itemId] = currentVal;
-
-      if (type === 'MAIN') {
-        const mainItem = submissions.find(s => s.id === itemId);
-        if (mainItem && mainItem.tipe === 'MAIN_ANGGARAN') {
-          if (!currentVal) {
-            const childSubs = submissions.filter(
-              c => c.tipe === 'SUB_ANGGARAN' && Number(c.parentId) === Number(mainItem.targetId)
-            );
-            childSubs.forEach(s => {
-              next[s.id] = false;
-              const childKets = submissions.filter(
-                k => k.tipe === 'KETERANGAN' && Number(k.parentId) === Number(s.targetId)
-              );
-              childKets.forEach(k => {
-                next[k.id] = false;
-              });
-            });
-          }
-        }
-      } else if (type === 'SUB') {
-        const subItem = submissions.find(s => s.id === itemId);
-        if (subItem && subItem.tipe === 'SUB_ANGGARAN') {
-          // Only uncheck children when the parent sub-budget is unchecked.
-          // If parent is checked, children remain in their current state (unchecked by default).
-          if (!currentVal) {
-            const childKets = submissions.filter(
-              c => c.tipe === 'KETERANGAN' && Number(c.parentId) === Number(subItem.targetId)
-            );
-            childKets.forEach(c => {
-              next[c.id] = false;
-            });
-          } else if (currentVal && parentIdOrTargetId != null) {
-            const parentMain = submissions.find(
-              m => m.tipe === 'MAIN_ANGGARAN' && Number(m.targetId) === Number(parentIdOrTargetId)
-            );
-            if (parentMain) {
-              next[parentMain.id] = true;
-            }
-          }
-        }
-      } else if (type === 'KET') {
-        if (currentVal && parentIdOrTargetId != null) {
-          const parentSub = submissions.find(
-            s => s.tipe === 'SUB_ANGGARAN' && Number(s.targetId) === Number(parentIdOrTargetId)
-          );
-          if (parentSub) {
-            next[parentSub.id] = true;
-            if (parentSub.parentId != null) {
-              const parentMain = submissions.find(
-                m => m.tipe === 'MAIN_ANGGARAN' && Number(m.targetId) === Number(parentSub.parentId)
-              );
-              if (parentMain) {
-                next[parentMain.id] = true;
-              }
-            }
-          }
-        }
-      }
-
-      return next;
-    });
+  const handleToggle = (id: number) => {
+    setSelectedIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleBulkApprove = async () => {
@@ -173,7 +79,6 @@ export default function PendingPmModal({
         overflow: 'hidden',
         animation: 'fadeIn 0.2s ease',
       }}>
-
         {/* Header */}
         <div style={{
           padding: '20px 24px',
@@ -199,12 +104,12 @@ export default function PendingPmModal({
 
         {/* Body */}
         <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {submissions.length > 0 ? (
+          {(pendingPengajuan || []).length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
                 <button
                   type="button"
-                  onClick={handleToggleAllSelect}
+                  onClick={handleToggleAll}
                   style={{
                     padding: '5px 10px',
                     borderRadius: 7,
@@ -219,32 +124,24 @@ export default function PendingPmModal({
                   }}
                   className="hover:opacity-80 transition"
                 >
-                  {anySelected ? `Batalkan Semua (${selectedCount})` : `Pilih Semua (${submissions.length})`}
+                  {anySelected ? `Batalkan Semua (${selectedCount})` : `Pilih Semua (${(pendingPengajuan || []).length})`}
                 </button>
               </div>
 
               <div style={{ borderRadius: 10, border: '1px solid #E6E1D4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {/* Pending MAIN_ANGGARAN Items (MAIN BARU - Orange Badge & Dropdown Tree for Children) */}
-                {submissions.filter((r: any) => r.tipe === 'MAIN_ANGGARAN').map((r: any) => {
-                  const isChecked = !!selectedPendingIds[r.id];
-                  const mainName = r.nama || 'Main Baru';
-                  const itemDate = r.createdAt || new Date();
+                {(pendingPengajuan || []).map((p: any, idx: number) => {
+                  const isChecked = !!selectedIds[p.id];
+                  const isExpanded = expandedId === p.id;
+                  const itemDate = p.createdAt || new Date();
                   const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                  const submitterName = r.user?.nama || 'Project Manager';
-                  const nominal = r.nominal || 0;
-
-                  // Child pending SUB_ANGGARAN items under this pending MAIN_ANGGARAN
-                  const childPendingSubs = submissions.filter(
-                    (c: any) => c.tipe === 'SUB_ANGGARAN' && Number(c.parentId) === Number(r.targetId)
-                  );
-
-                  const mainKey = `pending-main-${r.id}`;
-                  const isMainOpen = expandedSub[mainKey] !== false;
-                  const hasChildren = childPendingSubs.length > 0;
+                  const submitterName = p.pengaju?.nama || 'Project Manager';
+                  const mainName = p.mainAnggaran?.namaMain || 'Pos Anggaran';
+                  const alokasiLama = Number(p.alokasiLama) || 0;
+                  const alokasiBaru = Number(p.alokasiBaru) || 0;
 
                   return (
-                    <div key={mainKey} style={{ borderBottom: '1px solid #E6E1D4', display: 'flex', flexDirection: 'column' }}>
-                      {/* Main Header Row */}
+                    <div key={p.id} style={{ borderBottom: idx < (pendingPengajuan || []).length - 1 ? '1px solid #E6E1D4' : 'none', display: 'flex', flexDirection: 'column' }}>
+                      {/* Row */}
                       <div
                         style={{
                           background: isChecked ? '#D5F4E3' : 'white',
@@ -253,24 +150,23 @@ export default function PendingPmModal({
                           alignItems: 'flex-start',
                           gap: 6,
                           transition: 'background-color 0.2s ease',
+                          cursor: 'pointer',
                         }}
+                        onClick={() => setExpandedId(isExpanded ? null : p.id)}
+                        className="hover:bg-stone-50 transition"
                       >
                         {/* Chevron toggle */}
                         <button
                           type="button"
-                          onClick={() => setExpandedSub(prev => ({ ...prev, [mainKey]: !isMainOpen }))}
-                          style={{ background: 'transparent', border: 'none', padding: '4px 2px', cursor: hasChildren ? 'pointer' : 'default', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                          onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : p.id); }}
+                          style={{ background: 'transparent', border: 'none', padding: '4px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
                         >
                           <svg
                             width="10"
                             height="10"
                             viewBox="0 0 10 10"
                             fill="none"
-                            style={{
-                              transition: 'transform 0.15s ease',
-                              transform: isMainOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                              opacity: hasChildren ? 1 : 0,
-                            }}
+                            style={{ transition: 'transform 0.15s ease', transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
                           >
                             <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -279,7 +175,7 @@ export default function PendingPmModal({
                         {/* Checkbox */}
                         <button
                           type="button"
-                          onClick={() => handleToggleItem(r.id, 'MAIN')}
+                          onClick={(e) => { e.stopPropagation(); handleToggle(p.id); }}
                           style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
                         >
                           <div style={{
@@ -303,7 +199,7 @@ export default function PendingPmModal({
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <span style={{ color: '#c2410c', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
-                              MAIN BARU
+                              MAIN
                             </span>
                             <span style={{ color: '#14130F', fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
                               {mainName}
@@ -318,538 +214,34 @@ export default function PendingPmModal({
                         </div>
 
                         <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                          Rp {Number(nominal).toLocaleString('id-ID')}
+                          {formatRp(alokasiBaru)}
                         </div>
                       </div>
 
-                      {/* Child SUB_ANGGARAN items */}
-                      {isMainOpen && hasChildren && (
-                        <div style={{ background: 'white' }}>
-                          {childPendingSubs.map((sub: any) => {
-                            const isSubChecked = !!selectedPendingIds[sub.id];
-                            const subName = sub.nama || 'Sub Baru';
-                            const subDate = sub.createdAt || new Date();
-                            const subFormattedDate = new Date(subDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                            const subSubmitterName = sub.user?.nama || 'Project Manager';
-                            const subNominal = sub.nominal || 0;
-
-                            const childPendingKets = submissions.filter(
-                              (k: any) => k.tipe === 'KETERANGAN' && Number(k.parentId) === Number(sub.targetId)
-                            );
-
-                            const subKey = `pending-sub-${sub.id}`;
-                            const isSubOpen = expandedSub[subKey] !== false;
-                            const hasKetChildren = childPendingKets.length > 0;
-
-                            return (
-                              <div key={subKey} style={{ display: 'flex', flexDirection: 'column' }}>
-                                <div
-                                  style={{
-                                    background: isSubChecked ? '#D5F4E3' : 'white',
-                                    padding: '7px 12px 7px 32px',
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: 6,
-                                    transition: 'background-color 0.2s ease',
-                                  }}
-                                >
-                                  {/* Chevron for Sub */}
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
-                                    style={{ background: 'transparent', border: 'none', padding: '4px 2px', cursor: hasKetChildren ? 'pointer' : 'default', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
-                                  >
-                                    <svg
-                                      width="10"
-                                      height="10"
-                                      viewBox="0 0 10 10"
-                                      fill="none"
-                                      style={{
-                                        transition: 'transform 0.15s ease',
-                                        transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                                        opacity: hasKetChildren ? 1 : 0,
-                                      }}
-                                    >
-                                      <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                  </button>
-
-                                  {/* Sub Checkbox */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleItem(sub.id, 'SUB', r.targetId)}
-                                    style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
-                                  >
-                                    <div style={{
-                                      width: 14,
-                                      height: 14,
-                                      borderRadius: 4,
-                                      background: isSubChecked ? '#009162' : 'white',
-                                      border: isSubChecked ? 'none' : '1px solid #6A6660',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                    }}>
-                                      {isSubChecked && (
-                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                          <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                  </button>
-
-                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                      <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
-                                        SUB BARU
-                                      </span>
-                                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        {subName}
-                                      </span>
-                                      <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        MENUNGGU
-                                      </span>
-                                    </div>
-                                    <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                      Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{subSubmitterName}</span> · {subFormattedDate}
-                                    </div>
-                                  </div>
-
-                                  <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                    Rp {Number(subNominal).toLocaleString('id-ID')}
-                                  </div>
-                                </div>
-
-                                {/* Child KETERANGAN items */}
-                                {isSubOpen && hasKetChildren && (
-                                  <div style={{ background: 'white' }}>
-                                    {childPendingKets.map((ket: any) => {
-                                      const isKetChecked = !!selectedPendingIds[ket.id];
-                                      const ketName = ket.nama || 'Keterangan Baru';
-                                      const ketDate = ket.createdAt || new Date();
-                                      const ketFormattedDate = new Date(ketDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                                      const ketSubmitterName = ket.user?.nama || 'Project Manager';
-                                      const ketNominal = ket.nominal || 0;
-
-                                      return (
-                                        <div key={ket.id} style={{
-                                          background: isKetChecked ? '#D5F4E3' : 'white',
-                                          padding: '7px 12px 7px 56px',
-                                          display: 'flex',
-                                          alignItems: 'flex-start',
-                                          gap: 8,
-                                          transition: 'background-color 0.2s ease',
-                                        }}>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleToggleItem(ket.id, 'KET', sub.targetId)}
-                                            style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                                          >
-                                            <div style={{
-                                              width: 14,
-                                              height: 14,
-                                              borderRadius: 4,
-                                              background: isKetChecked ? '#009162' : 'white',
-                                              border: isKetChecked ? 'none' : '1px solid #6A6660',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                            }}>
-                                              {isKetChecked && (
-                                                <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                                  <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                              )}
-                                            </div>
-                                          </button>
-
-                                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                              <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
-                                                KETERANGAN BARU
-                                              </span>
-                                              <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                                {ketName}
-                                              </span>
-                                              <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                                MENUNGGU
-                                              </span>
-                                            </div>
-                                            <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", paddingTop: 2 }}>
-                                              Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{ketSubmitterName}</span> · {ketFormattedDate}
-                                            </div>
-                                          </div>
-
-                                          <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                            Rp {Number(ketNominal).toLocaleString('id-ID')}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                      {/* Expanded detail */}
+                      {isExpanded && (
+                        <div style={{ background: 'white', padding: '12px 14px 12px 40px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', gap: 10 }}>
+                            <div style={{ flex: 1, border: '1px solid #E6E1D4', borderRadius: 10, padding: '10px 12px', background: '#F5F4F0' }}>
+                              <div style={{ fontSize: 10.5, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#9A948B', marginBottom: 4 }}>ANGGARAN Saat Ini</div>
+                              <div style={{ fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: '#6A6660' }}>
+                                {formatRp(alokasiLama)}
                               </div>
-                            );
-                          })}
+                            </div>
+                            <div style={{ flex: 1, border: '1px solid #009162', borderRadius: 10, padding: '10px 12px', background: 'rgba(0, 145, 98, 0.06)' }}>
+                              <div style={{ fontSize: 10.5, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#005836', marginBottom: 4 }}>ANGGARAN Baru</div>
+                              <div style={{ fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: '#005836' }}>
+                                {formatRp(alokasiBaru)}
+                              </div>
+                            </div>
+                          </div>
+                          {p.deskripsi && (
+                            <div style={{ fontSize: 11.5, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic', color: '#6A6660' }}>
+                              &ldquo;{p.deskripsi}&rdquo;
+                            </div>
+                          )}
                         </div>
                       )}
-                    </div>
-                  );
-                })}
-
-                {mainAnggaranList.map((main: any, gi: number) => {
-                  const mainPending = submissions.filter((r: any) => {
-                    if (r.tipe === 'SUB_ANGGARAN') {
-                      return Number(r.parentId) === Number(main.id);
-                    } else {
-                      const isChildOfExistingSub = (main.subAnggaran || []).some((s: any) => Number(s.id) === Number(r.parentId));
-                      if (isChildOfExistingSub) return true;
-
-                      const parentPendingSub = submissions.find((sub: any) => sub.tipe === 'SUB_ANGGARAN' && Number(sub.targetId) === Number(r.parentId));
-                      if (parentPendingSub && Number(parentPendingSub.parentId) === Number(main.id)) return true;
-
-                      return false;
-                    }
-                  });
-
-                  const subAnggarans = main.subAnggaran || [];
-                  if (subAnggarans.length === 0 && mainPending.length === 0) return null;
-
-                  return (
-                    <div key={main.id} style={{ borderBottom: gi < mainAnggaranList.length - 1 ? '1px solid #E6E1D4' : 'none' }}>
-                      
-                      
-                      {/* Badge MAIN */}
-  <span 
-    className="inline-flex items-center justify-center text-[13px] font-bold uppercase tracking-wide rounded text-black px-1.5 py-0.5"
-  >
-    MAIN
-  </span>
-
-  {/* Judul Nama Main */}
-  <span 
-    style={{ 
-      color: '#14130F', 
-      fontSize: 13, 
-      fontFamily: 'Plus Jakarta Sans', 
-      fontWeight: '500', 
-      textOverflow: 'ellipsis', 
-      overflow: 'hidden', 
-      whiteSpace: 'nowrap' 
-    }}
-  >
-    {main.namaMain}
-  </span>
-
-                      {subAnggarans.map((sub: any) => {
-                        const childPendingKets = mainPending.filter((r: any) => {
-                          return r.tipe === 'KETERANGAN' && Number(r.parentId) === Number(sub.id);
-                        });
-
-                        const subKey = `modal-sub-${sub.id}`;
-                        const isSubOpen = expandedSub[subKey] !== false;
-                        const hasChildren = (sub.keterangan?.length > 0) || (childPendingKets.length > 0);
-
-                        return (
-                          <div key={sub.id} style={{ display: 'flex', flexDirection: 'column' }}>
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                padding: '7px 12px 7px 14px',
-                                borderBottom: 'none',
-                                background: 'white',
-                                cursor: 'pointer',
-                                userSelect: 'none',
-                              }}
-                              onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
-                              className="hover:bg-stone-50 transition"
-                            >
-                              <svg
-                                width="10"
-                                height="10"
-                                viewBox="0 0 10 10"
-                                fill="none"
-                                style={{
-                                  marginRight: 8,
-                                  flexShrink: 0,
-                                  transition: 'transform 0.15s ease',
-                                  transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
-                                }}
-                              >
-                                <path d="M2 3.5L5 6.5L8 3.5" stroke="#14130F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                              
-                                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9A948B' }}>SUB</span>
-                              <span style={{ flex: 1, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 12, color: '#14130F', padding:'2px 6px' }}>
-                                {sub.namaSub}
-                              </span>
-                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 400, fontSize: 11, color: '#9A948B' }}>
-                                Rp {Number(sub.nominalAlokasi).toLocaleString('id-ID')}
-                              </span>
-                            </div>
-
-                            {isSubOpen && (
-                              <>
-                                {(sub.keterangan || []).map((ket: any) => {
-                                  const alokasi = Number(ket.nominalAlokasi) || 0;
-                                  return (
-                                    <div key={`existing-ket-${ket.id}`} style={{
-                                      background: 'white',
-                                      padding: '7px 12px 7px 34px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 8,
-                                    }}>
-                                      <div style={{ width: 22 }} />
-                                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <span style={{ color: '#9A948B', fontSize: 10, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                          KET
-                                        </span>
-                                        <span style={{ color: '#6A6660', fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                          {ket.keterangan}
-                                        </span>
-                                      </div>
-                                      <div style={{ color: '#6A6660', fontSize: 11.50, fontFamily: "'IBM Plex Mono', monospace" }}>
-                                        Rp {alokasi.toLocaleString('id-ID')}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-
-                                {childPendingKets.map((r: any) => {
-                                  const isChecked = !!selectedPendingIds[r.id];
-                                  const itemDate = r.createdAt || new Date();
-                                  const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                                  const submitterName = r.user?.nama || 'Project Manager';
-                                  const nominal = r.nominal || 0;
-
-                                  return (
-                                    <div key={`pending-ket-${r.id}`} style={{
-                                      background: isChecked ? '#D5F4E3' : 'white',
-                                      padding: '7px 12px 7px 34px',
-                                      display: 'flex',
-                                      alignItems: 'flex-start',
-                                      gap: 8,
-                                      transition: 'background-color 0.2s ease',
-                                    }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleToggleItem(r.id, 'KET')}
-                                        style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                      >
-                                        <div style={{
-                                          width: 14,
-                                          height: 14,
-                                          borderRadius: 4,
-                                          background: isChecked ? '#009162' : 'white',
-                                          border: isChecked ? 'none' : '1px solid #6A6660',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                        }}>
-                                          {isChecked && (
-                                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                              <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                          )}
-                                        </div>
-                                      </button>
-
-                                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                          <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                            KETERANGAN BARU
-                                          </span>
-                                          <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                            {r.nama}
-                                          </span>
-                                          <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                            MENUNGGU
-                                          </span>
-                                        </div>
-                                        {r.deskripsi && r.deskripsi !== 'N/A' && (
-                                          <div style={{ color: '#9A948B', fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic' }}>
-                                            &ldquo;{r.deskripsi}&rdquo;
-                                          </div>
-                                        )}
-                                        <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                          Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
-                                        </div>
-                                      </div>
-
-                                      <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                        Rp {Number(nominal).toLocaleString('id-ID')}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {mainPending.filter((r: any) => r.tipe === 'SUB_ANGGARAN' && Number(r.parentId) === Number(main.id)).map((r: any) => {
-                        const isChecked = !!selectedPendingIds[r.id];
-                        const subName = r.nama || 'Sub Baru';
-                        const itemDate = r.createdAt || new Date();
-                        const formattedDate = new Date(itemDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                        const submitterName = r.user?.nama || 'Project Manager';
-                        const nominal = r.nominal || 0;
-
-                        const subKey = `modal-sub-pending-${r.id}`;
-                        const isSubOpen = expandedSub[subKey] !== false;
-
-                        const childPendingKets = mainPending.filter((c: any) => {
-                          return c.tipe === 'KETERANGAN' && Number(c.parentId) === Number(r.targetId);
-                        });
-
-                        const hasChildren = childPendingKets.length > 0;
-
-                        return (
-                          <div key={r.id} style={{ display: 'flex', flexDirection: 'column' }}>
-                            <div
-                              style={{
-                                background: isChecked ? '#D5F4E3' : 'white',
-                                padding: '7px 12px 7px 14px',
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: 6,
-                                transition: 'background-color 0.2s ease',
-                              }}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => setExpandedSub(prev => ({ ...prev, [subKey]: !isSubOpen }))}
-                                style={{ background: 'transparent', border: 'none', padding: '4px 2px', cursor: hasChildren ? 'pointer' : 'default', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
-                              >
-                                <svg
-                                  width="10"
-                                  height="10"
-                                  viewBox="0 0 10 10"
-                                  fill="none"
-                                  style={{
-                                    transition: 'transform 0.15s ease',
-                                    transform: isSubOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                                    opacity: hasChildren ? 1 : 0,
-                                  }}
-                                >
-                                  <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleToggleItem(r.id, 'SUB')}
-                                style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
-                              >
-                                <div style={{
-                                  width: 14,
-                                  height: 14,
-                                  borderRadius: 4,
-                                  background: isChecked ? '#009162' : 'white',
-                                  border: isChecked ? 'none' : '1px solid #6A6660',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}>
-                                  {isChecked && (
-                                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                      <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                  )}
-                                </div>
-                              </button>
-
-                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                  <span style={{ color: '#005836', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
-                                    SUB BARU
-                                  </span>
-                                  <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 500 }}>
-                                    {subName}
-                                  </span>
-                                  <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                    MENUNGGU
-                                  </span>
-                                </div>
-                                <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", paddingTop: 2 }}>
-                                  Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
-                                </div>
-                              </div>
-
-                              <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                Rp {Number(nominal).toLocaleString('id-ID')}
-                              </div>
-                            </div>
-
-                            {isSubOpen && childPendingKets.map((c: any) => {
-                              const isChildChecked = !!selectedPendingIds[c.id];
-                              const cDate = c.createdAt || new Date();
-                              const cFormattedDate = new Date(cDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                              const cSubmitterName = c.user?.nama || 'Project Manager';
-                              const cNominal = c.nominal || 0;
-
-                              return (
-                                <div key={c.id} style={{
-                                  background: isChildChecked ? '#D5F4E3' : 'white',
-                                  padding: '7px 12px 7px 44px',
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: 8,
-                                  transition: 'background-color 0.2s ease',
-                                }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleItem(c.id, 'KET', r.targetId)}
-                                    style={{ background: 'transparent', border: 'none', padding: '3px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                                  >
-                                    <div style={{
-                                      width: 14,
-                                      height: 14,
-                                      borderRadius: 4,
-                                      background: isChildChecked ? '#009162' : 'white',
-                                      border: isChildChecked ? 'none' : '1px solid #6A6660',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                    }}>
-                                      {isChildChecked && (
-                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                          <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                  </button>
-
-                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                      <span style={{ color: '#005D8D', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
-                                        KETERANGAN BARU
-                                      </span>
-                                      <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        {c.nama}
-                                      </span>
-                                      <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
-                                        MENUNGGU
-                                      </span>
-                                    </div>
-                                    <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", paddingTop: 2 }}>
-                                      Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{cSubmitterName}</span> · {cFormattedDate}
-                                    </div>
-                                  </div>
-
-                                  <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                    Rp {Number(cNominal).toLocaleString('id-ID')}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })}
-
                     </div>
                   );
                 })}
@@ -858,13 +250,13 @@ export default function PendingPmModal({
           ) : (
             <div style={{ padding: '48px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12, background: 'white' }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Tidak Ada Pengajuan PM Pending</div>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan pos anggaran yang menunggu persetujuan Direktur.</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan perubahan alokasi yang menunggu persetujuan Direktur.</div>
             </div>
           )}
         </div>
 
         {/* Bottom bulk selected summary bar */}
-        {submissions.length > 0 && (
+        {(pendingPengajuan || []).length > 0 && (
           <div style={{
             alignSelf: 'stretch',
             background: selectedCount > 0 ? '#D5F4E3' : '#F5F4F0',
@@ -881,14 +273,14 @@ export default function PendingPmModal({
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               fontWeight: 700
             }}>
-              {selectedCount > 0 ? `${selectedCount} pos dipilih` : 'Pilih pos anggaran untuk disetujui/ditolak'}
+              {selectedCount > 0 ? `${selectedCount} pengajuan dipilih` : 'Pilih pengajuan untuk disetujui/ditolak'}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
                 disabled={selectedCount === 0}
                 onClick={() => {
-                  const itemsToReject = submissions.filter((r: any) => selectedPendingIds[r.id]);
+                  const itemsToReject = (pendingPengajuan || []).filter((p: any) => selectedIds[p.id]);
                   setRejectingPengajuan(itemsToReject);
                   setRejectionReason("");
                 }}
@@ -914,17 +306,16 @@ export default function PendingPmModal({
                 onClick={() => setShowApproveConfirm(true)}
                 style={{
                   padding: '9px 14px',
-                  background: selectedCount > 0 ? 'black' : '#E6E1D4',
+                  background: selectedCount > 0 ? '#009162' : '#9A948B',
                   border: 'none',
                   borderRadius: 12,
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontWeight: 600,
                   fontSize: 13,
-                  color: selectedCount > 0 ? 'white' : '#9A948B',
-                  cursor: selectedCount > 0 ? 'pointer' : 'not-allowed',
-                  opacity: selectedCount > 0 ? 1 : 0.6
+                  color: 'white',
+                  cursor: selectedCount > 0 ? 'pointer' : 'not-allowed'
                 }}
-                className={selectedCount > 0 ? "hover:opacity-80 transition" : ""}
+                className="hover:opacity-80 transition"
               >
                 Setujui Terpilih ({selectedCount})
               </button>
@@ -932,171 +323,69 @@ export default function PendingPmModal({
           </div>
         )}
 
-        {/* Footer */}
-        <div style={{
-          padding: '14px 24px',
-          borderTop: '0.80px #E6E1D4 solid',
-          display: 'flex',
-          justifyContent: 'flex-end',
-          flexShrink: 0,
-          background: 'white'
-        }}>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: '9px 14px',
-              background: 'white',
-              borderRadius: 12,
-              border: '1px solid #E6E1D4',
-              cursor: 'pointer',
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 600,
-              fontSize: 13,
-              color: '#14130F',
-              textAlign: 'center',
-            }}
-            className="hover:bg-stone-50 transition"
-          >
-            Tutup
-          </button>
-        </div>
-
-        {/* Overlay Modal Tolak */}
-        {rejectingPengajuan && (() => {
-          const isArray = Array.isArray(rejectingPengajuan);
-          const itemsList = isArray ? rejectingPengajuan : [rejectingPengajuan];
-
-          let subtitle = "";
-          if (itemsList.length === 1) {
-            subtitle = itemsList[0]?.nama || '1 pengajuan';
-          } else {
-            subtitle = `${itemsList.length} pengajuan terpilih`;
-          }
-
-          return (
-            <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: 'rgba(20, 18, 14, 0.60)' }}>
-              <div style={{
-                width: 560,
-                background: 'white',
-                boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
-                borderRadius: 22,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                animation: 'fadeIn 0.2s ease',
-                textAlign: 'left'
-              }}>
-                <div style={{
-                  padding: '20px 24px',
-                  borderBottom: '0.80px #E6E1D4 solid',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Tolak Pengajuan</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#6A6660', lineHeight: '18.75px' }}>{subtitle}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setRejectingPengajuan(null)}
-                    style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    className="hover:bg-stone-100 transition"
-                  >
-                    <X size={16} color="#2C2A24" />
-                  </button>
-                </div>
-
-                <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 13, color: '#14130F' }}>
-                    Alasan <span style={{ color: '#D36C66' }}>*</span>
-                  </label>
-                  <textarea
-                    placeholder="Jelaskan alasan penolakan..."
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    style={{
-                      width: '100%',
-                      height: 120,
-                      padding: 12,
-                      border: '1.20px solid #E6E1D4',
-                      borderRadius: 12,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontSize: 13,
-                      color: '#14130F',
-                      resize: 'none',
-                      outline: 'none',
-                    }}
-                    className="focus:border-stone-500 transition"
-                  />
-                </div>
-
-                <div style={{
-                  padding: '14px 24px',
-                  borderTop: '0.80px #E6E1D4 solid',
-                  display: 'flex',
-                  gap: 8,
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => setRejectingPengajuan(null)}
-                    style={{
-                      flex: 1,
-                      padding: '9px 14px',
-                      background: 'white',
-                      borderRadius: 12,
-                      border: '0.80px solid #E6E1D4',
-                      cursor: 'pointer',
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontWeight: 600,
-                      fontSize: 13,
-                      color: '#14130F',
-                      textAlign: 'center',
-                    }}
-                    className="hover:bg-stone-50 transition"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!rejectionReason.trim()) {
-                        alert("Alasan penolakan wajib diisi");
-                        return;
-                      }
-                      await handleBulkReview('REJECT', rejectionReason);
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '9px 14px',
-                      background: 'black',
-                      borderRadius: 12,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontWeight: 600,
-                      fontSize: 13,
-                      color: 'white',
-                      textAlign: 'center',
-                    }}
-                    className="hover:opacity-80 transition"
-                  >
-                    Kirim Penolakan
-                  </button>
-                </div>
-
-              </div>
+        {/* Reject reason panel */}
+        {rejectingPengajuan && (
+          <div style={{
+            alignSelf: 'stretch',
+            background: '#FDF3F2',
+            padding: '14px 24px',
+            borderTop: '0.80px #E6E1D4 solid',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            flexShrink: 0
+          }}>
+            <div style={{ fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#902F33' }}>
+              Tolak {rejectingPengajuan.length} pengajuan — berikan alasan
             </div>
-          );
-        })()}
-
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={2}
+              placeholder="Alasan penolakan (opsional)…"
+              style={{
+                width: '100%',
+                border: '1px solid #E6E1D4',
+                borderRadius: 10,
+                padding: '8px 10px',
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 12.5,
+                resize: 'none',
+                outline: 'none',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setRejectingPengajuan(null)}
+                style={{ padding: '8px 14px', background: 'white', border: '0.80px solid #E6E1D4', borderRadius: 10, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 12.5, color: '#14130F', cursor: 'pointer' }}
+                className="hover:bg-stone-50 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkReview('REJECT', rejectionReason)}
+                style={{ padding: '8px 14px', background: '#c2410c', border: 'none', borderRadius: 10, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12.5, color: 'white', cursor: 'pointer' }}
+                className="hover:opacity-80 transition"
+              >
+                Konfirmasi Tolak
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog
         open={showApproveConfirm}
-        title="Setujui Pengajuan Terpilih"
-        description={<>Apakah Anda yakin ingin menyetujui <span className="font-semibold text-[#14130F]">{selectedCount}</span> pos anggaran terpilih?</>}
+        title="Setujui Pengajuan"
+        description={
+          <>
+            Apakah Anda yakin ingin menyetujui{" "}
+            <span className="font-semibold text-stone-900">{selectedCount}</span> pengajuan
+            perubahan alokasi? Alokasi MainAnggaran akan langsung diperbarui.
+          </>
+        }
         confirmLabel="Setujui"
         isLoading={isApprovingBulk}
         onCancel={() => setShowApproveConfirm(false)}
