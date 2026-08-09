@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
+import { formatSummaryRupiah } from "./utils";
 
 type Props = {
   showPendingPmModal: boolean;
@@ -17,6 +18,7 @@ type Props = {
 };
 
 function formatRp(n: number): string {
+  if (Math.abs(n) >= 100_000_000_000_000) return formatSummaryRupiah(n);
   return `Rp ${Math.round(Number(n) || 0).toLocaleString('id-ID')}`;
 }
 
@@ -65,70 +67,76 @@ export default function PendingPmModal({
     }
   };
 
+  const totalRAB = parseFloat(detailedProjectInfo?.budget?.rabTotal) || 0;
+  const teralokasiProyek = (detailedProjectInfo?.budget?.posAnggaran || []).reduce(
+    (sum: number, pos: any) => sum + (parseFloat(pos.nominalAlokasi) || 0),
+    0
+  );
+
+  const progressPct = totalRAB > 0 ? Math.min((teralokasiProyek / totalRAB) * 100, 100) : 0;
+  const sisaProyek = Math.max(0, totalRAB - teralokasiProyek);
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: 'rgba(20, 18, 14, 0.60)' }}>
-      <div style={{
-        width: 820,
-        height: 680,
-        maxHeight: '85vh',
-        background: 'white',
-        boxShadow: '0px 24px 64px rgba(20, 18, 14, 0.30)',
-        borderRadius: 22,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        animation: 'fadeIn 0.2s ease',
-      }}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(20,18,14,0.6)] p-4">
+      <div className="flex h-[680px] max-h-[85vh] w-[820px] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0px_24px_64px_rgba(20,18,14,0.3)]">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '0.80px #E6E1D4 solid',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexShrink: 0,
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Pengajuan dari Project Manager</div>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#6A6660', lineHeight: '18.75px' }}>{detailedProjectInfo?.nama || 'Nama Proyek'}</div>
+        <div className="flex shrink-0 items-center justify-between border-b-[0.8px] border-[#E6E1D4] px-6 py-5">
+          <div className="flex flex-col gap-0.5">
+            <div className="font-sans text-[17px] font-bold leading-[25.5px] text-[#14130F]">Pengajuan Perubahan Alokasi Anggaran</div>
+            <div className="font-sans text-[12.5px] font-normal leading-[18.75px] text-[#6A6660]">{detailedProjectInfo?.nama || 'Nama Proyek'}</div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{ padding: '6px 10px', borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            className="hover:bg-stone-100 transition"
+            className="flex cursor-pointer items-center justify-center rounded-xl bg-transparent p-[6px_10px] transition hover:bg-stone-100"
           >
-            <X size={16} color="#2C2A24" />
+            <X size={16} className="text-[#2C2A24]" />
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <div className="flex flex-1 flex-col overflow-y-auto p-5">
           {(pendingPengajuan || []).length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <div className="flex flex-col">
+
+              <div className="bg-white border border-[#e6e1d4] rounded-[16px] p-4 space-y-2.5 shadow-[0px_0px_0px_1px_rgba(20,18,14,0.04),0px_1px_2px_0px_rgba(20,18,14,0.05)]">
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="font-semibold text-[#14130f]">Realisasi Anggaran</span>
+                  <span className="font-bold text-[#14130f] font-mono">{progressPct.toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-[#f3f0e9] h-2 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#009162] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+                </div>
+                <div className="flex justify-between items-center text-[12px] pt-1">
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-medium text-[#000000]">Nilai Proyek</span>
+                    <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
+                    <span title={formatRp(totalRAB)} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatRp(totalRAB)}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-medium text-[#000000]">Teralokasi</span>
+                    <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
+                    <span title={formatRp(teralokasiProyek)} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatRp(teralokasiProyek)}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-normal text-[#9a948b]">Sisa</span>
+                    <span className="text-[10.2px] font-bold text-[#9a948b] font-mono">Rp</span>
+                    <span title={formatRp(sisaProyek)} className="font-bold text-[#14130f] font-mono cursor-pointer">{formatRp(sisaProyek)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-2.5 mb-2.5 flex justify-end">
                 <button
                   type="button"
                   onClick={handleToggleAll}
-                  style={{
-                    padding: '5px 10px',
-                    borderRadius: 7,
-                    border: '1px solid #009162',
-                    background: anySelected ? 'rgba(0, 145, 98, 0.05)' : 'white',
-                    display: 'inline-flex',
-                    cursor: 'pointer',
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontWeight: 600,
-                    fontSize: 11.5,
-                    color: '#005836'
-                  }}
-                  className="hover:opacity-80 transition"
+                  className={`inline-flex cursor-pointer items-center rounded-[7px] border border-[#009162] px-[10px] py-[5px] font-sans text-[11.5px] font-semibold text-[#005836] transition hover:opacity-80 ${anySelected ? 'bg-[rgba(0,145,98,0.05)]' : 'bg-white'}`}
                 >
                   {anySelected ? `Batalkan Semua (${selectedCount})` : `Pilih Semua (${(pendingPengajuan || []).length})`}
                 </button>
               </div>
 
-              <div style={{ borderRadius: 10, border: '1px solid #E6E1D4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div className="flex flex-col overflow-hidden rounded-[10px] border border-[#E6E1D4]">
                 {(pendingPengajuan || []).map((p: any, idx: number) => {
                   const isChecked = !!selectedIds[p.id];
                   const isExpanded = expandedId === p.id;
@@ -140,33 +148,28 @@ export default function PendingPmModal({
                   const alokasiBaru = Number(p.alokasiBaru) || 0;
 
                   return (
-                    <div key={p.id} style={{ borderBottom: idx < (pendingPengajuan || []).length - 1 ? '1px solid #E6E1D4' : 'none', display: 'flex', flexDirection: 'column' }}>
+                    <div
+                      key={p.id}
+                      className={`flex flex-col ${idx < (pendingPengajuan || []).length - 1 ? 'border-b border-[#E6E1D4]' : ''}`}
+                    >
+                      
                       {/* Row */}
                       <div
-                        style={{
-                          background: isChecked ? '#D5F4E3' : 'white',
-                          padding: '10px 14px',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 6,
-                          transition: 'background-color 0.2s ease',
-                          cursor: 'pointer',
-                        }}
+                        className={`flex cursor-pointer items-start gap-1.5 px-3.5 py-2.5 transition hover:bg-stone-50 ${isChecked ? 'bg-[#D5F4E3]' : 'bg-white'}`}
                         onClick={() => setExpandedId(isExpanded ? null : p.id)}
-                        className="hover:bg-stone-50 transition"
                       >
                         {/* Chevron toggle */}
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : p.id); }}
-                          style={{ background: 'transparent', border: 'none', padding: '4px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                          className="mt-1 flex shrink-0 cursor-pointer items-center border-none bg-transparent p-[4px_2px]"
                         >
                           <svg
                             width="10"
                             height="10"
                             viewBox="0 0 10 10"
                             fill="none"
-                            style={{ transition: 'transform 0.15s ease', transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                            className={`transition-transform duration-150 ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
                           >
                             <path d="M2 3.5L5 6.5L8 3.5" stroke="#6A6660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -176,18 +179,9 @@ export default function PendingPmModal({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleToggle(p.id); }}
-                          style={{ background: 'transparent', border: 'none', padding: '3px 2px', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}
+                          className="mt-1 flex shrink-0 cursor-pointer items-center border-none bg-transparent p-[3px_2px]"
                         >
-                          <div style={{
-                            width: 14,
-                            height: 14,
-                            borderRadius: 4,
-                            background: isChecked ? '#009162' : 'white',
-                            border: isChecked ? 'none' : '1px solid #6A6660',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}>
+                          <div className={`flex h-[14px] w-[14px] items-center justify-center rounded ${isChecked ? 'bg-[#009162]' : 'border border-[#6A6660] bg-white'}`}>
                             {isChecked && (
                               <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                                 <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -196,47 +190,47 @@ export default function PendingPmModal({
                           </div>
                         </button>
 
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span style={{ color: '#c2410c', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, letterSpacing: 0.28 }}>
+                        <div className="flex flex-1 flex-col gap-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-sans text-[9.5px] font-bold tracking-[0.28px] text-[#c2410c]">
                               MAIN
                             </span>
-                            <span style={{ color: '#14130F', fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                            <span className="font-sans text-[13px] font-bold text-[#14130F]">
                               {mainName}
                             </span>
-                            <span style={{ padding: '2px 6px', background: 'rgba(216, 149, 61, 0.15)', borderRadius: 5, color: '#894C06', fontSize: 9.50, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 }}>
+                            <span className="rounded-[5px] bg-[rgba(216,149,61,0.15)] px-[6px] py-[2px] font-sans text-[9.5px] font-bold text-[#894C06]">
                               MENUNGGU
                             </span>
                           </div>
-                          <div style={{ color: '#9A948B', fontSize: 10.50, fontFamily: "'Plus Jakarta Sans', sans-serif", paddingTop: 2 }}>
-                            Diajukan oleh <span style={{ color: '#2C2A24', fontWeight: 700 }}>{submitterName}</span> · {formattedDate}
+                          <div className="pt-0.5 font-sans text-[10.5px] text-[#9A948B]">
+                            Diajukan oleh <span className="font-bold text-[#2C2A24]">{submitterName}</span> · {formattedDate}
                           </div>
                         </div>
 
-                        <div style={{ color: '#14130F', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        <div className="whitespace-nowrap font-mono text-[12px] font-bold text-[#14130F]">
                           {formatRp(alokasiBaru)}
                         </div>
                       </div>
 
                       {/* Expanded detail */}
                       {isExpanded && (
-                        <div style={{ background: 'white', padding: '12px 14px 12px 40px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          <div style={{ display: 'flex', gap: 10 }}>
-                            <div style={{ flex: 1, border: '1px solid #E6E1D4', borderRadius: 10, padding: '10px 12px', background: '#F5F4F0' }}>
-                              <div style={{ fontSize: 10.5, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#9A948B', marginBottom: 4 }}>ANGGARAN Saat Ini</div>
-                              <div style={{ fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: '#6A6660' }}>
+                        <div className="flex flex-col gap-2 bg-white p-[12px_14px_12px_40px]">
+                          <div className="flex gap-2.5">
+                            <div className="flex-1 rounded-[10px] border border-[#E6E1D4] bg-[#F5F4F0] p-[10px_12px]">
+                              <div className="mb-1 font-sans text-[10.5px] font-bold text-[#9A948B]">ANGGARAN Saat Ini</div>
+                              <div className="font-mono text-[13px] font-bold text-[#6A6660]">
                                 {formatRp(alokasiLama)}
                               </div>
                             </div>
-                            <div style={{ flex: 1, border: '1px solid #009162', borderRadius: 10, padding: '10px 12px', background: 'rgba(0, 145, 98, 0.06)' }}>
-                              <div style={{ fontSize: 10.5, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#005836', marginBottom: 4 }}>ANGGARAN Baru</div>
-                              <div style={{ fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: '#005836' }}>
+                            <div className="flex-1 rounded-[10px] border border-[#009162] bg-[rgba(0,145,98,0.06)] p-[10px_12px]">
+                              <div className="mb-1 font-sans text-[10.5px] font-bold text-[#005836]">ANGGARAN Baru</div>
+                              <div className="font-mono text-[13px] font-bold text-[#005836]">
                                 {formatRp(alokasiBaru)}
                               </div>
                             </div>
                           </div>
                           {p.deskripsi && (
-                            <div style={{ fontSize: 11.5, fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: 'italic', color: '#6A6660' }}>
+                            <div className="font-sans text-[11.5px] italic text-[#6A6660]">
                               &ldquo;{p.deskripsi}&rdquo;
                             </div>
                           )}
@@ -248,34 +242,20 @@ export default function PendingPmModal({
               </div>
             </div>
           ) : (
-            <div style={{ padding: '48px 24px', textAlign: 'center', border: '1px solid #E6E1D4', borderRadius: 12, background: 'white' }}>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: '#14130F', marginBottom: 6 }}>Tidak Ada Pengajuan PM Pending</div>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 12.5, color: '#9A948B' }}>Saat ini tidak ada pengajuan perubahan alokasi yang menunggu persetujuan Direktur.</div>
+            <div className="rounded-xl border border-[#E6E1D4] bg-white p-[48px_24px] text-center">
+              <div className="mb-1.5 font-sans text-[14px] font-bold text-[#14130F]">Tidak Ada Pengajuan PM Pending</div>
+              <div className="font-sans text-[12.5px] font-normal text-[#9A948B]">Saat ini tidak ada pengajuan perubahan alokasi yang menunggu persetujuan Direktur.</div>
             </div>
           )}
         </div>
 
         {/* Bottom bulk selected summary bar */}
         {(pendingPengajuan || []).length > 0 && (
-          <div style={{
-            alignSelf: 'stretch',
-            background: selectedCount > 0 ? '#D5F4E3' : '#F5F4F0',
-            padding: '12px 24px',
-            borderTop: '0.80px #E6E1D4 solid',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexShrink: 0
-          }}>
-            <div style={{
-              color: selectedCount > 0 ? '#005836' : '#6A6660',
-              fontSize: 13,
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 700
-            }}>
+          <div className={`flex shrink-0 items-center justify-between self-stretch border-t-[0.8px] border-[#E6E1D4] px-6 py-3 ${selectedCount > 0 ? 'bg-[#D5F4E3]' : 'bg-[#F5F4F0]'}`}>
+            <div className={`font-sans text-[13px] font-bold ${selectedCount > 0 ? 'text-[#005836]' : 'text-[#6A6660]'}`}>
               {selectedCount > 0 ? `${selectedCount} pengajuan dipilih` : 'Pilih pengajuan untuk disetujui/ditolak'}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="flex gap-2">
               <button
                 type="button"
                 disabled={selectedCount === 0}
@@ -284,19 +264,7 @@ export default function PendingPmModal({
                   setRejectingPengajuan(itemsToReject);
                   setRejectionReason("");
                 }}
-                style={{
-                  padding: '9px 14px',
-                  background: 'white',
-                  border: '0.80px solid #E6E1D4',
-                  borderRadius: 12,
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  color: selectedCount > 0 ? '#14130F' : '#9A948B',
-                  cursor: selectedCount > 0 ? 'pointer' : 'not-allowed',
-                  opacity: selectedCount > 0 ? 1 : 0.6
-                }}
-                className={selectedCount > 0 ? "hover:bg-stone-50 transition" : ""}
+                className={`rounded-xl border border-[#E6E1D4] bg-white px-[14px] py-[9px] font-sans text-[13px] font-semibold ${selectedCount > 0 ? 'cursor-pointer text-[#14130F] transition hover:bg-stone-50' : 'cursor-not-allowed text-[#9A948B] opacity-60'}`}
               >
                 Tolak Terpilih ({selectedCount})
               </button>
@@ -304,18 +272,7 @@ export default function PendingPmModal({
                 type="button"
                 disabled={selectedCount === 0}
                 onClick={() => setShowApproveConfirm(true)}
-                style={{
-                  padding: '9px 14px',
-                  background: selectedCount > 0 ? '#009162' : '#9A948B',
-                  border: 'none',
-                  borderRadius: 12,
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  color: 'white',
-                  cursor: selectedCount > 0 ? 'pointer' : 'not-allowed'
-                }}
-                className="hover:opacity-80 transition"
+                className={`rounded-xl border-none px-[14px] py-[9px] font-sans text-[13px] font-semibold text-white transition hover:opacity-80 ${selectedCount > 0 ? 'cursor-pointer bg-[#009162]' : 'cursor-not-allowed bg-[#9A948B]'}`}
               >
                 Setujui Terpilih ({selectedCount})
               </button>
@@ -325,17 +282,8 @@ export default function PendingPmModal({
 
         {/* Reject reason panel */}
         {rejectingPengajuan && (
-          <div style={{
-            alignSelf: 'stretch',
-            background: '#FDF3F2',
-            padding: '14px 24px',
-            borderTop: '0.80px #E6E1D4 solid',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-            flexShrink: 0
-          }}>
-            <div style={{ fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#902F33' }}>
+          <div className="flex shrink-0 flex-col gap-2.5 self-stretch border-t-[0.8px] border-[#E6E1D4] bg-[#FDF3F2] px-6 py-[14px]">
+            <div className="font-sans text-[13px] font-bold text-[#902F33]">
               Tolak {rejectingPengajuan.length} pengajuan — berikan alasan
             </div>
             <textarea
@@ -343,31 +291,20 @@ export default function PendingPmModal({
               onChange={(e) => setRejectionReason(e.target.value)}
               rows={2}
               placeholder="Alasan penolakan (opsional)…"
-              style={{
-                width: '100%',
-                border: '1px solid #E6E1D4',
-                borderRadius: 10,
-                padding: '8px 10px',
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 12.5,
-                resize: 'none',
-                outline: 'none',
-              }}
+              className="w-full resize-none rounded-[10px] border border-[#E6E1D4] p-[8px_10px] font-sans text-[12.5px] outline-none"
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setRejectingPengajuan(null)}
-                style={{ padding: '8px 14px', background: 'white', border: '0.80px solid #E6E1D4', borderRadius: 10, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 12.5, color: '#14130F', cursor: 'pointer' }}
-                className="hover:bg-stone-50 transition"
+                className="cursor-pointer rounded-[10px] border border-[#E6E1D4] bg-white px-[14px] py-2 font-sans text-[12.5px] font-semibold text-[#14130F] transition hover:bg-stone-50"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={() => handleBulkReview('REJECT', rejectionReason)}
-                style={{ padding: '8px 14px', background: '#c2410c', border: 'none', borderRadius: 10, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12.5, color: 'white', cursor: 'pointer' }}
-                className="hover:opacity-80 transition"
+                className="cursor-pointer rounded-[10px] border-none bg-[#c2410c] px-[14px] py-2 font-sans text-[12.5px] font-bold text-white transition hover:opacity-80"
               >
                 Konfirmasi Tolak
               </button>
