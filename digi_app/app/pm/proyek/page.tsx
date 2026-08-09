@@ -294,7 +294,9 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
   const invalidate = useInvalidate();
 
   // ── TanStack Query ──
-  const { data: proyekData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>("/api/pm/proyek");
+  const { data: proyekData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>("/api/pm/proyek", {
+    refetchInterval: isDetailOpen ? 3000 : 10000,
+  });
   const { data: meData } = useApi<MeResponse>("/api/auth/me");
   const { data: usersData } = useApi<UsersResponse>("/api/pm/users");
 

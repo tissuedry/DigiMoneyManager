@@ -21,6 +21,7 @@ export default function PerubahanAlokasiModal({
   totalRAB,
   sumLain,
   sumSub,
+  isBlocked = false,
   onClose,
   onSuccess,
 }: {
@@ -29,6 +30,7 @@ export default function PerubahanAlokasiModal({
   totalRAB: number;
   sumLain: number;
   sumSub: number;
+  isBlocked?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -118,6 +120,16 @@ export default function PerubahanAlokasiModal({
             <X size={18} />
           </button>
         </div>
+
+        {/* ── Peringatan Pengajuan PENDING ── */}
+        {isBlocked && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+            <span className="text-[13px]">⚠</span>
+            <span className="text-[12.5px] font-semibold text-amber-800">
+              Main Anggaran ini memiliki Pengajuan yang belum disetujui. Ajukan perubahan lain setelah pengajuan ini diproses.
+            </span>
+          </div>
+        )}
 
         {/* ── Anggaran Saat Ini vs Anggaran Baru ── */}
         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -236,7 +248,7 @@ export default function PerubahanAlokasiModal({
             <button
               type="button"
               onClick={handleSave}
-              disabled={submitting || isInvalid}
+              disabled={submitting || isInvalid || isBlocked}
               className="px-6 py-2.5 rounded-2xl text-[13px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {submitting ? "Mengajukan..." : "Ajukan"}

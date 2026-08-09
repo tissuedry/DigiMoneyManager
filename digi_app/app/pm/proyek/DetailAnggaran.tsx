@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings, X, Check, Clock, Plus} from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
 
@@ -272,7 +272,11 @@ function AksiButton({
           color: styles.text,
         }}
       >
-        <Settings size={12} style={{ color: styles.text }} />
+        {variant == "main" 
+          ? <Plus size={12} style={{ color: styles.text }}/> 
+          : <Settings size={12} style={{ color: styles.text }} />
+        }
+        
         {children}
       </button>
     </div>
@@ -330,7 +334,7 @@ export default function DetailAnggaranModal({
 
   useEffect(() => {
     fetchPengajuanStatus();
-  }, [proyekId]);
+  });
 
   const toggleMain = (id: number) =>
     setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
@@ -517,21 +521,6 @@ export default function DetailAnggaranModal({
                       <span className="text-[13px] font-semibold text-stone-800 truncate">
                         {main.nama}
                       </span>
-                      {pengajuanStatus[main.id]?.status === "PENDING" && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 bg-amber-100 text-amber-700">
-                          Menunggu Persetujuan
-                        </span>
-                      )}
-                      {pengajuanStatus[main.id]?.status === "DISETUJUI" && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 bg-emerald-100 text-emerald-700">
-                          Disetujui
-                        </span>
-                      )}
-                      {pengajuanStatus[main.id]?.status === "REJECT" && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 bg-red-100 text-red-700">
-                          Ditolak
-                        </span>
-                      )}
                     </div>
                     <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
                     <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
@@ -539,7 +528,6 @@ export default function DetailAnggaranModal({
                     <AksiButton
                       variant="main"
                       onClick={() => {
-                        if (pengajuanStatus[main.id]?.status === "PENDING") return;
                         setPerubahanTarget({
                           id: main.id,
                           nama: main.nama,
@@ -547,9 +535,7 @@ export default function DetailAnggaranModal({
                         });
                       }}
                     >
-                      {pengajuanStatus[main.id]?.status === "PENDING"
-                        ? "Menunggu"
-                        : "Edit Alokasi"}
+                      Ajukan Anggaran
                     </AksiButton>
                   </Row>
 
@@ -798,6 +784,7 @@ export default function DetailAnggaranModal({
         totalRAB={totalRAB || mapped.reduce((s, m) => s + (m.alokasi || 0), 0)}
         sumLain={mapped.reduce((s, m) => s + (m.alokasi || 0), 0) - (perubahanTarget.alokasi || 0)}
         sumSub={mapped.find((m) => m.id === perubahanTarget.id)?.subPos.reduce((s, s2) => s + (s2.alokasi || 0), 0) || 0}
+        isBlocked={pengajuanStatus[perubahanTarget.id]?.status === "PENDING"}
         onClose={() => setPerubahanTarget(null)}
         onSuccess={() => {
           setPerubahanTarget(null);
