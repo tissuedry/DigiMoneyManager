@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, use } from "react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import DetailAnggaranModal from "./DetailAnggaran";
-import AjukanPosModal from "./AjukanPos";
+import AlokasiPosModal from "./AlokasiPos";
 import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
 import ProyekSkeleton from "./ProyekSkeleton";
@@ -287,7 +287,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isAjukanOpen, setIsAjukanOpen] = useState(false);
+  const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
   const [isAjukanRealisasiOpen, setIsAjukanRealisasiOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -314,6 +314,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
   const [savingTim, setSavingTim] = useState(false);
   const [showSaveTimConfirm, setShowSaveTimConfirm] = useState(false);
   const [showSaveTimToast, setShowSaveTimToast] = useState(false);
+  const [alokasiSuccessToast, setAlokasiSuccessToast] = useState("");
   const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -432,7 +433,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
               <div>
                 <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
                 <p className="text-sm text-stone-500 mt-1">
-                  Pantau anggaran, ajukan pos baru, dan kelola tim untuk proyekmu.
+                  Pantau anggaran, alokasikan pos baru, dan kelola tim untuk proyekmu.
                 </p>
               </div>
 
@@ -533,11 +534,11 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                       Lihat Detail Anggaran
                     </button>
                     <button
-                      onClick={() => setIsAjukanOpen(true)}
+                      onClick={() => setIsAlokasiOpen(true)}
                       className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
                     >
                       <Plus size={13} />
-                      Ajukan Pos
+                      Alokasi Pos
                     </button>
                     <button
                       onClick={() => setIsAjukanRealisasiOpen(true)}
@@ -705,15 +706,20 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         />
       )}
 
-      {/* Ajukan Pos Modal */}
-      {isAjukanOpen && proyek && (
-        <AjukanPosModal
+      {/* Alokasi Pos Modal */}
+      {isAlokasiOpen && proyek && (
+        <AlokasiPosModal
           proyekId={proyek.id}
           proyekNama={proyek.nama}
           totalRAB={proyek.totalRAB}
           realisasi={proyek.realisasi}
           posAnggaran={proyek.posAnggaran}
-          onClose={() => setIsAjukanOpen(false)}
+          onClose={() => setIsAlokasiOpen(false)}
+          onSuccess={(msg) => {
+            invalidate("/api/pm/proyek");
+            refetch();
+            if (msg) setAlokasiSuccessToast(msg);
+          }}
         />
       )}
 
@@ -759,6 +765,12 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         open={showSaveTimToast}
         message="Anggota tim proyek berhasil disimpan."
         onClose={() => setShowSaveTimToast(false)}
+      />
+
+      <Toast
+        open={!!alokasiSuccessToast}
+        message={alokasiSuccessToast}
+        onClose={() => setAlokasiSuccessToast("")}
       />
 
       <Toast
