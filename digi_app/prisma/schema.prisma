@@ -69,13 +69,14 @@ model Budget {
 }
 
 model MainAnggaran {
-  id              Int           @id @default(autoincrement())
-  budgetId        Int           @map("budget_id")
-  namaMain        String        @map("nama_main")
-  nominalAlokasi  Decimal       @map("nominal_alokasi") @db.Decimal(15, 2)
-  nominalTerpakai Decimal       @default(0) @map("nominal_terpakai") @db.Decimal(15, 2)
-  budget          Budget        @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  subAnggaran     SubAnggaran[]
+  id                 Int                  @id @default(autoincrement())
+  budgetId           Int                  @map("budget_id")
+  namaMain           String               @map("nama_main")
+  nominalAlokasi     Decimal              @map("nominal_alokasi") @db.Decimal(15, 2)
+  nominalTerpakai    Decimal              @default(0) @map("nominal_terpakai") @db.Decimal(15, 2)
+  budget             Budget               @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  subAnggaran        SubAnggaran[]
+  pengajuanPerubahan PengajuanAnggaran[]
 
   @@index([budgetId])
   @@map("main_anggaran")
@@ -201,37 +202,26 @@ model AuditTrail {
 }
 
 model PengajuanAnggaran {
-  id          Int                     @id @default(autoincrement())
-  proyekId    Int                     @map("proyek_id")
-  pengajuId   Int                     @map("pengaju_id")
-  judul       String
-  deskripsi   String?
-  status      String                  @default("PENDING")
-  catatan     String?
-  createdAt   DateTime                @default(now()) @map("created_at")
-  processedAt DateTime?               @map("diproses_pada")
-  pengaju     User                    @relation(fields: [pengajuId], references: [id], onDelete: Cascade)
-  proyek      Proyek                  @relation(fields: [proyekId], references: [id], onDelete: Cascade)
-  items       PengajuanAnggaranItem[]
+  id             Int           @id @default(autoincrement())
+  proyekId       Int           @map("proyek_id")
+  pengajuId      Int           @map("pengaju_id")
+  mainAnggaranId Int           @map("main_anggaran_id")
+  judul          String
+  deskripsi      String?
+  status         String        @default("PENDING")
+  catatan        String?
+  alokasiLama    Decimal       @map("alokasi_lama") @db.Decimal(15, 2)
+  alokasiBaru    Decimal       @map("alokasi_baru") @db.Decimal(15, 2)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  processedAt    DateTime?     @map("diproses_pada")
+  pengaju        User          @relation(fields: [pengajuId], references: [id], onDelete: Cascade)
+  proyek         Proyek        @relation(fields: [proyekId], references: [id], onDelete: Cascade)
+  mainAnggaran   MainAnggaran  @relation(fields: [mainAnggaranId], references: [id], onDelete: Cascade)
 
   @@index([proyekId, status])
   @@index([status, createdAt])
+  @@index([mainAnggaranId, status])
   @@map("pengajuan_anggaran")
-}
-
-model PengajuanAnggaranItem {
-  id             Int               @id @default(autoincrement())
-  pengajuanId    Int               @map("pengajuan_id")
-  tipe           String
-  aksi           String
-  targetId       Int?              @map("target_id")
-  parentId       Int?              @map("parent_id")
-  nama           String?
-  nominalAlokasi Decimal?          @map("nominal_alokasi") @db.Decimal(15, 2)
-  pengajuan      PengajuanAnggaran @relation(fields: [pengajuanId], references: [id], onDelete: Cascade)
-
-  @@index([pengajuanId])
-  @@map("pengajuan_anggaran_item")
 }
 
 model Notification {
