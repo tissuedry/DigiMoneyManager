@@ -1,19 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
+import fs from 'fs';
+import path from 'path';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dndluxlfsdjotjcqotfp.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy-key-for-build';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Singleton client Supabase
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey || 'dummy-key-for-build');
 
 /**
  * Mengompresi file gambar/base64 menjadi format WebP buffer dan mengunggahnya ke Supabase Storage.
- * Menghasilkan Public URL gambar dari bucket Supabase Storage.
+ * Jika Supabase key tidak valid atau bucket belum dikonfigurasi, otomatis simpan ke local storage (/uploads).
  */
 export async function uploadStrukToSupabase(
   input: Buffer | string,
-  customFileName?: string
+  customFileName?: string,
+  isPdfHint?: boolean
 ): Promise<string> {
   let buffer: Buffer;
 
@@ -22,7 +25,10 @@ export async function uploadStrukToSupabase(
       // Sudah berupa URL eksternal / Supabase URL
       return input;
     }
-    if (input.startsWith('data:image/')) {
+    if (input.startsWith('/uploads/')) {
+      return input;
+    }
+    if (input.startsWith('data:')) {
       const parts = input.split(',');
       if (parts[1]) {
         buffer = Buffer.from(parts[1], 'base64');
@@ -37,55 +43,138 @@ export async function uploadStrukToSupabase(
     buffer = input;
   }
 
-  // 1. Kompresi Gambar ke WebP menggunakan sharp
-  let webpBuffer: Buffer;
-  try {
-    webpBuffer = await sharp(buffer)
-      .resize({
-        width: 1920,
-        height: 1920,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .webp({ quality: 80 })
-      .toBuffer();
-  } catch (error) {
-    console.error('Failed to compress image with Sharp, fallback to raw buffer:', error);
-    webpBuffer = buffer;
+  // Cek apakah buffer berupa file PDF (header magic bytes %PDF)
+  const isPdf = isPdfHint || (buffer.length > 4 && buffer.subarray(0, 4).toString() === '%PDF');
+
+  let fileBuffer: Buffer = buffer;
+  let contentType = 'image/webp';
+  let fileExt = 'webp';
+
+  if (isPdf) {
+    // Jika PDF > 3MB, kompres gambar struk/invoice di dalamnya agar file yang disimpan <= 3MB
+    if (buffer.length > 3 * 1024 * 1024) {
+      try {
+        const soi = Buffer.from([0xff, 0xd8, 0xff]);
+        const eoi = Buffer.from([0xff, 0xd9]);
+        const extracted: Buffer[] = [];
+        let offset = 0;
+
+        while (offset < buffer.length && extracted.length < 6) {
+          const start = buffer.indexOf(soi, offset);
+          if (start === -1) break;
+          const end = buffer.indexOf(eoi, start + 3);
+          if (end === -1) break;
+          const imgBuffer = buffer.subarray(start, end + 2);
+          if (imgBuffer.length > 5 * 1024) {
+            extracted.push(imgBuffer);
+          }
+          offset = end + 2;
+        }
+
+        if (extracted.length > 0) {
+          let compBuffer = await sharp(extracted[0])
+            .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 75 })
+            .toBuffer();
+
+          if (compBuffer.length <= 3 * 1024 * 1024) {
+            fileBuffer = compBuffer;
+            contentType = 'image/webp';
+            fileExt = 'webp';
+          } else {
+            fileBuffer = buffer;
+            contentType = 'application/pdf';
+            fileExt = 'pdf';
+          }
+        } else {
+          fileBuffer = buffer;
+          contentType = 'application/pdf';
+          fileExt = 'pdf';
+        }
+      } catch {
+        fileBuffer = buffer;
+        contentType = 'application/pdf';
+        fileExt = 'pdf';
+      }
+    } else {
+      fileBuffer = buffer;
+      contentType = 'application/pdf';
+      fileExt = 'pdf';
+    }
+  } else {
+    // 1. Kompresi Gambar ke WebP (Otomatis mengecilkan file mentah hingga di bawah 3MB)
+    try {
+      let compressed = await sharp(buffer)
+        .resize({
+          width: 1920,
+          height: 1920,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 75 })
+        .toBuffer();
+
+      // Multi-tier compression jika foto berukuran sangat besar (> 3MB)
+      if (compressed.length > 3 * 1024 * 1024) {
+        compressed = await sharp(compressed)
+          .resize({ width: 1280, height: 1280, fit: 'inside' })
+          .webp({ quality: 60 })
+          .toBuffer();
+      }
+
+      if (compressed.length > 3 * 1024 * 1024) {
+        compressed = await sharp(compressed)
+          .resize({ width: 1024, height: 1024, fit: 'inside' })
+          .webp({ quality: 50 })
+          .toBuffer();
+      }
+
+      fileBuffer = compressed;
+    } catch (error) {
+      console.error('Failed to compress image with Sharp, fallback to raw buffer:', error);
+      fileBuffer = buffer;
+    }
   }
 
   // 2. Tentukan Nama File Unik
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
-  const fileName = customFileName || `struk_${timestamp}_${randomStr}.webp`;
+  const fileName = customFileName || `struk_${timestamp}_${randomStr}.${fileExt}`;
   const bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'struk-reimbursement';
 
-  // Jika API key belum diisi di .env, tampilkan log peringatan
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.warn(
-      '⚠️ SUPABASE_SERVICE_ROLE_KEY atau NEXT_PUBLIC_SUPABASE_ANON_KEY belum diisi di .env.'
-    );
+  // 3. Coba upload ke Supabase Storage jika API Key valid
+  if (supabaseKey && supabaseKey !== 'dummy-key-for-build') {
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, fileBuffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(data.path);
+
+      return publicUrlData.publicUrl;
+    } catch (supabaseErr: any) {
+      console.warn(`⚠️ Supabase Storage upload error (${supabaseErr?.message}). Fallback ke local storage...`);
+    }
   }
 
-  // 3. Upload Buffer ke Supabase Storage
-  const { data, error } = await supabase.storage
-    .from(bucketName)
-    .upload(fileName, webpBuffer, {
-      contentType: 'image/webp',
-      upsert: true,
-    });
-
-  if (error) {
-    console.error(`❌ Error uploading to Supabase Storage bucket '${bucketName}':`, error.message);
-    throw new Error(
-      `Gagal mengunggah file ke Supabase Storage (Bucket: '${bucketName}'). Pastikan bucket sudah dibuat di Supabase dan diset Public. Detail: ${error.message}`
-    );
+  // 4. Local Storage Fallback (Simpan ke public/uploads) jika Supabase Key belum dikonfigurasi / error
+  try {
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    const filePath = path.join(uploadDir, fileName);
+    fs.writeFileSync(filePath, fileBuffer);
+    return `/uploads/${fileName}`;
+  } catch (fsErr: any) {
+    console.error('❌ Local storage fallback error:', fsErr);
+    return `/uploads/placeholder.png`;
   }
-
-  // 4. Dapatkan Public URL
-  const { data: publicUrlData } = supabase.storage
-    .from(bucketName)
-    .getPublicUrl(data.path);
-
-  return publicUrlData.publicUrl;
 }

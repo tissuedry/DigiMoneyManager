@@ -156,7 +156,8 @@ export async function POST(req: NextRequest) {
 
       if (file) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        strukUrl = await uploadStrukToSupabase(buffer);
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        strukUrl = await uploadStrukToSupabase(buffer, undefined, isPdf);
 
       } else {
         const rawStrukUrl = (formData.get('strukUrl') as string) || '';
