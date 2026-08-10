@@ -41,13 +41,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
       detailAudit = `Mengubah Master Sub (ID: ${targetId}) menjadi: ${nama}`;
 
-    } else if (type === 'keterangan') {
-      updatedData = await prisma.masterKeterangan.update({
-        where: { id: targetId },
-        data: { nama },
-      });
-      detailAudit = `Mengubah Master Keterangan (ID: ${targetId}) menjadi: ${nama}`;
-
     } else {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });
     }
@@ -103,10 +96,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     } else if (type === 'sub') {
       await prisma.masterSub.delete({ where: { id: targetId } });
       detailAudit = `Menghapus Master Sub (ID: ${targetId})`;
-
-    } else if (type === 'keterangan') {
-      await prisma.masterKeterangan.delete({ where: { id: targetId } });
-      detailAudit = `Menghapus Master Keterangan (ID: ${targetId})`;
 
     } else {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });
