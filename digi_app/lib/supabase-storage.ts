@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dndluxlfsdjotjcqotfp.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy-key-for-build';
 
 // Singleton client Supabase
 export const supabase = createClient(supabaseUrl, supabaseKey);
@@ -61,7 +61,7 @@ export async function uploadStrukToSupabase(
   const bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'struk-reimbursement';
 
   // Jika API key belum diisi di .env, tampilkan log peringatan
-  if (!supabaseKey) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     console.warn(
       '⚠️ SUPABASE_SERVICE_ROLE_KEY atau NEXT_PUBLIC_SUPABASE_ANON_KEY belum diisi di .env.'
     );
