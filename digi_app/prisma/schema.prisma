@@ -246,20 +246,10 @@ model MasterMain {
 }
 
 model MasterSub {
-  id               Int                @id @default(autoincrement())
-  mainId           Int                @map("main_id")
-  nama             String
-  MasterKeterangan MasterKeterangan[]
-  master_main      MasterMain         @relation(fields: [mainId], references: [id], onDelete: Cascade)
+  id          Int        @id @default(autoincrement())
+  mainId      Int        @map("main_id")
+  nama        String
+  master_main MasterMain @relation(fields: [mainId], references: [id], onDelete: Cascade)
 
   @@map("master_sub")
-}
-
-model MasterKeterangan {
-  id         Int       @id @default(autoincrement())
-  subId      Int       @map("sub_id")
-  nama       String
-  master_sub MasterSub @relation(fields: [subId], references: [id], onDelete: Cascade)
-
-  @@map("master_keterangan")
 }

@@ -11,14 +11,12 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
     if (type === 'akun') return "Hapus Akun";
     if (type === 'main') return "Hapus Main Kategori";
     if (type === 'sub') return "Hapus Sub Kategori";
-    if (type === 'ket') return "Hapus Keterangan";
     return "Hapus Data";
   };
 
   const getItemName = () => {
     if (type === 'akun') return `${data?.nomorAkun} - ${data?.namaAkun}`;
-    // Membaca fallback properti dari data (bisa .nama, .main, .sub, atau .ket)
-    return data?.nama || data?.main || data?.sub || data?.ket || "Item ini";
+    return data?.nama || data?.main || data?.sub || "Item ini";
   };
 
   const handleSubmit = async () => {
@@ -31,8 +29,7 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
       if (type === 'akun') {
         url = `/api/coa/${data?.id}`;
       } else {
-        const masterType = type === 'ket' ? 'keterangan' : type;
-        url = `/api/master/${data?.id}?type=${masterType}`;
+        url = `/api/master/${data?.id}?type=${type}`;
       }
 
       const res = await fetch(url, {

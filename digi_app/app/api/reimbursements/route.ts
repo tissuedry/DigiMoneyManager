@@ -1,50 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
-import sharp from 'sharp';
-
-// Helper to convert image buffer or base64 data URL to WebP format using sharp
-async function processImageToWebp(input: Buffer | string): Promise<string> {
-  let buffer: Buffer;
-
-  if (typeof input === 'string') {
-    if (input.startsWith('data:image/')) {
-      const parts = input.split(',');
-      if (parts[1]) {
-        buffer = Buffer.from(parts[1], 'base64');
-      } else {
-        return input;
-      }
-    } else {
-      return input;
-    }
-  } else {
-    buffer = input;
-  }
-
-  try {
-    const webpBuffer = await sharp(buffer)
-      .resize({
-        width: 1920,
-        height: 1920,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .webp({ quality: 80 })
-      .toBuffer();
-
-    return `data:image/webp;base64,${webpBuffer.toString('base64')}`;
-
-  } catch (error) {
-    console.error('Failed to convert image to WebP with sharp:', error);
-
-    if (Buffer.isBuffer(input)) {
-      return `data:image/jpeg;base64,${input.toString('base64')}`;
-    }
-
-    return input;
-  }
-}
+import { uploadStrukToSupabase } from '@/lib/supabase-storage';
 
 // Helper to map DB fields to client fields
 const mapReimbursement = (r: any) => {
@@ -199,11 +156,11 @@ export async function POST(req: NextRequest) {
 
       if (file) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        strukUrl = await processImageToWebp(buffer);
+        strukUrl = await uploadStrukToSupabase(buffer);
 
       } else {
         const rawStrukUrl = (formData.get('strukUrl') as string) || '';
-        strukUrl = rawStrukUrl ? await processImageToWebp(rawStrukUrl) : '/uploads/placeholder.png';
+        strukUrl = rawStrukUrl ? await uploadStrukToSupabase(rawStrukUrl) : '/uploads/placeholder.png';
       }
 
     } else {
@@ -227,7 +184,7 @@ export async function POST(req: NextRequest) {
       }
 
       const rawStrukUrl = body.strukUrl || '';
-      strukUrl = rawStrukUrl ? await processImageToWebp(rawStrukUrl) : '/uploads/placeholder.png';
+      strukUrl = rawStrukUrl ? await uploadStrukToSupabase(rawStrukUrl) : '/uploads/placeholder.png';
       ocrData = body.ocrData || {};
     }
 

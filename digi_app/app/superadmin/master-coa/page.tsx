@@ -6,14 +6,13 @@ import { Upload, Plus, MoreHorizontal, Settings, X, ChevronDown, ChevronRight, L
 // Import semua Modal yang sudah terhubung backend
 import EditMainModal from "./EditMainModal";
 import EditSubModal from "./EditSubModal";
-import EditKetModal from "./EditKetModal";
 import TambahAkunModal from "./TambahAkunModal";
 import TambahKategoriModal from "./TambahKategoriModal";
 import EditAkunModal from "./EditAkunModal";
 import DeleteModal from "./DeleteModal";
 
 type TabType = "Semua" | "Aset" | "Beban";
-type ModalType = "editMain" | "editSub" | "editKet" | "tambahMain" | "tambahSub" | "tambahKet" | "tambahAkun" | "editAkun" | "deleteAkun" | "deleteMain" | "deleteSub" | "deleteKet" | null;
+type ModalType = "editMain" | "editSub" | "tambahMain" | "tambahSub" | "tambahAkun" | "editAkun" | "deleteAkun" | "deleteMain" | "deleteSub" | null;
 
 export default function MasterCoAPage() {
   const [activeTab, setActiveTab] = useState<TabType>("Semua");
@@ -84,7 +83,6 @@ export default function MasterCoAPage() {
     if (type === 'deleteAkun') return 'akun';
     if (type === 'deleteMain') return 'main';
     if (type === 'deleteSub') return 'sub';
-    if (type === 'deleteKet') return 'ket';
     return null;
   };
 
@@ -194,7 +192,7 @@ export default function MasterCoAPage() {
       {activeTab === "Beban" && (
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm flex-1 flex flex-col overflow-hidden">
           <div className="bg-[#f5f4ef] border-b border-stone-200 px-6 py-4 flex items-center justify-between text-[11px] font-bold text-stone-500 uppercase tracking-wider shrink-0">
-            <span>Struktur Master Beban & Anggaran (Main - Sub - Keterangan)</span>
+            <span>Struktur Master Beban & Anggaran (Main - Sub)</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -238,69 +236,29 @@ export default function MasterCoAPage() {
                     </div>
 
                     {isMainOpen && (
-                      <div className="p-4 pl-8 border-t border-stone-200 space-y-5">
-                        {mainItem.MasterSub && mainItem.MasterSub.map((subItem: any) => {
-                          const isSubOpen = expandedSubs.includes(String(subItem.id));
-                          return (
-                            <div key={subItem.id}>
-                              <div className="flex items-center justify-between cursor-pointer group" onClick={() => toggleSub(subItem.id)}>
-                                <div className="flex items-center gap-2">
-                                  {isSubOpen ? <ChevronDown size={14} className="text-stone-400" /> : <ChevronRight size={14} className="text-stone-400" />}
-                                  <span className="text-[9px] font-bold text-stone-400">SUB</span>
-                                  <span className="font-bold text-stone-700 text-[12px] group-hover:text-stone-900 transition">{subItem.nama}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition">
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); openModal('editSub', subItem); }} 
-                                    className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
-                                  >
-                                    <Settings size={14} />
-                                  </button>
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); openModal('deleteSub', subItem); }} 
-                                    className="p-1 text-stone-400 hover:text-red-600 cursor-pointer"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {isSubOpen && (
-                                <div className="pl-5 mt-2 space-y-1">
-                                  {subItem.MasterKeterangan && subItem.MasterKeterangan.map((ketItem: any) => (
-                                    <div key={ketItem.id} className="flex items-center justify-between py-1.5 group">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[9px] text-stone-400">KET</span>
-                                        <span className="text-[12px] text-stone-600">{ketItem.nama}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition">
-                                        <button 
-                                          onClick={() => openModal('editKet', ketItem)}
-                                          className="text-stone-400 hover:text-stone-700 cursor-pointer"
-                                        >
-                                          <Settings size={12} />
-                                        </button>
-                                        <button 
-                                          onClick={() => openModal('deleteKet', ketItem)}
-                                          className="text-stone-400 hover:text-red-600 cursor-pointer"
-                                        >
-                                          <Trash2 size={12} />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                  
-                                  <button 
-                                    onClick={() => openModal('tambahKet', { parentId: subItem.id, main: mainItem.nama, sub: subItem.nama })}
-                                    className="text-[11px] font-bold text-[#008f5d] hover:text-[#006b45] flex items-center gap-1 transition mt-2 cursor-pointer"
-                                  >
-                                    <Plus size={12} strokeWidth={3} /> Tambah Keterangan
-                                  </button>
-                                </div>
-                              )}
+                      <div className="p-4 pl-8 border-t border-stone-200 space-y-3">
+                        {mainItem.MasterSub && mainItem.MasterSub.map((subItem: any) => (
+                          <div key={subItem.id} className="flex items-center justify-between py-1 px-2 hover:bg-stone-50 rounded-lg group">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-stone-400">SUB</span>
+                              <span className="font-bold text-stone-700 text-[12px]">{subItem.nama}</span>
                             </div>
-                          );
-                        })}
+                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition">
+                              <button 
+                                onClick={() => openModal('editSub', subItem)} 
+                                className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+                              >
+                                <Settings size={14} />
+                              </button>
+                              <button 
+                                onClick={() => openModal('deleteSub', subItem)} 
+                                className="p-1 text-stone-400 hover:text-red-600 cursor-pointer"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
 
                         <div className="pl-2 pt-1 border-t border-stone-100 mt-2">
                           <button 
@@ -323,12 +281,11 @@ export default function MasterCoAPage() {
       {/* RENDER MODAL */}
       <EditMainModal isOpen={modalConfig.isOpen && modalConfig.type === 'editMain'} onClose={closeModal} data={modalConfig.data} onRefresh={fetchData} />
       <EditSubModal isOpen={modalConfig.isOpen && modalConfig.type === 'editSub'} onClose={closeModal} data={modalConfig.data} onRefresh={fetchData} />
-      <EditKetModal isOpen={modalConfig.isOpen && modalConfig.type === 'editKet'} onClose={closeModal} data={modalConfig.data} onRefresh={fetchData} />
       <TambahAkunModal isOpen={modalConfig.isOpen && modalConfig.type === 'tambahAkun'} onClose={closeModal} onRefresh={fetchData} />
-      <TambahKategoriModal isOpen={modalConfig.isOpen && (modalConfig.type === 'tambahMain' || modalConfig.type === 'tambahSub' || modalConfig.type === 'tambahKet')} onClose={closeModal} type={modalConfig.type} data={modalConfig.data} onRefresh={fetchData} />
+      <TambahKategoriModal isOpen={modalConfig.isOpen && (modalConfig.type === 'tambahMain' || modalConfig.type === 'tambahSub')} onClose={closeModal} type={modalConfig.type} data={modalConfig.data} onRefresh={fetchData} />
       <EditAkunModal isOpen={modalConfig.isOpen && modalConfig.type === 'editAkun'} onClose={closeModal} data={modalConfig.data} onRefresh={fetchData} />
       <DeleteModal 
-        isOpen={modalConfig.isOpen && ['deleteAkun', 'deleteMain', 'deleteSub', 'deleteKet'].includes(modalConfig.type as string)}
+        isOpen={modalConfig.isOpen && ['deleteAkun', 'deleteMain', 'deleteSub'].includes(modalConfig.type as string)}
         onClose={closeModal}
         data={modalConfig.data}
         type={getDeleteType(modalConfig.type)}

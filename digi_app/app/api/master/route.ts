@@ -14,11 +14,7 @@ export async function GET(req: NextRequest) {
     const subId = searchParams.get("subId");
 
     if (subId) {
-      const keterangan = await prisma.masterKeterangan.findMany({
-        where: { subId: parseInt(subId) },
-        orderBy: { id: 'asc' }
-      });
-      return NextResponse.json(keterangan);
+      return NextResponse.json([]);
     }
 
     if (mainId) {
@@ -34,11 +30,7 @@ export async function GET(req: NextRequest) {
     if (type === 'all') {
       const data = await prisma.masterMain.findMany({
         include: {
-          MasterSub: {
-            include: {
-              MasterKeterangan: true,
-            },
-          },
+          MasterSub: true,
         },
         orderBy: { id: 'asc' },
       });
@@ -51,10 +43,6 @@ export async function GET(req: NextRequest) {
 
     } else if (type === 'sub') {
       const data = await prisma.masterSub.findMany({ orderBy: { id: 'asc' } });
-      return NextResponse.json({ data });
-
-    } else if (type === 'keterangan') {
-      const data = await prisma.masterKeterangan.findMany({ orderBy: { id: 'asc' } });
       return NextResponse.json({ data });
     }
 
@@ -104,13 +92,6 @@ export async function POST(req: NextRequest) {
         data: { nama, mainId: parseInt(parentId, 10) },
       });
       detailAudit = `Menambahkan Master Sub baru: ${nama}`;
-
-    } else if (type === 'keterangan') {
-      if (!parentId) return NextResponse.json({ message: 'parentId (subId) wajib diisi untuk Master Keterangan' }, { status: 400 });
-      newData = await prisma.masterKeterangan.create({
-        data: { nama, subId: parseInt(parentId, 10) },
-      });
-      detailAudit = `Menambahkan Master Keterangan baru: ${nama}`;
 
     } else {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });

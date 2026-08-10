@@ -49,53 +49,23 @@ async function main() {
   });
 
   // 5.3.01 Biaya Personil
-  const sub5301 = await prisma.masterSub.create({
+  await prisma.masterSub.create({
     data: { mainId: main53.id, nama: 'Biaya Personil' }
-  });
-  await prisma.masterKeterangan.createMany({
-    data: [
-      { subId: sub5301.id, nama: 'Gaji Personil' },
-      { subId: sub5301.id, nama: 'Biaya Personil lainnya' },
-    ]
   });
 
   // 5.3.02 Biaya Non Personil
-  const sub5302 = await prisma.masterSub.create({
+  await prisma.masterSub.create({
     data: { mainId: main53.id, nama: 'Biaya Non Personil' }
-  });
-  await prisma.masterKeterangan.createMany({
-    data: [
-      { subId: sub5302.id, nama: 'Biaya Perjalanan Dinas' },
-      { subId: sub5302.id, nama: 'Biaya Pembahasan / Presentasi' },
-      { subId: sub5302.id, nama: 'Biaya Pelaporan' },
-      { subId: sub5302.id, nama: 'Biaya Pelatihan' },
-      { subId: sub5302.id, nama: 'Biaya Sosialisasi' },
-      { subId: sub5302.id, nama: 'Biaya Non Personil Lainnya' },
-    ]
   });
 
   // 5.3.03 Biaya Pengadaan Barang dan Jasa
-  const sub5303 = await prisma.masterSub.create({
+  await prisma.masterSub.create({
     data: { mainId: main53.id, nama: 'Biaya Pengadaan Barang dan Jasa' }
-  });
-  await prisma.masterKeterangan.createMany({
-    data: [
-      { subId: sub5303.id, nama: 'Pembelian Barang Kena Pajak' },
-      { subId: sub5303.id, nama: 'Pembelian Jasa Kena Pajak' },
-      { subId: sub5303.id, nama: 'Pembelian Software' },
-      { subId: sub5303.id, nama: 'Pengadaan Jaringan' },
-    ]
   });
 
   // 5.3.04 Biaya Garansi
-  const sub5304 = await prisma.masterSub.create({
+  await prisma.masterSub.create({
     data: { mainId: main53.id, nama: 'Biaya Garansi' }
-  });
-  await prisma.masterKeterangan.createMany({
-    data: [
-      { subId: sub5304.id, nama: 'Gaji Personil' },
-      { subId: sub5304.id, nama: 'Biaya Perjalanan Dinas' },
-    ]
   });
 
   console.log('Semua Master Data berhasil ditambahkan ke database!');

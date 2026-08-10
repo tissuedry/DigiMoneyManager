@@ -320,7 +320,17 @@ function PencairanContent() {
 
   useEffect(() => {
     if (selectedItem && selectedItem.status === 'APPROVED_BY_PM') {
-      setCreditAccount("");
+      const assetCoas = coaList.filter((c: any) => {
+        const t = (c.tipe || '').toLowerCase();
+        return t === 'aset' || t === 'asset';
+      });
+      if (assetCoas.length > 0) {
+        setCreditAccount(String(assetCoas[0].nomorAkun));
+      } else if (coaList.length > 0) {
+        setCreditAccount(String(coaList[0].nomorAkun));
+      } else {
+        setCreditAccount("1");
+      }
 
       const posName = (selectedItem.posAnggaran?.deskripsi || selectedItem.posAnggaran?.keterangan || "").toLowerCase();
       if (posName.includes("perlengkapan") || posName.includes("atk")) {
@@ -334,7 +344,7 @@ function PencairanContent() {
           const t = (c.tipe || '').toLowerCase();
           return t === 'beban' || t === 'expense';
         });
-        setDebitAccount(expenseCoa ? String(expenseCoa.nomorAkun) : "50001");
+        setDebitAccount(expenseCoa ? String(expenseCoa.nomorAkun) : (coaList[0] ? String(coaList[0].nomorAkun) : "50001"));
       }
       setCatatan("");
     }
@@ -345,8 +355,11 @@ function PencairanContent() {
 
     if (action === 'APPROVE') {
       if (!creditAccount) {
-        setShowAccountWarning(true);
-        return;
+        const assetCoa = coaList.find((c: any) => {
+          const t = (c.tipe || '').toLowerCase();
+          return t === 'aset' || t === 'asset';
+        });
+        setCreditAccount(assetCoa ? String(assetCoa.nomorAkun) : (coaList[0] ? String(coaList[0].nomorAkun) : "1"));
       }
       if (!debitAccount) {
         const expenseCoa = coaList.find((c: any) => {
