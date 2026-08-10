@@ -73,8 +73,15 @@ export default function PendingPmModal({
     0
   );
 
-  const progressPct = totalRAB > 0 ? Math.min((teralokasiProyek / totalRAB) * 100, 100) : 0;
-  const sisaProyek = Math.max(0, totalRAB - teralokasiProyek);
+  const selectedDelta = (pendingPengajuan || [])
+    .filter((p: any) => selectedIds[p.id])
+    .reduce((sum: number, p: any) => sum + (Number(p.alokasiBaru) - Number(p.alokasiLama)), 0);
+
+  // Nilai proyektif jika semua seleksi disetujui
+  const teraProyektif = teralokasiProyek + selectedDelta;
+  const sisaProyektif = totalRAB - teraProyektif; // boleh negatif (over budget)
+  const isOver = sisaProyektif < 0;
+  const progressPct = totalRAB > 0 ? Math.min(Math.max((teraProyektif / totalRAB) * 100, 0), 100) : 0;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(20,18,14,0.6)] p-4">
@@ -102,10 +109,10 @@ export default function PendingPmModal({
               <div className="bg-white border border-[#e6e1d4] rounded-[16px] p-4 space-y-2.5 shadow-[0px_0px_0px_1px_rgba(20,18,14,0.04),0px_1px_2px_0px_rgba(20,18,14,0.05)]">
                 <div className="flex items-center justify-between text-[13px]">
                   <span className="font-semibold text-[#14130f]">Realisasi Anggaran</span>
-                  <span className="font-bold text-[#14130f] font-mono">{progressPct.toFixed(0)}%</span>
+                  <span className={`font-bold font-mono ${isOver ? 'text-[#d36c66]' : 'text-[#14130f]'}`}>{progressPct.toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-[#f3f0e9] h-2 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#009162] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+                  <div className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-[#d36c66]' : 'bg-[#009162]'}`} style={{ width: `${progressPct}%` }} />
                 </div>
                 <div className="flex justify-between items-center text-[12px] pt-1">
                   <div className="flex items-baseline gap-1">
@@ -116,15 +123,29 @@ export default function PendingPmModal({
                   <div className="flex items-baseline gap-1">
                     <span className="font-medium text-[#000000]">Teralokasi</span>
                     <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
-                    <span title={formatRp(teralokasiProyek)} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatRp(teralokasiProyek)}</span>
+                    <span title={formatRp(teraProyektif)} className={`font-medium font-mono cursor-pointer ${isOver ? 'text-[#d36c66]' : 'text-[#14130f]'}`}>{formatRp(teraProyektif)}</span>
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="font-normal text-[#9a948b]">Sisa</span>
-                    <span className="text-[10.2px] font-bold text-[#9a948b] font-mono">Rp</span>
-                    <span title={formatRp(sisaProyek)} className="font-bold text-[#14130f] font-mono cursor-pointer">{formatRp(sisaProyek)}</span>
+                    {isOver ? (
+                      <span className={`font-bold font-mono cursor-pointer text-[#d36c66]`}>
+                        Over Rp {Math.abs(sisaProyektif).toLocaleString('id-ID')}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-[10.2px] font-bold text-[#9a948b] font-mono">Rp</span>
+                        <span title={formatRp(sisaProyektif)} className="font-bold text-[#14130f] font-mono cursor-pointer">{formatRp(sisaProyektif)}</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {isOver && (
+                <div className="mt-2.5 rounded-[10px] border border-[#d36c66] bg-[#fdf3f2] px-3.5 py-2.5 font-sans text-[12px] font-semibold text-[#902f33]">
+                  Seleksi melebihi sisa Nilai Proyek — batalkan sebagian pengajuan sebelum menyetujui.
+                </div>
+              )}
 
               <div className="mt-2.5 mb-2.5 flex justify-end">
                 <button
@@ -146,6 +167,7 @@ export default function PendingPmModal({
                   const mainName = p.mainAnggaran?.namaMain || 'Pos Anggaran';
                   const alokasiLama = Number(p.alokasiLama) || 0;
                   const alokasiBaru = Number(p.alokasiBaru) || 0;
+                  const delta = alokasiBaru - alokasiLama;
 
                   return (
                     <div
@@ -207,8 +229,21 @@ export default function PendingPmModal({
                           </div>
                         </div>
 
-                        <div className="whitespace-nowrap font-mono text-[12px] font-bold text-[#14130F]">
-                          {formatRp(alokasiBaru)}
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold ${
+                              isChecked
+                                ? delta >= 0
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-red-100 text-red-700'
+                                : 'bg-stone-100 text-stone-400'
+                            }`}
+                          >
+                            {isChecked ? `${delta >= 0 ? '+' : '−'}${Math.abs(delta).toLocaleString('id-ID')}` : '—'}
+                          </span>
+                          <span className="whitespace-nowrap font-mono text-[12px] font-bold text-[#14130F]">
+                            {formatRp(alokasiBaru)}
+                          </span>
                         </div>
                       </div>
 
@@ -242,7 +277,7 @@ export default function PendingPmModal({
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-[#E6E1D4] bg-white p-[48px_24px] text-center">
+            <div className="rounded-xl bg-white p-[48px_24px] text-center">
               <div className="mb-1.5 font-sans text-[14px] font-bold text-[#14130F]">Tidak Ada Pengajuan PM Pending</div>
               <div className="font-sans text-[12.5px] font-normal text-[#9A948B]">Saat ini tidak ada pengajuan perubahan alokasi yang menunggu persetujuan Direktur.</div>
             </div>
@@ -270,9 +305,9 @@ export default function PendingPmModal({
               </button>
               <button
                 type="button"
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || isOver}
                 onClick={() => setShowApproveConfirm(true)}
-                className={`rounded-xl border-none px-[14px] py-[9px] font-sans text-[13px] font-semibold text-white transition hover:opacity-80 ${selectedCount > 0 ? 'cursor-pointer bg-[#009162]' : 'cursor-not-allowed bg-[#9A948B]'}`}
+                className={`rounded-xl border-none px-[14px] py-[9px] font-sans text-[13px] font-semibold text-white transition hover:opacity-80 ${selectedCount > 0 && !isOver ? 'cursor-pointer bg-[#009162]' : 'cursor-not-allowed bg-[#9A948B]'}`}
               >
                 Setujui Terpilih ({selectedCount})
               </button>

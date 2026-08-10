@@ -61,6 +61,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           const current = await tx.pengajuanAnggaran.findUnique({ where: { id: pengajuanId }, select: { status: true } });
           if (!current || current.status !== 'PENDING') throw new Error('RACE_CONDITION');
 
+          const locked = await tx.$queryRaw<Array<{ id: number }>>`
+            SELECT id FROM budget WHERE proyek_id = ${pengajuan.proyekId} FOR UPDATE
+          `;
+          if (!locked || locked.length === 0) throw new Error('Budget not found');
+
           const budget = await tx.budget.findUnique({ where: { proyekId: pengajuan.proyekId } });
           if (!budget) throw new Error('Budget not found');
 
