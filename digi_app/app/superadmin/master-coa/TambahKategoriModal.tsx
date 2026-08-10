@@ -22,7 +22,7 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
     setIsLoading(true);
     setErrorMsg("");
     
-    let payloadType = type === 'tambahSub' ? "sub" : "main";
+    const payloadType = type === 'tambahSub' ? "sub" : "main";
 
     const payload = { 
       type: payloadType, 
