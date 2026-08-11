@@ -52,7 +52,7 @@ export default function PerubahanAlokasiModal({
   }, [main.alokasi]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawStr = e.target.value.replace(/\./g, "").replace(/[^0-9]/g, "");
+    const rawStr = e.target.value.replace(/[^0-9]/g, "");
     if (!rawStr) {
       setInputStr("");
       setAlokasiBaru(0);
@@ -60,8 +60,21 @@ export default function PerubahanAlokasiModal({
     }
     const num = parseInt(rawStr, 10) || 0;
     const clamped = Math.min(num, maxAlokasi);
-    setInputStr(clamped.toLocaleString("id-ID"));
+    const inputStr = clamped.toLocaleString("id-ID");
+    const caretPos = e.target.selectionStart ?? 0;
+    const digitsBefore = e.target.value.slice(0, caretPos).replace(/[^0-9]/g, "").length;
+    let caret = 0;
+    let digits = 0;
+    for (let i = 0; i < inputStr.length && digits < digitsBefore; i++) {
+      caret++;
+      if (/[0-9]/.test(inputStr[i])) digits++;
+    }
+
+    setInputStr(inputStr);
     setAlokasiBaru(clamped);
+    requestAnimationFrame(() => {
+      e.target.setSelectionRange(caret, caret);
+    });
   };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
