@@ -457,11 +457,11 @@ export default function ProjectDetailSidebar({
 
                                             <div className="flex justify-between items-center pt-1 text-[11px]">
                                                 <div className="flex gap-3 text-stone-500 font-medium">
-                                                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#2d6a4f]" /> Inflow {formatSummaryRupiah(inflowNominal)}</span>
-                                                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#d4a373]" /> Outflow {formatSummaryRupiah(outflowNominal)}</span>
+                                                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#2d6a4f]" /> Inflow <CompactNominal value={inflowNominal} compactThreshold={1_000_000} /></span>
+                                                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#d4a373]" /> Outflow <CompactNominal value={outflowNominal} compactThreshold={1_000_000} /></span>
                                                 </div>
                                                 <span className={`font-bold ${netCashNominal >= 0 ? "text-[#2d6a4f]" : "text-rose-600"}`}>
-                                                    Net cash {netCashNominal >= 0 ? "+" : ""}{formatSummaryRupiah(netCashNominal)}
+                                                    Net cash {netCashNominal >= 0 ? "+" : ""}<CompactNominal value={netCashNominal} compactThreshold={1_000_000} />
                                                 </span>
                                             </div>
                                         </div>
@@ -583,10 +583,10 @@ export default function ProjectDetailSidebar({
                                                             </div>
                                                             <div className="text-right">
                                                                 <span className="text-[14px] font-black text-stone-900 font-mono">
-                                                                    {formatSummaryRupiah(terpakaiVal)}
+                                                                    <CompactNominal value={terpakaiVal} compactThreshold={1_000_000} />
                                                                 </span>
                                                                 <span className="text-[10px] text-stone-400 block font-medium mt-0.5">
-                                                                    dari {formatSummaryRupiah(nominalAlokasi)}
+                                                                    dari <CompactNominal value={nominalAlokasi} compactThreshold={1_000_000} />
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -603,7 +603,7 @@ export default function ProjectDetailSidebar({
                                                                 {percentUsed}% terpakai
                                                             </span>
                                                             <span>
-                                                                Sisa <b className="text-stone-700 font-mono font-bold">{formatSummaryRupiah(sisaVal)}</b>
+                                                                Sisa <b className="text-stone-700 font-mono font-bold"><CompactNominal value={sisaVal} compactThreshold={1_000_000} /></b>
                                                             </span>
                                                         </div>
                                                     </div>
