@@ -6,8 +6,23 @@ import { uploadStrukToSupabase } from '@/lib/supabase-storage';
 // Helper to map DB fields to client fields
 const mapReimbursement = (r: any) => {
   if (!r) return null;
+
+  const mainPemasukanList = r.proyek?.budget?.mainAnggaran?.filter((m: any) => m.tipe === 'pemasukan') || [];
+  const creditOptions: Array<{ displayVal: string; mainNama: string; subNama: string }> = [];
+  for (const main of mainPemasukanList) {
+    const subPemasukanList = main.subAnggaran?.filter((s: any) => s.tipe === 'pemasukan') || [];
+    for (const sub of subPemasukanList) {
+      creditOptions.push({
+        mainNama: main.namaMain,
+        subNama: sub.namaSub,
+        displayVal: `MAIN · ${main.namaMain} > SUB · ${sub.namaSub}`,
+      });
+    }
+  }
+
   return {
     ...r,
+    creditOptions,
     strukUrl: r.urlStruk,
     posAnggaran: r.keteranganAnggaran ? {
       ...r.keteranganAnggaran,
@@ -44,7 +59,7 @@ export async function GET(req: NextRequest) {
         filter.proyekId = parseInt(userProyekId, 10);
       }
 
-    } else if (urlRole === 'Project Manager') {
+    } else if (urlRole === 'Project Manager' || urlRole === 'pm') {
       const pmProyeks = await prisma.userProyek.findMany({
         where: { 
           userId: parseInt(userId, 10),
@@ -67,7 +82,22 @@ export async function GET(req: NextRequest) {
       where: filter,
       include: {
         user: { select: { id: true, nama: true, email: true, role: true } },
-        proyek: true,
+        proyek: {
+          include: {
+            budget: {
+              include: {
+                mainAnggaran: {
+                  where: { tipe: 'pemasukan' },
+                  include: {
+                    subAnggaran: {
+                      where: { tipe: 'pemasukan' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         keteranganAnggaran: {
           include: { subAnggaran: { include: { mainAnggaran: true } } },
         },
@@ -83,9 +113,7 @@ export async function GET(req: NextRequest) {
           },
           orderBy: { timestamp: 'desc' },
         },
-        jurnalAkuntansi: {
-          include: { akunDebit: true, akunKredit: true },
-        },
+        jurnalAkuntansi: true,
       },
       orderBy: { id: 'desc' },
     });

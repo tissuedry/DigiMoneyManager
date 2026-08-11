@@ -27,6 +27,7 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
     const payload = { 
       type: payloadType, 
       nama: namaKategori,
+      tipe: data?.tipe || "pengeluaran",
       parentId: data?.parentId ? String(data.parentId) : undefined 
     };
 

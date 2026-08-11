@@ -72,7 +72,7 @@ export async function uploadStrukToSupabase(
         }
 
         if (extracted.length > 0) {
-          let compBuffer = await sharp(extracted[0])
+          const compBuffer = await sharp(extracted[0])
             .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
             .webp({ quality: 75 })
             .toBuffer();

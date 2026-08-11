@@ -97,7 +97,7 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
 }`;
 
     let rawResponse = '';
-    let providerUsed = 'Google Gemini Vision (gemini-3.5-flash-lite)';
+    const providerUsed = 'Google Gemini Vision (gemini-3.5-flash-lite)';
 
     // 4. Eksekusi OCR hanya dengan Gemini 3.5 Flash Lite
     try {

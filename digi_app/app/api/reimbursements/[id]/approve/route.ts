@@ -159,43 +159,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const actorKeuangan = isSuperAdmin ? 'Superadmin' : 'Tim Keuangan';
 
       if (action === 'APPROVE') {
-        const debNum = parseInt(noAkunDebit, 10) || 50001;
-        const kreNum = parseInt(noAkunKredit, 10) || 1;
-
-        let deb = await prisma.chartOfAccounts.findFirst({ where: { nomorAkun: debNum } });
-        if (!deb) {
-          deb = await prisma.chartOfAccounts.upsert({
-            where: { id: `COA-${debNum}` },
-            update: {},
-            create: {
-              id: `COA-${debNum}`,
-              nomorAkun: debNum,
-              namaAkun: 'Beban Operasional',
-              tipe: 'Beban',
-              standar: 'PSAK',
-            },
-          });
-        }
-
-        let kre = await prisma.chartOfAccounts.findFirst({ where: { nomorAkun: kreNum } });
-        if (!kre) {
-          const anyAset = await prisma.chartOfAccounts.findFirst({ where: { tipe: { in: ['Aset', 'asset', 'ASET'] } } });
-          if (anyAset) {
-            kre = anyAset;
-          } else {
-            kre = await prisma.chartOfAccounts.upsert({
-              where: { id: `COA-${kreNum}` },
-              update: {},
-              create: {
-                id: `COA-${kreNum}`,
-                nomorAkun: kreNum,
-                namaAkun: 'Kas / Bank',
-                tipe: 'Aset',
-                standar: 'PSAK',
-              },
-            });
-          }
-        }
+        const debitText = noAkunDebit || `MAIN · ${reimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'Beban Operasional'} > SUB · ${reimbursement.keteranganAnggaran?.subAnggaran?.namaSub || 'Beban'} > KET · ${reimbursement.keteranganAnggaran?.keterangan || 'Pengeluaran'}`;
+        const kreditText = noAkunKredit || '-';
 
         const result = await prisma.$transaction(async (tx) => {
           const budget = await tx.budget.findUnique({
@@ -279,8 +244,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           const journal = await tx.jurnalAkuntansi.create({
             data: {
               reimbursementId: parseInt(id, 10),
-              noAkunDebit: deb.id,
-              noAkunKredit: kre.id,
+              noAkunDebit: debitText,
+              noAkunKredit: kreditText,
               nominal,
               keterangan: `Pencairan ${tipePengajuan} ${id} - ${reimbursement.user.nama} untuk ${reimbursement.keteranganAnggaran?.keterangan || 'Pengajuan'}`,
             },

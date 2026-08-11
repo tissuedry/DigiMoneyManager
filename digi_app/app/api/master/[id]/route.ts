@@ -17,7 +17,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const body = await req.json();
-    const { type, nama } = body;
+    const { type, nama, tipe } = body;
 
     if (!type || !nama) {
       return NextResponse.json({ message: 'Type dan nama wajib diisi di dalam body' }, { status: 400 });
@@ -28,16 +28,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     let detailAudit = '';
 
     if (type === 'main') {
+      const updatePayload: any = { nama };
+      if (tipe) updatePayload.tipe = tipe;
       updatedData = await prisma.masterMain.update({
         where: { id: targetId },
-        data: { nama },
+        data: updatePayload,
       });
       detailAudit = `Mengubah Master Main (ID: ${targetId}) menjadi: ${nama}`;
 
     } else if (type === 'sub') {
+      const updatePayload: any = { nama };
+      if (tipe) updatePayload.tipe = tipe;
       updatedData = await prisma.masterSub.update({
         where: { id: targetId },
-        data: { nama },
+        data: updatePayload,
       });
       detailAudit = `Mengubah Master Sub (ID: ${targetId}) menjadi: ${nama}`;
 
