@@ -3,13 +3,13 @@ import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check,
 import { Project, Member } from "./types";
 import {
     formatRupiah,
-    formatSummaryRupiah,
     getStatusStyles,
     formatRibuan,
     calculateTotalTerpakai,
     calculateBudgetProgress, 
     formatStatusLabel
 } from "./utils";
+import CompactNominal from "@/components/compact-nominal";
 
 function getMemberInitials(name: string) {
     const parts = name.trim().split(" ").filter(Boolean);
