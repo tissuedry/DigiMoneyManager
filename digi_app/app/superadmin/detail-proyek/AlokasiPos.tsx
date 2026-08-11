@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
+import { formatFullRupiah } from "@/lib/format-nominal";
 
 type AlokasiKet = {
   id: number;
@@ -82,15 +83,7 @@ const getDraftsFromStorage = (pId: number) => {
 };
 
 const formatShort = (v: number): string => {
-  const abs = Math.abs(v);
-  if (abs >= 100_000_000_000_000) {
-    const triliun = Math.floor(abs / 1_000_000_000_000);
-    return v < 0 ? `-${triliun} T` : `${triliun} T`;
-  }
-  if (v < 0) {
-    return `-Rp ${abs.toLocaleString("id-ID")}`;
-  }
-  return `Rp ${v.toLocaleString("id-ID")}`;
+  return formatFullRupiah(v);
 };
 
 export default function AlokasiPosModal({

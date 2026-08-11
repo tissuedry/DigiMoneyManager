@@ -87,11 +87,8 @@ export async function GET(req: NextRequest) {
             budget: {
               include: {
                 mainAnggaran: {
-                  where: { tipe: 'pemasukan' },
                   include: {
-                    subAnggaran: {
-                      where: { tipe: 'pemasukan' },
-                    },
+                    subAnggaran: true,
                   },
                 },
               },
