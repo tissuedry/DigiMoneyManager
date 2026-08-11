@@ -11,6 +11,7 @@ import ProyekSkeleton from "./ProyekSkeleton";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
+import CompactNominal from "@/components/compact-nominal";
 import {
   ChevronDown,
   Eye,
@@ -201,14 +202,14 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
         <span key={p.id} className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: p.warna }} />
           {p.nama}
-          <span title={`Rp ${Math.round(p.alokasi || 0).toLocaleString("id-ID")}`} className="font-bold text-stone-800 cursor-pointer">{formatShort(p.alokasi)}</span>
+          <CompactNominal value={p.alokasi} className="font-bold text-stone-800" />
         </span>
       ))}
       {unallocated > 0 && (
         <span className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm bg-stone-300 shrink-0" />
           Belum dialokasikan
-          <span title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`} className="font-bold text-stone-800 cursor-pointer">{formatShort(unallocated)}</span>
+          <CompactNominal value={unallocated} className="font-bold text-stone-800" />
         </span>
       )}
     </div>
@@ -464,11 +465,8 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
-                  <p
-                    title={`Rp ${Math.round(proyek.totalRAB || 0).toLocaleString("id-ID")}`}
-                    className="text-2xl font-extrabold text-stone-900 whitespace-nowrap cursor-pointer hover:opacity-80 transition"
-                  >
-                    {formatShort(proyek.totalRAB)}
+                  <p className="text-2xl font-extrabold text-stone-900 whitespace-nowrap">
+                    <CompactNominal value={proyek.totalRAB} className="text-2xl font-extrabold text-stone-900" />
                   </p>
                 </div>
               </div>
@@ -484,11 +482,8 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                     <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
                     <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
                   </div>
-                  <p
-                    title={`Rp ${Math.round(proyek.realisasi || 0).toLocaleString("id-ID")}`}
-                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
-                  >
-                    {formatShort(proyek.realisasi)}
+                  <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">
+                    <CompactNominal value={proyek.realisasi} className="text-xl font-extrabold text-stone-900" />
                   </p>
                 </div>
 
@@ -500,19 +495,13 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                       <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
                     </div>
                     {unallocated > 0 && (
-                      <span
-                        title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`}
-                        className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap cursor-pointer"
-                      >
-                        {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
+                      <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap">
+                        <CompactNominal value={unallocated} className="text-[11px] font-semibold text-amber-600" /> <span className="font-normal text-amber-700">belum dialokasikan</span>
                       </span>
                     )}
                   </div>
-                  <p
-                    title={`Rp ${Math.round((proyek.totalRAB - proyek.realisasi) || 0).toLocaleString("id-ID")}`}
-                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
-                  >
-                    {formatShort(proyek.totalRAB - proyek.realisasi)}
+                  <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">
+                    <CompactNominal value={proyek.totalRAB - proyek.realisasi} className="text-xl font-extrabold text-stone-900" />
                   </p>
                 </div>
               </div>

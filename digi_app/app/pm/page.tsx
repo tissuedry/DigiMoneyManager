@@ -13,6 +13,7 @@ import {
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
+import CompactNominal from "@/components/compact-nominal";
 import { useApi } from "@/lib/use-api";
 import PMSkeleton from "./PMSkeleton";
 
@@ -161,32 +162,29 @@ export default function PMDashboardPage() {
                     const statCards = [
                       {
                         label: "Total Nilai Proyek",
-                        value: formatRupiah(rab),
-                        raw: formatRupiah(rab),
+                        num: rab,
                         sub: "Alokasi anggaran awal",
                         icon: <Wallet size={18} className="text-stone-600" />,
                         iconBg: "bg-stone-100",
                       },
                       {
                         label: "Total Terpakai",
-                        value: formatRupiah(used),
-                        raw: formatRupiah(used),
+                        num: used,
                         sub: `${usedPercentage.toFixed(1)}% dari total nilai proyek`,
                         icon: <TrendingUp size={18} className="text-rose-600" />,
                         iconBg: "bg-rose-50",
                       },
                       {
                         label: "Sisa Budget",
-                        value: formatRupiah(rem),
-                        raw: formatRupiah(rem),
+                        num: rem,
                         sub: `${remPercentage.toFixed(1)}% anggaran tersisa`,
                         icon: <Check size={18} className="text-emerald-600" />,
                         iconBg: "bg-emerald-50",
                       },
                       {
                         label: "Menunggu Persetujuan",
-                        value: `${data.pendingApprovalsCount} Pengajuan`,
-                        raw: "",
+                        num: null,
+                        customVal: `${data.pendingApprovalsCount} Pengajuan`,
                         sub: "Butuh review Anda segera",
                         icon: <FileCheck size={18} className="text-blue-600" />,
                         iconBg: "bg-blue-50",
@@ -211,11 +209,12 @@ export default function PMDashboardPage() {
                                 </div>
                               </div>
                               <div className="mt-4">
-                                <p
-                                  title={card.raw || undefined}
-                                  className="text-[20px] font-bold text-stone-900 leading-tight cursor-pointer whitespace-nowrap"
-                                >
-                                  {card.value}
+                                <p className="text-[20px] font-bold text-stone-900 leading-tight">
+                                  {card.num !== null && card.num !== undefined ? (
+                                    <CompactNominal value={card.num} className="text-[20px] font-bold text-stone-900" />
+                                  ) : (
+                                    card.customVal
+                                  )}
                                 </p>
                                 <p className="text-[11px] text-stone-400 mt-1 font-medium">
                                   {card.sub}

@@ -5,6 +5,8 @@ import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
+import CompactNominal from "@/components/compact-nominal";
+import { formatCompactRupiah, formatFullRupiah } from "@/lib/format-nominal";
 
 type AlokasiKet = {
   id: number;
@@ -76,15 +78,7 @@ const getDraftsFromStorage = (pId: number) => {
 };
 
 const formatShort = (v: number): string => {
-  const abs = Math.abs(v);
-  if (abs >= 100_000_000_000_000) {
-    const triliun = Math.floor(abs / 1_000_000_000_000);
-    return v < 0 ? `-${triliun} T` : `${triliun} T`;
-  }
-  if (v < 0) {
-    return `-Rp ${abs.toLocaleString("id-ID")}`;
-  }
-  return `Rp ${v.toLocaleString("id-ID")}`;
+  return formatFullRupiah(v);
 };
 
 export default function AlokasiPosModal({
@@ -533,18 +527,15 @@ export default function AlokasiPosModal({
             <div className="flex justify-between items-center text-[12px] pt-1">
               <div className="flex items-baseline gap-1">
                 <span className="font-medium text-[#000000]">Nilai Proyek</span>
-                <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
-                <span title={`Rp ${Math.round(totalRAB || 0).toLocaleString("id-ID")}`} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatShort(totalRAB).replace(/^Rp\s?/, '')}</span>
+                <CompactNominal value={totalRAB} compactThreshold={1_000_000_000_000} className="font-medium text-[#14130f] font-mono" />
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-medium text-[#000000]">Realisasi</span>
-                <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
-                <span title={`Rp ${Math.round(realisasi || 0).toLocaleString("id-ID")}`} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatShort(realisasi).replace(/^Rp\s?/, '')}</span>
+                <CompactNominal value={realisasi} compactThreshold={1_000_000_000_000} className="font-medium text-[#14130f] font-mono" />
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-normal text-[#9a948b]">Sisa</span>
-                <span className="text-[10.2px] font-bold text-[#9a948b] font-mono">Rp</span>
-                <span title={`Rp ${Math.round((totalRAB - realisasi) || 0).toLocaleString("id-ID")}`} className="font-bold text-[#14130f] font-mono cursor-pointer">{formatShort(totalRAB - realisasi).replace(/^Rp\s?/, '')}</span>
+                <CompactNominal value={totalRAB - realisasi} compactThreshold={1_000_000_000_000} className="font-bold text-[#14130f] font-mono" />
               </div>
             </div>
           </div>

@@ -361,10 +361,9 @@ export default function ProjectDetailSidebar({
                                             })()}
 
                                             <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
-                                                <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5">{formatSummaryRupiah(detailTotalRAB)}</b></span>
-                                                {/* Ganti detailTotalTerpakai -> calculatedTotalTerpakai */}
-                                                <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5">{formatSummaryRupiah(calculatedTotalTerpakai)}</b></span>
-                                                <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5">{formatSummaryRupiah(Math.max(0, detailTotalRAB - calculatedTotalTerpakai))}</b></span>
+                                                <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000} /></b></span>
+                                                <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000} /></b></span>
+                                                <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000} /></b></span>
                                             </div>
                                         </div>
                                     ) : (
