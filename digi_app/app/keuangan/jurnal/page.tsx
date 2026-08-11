@@ -7,6 +7,7 @@ import {
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import DatePicker from '@/components/date-picker';
+import CompactNominal from '@/components/compact-nominal';
 
 type JournalLine = {
   type: "Dr" | "Cr";
@@ -229,40 +230,54 @@ function JurnalAkuntansiContent() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
 
             {/* Kartu 1: Total Jurnal */}
-            <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
-              <div className="flex justify-between items-start mb-4">
+            <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
+              <div className="flex justify-between items-start">
                 <span className="text-[12px] text-stone-500 font-medium">Total Jurnal</span>
-                <div className="w-7 h-7 border border-stone-300 rounded flex items-center justify-center">
+                <div className="w-7 h-7 border border-stone-300 rounded-lg flex items-center justify-center">
                   <BookOpen size={13} className="text-stone-500 stroke-[1.75]" />
                 </div>
               </div>
-              <p className="text-[32px] font-bold text-stone-900 leading-none">{journalEntries.length}</p>
-              <p className="text-[11px] text-stone-400 mt-2">Periode Terpilih</p>
+              <div>
+                <p className="text-[28px] font-bold text-stone-900 leading-none">{journalEntries.length}</p>
+                <p className="text-[11px] text-stone-400 mt-2 font-medium">Periode Terpilih</p>
+              </div>
             </div>
 
             {/* Kartu 2: Total Debit */}
-            <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
-              <div className="flex justify-between items-start mb-4">
+            <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
+              <div className="flex justify-between items-start">
                 <span className="text-[12px] text-stone-500 font-medium">Total Debit</span>
-                <ArrowUp size={18} className="text-emerald-500 stroke-[2.5]" />
+                <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center">
+                  <ArrowUp size={15} className="text-emerald-600 stroke-[2.5]" />
+                </div>
               </div>
-              <p className="text-[11px] text-stone-400 mb-0.5">Rp</p>
-              <p className="text-[28px] font-bold text-stone-900 leading-none">{formatRupiahShort(totalDebit)}</p>
+              <div>
+                <div className="text-[22px] font-bold text-stone-900 leading-none">
+                  <CompactNominal value={totalDebit} compactThreshold={100_000_000_000} />
+                </div>
+                <p className="text-[11px] text-stone-400 mt-2 font-medium">{journalEntries.length} entri jurnal</p>
+              </div>
             </div>
 
             {/* Kartu 3: Total Kredit */}
-            <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
-              <div className="flex justify-between items-start mb-4">
+            <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
+              <div className="flex justify-between items-start">
                 <span className="text-[12px] text-stone-500 font-medium">Total Kredit</span>
-                <ArrowDown size={18} className="text-red-500 stroke-[2.5]" />
+                <div className="w-7 h-7 bg-rose-50 rounded-lg flex items-center justify-center">
+                  <ArrowDown size={15} className="text-rose-600 stroke-[2.5]" />
+                </div>
               </div>
-              <p className="text-[11px] text-stone-400 mb-0.5">Rp</p>
-              <p className="text-[28px] font-bold text-stone-900 leading-none">{formatRupiahShort(totalKredit)}</p>
+              <div>
+                <div className="text-[22px] font-bold text-stone-900 leading-none">
+                  <CompactNominal value={totalKredit} compactThreshold={100_000_000_000} />
+                </div>
+                <p className="text-[11px] text-stone-400 mt-2 font-medium">{journalEntries.length} entri jurnal</p>
+              </div>
             </div>
 
             {/* Kartu 4: Saldo */}
-            <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
-              <div className="flex justify-between items-start mb-4">
+            <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
+              <div className="flex justify-between items-start">
                 <span className="text-[12px] text-stone-500 font-medium">Status Saldo</span>
                 {isBalanced ? (
                   <div className="w-7 h-7 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center">
@@ -274,20 +289,22 @@ function JurnalAkuntansiContent() {
                   </div>
                 )}
               </div>
-              <p className={`text-[22px] font-bold leading-none ${isBalanced ? "text-stone-900" : "text-rose-600"}`}>
-                {isBalanced ? "Seimbang" : "Tidak Seimbang"}
-              </p>
-              {isBalanced ? (
-                <p className="text-[11px] text-emerald-600 font-semibold mt-2 flex items-center gap-1">
-                  <Check size={10} className="stroke-[3.5]" />
-                  Dr = Cr (Seimbang)
+              <div>
+                <p className={`text-[22px] font-bold leading-none ${isBalanced ? "text-stone-900" : "text-rose-600"}`}>
+                  {isBalanced ? "Seimbang" : "Tidak Seimbang"}
                 </p>
-              ) : (
-                <p className="text-[11px] text-rose-600 font-semibold mt-2 flex items-center gap-1">
-                  <X size={10} className="stroke-[3.5]" />
-                  Selisih: Rp {selisih.toLocaleString('id-ID')}
-                </p>
-              )}
+                {isBalanced ? (
+                  <p className="text-[11px] text-emerald-600 font-semibold mt-2 flex items-center gap-1">
+                    <Check size={10} className="stroke-[3.5]" />
+                    Dr = Cr (Seimbang)
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-2 flex items-center gap-1">
+                    <X size={10} className="stroke-[3.5]" />
+                    Selisih: Rp {selisih.toLocaleString('id-ID')}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -509,10 +526,10 @@ function JurnalAkuntansiContent() {
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
-                              {line.debit ? `Rp ${line.debit}` : "—"}
+                              {line.debit ? <CompactNominal value={line.debit} compactThreshold={100_000_000_000_000} /> : "—"}
                             </td>
                             <td className="px-4 py-2.5 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
-                              {line.kredit ? `Rp ${line.kredit}` : "—"}
+                              {line.kredit ? <CompactNominal value={line.kredit} compactThreshold={100_000_000_000_000} /> : "—"}
                             </td>
                             {lineIdx === 0 && (
                               <td

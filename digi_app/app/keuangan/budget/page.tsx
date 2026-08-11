@@ -19,11 +19,10 @@ import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Toast from "@/components/toast";
 import Pagination from "@/components/pagination";
+import { formatFullRupiah } from "@/lib/format-nominal";
 
 function fmtRupiah(n: number) {
-  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(2)} M`;
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(2)} jt`;
-  return `Rp ${n.toLocaleString("id-ID")}`;
+  return formatFullRupiah(n);
 }
 
 function parseRupiah(s: string): number {

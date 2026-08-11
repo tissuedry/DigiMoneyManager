@@ -16,11 +16,10 @@ import Toast from "@/components/toast";
 import Pagination from "@/components/pagination";
 import BudgetFormModal from "./BudgetFormModal";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+import { formatFullRupiah } from "@/lib/format-nominal";
+
 function fmtRupiah(n: number) {
-  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(2)} M`;
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(2)} jt`;
-  return `Rp ${n.toLocaleString("id-ID")}`;
+  return formatFullRupiah(n);
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
