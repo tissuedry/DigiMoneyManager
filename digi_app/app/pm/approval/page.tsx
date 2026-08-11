@@ -6,6 +6,7 @@ import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import ConfirmDialog from '@/components/confirm-dialog';
 import Toast from '@/components/toast';
+import CompactNominal from '@/components/compact-nominal';
 import { useApi, useInvalidate } from '@/lib/use-api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -600,7 +601,6 @@ export default function AntrianApprovalPage() {
               ) : (
                 filteredData.slice(0, visibleCount).map((item: any) => {
                   const isSelected = selected && selected.id === item.id;
-                  const formattedNominal = item.amountRaw ? item.amountRaw.toLocaleString('id-ID') : item.amount.replace('Rp ', '');
 
                   return (
                     <button
@@ -631,8 +631,8 @@ export default function AntrianApprovalPage() {
                                 {item.merchant}
                               </div>
                             </div>
-                            <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                              <span className="text-stone-400 text-[11px]">Rp </span>{formattedNominal}
+                             <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
+                              <CompactNominal value={item.amountRaw ?? item.amount ?? item.nominal} className="text-[12px] font-bold text-stone-800" />
                             </p>
                           </div>
                           <div className="flex items-center justify-between gap-2">
