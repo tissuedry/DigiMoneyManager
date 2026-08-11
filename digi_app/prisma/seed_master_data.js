@@ -17,55 +17,69 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('Memulai proses penambahan Master Data...');
 
-  // --- 5.1 BIAYA MARKETING PROYEK ---
+  // --- 5.1 BIAYA MARKETING PROYEK (PENGELUARAN) ---
   console.log('Menambahkan data 5.1...');
   const main51 = await prisma.masterMain.create({
-    data: { nama: 'BIAYA MARKETING PROYEK' }
+    data: { nama: 'BIAYA MARKETING PROYEK', tipe: 'pengeluaran' }
   });
   await prisma.masterSub.createMany({
     data: [
-      { mainId: main51.id, nama: 'Biaya Marketing Proyek' },
-      { mainId: main51.id, nama: 'Biaya Marketing Proyek Lainnya' },
+      { mainId: main51.id, nama: 'Biaya Marketing Proyek', tipe: 'pengeluaran' },
+      { mainId: main51.id, nama: 'Biaya Marketing Proyek Lainnya', tipe: 'pengeluaran' },
     ]
   });
 
-  // --- 5.2 BIAYA ADMINISTRASI PROYEK ---
+  // --- 5.2 BIAYA ADMINISTRASI PROYEK (PENGELUARAN) ---
   console.log('Menambahkan data 5.2...');
   const main52 = await prisma.masterMain.create({
-    data: { nama: 'BIAYA ADMINISTRASI PROYEK' }
+    data: { nama: 'BIAYA ADMINISTRASI PROYEK', tipe: 'pengeluaran' }
   });
   await prisma.masterSub.createMany({
     data: [
-      { mainId: main52.id, nama: 'Biaya Jaminan Proyek' },
-      { mainId: main52.id, nama: 'Pembuatan Dokumen Kontrak' },
-      { mainId: main52.id, nama: 'Biaya Administrasi Proyek Lainnya' },
+      { mainId: main52.id, nama: 'Biaya Jaminan Proyek', tipe: 'pengeluaran' },
+      { mainId: main52.id, nama: 'Pembuatan Dokumen Kontrak', tipe: 'pengeluaran' },
+      { mainId: main52.id, nama: 'Biaya Administrasi Proyek Lainnya', tipe: 'pengeluaran' },
     ]
   });
 
-  // --- 5.3 BIAYA PRODUKSI PROYEK ---
+  // --- 5.3 BIAYA PRODUKSI PROYEK (PENGELUARAN) ---
   console.log('Menambahkan data 5.3...');
   const main53 = await prisma.masterMain.create({
-    data: { nama: 'BIAYA PRODUKSI PROYEK' }
+    data: { nama: 'BIAYA PRODUKSI PROYEK', tipe: 'pengeluaran' }
   });
 
-  // 5.3.01 Biaya Personil
-  await prisma.masterSub.create({
-    data: { mainId: main53.id, nama: 'Biaya Personil' }
+  await prisma.masterSub.createMany({
+    data: [
+      { mainId: main53.id, nama: 'Biaya Personil', tipe: 'pengeluaran' },
+      { mainId: main53.id, nama: 'Biaya Non Personil', tipe: 'pengeluaran' },
+      { mainId: main53.id, nama: 'Biaya Pengadaan Barang dan Jasa', tipe: 'pengeluaran' },
+      { mainId: main53.id, nama: 'Biaya Garansi', tipe: 'pengeluaran' },
+    ]
   });
 
-  // 5.3.02 Biaya Non Personil
-  await prisma.masterSub.create({
-    data: { mainId: main53.id, nama: 'Biaya Non Personil' }
+  // --- 1.1 KAS & BANK (PEMASUKAN / ASET) ---
+  console.log('Menambahkan data Master Pemasukan (Kas & Bank)...');
+  const mainKas = await prisma.masterMain.create({
+    data: { nama: 'Kas & Bank', tipe: 'pemasukan' }
+  });
+  await prisma.masterSub.createMany({
+    data: [
+      { mainId: mainKas.id, nama: 'BCA', tipe: 'pemasukan' },
+      { mainId: mainKas.id, nama: 'Mandiri', tipe: 'pemasukan' },
+      { mainId: mainKas.id, nama: 'BRI', tipe: 'pemasukan' },
+      { mainId: mainKas.id, nama: 'Kas Kecil', tipe: 'pemasukan' },
+    ]
   });
 
-  // 5.3.03 Biaya Pengadaan Barang dan Jasa
-  await prisma.masterSub.create({
-    data: { mainId: main53.id, nama: 'Biaya Pengadaan Barang dan Jasa' }
+  // --- 1.2 PENDAPATAN PROYEK (PEMASUKAN) ---
+  const mainPendapatan = await prisma.masterMain.create({
+    data: { nama: 'Pendapatan Proyek', tipe: 'pemasukan' }
   });
-
-  // 5.3.04 Biaya Garansi
-  await prisma.masterSub.create({
-    data: { mainId: main53.id, nama: 'Biaya Garansi' }
+  await prisma.masterSub.createMany({
+    data: [
+      { mainId: mainPendapatan.id, nama: 'Termin 1 (DP)', tipe: 'pemasukan' },
+      { mainId: mainPendapatan.id, nama: 'Termin Pelunasan', tipe: 'pemasukan' },
+    ]
   });
 
   console.log('Semua Master Data berhasil ditambahkan ke database!');

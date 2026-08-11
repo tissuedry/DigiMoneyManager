@@ -42,7 +42,7 @@ export default function InitBudgetModal({
     async function fetchMasterMain() {
       setLoadingOptions(true);
       try {
-        const res = await fetch("/api/master");
+        const res = await fetch("/api/master?tipe=pengeluaran");
         if (res.ok && isMounted) {
           const data = await res.json();
           // Memastikan data yang dimasukkan ke state selalu berbentuk array

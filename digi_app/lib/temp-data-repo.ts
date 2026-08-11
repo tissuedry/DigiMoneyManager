@@ -159,7 +159,7 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
     }),
     // CoA & jurnal akuntansi adalah domain Tim Keuangan/Direktur — role lain tidak diberi akses
     isFullAccess
-      ? prisma.chartOfAccounts.findMany({ select: { nomorAkun: true, namaAkun: true, tipe: true } })
+      ? prisma.masterSub.findMany({ where: { tipe: 'pemasukan' }, select: { id: true, nama: true, tipe: true } })
       : Promise.resolve([]),
     isFullAccess ? prisma.jurnalAkuntansi.count() : Promise.resolve(0),
     prisma.reimbursement.findMany({
@@ -220,7 +220,7 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
     }),
   ]);
 
-  const projectsContext = projects.map((p) => {
+  const projectsContext = projects.map((p: any) => {
     const rab = p.budget ? Number(p.budget.rabTotal) : 0;
     const sisa = p.budget ? Number(p.budget.sisaBudget) : 0;
     const margin = rab > 0 ? parseFloat(((sisa / rab) * 100).toFixed(1)) : 0;
@@ -300,9 +300,9 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
     tanggalStruk: r.tanggalStruk || null,
   }));
 
-  const totalPendingNominal = pendingRbs.reduce((sum, r) => sum + Number(r.nominal), 0);
-  const countPM = pendingRbs.filter(r => r.status === 'SUBMITTED').length;
-  const countKeuangan = pendingRbs.filter(r => r.status === 'APPROVED_BY_PM').length;
+  const totalPendingNominal = pendingRbs.reduce((sum: number, r: any) => sum + Number(r.nominal), 0);
+  const countPM = pendingRbs.filter((r: any) => r.status === 'SUBMITTED').length;
+  const countKeuangan = pendingRbs.filter((r: any) => r.status === 'APPROVED_BY_PM').length;
   const countRealisasiAnggaran = pendingRbs.filter((r: any) => r.tipe === 'Realisasi Anggaran').length;
   const countReimbursementBiasa = pendingRbs.length - countRealisasiAnggaran;
 

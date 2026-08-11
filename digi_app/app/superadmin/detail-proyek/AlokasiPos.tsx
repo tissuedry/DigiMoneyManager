@@ -227,7 +227,7 @@ export default function AlokasiPosModal({
   useEffect(() => {
     const fetchMasterMain = async () => {
       try {
-        const res = await fetch("/api/master");
+        const res = await fetch("/api/master?tipe=pengeluaran");
         if (res.ok) {
           const raw = await res.json();
           const data = Array.isArray(raw) ? raw : (raw.data || []);
@@ -246,7 +246,7 @@ export default function AlokasiPosModal({
     try {
       let mainList = Array.isArray(masterMainList) ? masterMainList : [];
       if (mainList.length === 0) {
-        const res = await fetch("/api/master");
+        const res = await fetch("/api/master?tipe=pengeluaran");
         if (res.ok) {
           const raw = await res.json();
           mainList = Array.isArray(raw) ? raw : (raw.data || []);

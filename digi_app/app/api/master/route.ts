@@ -12,25 +12,33 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const mainId = searchParams.get("mainId");
     const subId = searchParams.get("subId");
+    const tipeFilter = searchParams.get("tipe"); // 'pengeluaran' | 'pemasukan'
 
     if (subId) {
       return NextResponse.json([]);
     }
 
     if (mainId) {
+      const whereCond: any = { mainId: parseInt(mainId) };
+      if (tipeFilter) whereCond.tipe = tipeFilter;
       const sub = await prisma.masterSub.findMany({
-        where: { mainId: parseInt(mainId) },
+        where: whereCond,
         orderBy: { id: 'asc' }
       });
       return NextResponse.json(sub);
     }
 
     const type = searchParams.get('type') || 'all';
+    const whereCond: any = {};
+    if (tipeFilter && tipeFilter !== 'all') {
+      whereCond.tipe = tipeFilter;
+    }
 
     if (type === 'all') {
       const data = await prisma.masterMain.findMany({
+        where: whereCond,
         include: {
-          MasterSub: true,
+          MasterSub: tipeFilter && tipeFilter !== 'all' ? { where: { tipe: tipeFilter } } : true,
         },
         orderBy: { id: 'asc' },
       });
@@ -38,11 +46,11 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === 'main') {
-      const data = await prisma.masterMain.findMany({ orderBy: { id: 'asc' } });
+      const data = await prisma.masterMain.findMany({ where: whereCond, orderBy: { id: 'asc' } });
       return NextResponse.json({ data });
 
     } else if (type === 'sub') {
-      const data = await prisma.masterSub.findMany({ orderBy: { id: 'asc' } });
+      const data = await prisma.masterSub.findMany({ where: whereCond, orderBy: { id: 'asc' } });
       return NextResponse.json({ data });
     }
 
@@ -65,13 +73,13 @@ export async function POST(req: NextRequest) {
 
     let body;
     try {
-      // Amankan parsing JSON untuk menghindari "Unexpected end of JSON input"
       body = await req.json();
     } catch (parseError) {
       return NextResponse.json({ message: 'Request body kosong atau JSON tidak valid' }, { status: 400 });
     }
 
-    const { type, nama, parentId } = body;
+    const { type, nama, parentId, tipe } = body;
+    const itemTipe = tipe || 'pengeluaran';
 
     if (!type || !nama) {
       return NextResponse.json({ message: 'Type dan nama wajib diisi' }, { status: 400 });
@@ -82,16 +90,16 @@ export async function POST(req: NextRequest) {
 
     if (type === 'main') {
       newData = await prisma.masterMain.create({
-        data: { nama },
+        data: { nama, tipe: itemTipe },
       });
-      detailAudit = `Menambahkan Master Main baru: ${nama}`;
+      detailAudit = `Menambahkan Master Main baru (${itemTipe}): ${nama}`;
 
     } else if (type === 'sub') {
       if (!parentId) return NextResponse.json({ message: 'parentId (mainId) wajib diisi untuk Master Sub' }, { status: 400 });
       newData = await prisma.masterSub.create({
-        data: { nama, mainId: parseInt(parentId, 10) },
+        data: { nama, mainId: parseInt(parentId, 10), tipe: itemTipe },
       });
-      detailAudit = `Menambahkan Master Sub baru: ${nama}`;
+      detailAudit = `Menambahkan Master Sub baru (${itemTipe}): ${nama}`;
 
     } else {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });
