@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
+import { formatFullRupiah } from "@/lib/format-nominal";
 
 type AlokasiKet = {
   id: number;
