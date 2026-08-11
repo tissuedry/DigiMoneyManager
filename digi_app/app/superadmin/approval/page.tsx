@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
 import ConfirmDialog from '@/components/confirm-dialog';
 import Toast from '@/components/toast';
+import CompactNominal from '@/components/compact-nominal';
 import RejectModal from './RejectModal';
 import { useApi, useInvalidate } from '@/lib/use-api';
 
@@ -191,7 +192,7 @@ export default function AntrianApprovalPage() {
     resetZoomAndPan();
   };
 
-  const { data: meData, isLoading: isMeLoading } = useApi<any>("/api/auth/me");
+  const { isLoading: isMeLoading } = useApi<any>("/api/auth/me");
   const { data: proyekData } = useApi<any>("/api/proyek?role=Superadmin");
   const { data, isLoading: isReimbLoading } = useApi<any>("/api/reimbursements?role=Superadmin");
 
@@ -502,7 +503,6 @@ export default function AntrianApprovalPage() {
               ) : (
                 filteredData.slice(0, visibleCount).map((item: any) => {
                   const isSelected = selected && selected.id === item.id;
-                  const formattedNominal = item.amountRaw ? item.amountRaw.toLocaleString('id-ID') : item.amount.replace('Rp ', '');
 
                   return (
                     <button

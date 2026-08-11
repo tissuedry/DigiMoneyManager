@@ -601,7 +601,6 @@ export default function AntrianApprovalPage() {
               ) : (
                 filteredData.slice(0, visibleCount).map((item: any) => {
                   const isSelected = selected && selected.id === item.id;
-                  const formattedNominal = item.amountRaw ? item.amountRaw.toLocaleString('id-ID') : item.amount.replace('Rp ', '');
 
                   return (
                     <button
