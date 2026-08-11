@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// PUT: Update a chart of account (Admin Keuangan & Super Admin only)
+// PUT: Update a pemasukan account (MasterSub)
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -13,44 +13,31 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const body = await req.json();
-    const { nomorAkun, namaAkun, tipe, standar } = body;
+    const { namaAkun, nama } = body;
+    const targetName = namaAkun || nama;
+    const subId = parseInt(id.replace('COA-', ''), 10);
 
-    const existing = await prisma.chartOfAccounts.findUnique({
-      where: { id },
+    const existing = await prisma.masterSub.findUnique({
+      where: { id: subId },
     });
 
     if (!existing) {
       return NextResponse.json({ message: 'Chart of Accounts not found' }, { status: 404 });
     }
 
-    // If changing nomorAkun, make sure it's not taken
-    if (nomorAkun && parseInt(nomorAkun, 10) !== existing.nomorAkun) {
-      const duplicate = await prisma.chartOfAccounts.findFirst({
-        where: { nomorAkun: parseInt(nomorAkun, 10) },
-      });
-
-      if (duplicate) {
-        return NextResponse.json({ message: `Account number ${nomorAkun} is already in use` }, { status: 400 });
-      }
-    }
-
-    const updated = await prisma.chartOfAccounts.update({
-      where: { id },
+    const updated = await prisma.masterSub.update({
+      where: { id: subId },
       data: {
-        nomorAkun: nomorAkun ? parseInt(nomorAkun, 10) : undefined,
-        namaAkun: namaAkun || undefined,
-        tipe: tipe || undefined,
-        standar: standar || undefined,
+        nama: targetName || existing.nama,
       },
     });
 
-    // Write to audit trail
     if (userId) {
       await prisma.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
           aksi: 'update_coa',
-          detail: `Mengubah Chart of Accounts: ${existing.nomorAkun} -> ${updated.nomorAkun} (${updated.namaAkun})`,
+          detail: `Mengubah Akun Pemasukan: ${existing.nama} -> ${updated.nama}`,
         },
       });
     }
@@ -63,7 +50,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE: Delete a chart of account (Admin Keuangan & Super Admin only)
+// DELETE: Delete a pemasukan account (MasterSub)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -74,26 +61,26 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
+    const subId = parseInt(id.replace('COA-', ''), 10);
 
-    const existing = await prisma.chartOfAccounts.findUnique({
-      where: { id },
+    const existing = await prisma.masterSub.findUnique({
+      where: { id: subId },
     });
 
     if (!existing) {
       return NextResponse.json({ message: 'Chart of Accounts not found' }, { status: 404 });
     }
 
-    await prisma.chartOfAccounts.delete({
-      where: { id },
+    await prisma.masterSub.delete({
+      where: { id: subId },
     });
 
-    // Write to audit trail
     if (userId) {
       await prisma.auditTrail.create({
         data: {
           userId: parseInt(userId, 10),
           aksi: 'delete_coa',
-          detail: `Menghapus Chart of Accounts: ${existing.nomorAkun} - ${existing.namaAkun}`,
+          detail: `Menghapus Akun Pemasukan: ${existing.nama}`,
         },
       });
     }

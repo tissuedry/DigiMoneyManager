@@ -72,6 +72,7 @@ model MainAnggaran {
   id                 Int                  @id @default(autoincrement())
   budgetId           Int                  @map("budget_id")
   namaMain           String               @map("nama_main")
+  tipe               String               @default("pengeluaran") @map("tipe")
   nominalAlokasi     Decimal              @map("nominal_alokasi") @db.Decimal(15, 2)
   nominalTerpakai    Decimal              @default(0) @map("nominal_terpakai") @db.Decimal(15, 2)
   budget             Budget               @relation(fields: [budgetId], references: [id], onDelete: Cascade)
@@ -86,6 +87,7 @@ model SubAnggaran {
   id              Int                  @id @default(autoincrement())
   mainAnggaranId  Int                  @map("main_anggaran_id")
   namaSub         String               @map("nama_sub")
+  tipe            String               @default("pengeluaran") @map("tipe")
   nominalAlokasi  Decimal              @map("nominal_alokasi") @db.Decimal(15, 2)
   nominalTerpakai Decimal              @default(0) @map("nominal_terpakai") @db.Decimal(15, 2)
   keterangan      KeteranganAnggaran[]
@@ -165,27 +167,12 @@ model JurnalAkuntansi {
   noAkunDebit     String          @map("no_akun_debit")
   nominal         Decimal         @db.Decimal(15, 2)
   keterangan      String?
-  akunDebit       ChartOfAccounts @relation("DebitAccount", fields: [noAkunDebit], references: [id])
-  akunKredit      ChartOfAccounts @relation("KreditAccount", fields: [noAkunKredit], references: [id])
   reimbursement   Reimbursement   @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
 
   @@index([reimbursementId])
   @@index([noAkunDebit])
   @@index([noAkunKredit])
   @@map("jurnal_akuntansi")
-}
-
-model ChartOfAccounts {
-  id           String            @id
-  nomorAkun    Int               @map("nomor_akun")
-  namaAkun     String            @map("nama_akun")
-  tipe         String
-  standar      String
-  jurnalDebit  JurnalAkuntansi[] @relation("DebitAccount")
-  jurnalKredit JurnalAkuntansi[] @relation("KreditAccount")
-
-  @@index([nomorAkun])
-  @@map("chart_of_accounts")
 }
 
 model AuditTrail {
@@ -240,6 +227,7 @@ model Notification {
 model MasterMain {
   id        Int         @id @default(autoincrement())
   nama      String
+  tipe      String      @default("pengeluaran") @map("tipe")
   MasterSub MasterSub[]
 
   @@map("master_main")
@@ -249,6 +237,7 @@ model MasterSub {
   id          Int        @id @default(autoincrement())
   mainId      Int        @map("main_id")
   nama        String
+  tipe        String     @default("pengeluaran") @map("tipe")
   master_main MasterMain @relation(fields: [mainId], references: [id], onDelete: Cascade)
 
   @@map("master_sub")
