@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCompactRupiah, formatFullRupiah, parseNominalNumber } from '@/lib/format-nominal';
 
@@ -19,9 +19,14 @@ export default function CompactNominal({
   showTooltip = true,
 }: CompactNominalProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [coords, setCoords] = useState<{ top: number; left: number; transform: string }>({
+    top: 0,
+    left: 0,
+    transform: 'translateX(-50%)',
+  });
   const [mounted, setMounted] = useState(false);
   const triggerRef = useRef<HTMLSpanElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -34,25 +39,55 @@ export default function CompactNominal({
   const displayText = isCompactNeeded ? formatCompactRupiah(numValue) : formatFullRupiah(numValue);
   const fullText = formatFullRupiah(numValue);
 
-  // Jika digit tidak terlalu banyak (muat di dalam container), tampilkan format lengkap bersih tanpa tooltip
-  if (!showTooltip || !isCompactNeeded) {
-    return <span className={className}>{displayText}</span>;
-  }
-
-  const handleMouseEnter = () => {
+  // Hitung posisi floating card presisi agar TIDAK PERNAH keluar dari layar kanan (mencegah horizontal scrollbar Chrome)
+  const updatePosition = () => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const tooltipWidth = tooltipRef.current ? tooltipRef.current.offsetWidth : 180;
+      const halfWidth = tooltipWidth / 2;
+
+      let targetLeft = rect.left + rect.width / 2;
+      let targetTransform = 'translateX(-50%)';
+
+      // Geser ke kiri jika melampaui batas kanan layar (margin 16px dari tepi layar)
+      if (rect.left + rect.width / 2 + halfWidth > viewportWidth - 16) {
+        targetLeft = Math.min(rect.right, viewportWidth - 16);
+        targetTransform = 'translateX(-100%)';
+      } 
+      // Geser ke kanan jika melampaui batas kiri layar
+      else if (rect.left + rect.width / 2 - halfWidth < 16) {
+        targetLeft = Math.max(rect.left, 16);
+        targetTransform = 'translateX(0%)';
+      }
+
       setCoords({
-        top: rect.bottom + window.scrollY + 6,
-        left: rect.left + window.scrollX + rect.width / 2,
+        top: rect.bottom + 6,
+        left: targetLeft,
+        transform: targetTransform,
       });
     }
+  };
+
+  useLayoutEffect(() => {
+    if (isHovered) {
+      updatePosition();
+    }
+  }, [isHovered]);
+
+  const handleMouseEnter = () => {
+    updatePosition();
     setIsHovered(true);
   };
 
   const handleMouseLeave = () => {
     setIsHovered(false);
   };
+
+  // Jika digit tidak terlalu banyak (muat di dalam container), tampilkan format lengkap bersih tanpa tooltip
+  if (!showTooltip || !isCompactNeeded) {
+    return <span className={className}>{displayText}</span>;
+  }
 
   return (
     <>
@@ -65,14 +100,15 @@ export default function CompactNominal({
         {displayText}
       </span>
 
-      {/* Floating Tooltip Card (Render via React Portal ke document.body agar 100% berada di atas SELURUH LAYER & tidak pernah terpotong overflow) */}
+      {/* Floating Tooltip Card (Render via React Portal ke document.body + fixed positioning agar 100% terisolasi tanpa memicu horizontal scrollbar) */}
       {mounted && isHovered && createPortal(
         <div
+          ref={tooltipRef}
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: `${coords.top}px`,
             left: `${coords.left}px`,
-            transform: 'translateX(-50%)',
+            transform: coords.transform,
             zIndex: 999999,
           }}
           className="pointer-events-none w-max max-w-[360px] whitespace-nowrap rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[13px] font-bold text-stone-900 shadow-2xl animate-in fade-in zoom-in-95 duration-150"

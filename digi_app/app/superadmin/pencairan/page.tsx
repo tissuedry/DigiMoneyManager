@@ -12,6 +12,7 @@ import Toast from '@/components/toast';
 import RejectModal from './RejectModal';
 import ImagePreviewModal from './ImagePreviewModal';
 import { useApi, useInvalidate } from '@/lib/use-api';
+import CompactNominal from '@/components/compact-nominal';
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
@@ -501,7 +502,7 @@ function PencairanContent() {
                               </p>
                             </div>
                             <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                              <span className="text-stone-400 text-[11px]">Rp </span>{formattedNominal}
+                              <CompactNominal value={item.nominal} compactThreshold={100_000_000_000} />
                             </p>
                           </div>
                           <div className="flex items-center justify-between gap-2">
@@ -625,7 +626,7 @@ function PencairanContent() {
                     <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                       <span className="text-stone-400">Nominal</span>
                       <span className="font-bold font-mono text-stone-900 text-right">
-                        <span className="text-stone-400 font-normal">Rp </span>{Number(selectedItem.nominal).toLocaleString('id-ID')}
+                        <CompactNominal value={selectedItem.nominal} compactThreshold={100_000_000} />
                       </span>
                     </div>
                   </div>

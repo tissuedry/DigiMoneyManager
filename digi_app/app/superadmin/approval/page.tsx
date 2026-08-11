@@ -534,7 +534,7 @@ export default function AntrianApprovalPage() {
                               </div>
                             </div>
                             <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                              <CompactNominal value={item.amountRaw ?? item.amount ?? item.nominal} className="text-[12px] font-bold text-stone-800" />
+                              <CompactNominal value={item.amountRaw ?? item.amount ?? item.nominal} compactThreshold={100_000_000_000} className="text-[12px] font-bold text-stone-800" />
                             </p>
                           </div>
                           <div className="flex items-center justify-between gap-2">

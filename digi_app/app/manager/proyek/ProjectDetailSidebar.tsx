@@ -384,7 +384,7 @@ export default function ProjectDetailSidebar({
                                                     Sudah Reimburse ({sudahReimburseCount ?? detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0})
                                                 </span>
                                                 <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
-                                                    {formatRupiah(sudahReimburseNominal)}
+                                                    <CompactNominal value={sudahReimburseNominal} compactThreshold={100_000_000} />
                                                 </span>
                                             </div>
                                             <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex flex-col justify-between">
@@ -392,7 +392,7 @@ export default function ProjectDetailSidebar({
                                                     Belum Reimburse ({belumReimburseCount ?? detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0)})
                                                 </span>
                                                 <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
-                                                    {formatRupiah(belumReimburseNominal)}
+                                                    <CompactNominal value={belumReimburseNominal} compactThreshold={100_000_000} />
                                                 </span>
                                             </div>
                                         </div>
