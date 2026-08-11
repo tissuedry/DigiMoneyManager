@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     });
 
     const coa: any[] = [];
-    let counter = 1;
+    const counter = 1;
     for (const main of masterPemasukan) {
       for (const sub of main.MasterSub) {
         coa.push({
