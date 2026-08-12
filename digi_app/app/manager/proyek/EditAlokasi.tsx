@@ -81,6 +81,7 @@ export default function AlokasiPemasukanModal({
 }: any) {
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  if (!isOpen) return null;
 
   const editAlokasiModalProps: any = {
     editTarget,
@@ -89,7 +90,6 @@ export default function AlokasiPemasukanModal({
     onSuccess: () => { setEditTarget(null); onRefresh?.(); },
   };
 
-  if (!isOpen) return null;
 
   const toggleMain = (id: number) => setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
 
