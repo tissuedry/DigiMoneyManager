@@ -2,9 +2,11 @@ import React from "react";
 import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
 import { formatReimbursementDate } from "./utils";
 
+import { formatFullRupiah } from "@/lib/format-nominal";
+
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+  return formatFullRupiah(n);
 }
 
 const STATUS_BADGE: Record<string, string> = {

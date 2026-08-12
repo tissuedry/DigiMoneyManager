@@ -21,17 +21,25 @@ import CompactNominal from "@/components/compact-nominal";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatRupiah(amount: number): string {
+  if (amount >= 1_000_000_000_000) {
+    const val = amount / 1_000_000_000_000;
+    const rounded = Math.round(val * 100) / 100;
+    return `Rp ${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace(".", ",")} T`;
+  }
   if (amount >= 1_000_000_000) {
     const val = amount / 1_000_000_000;
-    return `Rp ${val % 1 === 0 ? val : val.toFixed(1)} M`;
+    const rounded = Math.round(val * 100) / 100;
+    return `Rp ${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace(".", ",")} M`;
   }
   if (amount >= 1_000_000) {
     const val = amount / 1_000_000;
-    return `Rp ${val % 1 === 0 ? val : val.toFixed(1)} jt`;
+    const rounded = Math.round(val * 100) / 100;
+    return `Rp ${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace(".", ",")} jt`;
   }
   if (amount >= 1_000) {
     const val = amount / 1_000;
-    return `Rp ${val % 1 === 0 ? val : val.toFixed(1)} rb`;
+    const rounded = Math.round(val * 100) / 100;
+    return `Rp ${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace(".", ",")} rb`;
   }
   return `Rp ${amount.toLocaleString("id-ID")}`;
 }

@@ -285,6 +285,24 @@ function JurnalAkuntansiContent() {
     }
   };
 
+  const formatRupiahShort = (value: number): string => {
+    if (value >= 1_000_000_000_000) {
+      const val = value / 1_000_000_000_000;
+      const rounded = Math.round(val * 100) / 100;
+      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} T`;
+    } else if (value >= 1_000_000_000) {
+      const val = value / 1_000_000_000;
+      const rounded = Math.round(val * 100) / 100;
+      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} M`;
+    } else if (value >= 1_000_000) {
+      const val = value / 1_000_000;
+      const rounded = Math.round(val * 100) / 100;
+      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} jt`;
+    } else {
+      return value.toLocaleString('id-ID');
+    }
+  };
+
   const handleExport = (format: 'csv' | 'pdf') => {
     setIsExporting(true);
     const url = `/api/laporan?type=buku-besar&export=${format}`;
