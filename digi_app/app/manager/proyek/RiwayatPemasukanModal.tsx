@@ -34,10 +34,13 @@ function formatNominal(val: number | string): string {
 }
 
 export default function RiwayatPemasukanModal({ isOpen, onClose, proyekNama, historyData = [] }: Props) {
+    // Move ALL hooks to the top
     const [someState, setSomeState] = useState(false);
-    if (!isOpen) return null;
     const [riwayatData, setRiwayatData] = useState([]);
     const [isOpenRiwayat, setIsOpenRiwayat] = useState(false);
+
+    // NOW you can have conditional logic
+    if (!isOpen) return null;
 
     const fetchRiwayat = async (proyekId: number) => {
         const res = await fetch(`/api/proyek/${proyekId}/riwayat-pemasukan`);
@@ -46,7 +49,6 @@ export default function RiwayatPemasukanModal({ isOpen, onClose, proyekNama, his
             setRiwayatData(json.data);
         }
     };
-
     // Saat modal dibuka, panggil fetchRiwayat(proyekId)
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

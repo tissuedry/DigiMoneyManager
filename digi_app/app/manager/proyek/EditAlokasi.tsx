@@ -81,8 +81,8 @@ export default function AlokasiPemasukanModal({
 }: any) {
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
-  if (!isOpen) return null;
 
+  if (!isOpen) return null;
   const editAlokasiModalProps: any = {
     editTarget,
     proyekId,
