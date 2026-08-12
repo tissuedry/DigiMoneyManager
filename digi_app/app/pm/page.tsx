@@ -83,7 +83,7 @@ const formatRupiah = (v: number): string => {
 };
 
 export default function PMDashboardPage() {
-  const { data: meData } = useApi<MeResponse>("/api/auth/me");
+  const { data: meData, isLoading: isMeLoading } = useApi<MeResponse>("/api/auth/me");
 
   const resolvedProyekId = meData?.user?.proyekId ?? null;
 
@@ -91,10 +91,9 @@ export default function PMDashboardPage() {
     ? `/api/dashboard?projectId=${resolvedProyekId}&role=Project+Manager`
     : "/api/dashboard?role=Project+Manager";
 
-  const { data: dashData, isLoading, error: dashError } = useApi<{ dashboard: DashboardData }>(
-    resolvedProyekId ? dashboardUrl : null
-  );
+  const { data: dashData, isLoading: isDashLoading, error: dashError } = useApi<{ dashboard: DashboardData }>(dashboardUrl);
 
+  const isLoading = isMeLoading || isDashLoading;
   const data = dashData?.dashboard ?? null;
   const error = dashError?.message ?? null;
 
@@ -127,7 +126,7 @@ export default function PMDashboardPage() {
                 Gagal memuat dashboard: {error}
               </div>
             </>
-          ) : data ? (
+          ) : (
             <>
               {/* Header Section */}
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -138,7 +137,7 @@ export default function PMDashboardPage() {
                   </p>
                 </div>
               </div>
-              {data.project === null ? (
+              {!data || data.project === null ? (
                 <div className="bg-white border border-stone-200 rounded-2xl p-8 text-center shadow-sm max-w-xl mx-auto space-y-4 my-10">
                   <AlertCircle className="mx-auto text-amber-500" size={40} />
                   <h3 className="text-lg font-bold text-stone-900">Belum Ada Proyek</h3>
@@ -405,7 +404,7 @@ export default function PMDashboardPage() {
                 </>
               )}
             </>
-          ) : null}
+          )}
         </main>
       </div>
     </div>

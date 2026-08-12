@@ -189,10 +189,18 @@ function JurnalAkuntansiContent() {
   const selisih = Math.abs(totalDebit - totalKredit);
 
   const formatRupiahShort = (value: number): string => {
-    if (value >= 1_000_000_000) {
-      return `${(value / 1_000_000_000).toFixed(1)} M`;
+    if (value >= 1_000_000_000_000) {
+      const val = value / 1_000_000_000_000;
+      const rounded = Math.round(val * 100) / 100;
+      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} T`;
+    } else if (value >= 1_000_000_000) {
+      const val = value / 1_000_000_000;
+      const rounded = Math.round(val * 100) / 100;
+      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} M`;
     } else if (value >= 1_000_000) {
-      return `${(value / 1_000_000).toFixed(1)} Jt`;
+      const val = value / 1_000_000;
+      const rounded = Math.round(val * 100) / 100;
+      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} jt`;
     } else {
       return value.toLocaleString('id-ID');
     }

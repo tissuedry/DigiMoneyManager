@@ -4,9 +4,11 @@ import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 
+import { formatFullRupiah } from "@/lib/format-nominal";
+
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+  return formatFullRupiah(n);
 }
 
 function formatReimbursementDate(r: any): string {

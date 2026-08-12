@@ -5,8 +5,21 @@ import { Loader2, Trash2, Check, AlertCircle, X, PlusCircle } from "lucide-react
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtRupiah(n: number) {
-  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(2)} M`;
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(2)} jt`;
+  if (n >= 1_000_000_000_000) {
+    const val = n / 1_000_000_000_000;
+    const rounded = Math.round(val * 100) / 100;
+    return `Rp ${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace(".", ",")} T`;
+  }
+  if (n >= 1_000_000_000) {
+    const val = n / 1_000_000_000;
+    const rounded = Math.round(val * 100) / 100;
+    return `Rp ${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace(".", ",")} M`;
+  }
+  if (n >= 1_000_000) {
+    const val = n / 1_000_000;
+    const rounded = Math.round(val * 100) / 100;
+    return `Rp ${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace(".", ",")} jt`;
+  }
   return `Rp ${n.toLocaleString("id-ID")}`;
 }
 

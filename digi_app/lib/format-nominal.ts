@@ -1,6 +1,6 @@
 /**
  * Helper utility untuk konversi nominal Rupiah ke format ringkas (rb, jt, M, T)
- * tanpa pembulatan ke atas/bawah (presisi angka persis/truncation).
+ * dengan presisi desimal maksimal 2 digit belakang koma (id-ID) dan spasi sebelum unit.
  */
 
 export function parseNominalNumber(val: number | string): number {
@@ -28,23 +28,16 @@ export function formatFullRupiah(value: number | string): string {
 }
 
 /**
- * Memformat desimal tanpa pembulatan (truncation) hingga maks 3 digit desimal
- * Contoh: 9.778.000 -> 9,778jt (bukan 9,8jt)
+ * Memformat angka hingga maksimal 2 digit desimal belakang koma (id-ID).
+ * Contoh: 2.200.000 / 1.000.000 = 2.2 -> "2,20"
+ * Contoh: 2.220.000.000 / 1.000.000.000 = 2.22 -> "2,22"
+ * Contoh: 2.000.000 / 1.000.000 = 2 -> "2"
  */
-function formatExactDecimal(val: number, maxDecimals = 3): string {
-  if (val % 1 === 0) return val.toString();
+function formatExactDecimal(val: number, maxDecimals = 2): string {
+  const roundedVal = Math.round(val * 100) / 100;
+  if (roundedVal % 1 === 0) return roundedVal.toString();
 
-  const str = val.toString();
-  const parts = str.split('.');
-  if (parts.length === 1) return parts[0];
-
-  const intPart = parts[0];
-  let decPart = parts[1].substring(0, maxDecimals);
-
-  decPart = decPart.replace(/0+$/, '');
-  if (!decPart) return intPart;
-
-  return `${intPart},${decPart}`;
+  return roundedVal.toFixed(maxDecimals).replace('.', ',');
 }
 
 export function formatCompactRupiah(value: number | string): string {
@@ -57,22 +50,22 @@ export function formatCompactRupiah(value: number | string): string {
   if (absNum >= 1_000_000_000_000) {
     // Triliun (T)
     const val = absNum / 1_000_000_000_000;
-    return `${sign}Rp ${formatExactDecimal(val)}T`;
+    return `${sign}Rp ${formatExactDecimal(val)} T`;
   }
   if (absNum >= 1_000_000_000) {
     // Miliar (M)
     const val = absNum / 1_000_000_000;
-    return `${sign}Rp ${formatExactDecimal(val)}M`;
+    return `${sign}Rp ${formatExactDecimal(val)} M`;
   }
   if (absNum >= 1_000_000) {
     // Juta (jt)
     const val = absNum / 1_000_000;
-    return `${sign}Rp ${formatExactDecimal(val)}jt`;
+    return `${sign}Rp ${formatExactDecimal(val)} jt`;
   }
   if (absNum >= 1_000 && absNum % 1_000 === 0) {
-    // Ribuan bulat (misal 200.000 -> 200rb)
+    // Ribuan bulat (misal 200.000 -> 200 rb)
     const val = absNum / 1_000;
-    return `${sign}Rp ${formatExactDecimal(val)}rb`;
+    return `${sign}Rp ${formatExactDecimal(val)} rb`;
   }
 
   // Untuk nominal di bawah 1 Juta dengan desimal/ratusan (seperti Rp 191.475 atau Rp 221.500), tampilkan format lengkap bersih
