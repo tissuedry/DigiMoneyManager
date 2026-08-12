@@ -53,6 +53,8 @@ export default function PencairanTerminModal({
     }
   }, [isOpen]);
 
+  const [someState, setSomeState] = useState(false);
+
   if (!isOpen) return null;
 
   const selectedTermin = belumDiterima.find((t) => String(t.id) === selectedTerminId) ?? null;

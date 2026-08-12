@@ -34,6 +34,7 @@ function formatNominal(val: number | string): string {
 }
 
 export default function RiwayatPemasukanModal({ isOpen, onClose, proyekNama, historyData = [] }: Props) {
+    const [someState, setSomeState] = useState(false);
     if (!isOpen) return null;
     const [riwayatData, setRiwayatData] = useState([]);
     const [isOpenRiwayat, setIsOpenRiwayat] = useState(false);

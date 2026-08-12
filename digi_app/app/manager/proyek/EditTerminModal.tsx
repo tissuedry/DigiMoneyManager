@@ -53,6 +53,8 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
             return updated;
         });
     }, [jumlahTermin]);
+    
+    const [someState, setSomeState] = useState(false);
 
     if (!isOpen) return null;
 
