@@ -108,7 +108,7 @@ export default function PendingPmModal({
 
               <div className="bg-white border border-[#e6e1d4] rounded-[16px] p-4 space-y-2.5 shadow-[0px_0px_0px_1px_rgba(20,18,14,0.04),0px_1px_2px_0px_rgba(20,18,14,0.05)]">
                 <div className="flex items-center justify-between text-[13px]">
-                  <span className="font-semibold text-[#14130f]">Realisasi Anggaran</span>
+                  <span className="font-semibold text-[#14130f]">Overview Alokasi Anggaran</span>
                   <span className={`font-bold font-mono ${isOver ? 'text-[#d36c66]' : 'text-[#14130f]'}`}>{progressPct.toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-[#f3f0e9] h-2 rounded-full overflow-hidden">

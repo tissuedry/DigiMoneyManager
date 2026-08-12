@@ -131,7 +131,7 @@ export default function KelolaProyekPage() {
     { deskripsi: "", nominalAlokasi: "" },
   ]);
 
-  const [activeTab, setActiveTab] = useState<"ringkasan" | "anggaran" | "tim">("ringkasan");
+  const [activeTab, setActiveTab] = useState<"ringkasan" | "anggaran" | "tim" | "pemasukan">("ringkasan");
   const [teamRows, setTeamRows] = useState<{ id: string; role: string; userId: string; isLocked: boolean }[]>([
     { id: "row-pm", role: "Project Manager", userId: "", isLocked: true },
     { id: "row-1", role: "", userId: "", isLocked: false }
@@ -358,6 +358,20 @@ export default function KelolaProyekPage() {
       setActiveTab("ringkasan");
     }
   };
+
+  // Refresh hanya data detail proyek (untuk update setelah aksi termin/alokasi)
+  const refreshDetailedProject = async (proyekId: number) => {
+    try {
+      const res = await fetch(`/api/proyek/${proyekId}`);
+      const data = await res.json();
+      if (res.ok && data.project) {
+        setDetailedProjectInfo(data.project);
+      }
+    } catch {
+      // silent refresh failure
+    }
+  };
+
 
   const handleDirectEdit = (project: Project) => {
     setIsDirectEdit(true);
@@ -1007,6 +1021,7 @@ export default function KelolaProyekPage() {
         setEditMode={setEditMode}
         handleReactivateProject={handleReactivateProject}
         currentStatus={currentStatus}
+        onTerminChanged={() => { if (showProjectDetail) refreshDetailedProject(showProjectDetail.id); }}
       />
 
       <EditProjectModal

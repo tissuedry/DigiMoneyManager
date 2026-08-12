@@ -1,15 +1,24 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check, Search, ChevronDown } from "lucide-react";
+import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check, Search, ChevronDown, History, ArrowUp, TrendingUp } from "lucide-react";
 import { Project, Member } from "./types";
+import PencairanTerminModal from "./PencairanTerminModal";
+import AddPenambaganTermin from "./AddPenambaganTermin";
+import AlokasiPemasukanModal from "./EditAlokasi";
+// IMPORT 2 MODAL BARU DI SINI
+import RiwayatPemasukanModal from "./RiwayatPemasukanModal";
+import EditTerminModal from "./EditTerminModal";
+
 import {
     formatRupiah,
     getStatusStyles,
     formatRibuan,
     calculateTotalTerpakai,
-    calculateBudgetProgress, 
+    calculateBudgetProgress,
     formatStatusLabel
 } from "./utils";
 import CompactNominal from "@/components/compact-nominal";
+import GrafikProgressTermin from "@/components/GrafikProgressTermin";
+
 
 function getMemberInitials(name: string) {
     const parts = name.trim().split(" ").filter(Boolean);
@@ -84,7 +93,6 @@ function SearchableMemberSelect({
 
     return (
         <div ref={dropdownRef} className="relative w-full">
-            {/* Input Box with Blinking Cursor on Focus */}
             <div className="relative">
                 <input
                     type="text"
@@ -104,7 +112,6 @@ function SearchableMemberSelect({
                 />
             </div>
 
-            {/* Dropdown Panel with Avatars and Infinite Scroll */}
             {isOpen && (
                 <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-stone-200 rounded-2xl shadow-2xl z-50 overflow-hidden p-1.5 animate-in fade-in zoom-in-95 duration-150">
                     <div
@@ -128,18 +135,14 @@ function SearchableMemberSelect({
                                                 setIsOpen(false);
                                                 setSearch("");
                                             }}
-                                            className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center gap-2.5 text-[12.5px] transition cursor-pointer ${
-                                                isSelected
-                                                    ? "bg-emerald-50 text-emerald-950 font-bold"
-                                                    : "hover:bg-stone-50 text-stone-800 font-medium"
-                                            }`}
+                                            className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center gap-2.5 text-[12.5px] transition cursor-pointer ${isSelected
+                                                ? "bg-emerald-50 text-emerald-950 font-bold"
+                                                : "hover:bg-stone-50 text-stone-800 font-medium"
+                                                }`}
                                         >
-                                            {/* Avatar Initials Badge */}
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 ${AVATAR_COLORS[idx % AVATAR_COLORS.length]}`}>
                                                 {getMemberInitials(m.nama)}
                                             </div>
-
-                                            {/* Member Name */}
                                             <span className="break-words leading-snug flex-1 py-0.5 text-[12px]">{m.nama}</span>
                                         </button>
                                     );
@@ -166,8 +169,8 @@ type Props = {
     onClose: () => void;
     loadingDetail: boolean;
     detailedProjectInfo: any;
-    activeTab: "ringkasan" | "anggaran" | "tim";
-    setActiveTab: React.Dispatch<React.SetStateAction<"ringkasan" | "anggaran" | "tim">>;
+    activeTab: "ringkasan" | "anggaran" | "tim" | "pemasukan";
+    setActiveTab: React.Dispatch<React.SetStateAction<"ringkasan" | "anggaran" | "tim" | "pemasukan">>;
     timeFilter: "4M" | "12M" | "YTD";
     setTimeFilter: React.Dispatch<React.SetStateAction<"4M" | "12M" | "YTD">>;
     activeCashFlow: any[];
@@ -202,7 +205,9 @@ type Props = {
     setEditMode: (v: boolean) => void;
     handleReactivateProject: () => void;
     currentStatus: string | undefined;
+    onTerminChanged?: () => void;
 };
+
 
 export default function ProjectDetailSidebar({
     showProjectDetail,
@@ -247,8 +252,19 @@ export default function ProjectDetailSidebar({
     setEditMode,
     handleReactivateProject,
     currentStatus,
+    onTerminChanged,
 }: Props) {
     const [initialTeamRowsStr, setInitialTeamRowsStr] = useState<string>("");
+
+    // Modal states untuk tab pemasukan
+    const [isPencairanOpen, setIsPencairanOpen] = useState(false);
+    const [isAddTerminOpen, setIsAddTerminOpen] = useState(false);
+    const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
+
+    // 2 STATE BARU UNTUK MODAL RIWAYAT DAN EDIT TERMIN
+    const [isRiwayatOpen, setIsRiwayatOpen] = useState(false);
+    const [isEditTerminOpen, setIsEditTerminOpen] = useState(false);
+
 
     useEffect(() => {
         if (detailedProjectInfo) {
@@ -258,10 +274,16 @@ export default function ProjectDetailSidebar({
 
     const isDirty = JSON.stringify(teamRows) !== initialTeamRowsStr;
 
-    // 1. Pengecekan guard clause
+    // Derived data untuk pemasukan
+    const terminList: any[] = detailedProjectInfo?.terminPembayaran ?? [];
+    const totalPemasukan = parseFloat(detailedProjectInfo?.budget?.totalPemasukan) || 0;
+    const pemasukanBelumDialokasikan = parseFloat(detailedProjectInfo?.budget?.pemasukanBelumDialokasikan) || 0;
+    const alokasiPemasukan: any[] = detailedProjectInfo?.budget?.alokasiPemasukan ?? [];
+    const terminBelumDiterima = terminList.filter((t: any) => t.status === 'BELUM_DITERIMA');
+
+
     if (!showProjectDetail || editMode || isDirectEdit) return null;
 
-    // 2. Langsung panggil fungsinya di sini!
     const calculatedTotalTerpakai = calculateTotalTerpakai(detailedProjectInfo, detailTotalTerpakai);
     const { percentUsed: calculatedPercentUsed, barWidth: calculatedBarWidth } = calculateBudgetProgress(calculatedTotalTerpakai, detailTotalRAB);
 
@@ -295,6 +317,7 @@ export default function ProjectDetailSidebar({
                                 <button type="button" onClick={() => setActiveTab("ringkasan")} className={`pb-2 transition ${activeTab === "ringkasan" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Ringkasan</button>
                                 <button type="button" onClick={() => setActiveTab("anggaran")} className={`pb-2 transition ${activeTab === "anggaran" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Anggaran</button>
                                 <button type="button" onClick={() => setActiveTab("tim")} className={`pb-2 transition ${activeTab === "tim" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Tim</button>
+                                <button type="button" onClick={() => setActiveTab("pemasukan")} className={`pb-2 whitespace-nowrap transition ${activeTab === "pemasukan" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Pemasukan</button>
                             </div>
                         </div>
 
@@ -338,7 +361,6 @@ export default function ProjectDetailSidebar({
                                         <div className="border border-stone-100 rounded-3xl p-5 bg-white space-y-4 text-left shadow-[0_4px_20px_rgba(0,0,0,0.01)]">
                                             <div className="flex justify-between items-center text-[13px] font-extrabold text-stone-900 tracking-wide">
                                                 <span>Realisasi Anggaran</span>
-                                                {/* Ganti detailPercentUsed -> calculatedPercentUsed */}
                                                 <span className="font-mono text-sm font-black">{calculatedPercentUsed}%</span>
                                             </div>
 
@@ -430,7 +452,6 @@ export default function ProjectDetailSidebar({
                                                             const outflowHeight = Math.min(100, Math.round(((bar.outflow || 0) / maxVal) * 100));
 
                                                             return (
-                                                                /* Tambahkan min-w-0 di sini agar flex-1 bisa shrink dengan pas */
                                                                 <div key={idx} className="flex-1 min-w-0 flex flex-col items-center justify-end h-full gap-1">
                                                                     <div className="w-full flex justify-center items-end gap-0.5 h-full">
                                                                         <div
@@ -444,7 +465,6 @@ export default function ProjectDetailSidebar({
                                                                             title={`Outflow: ${formatRupiah(bar.outflow)}`}
                                                                         />
                                                                     </div>
-                                                                    {/* Tambahkan truncate jika teks bulan terlalu lebar */}
                                                                     <span className="text-[9px] font-medium text-stone-400 mt-1 block truncate w-full text-center">
                                                                         {bar.bulan}
                                                                     </span>
@@ -539,11 +559,8 @@ export default function ProjectDetailSidebar({
                                             {detailedProjectInfo.budget.posAnggaran.map((pos: any, index: number) => {
                                                 const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
 
-                                                // Alokasi MAIN selalu pakai nominalAlokasi milik MAIN sendiri — Sub/Keterangan
-                                                // adalah subdivisi dari alokasi ini, bukan penjumlahan yang menggantikannya.
                                                 const nominalAlokasi = parseFloat(pos.nominalAlokasi) || 0;
 
-                                                // KALKULASI DINAMIS REALISASI (TERPAKAI)
                                                 const terpakaiVal = hasSub
                                                     ? pos.subAnggaran.reduce((accSub: number, sub: any) => {
                                                         const hasKet = sub.keterangan && sub.keterangan.length > 0;
@@ -685,11 +702,10 @@ export default function ProjectDetailSidebar({
                                                 type="button"
                                                 onClick={handleSaveTeamRows}
                                                 disabled={submitting || !isDirty}
-                                                className={`inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-bold rounded-xl shadow-sm transition cursor-pointer text-white ${
-                                                    submitting || !isDirty
-                                                        ? "bg-stone-300 cursor-not-allowed text-stone-500"
-                                                        : "bg-[#008f5d] hover:bg-[#00754c]"
-                                                }`}
+                                                className={`inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-bold rounded-xl shadow-sm transition cursor-pointer text-white ${submitting || !isDirty
+                                                    ? "bg-stone-300 cursor-not-allowed text-stone-500"
+                                                    : "bg-[#008f5d] hover:bg-[#00754c]"
+                                                    }`}
                                             >
                                                 {submitting ? (
                                                     <Loader2 size={12} className="animate-spin" />
@@ -713,6 +729,181 @@ export default function ProjectDetailSidebar({
                                         )}
                                     </div>
                                 </div>
+                            )}
+
+                            {/* TAB PEMASUKAN */}
+                            {activeTab === "pemasukan" && (
+                                <>
+                                    <div id="pemasukan-sec" className="px-6 py-4 space-y-6 flex-shrink-0">
+
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex gap-2 w-full">
+                                                <button
+                                                    onClick={() => setIsPencairanOpen(true)}
+                                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-[#00966c] border border-transparent hover:bg-[#007f5a] text-white text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                                                >
+                                                    <Plus size={14} className="shrink-0" /> Pencairan Termin
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setIsAlokasiOpen(true)}
+                                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                                                >
+                                                    <Settings size={14} className="text-stone-500 shrink-0" /> Edit Alokasi
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setIsEditTerminOpen(true)}
+                                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                                                >
+                                                    <Settings size={14} className="text-stone-500 shrink-0" /> Edit Termin
+                                                </button>
+                                            </div>
+
+                                            <button
+                                                onClick={() => setIsRiwayatOpen(true)}
+                                                className="w-full flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all cursor-pointer"
+                                            >
+                                                <History size={14} className="text-stone-500 shrink-0" /> Riwayat Pemasukan
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-3 pt-2 text-left">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h3 className="text-[14px] font-extrabold text-stone-900">Termin Pembayaran</h3>
+                                                <span className="text-[12px] text-stone-400 font-medium">{terminList.length} termin</span>
+                                            </div>
+
+                                            {terminList.length === 0 ? (
+                                                <div className="text-center py-6 text-xs font-medium text-stone-400 bg-stone-50 rounded-2xl border border-stone-100">
+                                                    Belum ada termin yang didaftarkan
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {terminList.map((termin: any) => {
+                                                        const isDiterima = termin.status === 'DITERIMA';
+                                                        return (
+                                                            <div key={termin.id} className="flex justify-between items-center bg-[#f8f7f4] px-4 py-3.5 rounded-xl">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[13px] font-bold text-stone-800">{termin.namaTermin}</span>
+                                                                    {parseFloat(termin.persentaseProgress) > 0 && (
+                                                                        <span className="text-[12px] text-stone-400 font-medium">({parseFloat(termin.persentaseProgress)}%)</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex items-center gap-4">
+                                                                    <span className="text-[12px] font-mono font-medium text-stone-500">
+                                                                        Rp &nbsp;{parseFloat(termin.nominal).toLocaleString('id-ID')}
+                                                                    </span>
+                                                                    {isDiterima ? (
+                                                                        <span className="px-3.5 py-1 bg-[#def2e6] text-[#21794b] text-[11px] font-bold rounded-full">
+                                                                            Diterima
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="px-3.5 py-1 bg-[#f4e4cf] text-[#8b5d2e] text-[11px] font-bold rounded-full">
+                                                                            Belum Diterima
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3 pt-4 text-left border-t border-stone-100">
+                                            <h3 className="text-[14px] font-extrabold text-stone-900">Alokasi Pemasukan</h3>
+
+                                            <div className="bg-white border border-stone-200/80 rounded-2xl p-4 shadow-2xs">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-[12px] font-bold text-stone-600">Total Pemasukan Proyek</span>
+                                                    <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-700">
+                                                        <span className="text-sm font-bold">↑</span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-[20px] font-bold text-stone-900 tracking-tight">
+                                                    <span className="text-stone-400 text-[14px] font-normal mr-1.5">Rp</span>
+                                                    {
+                                                        terminList
+                                                            .filter((t: any) => t.status === 'DITERIMA')
+                                                            .reduce((sum: number, t: any) => sum + parseFloat(t.nominal || 0), 0)
+                                                            .toLocaleString("id-ID")
+                                                    }
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-2 bg-stone-50/50 border border-stone-200/70 rounded-2xl p-4">
+                                                <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden flex">
+                                                    <div className="h-full bg-blue-500" style={{ width: '0%' }} title="Penjualan Jasa" />
+                                                    <div className="h-full bg-emerald-500" style={{ width: '0%' }} title="Penjualan Barang" />
+                                                    <div className="h-full bg-stone-400 flex-1" title="Belum dialokasikan" />
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium pt-1">
+                                                    <span className="flex items-center gap-1.5 text-stone-700">
+                                                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                                                        Penjualan Jasa <b className="text-stone-900 ml-1">Rp 0</b>
+                                                    </span>
+                                                    <span className="flex items-center gap-1.5 text-stone-700">
+                                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                                                        Penjualan Barang <b className="text-stone-900 ml-1">Rp 0</b>
+                                                    </span>
+                                                    <span className="flex items-center gap-1.5 text-stone-700">
+                                                        <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
+                                                        Belum dialokasikan <b className="text-stone-900 ml-1">
+                                                            Rp {(terminList.filter((t: any) => t.status === 'DITERIMA').reduce((sum: number, t: any) => sum + parseFloat(t.nominal || 0), 0)-(detailedProjectInfo?.budget?.totalTeralokasi || 0)).toLocaleString("id-ID")}
+                                                        </b>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Rincian Pos (Penjualan Jasa & Penjualan Barang) */}
+                                            <div className="space-y-2.5 pt-1">
+                                                <div className="bg-[#f8f7f4] px-4 py-3.5 rounded-xl flex justify-between items-center">
+                                                    <span className="text-[13px] font-extrabold text-stone-900 tracking-wide uppercase">Penjualan Jasa</span>
+                                                    <span className="text-[12px] font-mono text-stone-500">Rp 0</span>
+                                                </div>
+                                                <div className="bg-[#f8f7f4] px-4 py-3.5 rounded-xl flex justify-between items-center">
+                                                    <span className="text-[13px] font-extrabold text-stone-900 tracking-wide uppercase">Penjualan Barang</span>
+                                                    <span className="text-[12px] font-mono text-stone-500">Rp 0</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    {/* Modal-modal Pendukung */}
+                                    <PencairanTerminModal
+                                        isOpen={isPencairanOpen}
+                                        onClose={() => setIsPencairanOpen(false)}
+                                        proyekId={showProjectDetail?.id ?? 0}
+                                        proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        termin={terminList}
+                                        onSuccess={() => { onTerminChanged?.(); }}
+                                    />
+                                    <AlokasiPemasukanModal
+                                        isOpen={isAlokasiOpen}
+                                        onClose={() => setIsAlokasiOpen(false)}
+                                        proyekId={showProjectDetail?.id ?? 0}
+                                        proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        totalPemasukan={detailedProjectInfo?.budget?.totalPemasukan ?? 0}
+                                        teralokasi={(detailedProjectInfo?.budget?.totalPemasukan ?? 0) - (detailedProjectInfo?.budget?.pemasukanBelumDialokasikan ?? 0)}
+                                        dataPemasukan={detailedProjectInfo?.budget?.dataPemasukan ?? []}
+                                        onSuccess={() => { onTerminChanged?.(); }}
+                                    />
+                                    <RiwayatPemasukanModal
+                                        isOpen={isRiwayatOpen}
+                                        onClose={() => setIsRiwayatOpen(false)}
+                                        proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        historyData={terminList.filter((t: any) => t.status === 'DITERIMA')}
+                                    />
+                                    <EditTerminModal
+                                        isOpen={isEditTerminOpen}
+                                        onClose={() => setIsEditTerminOpen(false)}
+                                        proyekId={showProjectDetail?.id ?? 0}
+                                        proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        terminList={terminList}
+                                    />
+                                </>
                             )}
                         </div>
 

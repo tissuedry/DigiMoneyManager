@@ -80,6 +80,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               },
             },
           },
+          terminPembayaran: {
+            orderBy: { urutan: 'asc' },
+          },
         },
       }),
 
@@ -136,15 +139,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const mappedBudget = project.budget ? {
       ...project.budget,
-      posAnggaran: (project.budget as any).mainAnggaran.map((m: any) => ({
-        ...m,
-        deskripsi: m.namaMain,
-        namaPos: m.namaMain,
-        subAnggaran: m.subAnggaran ? m.subAnggaran.map((s: any) => ({
-          ...s,
-          keterangan: s.keterangan || [],
-        })) : [],
-      })),
+      posAnggaran: (project.budget as any).mainAnggaran
+        .filter((m: any) => m.tipe !== 'pemasukan')
+        .map((m: any) => ({
+          ...m,
+          deskripsi: m.namaMain,
+          namaPos: m.namaMain,
+          subAnggaran: m.subAnggaran ? m.subAnggaran.map((s: any) => ({
+            ...s,
+            keterangan: s.keterangan || [],
+          })) : [],
+        })),
+      alokasiPemasukan: (project.budget as any).mainAnggaran
+        .filter((m: any) => m.tipe === 'pemasukan')
+        .map((m: any) => ({
+          ...m,
+          subAnggaran: m.subAnggaran ? m.subAnggaran.filter((s: any) => s.tipe === 'pemasukan') : [],
+        })),
     } : null;
 
     // Calculate cash flow for different ranges
@@ -194,6 +205,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ...project,
       users: mappedUsers,
       budget: mappedBudget,
+      terminPembayaran: (project as any).terminPembayaran || [],
       cashFlow4m,
       cashFlow12m,
       cashFlowYtd,
