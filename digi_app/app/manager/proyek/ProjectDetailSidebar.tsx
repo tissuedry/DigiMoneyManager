@@ -17,6 +17,7 @@ import {
     formatStatusLabel
 } from "./utils";
 import CompactNominal from "@/components/compact-nominal";
+import GrafikProgressTermin from "@/components/GrafikProgressTermin";
 
 
 function getMemberInitials(name: string) {
