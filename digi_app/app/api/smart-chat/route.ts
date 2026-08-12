@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
       } else {
         mockResponseText = 'Pengajuan Anggaran terbaru:\n' +
           context.pengajuanAnggaranContext.slice(0, 5).map((pa: any) =>
-            `- **${pa.judul}** — proyek ${pa.proyek}, diajukan oleh ${pa.pengaju} (Status: ${pa.status}). Isi: ${pa.items.map((i: any) => `${i.aksi} ${i.nama || ''}`).join(', ')}.`
+            `- **${pa.judul}** — proyek ${pa.proyek}, diajukan oleh ${pa.pengaju} (Status: ${pa.status}). ${pa.mainAnggaran || 'Pos anggaran'}: alokasi lama Rp ${Number(pa.alokasiLama || 0).toLocaleString('id-ID')} -> baru Rp ${Number(pa.alokasiBaru || 0).toLocaleString('id-ID')}.`
           ).join('\n');
       }
     }

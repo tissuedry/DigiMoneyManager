@@ -285,11 +285,6 @@ function AjukanReimbursementContent() {
   };
 
   const processFile = async (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      setToastError('Ukuran file terlalu besar (Maksimal 10MB). Silakan pilih file yang lebih kecil.');
-      return;
-    }
-
     setSelectedFile(file);
 
     // Create object URL for preview

@@ -15,22 +15,19 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
 
   const getTitle = () => {
     if (type === 'tambahMain') return "Tambah Main Baru";
-    if (type === 'tambahSub') return "Tambah Sub Baru";
-    return "Tambah Keterangan Baru";
+    return "Tambah Sub Baru";
   };
 
   const handleSubmit = async () => {
     setIsLoading(true);
     setErrorMsg("");
     
-    // Sesuaikan tipe dengan yang diharapkan route.ts (main, sub, keterangan)
-    let payloadType = "main";
-    if (type === 'tambahSub') payloadType = "sub";
-    if (type === 'tambahKet') payloadType = "keterangan";
+    const payloadType = type === 'tambahSub' ? "sub" : "main";
 
     const payload = { 
       type: payloadType, 
       nama: namaKategori,
+      tipe: data?.tipe || "pengeluaran",
       parentId: data?.parentId ? String(data.parentId) : undefined 
     };
 
@@ -65,19 +62,6 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
           <span className="font-bold text-stone-800 tracking-tight">MAIN</span>
           <span className="text-stone-400">·</span>
           <span>{data?.main}</span>
-        </>
-      );
-    }
-    if (type === 'tambahKet') {
-      return (
-        <>
-          <span className="font-bold text-stone-800 tracking-tight">MAIN</span>
-          <span className="text-stone-400">·</span>
-          <span>{data?.main}</span>
-          <ChevronRight size={12} className="text-stone-400 mx-0.5" />
-          <span className="font-bold text-stone-800 tracking-tight">SUB</span>
-          <span className="text-stone-400">·</span>
-          <span className="font-bold text-stone-800">{data?.sub}</span>
         </>
       );
     }

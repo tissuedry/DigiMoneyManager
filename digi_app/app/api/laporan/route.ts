@@ -72,6 +72,14 @@ export async function GET(req: NextRequest) {
             include: {
               user: { select: { nama: true } },
               proyek: { select: { nama: true } },
+              approvals: {
+                where: {
+                  status: 'APPROVED',
+                  level: { in: ['KEUANGAN', 'SUPER_ADMIN'] },
+                },
+                orderBy: { timestamp: 'desc' },
+                take: 1,
+              },
               keteranganAnggaran: {
                 select: {
                   keterangan: true,
@@ -80,30 +88,30 @@ export async function GET(req: NextRequest) {
               },
             },
           },
-          akunDebit: true,
-          akunKredit: true,
         },
         orderBy: { id: 'desc' },
       });
 
       const reportData = entries.map((entry) => {
-        const tanggal = entry.reimbursement.tanggalStruk 
-          ? new Date(entry.reimbursement.tanggalStruk).toISOString().split('T')[0]
+        const approval = entry.reimbursement?.approvals?.[0];
+        const tanggal = approval?.timestamp
+          ? new Date(approval.timestamp).toISOString().split('T')[0]
           : 'N/A';
         
-        const tipePengajuan = entry.reimbursement.tipe || 'Pengajuan';
+        const tipePengajuan = entry.reimbursement?.tipe || 'Pengajuan';
 
         return {
           ID: entry.id,
           Tanggal: tanggal,
-          Keterangan: entry.keterangan || `Pencairan ${tipePengajuan} ${entry.reimbursement.id}`,
-          Proyek: entry.reimbursement.proyek.nama,
-          Karyawan: entry.reimbursement.user.nama,
-          KategoriAnggaran: entry.reimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
-            || entry.reimbursement.keteranganAnggaran?.keterangan
+          TipePencairan: tipePengajuan,
+          Keterangan: entry.keterangan || `Pencairan ${tipePengajuan} ${entry.reimbursement?.id || ''}`,
+          Proyek: entry.reimbursement?.proyek?.nama || '-',
+          Karyawan: entry.reimbursement?.user?.nama || '-',
+          KategoriAnggaran: entry.reimbursement?.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
+            || entry.reimbursement?.keteranganAnggaran?.keterangan
             || 'N/A',
-          'Akun Debit': `${entry.akunDebit.nomorAkun} - ${entry.akunDebit.namaAkun}`,
-          'Akun Kredit': `${entry.akunKredit.nomorAkun} - ${entry.akunKredit.namaAkun}`,
+          'Akun Debit': entry.noAkunDebit,
+          'Akun Kredit': entry.noAkunKredit,
           Nominal: Number(entry.nominal),
         };
       });

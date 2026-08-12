@@ -6,6 +6,7 @@ import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import ConfirmDialog from '@/components/confirm-dialog';
 import Toast from '@/components/toast';
+import CompactNominal from '@/components/compact-nominal';
 import { useApi, useInvalidate } from '@/lib/use-api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -600,7 +601,6 @@ export default function AntrianApprovalPage() {
               ) : (
                 filteredData.slice(0, visibleCount).map((item: any) => {
                   const isSelected = selected && selected.id === item.id;
-                  const formattedNominal = item.amountRaw ? item.amountRaw.toLocaleString('id-ID') : item.amount.replace('Rp ', '');
 
                   return (
                     <button
@@ -631,8 +631,8 @@ export default function AntrianApprovalPage() {
                                 {item.merchant}
                               </div>
                             </div>
-                            <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                              <span className="text-stone-400 text-[11px]">Rp </span>{formattedNominal}
+                             <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
+                              <CompactNominal value={item.amountRaw ?? item.amount ?? item.nominal} compactThreshold={100_000_000_000} className="text-[12px] font-bold text-stone-800" />
                             </p>
                           </div>
                           <div className="flex items-center justify-between gap-2">
@@ -765,26 +765,48 @@ export default function AntrianApprovalPage() {
                     {/* Preview Struk Upload */}
                     {selected.strukUrl && (
                       <div className="space-y-1">
-                        <label className="text-[13px] text-stone-500">Bukti Struk</label>
-                        <div
-                          onClick={() => handleOpenZoom(selected.strukUrl!)}
-                          className="border border-stone-200 rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
-                        >
-                          <img
-                            src={selected.strukUrl}
-                            alt="Bukti Struk"
-                            loading="lazy"
-                            className="w-full h-auto object-contain max-h-48 rounded-lg group-hover:opacity-90 transition"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/bukti_struk.png';
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
-                            <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
-                              <ZoomIn size={14} /> Klik untuk Memperbesar
-                            </span>
+                        <label className="text-[13px] text-stone-500">Bukti Struk / Dokumen</label>
+                        {selected.strukUrl.toLowerCase().split('?')[0].endsWith('.pdf') ? (
+                          <div className="border border-stone-200 rounded-xl p-3 bg-[#fdfaf5] flex items-center justify-between gap-3 max-w-xs">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center shrink-0 border border-red-200">
+                                PDF
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-stone-800 truncate">Dokumen Bukti (PDF)</p>
+                                <p className="text-[10px] text-stone-400 truncate">Klik untuk membuka file</p>
+                              </div>
+                            </div>
+                            <a
+                              href={selected.strukUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs font-semibold shrink-0 hover:bg-stone-800 transition"
+                            >
+                              Buka PDF
+                            </a>
                           </div>
-                        </div>
+                        ) : (
+                          <div
+                            onClick={() => handleOpenZoom(selected.strukUrl!)}
+                            className="border border-stone-200 rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
+                          >
+                            <img
+                              src={selected.strukUrl}
+                              alt="Bukti Struk"
+                              loading="lazy"
+                              className="w-full h-auto object-contain max-h-48 rounded-lg group-hover:opacity-90 transition"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/bukti_struk.png';
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                              <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                                <ZoomIn size={14} /> Klik untuk Memperbesar
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

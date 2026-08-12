@@ -3,13 +3,14 @@ import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check,
 import { Project, Member } from "./types";
 import {
     formatRupiah,
-    formatSummaryRupiah,
     getStatusStyles,
     formatRibuan,
     calculateTotalTerpakai,
     calculateBudgetProgress, 
     formatStatusLabel
 } from "./utils";
+import CompactNominal from "@/components/compact-nominal";
+import GrafikProgressTermin from "@/components/GrafikProgressTermin";
 
 function getMemberInitials(name: string) {
     const parts = name.trim().split(" ").filter(Boolean);
@@ -361,10 +362,9 @@ export default function ProjectDetailSidebar({
                                             })()}
 
                                             <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
-                                                <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5">{formatSummaryRupiah(detailTotalRAB)}</b></span>
-                                                {/* Ganti detailTotalTerpakai -> calculatedTotalTerpakai */}
-                                                <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5">{formatSummaryRupiah(calculatedTotalTerpakai)}</b></span>
-                                                <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5">{formatSummaryRupiah(Math.max(0, detailTotalRAB - calculatedTotalTerpakai))}</b></span>
+                                                <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000} /></b></span>
+                                                <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000} /></b></span>
+                                                <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000} /></b></span>
                                             </div>
                                         </div>
                                     ) : (
@@ -385,7 +385,7 @@ export default function ProjectDetailSidebar({
                                                     Sudah Reimburse ({sudahReimburseCount ?? detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0})
                                                 </span>
                                                 <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
-                                                    {formatRupiah(sudahReimburseNominal)}
+                                                    <CompactNominal value={sudahReimburseNominal} compactThreshold={100_000_000} />
                                                 </span>
                                             </div>
                                             <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex flex-col justify-between">
@@ -393,80 +393,14 @@ export default function ProjectDetailSidebar({
                                                     Belum Reimburse ({belumReimburseCount ?? detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0)})
                                                 </span>
                                                 <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
-                                                    {formatRupiah(belumReimburseNominal)}
+                                                    <CompactNominal value={belumReimburseNominal} compactThreshold={100_000_000} />
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Arus Kas Real-Time */}
-                                    <div className="space-y-3 text-left">
-                                        <div className="flex justify-between items-center">
-                                            <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">Arus Kas Real-Time</h4>
-                                            <div className="flex gap-1 bg-[#f5f4f0] p-1 rounded-xl text-[10px] font-bold text-stone-500">
-                                                {(["4M", "12M", "YTD"] as const).map((filter) => (
-                                                    <button
-                                                        key={filter}
-                                                        type="button"
-                                                        onClick={() => setTimeFilter(filter)}
-                                                        className={`px-2 py-1 rounded-lg transition ${timeFilter === filter ? "bg-white text-stone-900 shadow-sm" : "hover:text-stone-800"}`}
-                                                    >
-                                                        {filter}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-white border border-stone-100 rounded-2xl p-4 shadow-[0_4px_12px_rgba(0,0,0,0.01)] space-y-4">
-                                            <div className="h-28 flex items-end gap-2 px-3 pt-2 border-b border-stone-100 overflow-x-auto scrollbar-none">
-                                                {activeCashFlow.length === 0 ? (
-                                                    <div className="flex-1 flex items-center justify-center text-xs text-stone-400 pb-4">
-                                                        Tidak ada data arus kas untuk periode ini
-                                                    </div>
-                                                ) : (
-                                                    (() => {
-                                                        const maxVal = Math.max(1, ...activeCashFlow.map((c: any) => Math.max(c.inflow || 0, c.outflow || 0)));
-                                                        return activeCashFlow.map((bar: any, idx: number) => {
-                                                            const inflowHeight = Math.min(100, Math.round(((bar.inflow || 0) / maxVal) * 100));
-                                                            const outflowHeight = Math.min(100, Math.round(((bar.outflow || 0) / maxVal) * 100));
-
-                                                            return (
-                                                                /* Tambahkan min-w-0 di sini agar flex-1 bisa shrink dengan pas */
-                                                                <div key={idx} className="flex-1 min-w-0 flex flex-col items-center justify-end h-full gap-1">
-                                                                    <div className="w-full flex justify-center items-end gap-0.5 h-full">
-                                                                        <div
-                                                                            className="w-2 sm:w-2.5 bg-[#2d6a4f] rounded-t-sm transition-all duration-500 ease-out"
-                                                                            style={{ height: `${inflowHeight}%` }}
-                                                                            title={`Inflow: ${formatRupiah(bar.inflow)}`}
-                                                                        />
-                                                                        <div
-                                                                            className="w-2 sm:w-2.5 bg-[#d4a373] rounded-t-sm transition-all duration-500 ease-out"
-                                                                            style={{ height: `${outflowHeight}%` }}
-                                                                            title={`Outflow: ${formatRupiah(bar.outflow)}`}
-                                                                        />
-                                                                    </div>
-                                                                    {/* Tambahkan truncate jika teks bulan terlalu lebar */}
-                                                                    <span className="text-[9px] font-medium text-stone-400 mt-1 block truncate w-full text-center">
-                                                                        {bar.bulan}
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    })()
-                                                )}
-                                            </div>
-
-                                            <div className="flex justify-between items-center pt-1 text-[11px]">
-                                                <div className="flex gap-3 text-stone-500 font-medium">
-                                                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#2d6a4f]" /> Inflow {formatSummaryRupiah(inflowNominal)}</span>
-                                                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#d4a373]" /> Outflow {formatSummaryRupiah(outflowNominal)}</span>
-                                                </div>
-                                                <span className={`font-bold ${netCashNominal >= 0 ? "text-[#2d6a4f]" : "text-rose-600"}`}>
-                                                    Net cash {netCashNominal >= 0 ? "+" : ""}{formatSummaryRupiah(netCashNominal)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    {/* Grafik Progress Termin */}
+                                    <GrafikProgressTermin terminData={detailedProjectInfo?.terminPembayaran} />
                                 </div>
                             )}
 
@@ -584,10 +518,10 @@ export default function ProjectDetailSidebar({
                                                             </div>
                                                             <div className="text-right">
                                                                 <span className="text-[14px] font-black text-stone-900 font-mono">
-                                                                    {formatSummaryRupiah(terpakaiVal)}
+                                                                    <CompactNominal value={terpakaiVal} compactThreshold={1_000_000} />
                                                                 </span>
                                                                 <span className="text-[10px] text-stone-400 block font-medium mt-0.5">
-                                                                    dari {formatSummaryRupiah(nominalAlokasi)}
+                                                                    dari <CompactNominal value={nominalAlokasi} compactThreshold={1_000_000} />
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -604,7 +538,7 @@ export default function ProjectDetailSidebar({
                                                                 {percentUsed}% terpakai
                                                             </span>
                                                             <span>
-                                                                Sisa <b className="text-stone-700 font-mono font-bold">{formatSummaryRupiah(sisaVal)}</b>
+                                                                Sisa <b className="text-stone-700 font-mono font-bold"><CompactNominal value={sisaVal} compactThreshold={1_000_000} /></b>
                                                             </span>
                                                         </div>
                                                     </div>

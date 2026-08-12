@@ -1,100 +1,60 @@
 import { NextResponse, NextRequest } from 'next/server';
-import Groq from 'groq-sdk';
 
-// Helper untuk mengekstrak gambar JPEG asli yang tertanam di dalam buffer PDF
-function extractJpegsFromPdf(pdfBuffer: Buffer): string[] {
-  const images: string[] = [];
-  const soi = Buffer.from([0xff, 0xd8, 0xff]);
-  const eoi = Buffer.from([0xff, 0xd9]);
 
-  let offset = 0;
-  while (offset < pdfBuffer.length && images.length < 6) {
-    const start = pdfBuffer.indexOf(soi, offset);
-    if (start === -1) break;
-
-    const end = pdfBuffer.indexOf(eoi, start + 3);
-    if (end === -1) break;
-
-    const imgBuffer = pdfBuffer.subarray(start, end + 2);
-    // Abaikan gambar ikon/thumbnail yang sangat kecil (< 5KB)
-    if (imgBuffer.length > 5 * 1024) {
-      const base64 = imgBuffer.toString('base64');
-      images.push(`data:image/jpeg;base64,${base64}`);
-    }
-
-    offset = end + 2;
-  }
-
-  return images;
-}
-
-// Helper function untuk memanggil Google Gemini Vision REST API (Zero dependency)
+// Helper function untuk memanggil Google Gemini Vision REST API (Eksklusif gemini-3.5-flash-lite)
 async function scanWithGemini(base64Image: string, mimeType: string, promptInstruksi: string, geminiKey: string): Promise<string> {
-  const modelsToTry = [
-    'gemini-3.5-flash',
-    'gemini-3.1-flash-lite',
-    'gemini-3-flash-preview',
-  ];
-  let lastError = '';
-
-  for (const modelName of modelsToTry) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
+  const modelName = 'gemini-3.5-flash-lite';
+  
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            { text: promptInstruksi },
             {
-              parts: [
-                { text: promptInstruksi },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Image,
-                  },
-                },
-              ],
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Image,
+              },
             },
           ],
-          generationConfig: {
-            response_mime_type: 'application/json',
-            temperature: 0.1,
-          },
-        }),
-      });
+        },
+      ],
+      generationConfig: {
+        response_mime_type: 'application/json',
+        temperature: 0.1,
+      },
+    }),
+  });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        lastError = `Model ${modelName} HTTP ${response.status}: ${errText}`;
-        continue;
-      }
-
-      const resJson = await response.json();
-      const rawText = resJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (rawText) return rawText;
-    } catch (e: any) {
-      lastError = e.message;
-    }
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Model ${modelName} HTTP ${response.status}: ${errText}`);
   }
 
-  throw new Error(lastError || 'Seluruh model Gemini gagal merespon.');
+  const resJson = await response.json();
+  const rawText = resJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  if (rawText) return rawText;
+
+  throw new Error(`Model ${modelName} tidak mengembalikan respons teks.`);
 }
 
-// POST: Proses pemindaian dokumen (Struk & Invoice) dengan AI Vision Model (Groq + Gemini Fallback)
+// POST: Proses pemindaian dokumen (Struk & Invoice) dengan Gemini 3.5 Flash Lite
 export async function POST(req: NextRequest) {
   try {
-    const groqKey = process.env.GROQ_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
-    if (!groqKey && !geminiKey) {
+    if (!geminiKey) {
       return NextResponse.json(
-        { success: false, message: 'API Key AI (GROQ_API_KEY atau GEMINI_API_KEY) belum dikonfigurasi di file .env' },
+        { success: false, message: 'API Key GEMINI_API_KEY belum dikonfigurasi di file .env' },
         { status: 500 }
       );
     }
 
-    // 1. Ambil file gambar/PDF dari FormData request Frontend
+    // 1. Ambil file gambar/PDF dari FormData request Frontend (tanpa batasan ukuran untuk pemindaian OCR AI)
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     if (!file) {
@@ -111,7 +71,6 @@ export async function POST(req: NextRequest) {
     const fileName = file.name || '';
     const isPdf = file.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
     const mimeType = isPdf ? 'application/pdf' : (file.type || 'image/png');
-    const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
     // 3. Susun instruksi Prompt Fleksibel & Akurat untuk Single/Multi Struk & Invoice PDF
     const promptInstruksi = `Bertindaklah sebagai OCR Dokumen Keuangan profesional berakurasi sangat tinggi.
@@ -138,77 +97,21 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
 }`;
 
     let rawResponse = '';
-    let providerUsed = '';
+    const providerUsed = 'Google Gemini Vision (gemini-3.5-flash-lite)';
 
-    // 4. Jika file berupa PDF, coba ekstrak foto-foto JPEG dari PDF untuk diproses langsung via Groq Vision
-    if (isPdf && groqKey) {
-      try {
-        const extractedJpegs = extractJpegsFromPdf(buffer);
-        if (extractedJpegs.length > 0) {
-          console.log(`Mengekstrak ${extractedJpegs.length} halaman foto dari PDF untuk Groq Vision...`);
-          const client = new Groq({ apiKey: groqKey });
-          const imageContentItems = extractedJpegs.map((url) => ({
-            type: 'image_url' as const,
-            image_url: { url },
-          }));
-
-          const chatCompletion = await client.chat.completions.create({
-            model: 'qwen/qwen3.6-27b',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: promptInstruksi },
-                  ...imageContentItems,
-                ],
-              },
-            ],
-            temperature: 0.1,
-          });
-          rawResponse = chatCompletion.choices[0]?.message?.content || '';
-          if (rawResponse) providerUsed = `Groq Vision (${extractedJpegs.length} Halaman Struk PDF)`;
-        }
-      } catch (groqPdfErr: any) {
-        console.warn('Groq Vision PDF extraction error:', groqPdfErr?.message);
-      }
-    }
-
-    // 5. Jika bukan PDF atau ekstraksi JPEG PDF kosong, gunakan Groq Vision standar untuk single image
-    if (!rawResponse && groqKey && !isPdf) {
-      try {
-        const client = new Groq({ apiKey: groqKey });
-        const chatCompletion = await client.chat.completions.create({
-          model: 'qwen/qwen3.6-27b',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: promptInstruksi },
-                {
-                  type: 'image_url',
-                  image_url: { url: dataUrl },
-                },
-              ],
-            },
-          ],
-          temperature: 0.1,
-        });
-        rawResponse = chatCompletion.choices[0]?.message?.content || '';
-        if (rawResponse) providerUsed = 'Groq Vision (Qwen)';
-      } catch (groqErr: any) {
-        console.warn('Groq Vision primary error/rate-limited:', groqErr?.status, groqErr?.message);
-      }
-    }
-
-    // 6. Secondary Fallback Provider: Gemini Vision (jika Groq belum memproses)
-    if (!rawResponse && geminiKey) {
-      try {
-        console.log('Menggunakan Fallback AI Provider: Google Gemini Vision...');
-        rawResponse = await scanWithGemini(base64Image, mimeType, promptInstruksi, geminiKey);
-        if (rawResponse) providerUsed = 'Google Gemini Vision';
-      } catch (geminiErr: any) {
-        console.error('Gemini Vision fallback error:', geminiErr?.message);
-      }
+    // 4. Eksekusi OCR hanya dengan Gemini 3.5 Flash Lite
+    try {
+      console.log('Mengeksekusi OCR Reimbursement khusus dengan Gemini (gemini-3.5-flash-lite)...');
+      rawResponse = await scanWithGemini(base64Image, mimeType, promptInstruksi, geminiKey);
+    } catch (geminiErr: any) {
+      console.error('Gemini Vision error:', geminiErr?.message);
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Pemindaian Gemini gagal: ${geminiErr?.message || 'Error tidak diketahui'}`
+        },
+        { status: 500 }
+      );
     }
 
     // 6. Jika kedua provider gagal

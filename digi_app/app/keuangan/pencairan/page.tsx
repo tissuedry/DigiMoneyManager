@@ -11,6 +11,7 @@ import Header from '@/components/header';
 import ConfirmDialog from '@/components/confirm-dialog';
 import SuccessDialog from '@/components/success-dialog';
 import Toast from '@/components/toast';
+import CompactNominal from '@/components/compact-nominal';
 import { useApi, useInvalidate } from '@/lib/use-api';
 
 function formatTanggal(iso: string) {
@@ -320,41 +321,20 @@ function PencairanContent() {
 
   useEffect(() => {
     if (selectedItem && selectedItem.status === 'APPROVED_BY_PM') {
-      setCreditAccount("");
-
-      const posName = (selectedItem.posAnggaran?.deskripsi || selectedItem.posAnggaran?.keterangan || "").toLowerCase();
-      if (posName.includes("perlengkapan") || posName.includes("atk")) {
-        setDebitAccount("50001");
-      } else if (posName.includes("bahan") || posName.includes("sipil") || posName.includes("bangunan")) {
-        setDebitAccount("50002");
-      } else if (posName.includes("transportasi") || posName.includes("logistik")) {
-        setDebitAccount("50003");
+      const opts = selectedItem.creditOptions || [];
+      if (opts.length > 0) {
+        setCreditAccount(opts[0].displayVal);
       } else {
-        const expenseCoa = coaList.find((c: any) => {
-          const t = (c.tipe || '').toLowerCase();
-          return t === 'beban' || t === 'expense';
-        });
-        setDebitAccount(expenseCoa ? String(expenseCoa.nomorAkun) : "50001");
+        setCreditAccount("");
       }
       setCatatan("");
     }
-  }, [selectedId, selectedItem, coaList]);
+  }, [selectedId, selectedItem]);
 
   const handleProcess = async (action: 'APPROVE' | 'REJECT', alasanPenolakan?: string) => {
     if (!selectedItem) return;
 
     if (action === 'APPROVE') {
-      if (!creditAccount) {
-        setShowAccountWarning(true);
-        return;
-      }
-      if (!debitAccount) {
-        const expenseCoa = coaList.find((c: any) => {
-          const t = (c.tipe || '').toLowerCase();
-          return t === 'beban' || t === 'expense';
-        });
-        setDebitAccount(expenseCoa ? String(expenseCoa.nomorAkun) : "50001");
-      }
       setShowApproveConfirm(true);
       return;
     }
@@ -633,7 +613,7 @@ function PencairanContent() {
                                 </div>
                               </div>
                               <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                                <span className="text-stone-400 text-[11px]">Rp </span>{formattedNominal}
+                                <CompactNominal value={item.nominalRaw ?? item.nominal} compactThreshold={100_000_000_000} />
                               </p>
                             </div>
                             <div className="flex items-center justify-between gap-2">
@@ -782,7 +762,7 @@ function PencairanContent() {
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Nominal</span>
                         <span className="font-bold font-mono text-stone-900 text-right">
-                          <span className="text-stone-400 font-normal">Rp </span>{Number(selectedItem.nominal).toLocaleString('id-ID')}
+                          <CompactNominal value={selectedItem.nominal} compactThreshold={100_000_000} />
                         </span>
                       </div>
                     </div>
@@ -877,17 +857,12 @@ function PencairanContent() {
                                 onChange={(e) => setCreditAccount(e.target.value)}
                                 className="flex-1 text-[12px] font-mono bg-white border border-stone-200 rounded-lg p-1.5 outline-none focus:ring-1 focus:ring-emerald-500 text-stone-800"
                               >
-                                <option value="">Pilih Akun Kredit</option>
-                                {coaList
-                                  .filter((coa: any) => {
-                                    const t = (coa.tipe || '').toLowerCase();
-                                    return t === 'aset' || t === 'asset';
-                                  })
-                                  .map((coa: any) => (
-                                    <option key={coa.nomorAkun} value={coa.nomorAkun}>
-                                      {coa.nomorAkun} - {coa.namaAkun} ({coa.tipe})
-                                    </option>
-                                  ))}
+                                <option value="">Pilih Akun Kredit (Main & Sub)</option>
+                                {(selectedItem.creditOptions || []).map((opt: any, idx: number) => (
+                                  <option key={idx} value={opt.displayVal}>
+                                    MAIN · {opt.mainNama} &gt; SUB · {opt.subNama}
+                                  </option>
+                                ))}
                               </select>
                               <span className="font-mono text-stone-900 text-[12px] shrink-0 font-bold">
                                 Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}
@@ -934,12 +909,14 @@ function PencairanContent() {
                                     </div>
                                     <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
                                   </div>
-                                  <div className="flex justify-between items-center pl-3">
-                                    <span>
-                                      <span className="text-[#be123c] font-bold mr-1">Cr</span>
-                                      <span className="text-stone-600"> {j.noAkunKredit} {j.akunKredit?.namaAkun || coaList.find((c: any) => c.nomorAkun === j.noAkunKredit)?.namaAkun || 'Bank BCA - Operasional'}</span>
-                                    </span>
-                                    <span className="font-mono text-stone-900 font-bold">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                  <div className="flex justify-between items-center pl-3 text-[12px]">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="text-[#be123c] font-bold shrink-0">Cr</span>
+                                      <span className="font-bold text-stone-800 truncate">
+                                        {j.noAkunKredit || 'MAIN · Kas & Bank > SUB · BCA'}
+                                      </span>
+                                    </div>
+                                    <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
                                   </div>
                                 </React.Fragment>
                               ))
@@ -1152,10 +1129,10 @@ function PencairanContent() {
                   <dd className="font-bold text-right truncate">
                     {creditAccount ? (
                       <span className="text-stone-800 font-bold">
-                        {creditAccount} {coaList.find((c: any) => String(c.nomorAkun) === String(creditAccount))?.namaAkun || ''}
+                        {creditAccount}
                       </span>
                     ) : (
-                      <span className="text-red-500 font-bold">Akun Kredit belum dipilih</span>
+                      <span className="text-stone-400 font-normal">-</span>
                     )}
                   </dd>
                 </div>
