@@ -361,7 +361,7 @@ export default function DatePicker({
               transform: `${baseTranslate} ${scale}`,
               transformOrigin: align === "right" ? "bottom right" : "bottom left",
             }}
-            className={`z-[110] w-[272px] bg-white border border-stone-100 rounded-2xl shadow-xl shadow-stone-900/10 p-4 transition-[opacity,transform] duration-150 ${
+            className={`datepicker-popup z-[110] w-[272px] bg-white border border-stone-100 rounded-2xl shadow-xl shadow-stone-900/10 p-4 transition-[opacity,transform] duration-150 ${
               isVisible ? "opacity-100" : "opacity-0"
             }`}
           >
