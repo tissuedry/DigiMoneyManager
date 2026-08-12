@@ -4,14 +4,13 @@ import React, { useState, useRef, useEffect, use } from "react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import DetailAnggaranModal from "./DetailAnggaran";
-import AlokasiPosModal from "./AlokasiPos";
+import AjukanPosModal from "./AjukanPos";
 import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
 import ProyekSkeleton from "./ProyekSkeleton";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
-import CompactNominal from "@/components/compact-nominal";
 import {
   ChevronDown,
   Eye,
@@ -202,14 +201,14 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
         <span key={p.id} className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: p.warna }} />
           {p.nama}
-          <CompactNominal value={p.alokasi} className="font-bold text-stone-800" />
+          <span title={`Rp ${Math.round(p.alokasi || 0).toLocaleString("id-ID")}`} className="font-bold text-stone-800 cursor-pointer">{formatShort(p.alokasi)}</span>
         </span>
       ))}
       {unallocated > 0 && (
         <span className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm bg-stone-300 shrink-0" />
           Belum dialokasikan
-          <CompactNominal value={unallocated} className="font-bold text-stone-800" />
+          <span title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`} className="font-bold text-stone-800 cursor-pointer">{formatShort(unallocated)}</span>
         </span>
       )}
     </div>
@@ -228,12 +227,13 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
         const alloc = p.alokasi || 0;
         const real = p.terpakai || 0;
         const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
-        const isOverBudget = real >= alloc;
+        const isOverBudget = real > alloc;
         const isWarning = pct >= 80 && !isOverBudget;
         const rem = Math.max(0, alloc - real);
-        let barColor = 'bg-emerald-600';
-        if (isOverBudget) barColor = 'bg-red-500';
-        else if (isWarning) barColor = 'bg-amber-500';
+        let barColor = 'bg-emerald-600'; // Default warna hijau (Aman)
+        if (isOverBudget) barColor = 'bg-red-500'; // Merah kalau Over Budget
+        else if (isWarning) barColor = 'bg-amber-500'; // Kuning kalau Warning
+
 
         return (
           <div key={p.id} className="space-y-1.5">
@@ -246,7 +246,7 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
                   </span>
                 )}
 
-                {isWarning && !isOverBudget && (
+                {isWarning && (
                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
                     <AlertCircle size={8} /> Hampir Limit
                   </span>
@@ -288,16 +288,14 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
+  const [isAjukanOpen, setIsAjukanOpen] = useState(false);
   const [isAjukanRealisasiOpen, setIsAjukanRealisasiOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const invalidate = useInvalidate();
 
   // ── TanStack Query ──
-  const { data: proyekData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>("/api/pm/proyek", {
-    refetchInterval: isDetailOpen ? 3000 : 10000,
-  });
+  const { data: proyekData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>("/api/pm/proyek");
   const { data: meData } = useApi<MeResponse>("/api/auth/me");
   const { data: usersData } = useApi<UsersResponse>("/api/pm/users");
 
@@ -315,7 +313,6 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
   const [savingTim, setSavingTim] = useState(false);
   const [showSaveTimConfirm, setShowSaveTimConfirm] = useState(false);
   const [showSaveTimToast, setShowSaveTimToast] = useState(false);
-  const [alokasiSuccessToast, setAlokasiSuccessToast] = useState("");
   const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -434,7 +431,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
               <div>
                 <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
                 <p className="text-sm text-stone-500 mt-1">
-                  Pantau anggaran, alokasikan pos baru, dan kelola tim untuk proyekmu.
+                  Pantau anggaran, ajukan pos baru, dan kelola tim untuk proyekmu.
                 </p>
               </div>
 
@@ -465,8 +462,11 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
-                  <p className="text-2xl font-extrabold text-stone-900 whitespace-nowrap">
-                    <CompactNominal value={proyek.totalRAB} className="text-2xl font-extrabold text-stone-900" />
+                  <p
+                    title={`Rp ${Math.round(proyek.totalRAB || 0).toLocaleString("id-ID")}`}
+                    className="text-2xl font-extrabold text-stone-900 whitespace-nowrap cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.totalRAB)}
                   </p>
                 </div>
               </div>
@@ -482,8 +482,11 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                     <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
                     <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
                   </div>
-                  <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">
-                    <CompactNominal value={proyek.realisasi} className="text-xl font-extrabold text-stone-900" />
+                  <p
+                    title={`Rp ${Math.round(proyek.realisasi || 0).toLocaleString("id-ID")}`}
+                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.realisasi)}
                   </p>
                 </div>
 
@@ -495,13 +498,19 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                       <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
                     </div>
                     {unallocated > 0 && (
-                      <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap">
-                        <CompactNominal value={unallocated} className="text-[11px] font-semibold text-amber-600" /> <span className="font-normal text-amber-700">belum dialokasikan</span>
+                      <span
+                        title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`}
+                        className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap cursor-pointer"
+                      >
+                        {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
                       </span>
                     )}
                   </div>
-                  <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">
-                    <CompactNominal value={proyek.totalRAB - proyek.realisasi} className="text-xl font-extrabold text-stone-900" />
+                  <p
+                    title={`Rp ${Math.round((proyek.totalRAB - proyek.realisasi) || 0).toLocaleString("id-ID")}`}
+                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                  >
+                    {formatShort(proyek.totalRAB - proyek.realisasi)}
                   </p>
                 </div>
               </div>
@@ -523,11 +532,11 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                       Lihat Detail Anggaran
                     </button>
                     <button
-                      onClick={() => setIsAlokasiOpen(true)}
+                      onClick={() => setIsAjukanOpen(true)}
                       className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
                     >
                       <Plus size={13} />
-                      Alokasi Pos
+                      Ajukan Pos
                     </button>
                     <button
                       onClick={() => setIsAjukanRealisasiOpen(true)}
@@ -695,20 +704,15 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         />
       )}
 
-      {/* Alokasi Pos Modal */}
-      {isAlokasiOpen && proyek && (
-        <AlokasiPosModal
+      {/* Ajukan Pos Modal */}
+      {isAjukanOpen && proyek && (
+        <AjukanPosModal
           proyekId={proyek.id}
           proyekNama={proyek.nama}
           totalRAB={proyek.totalRAB}
           realisasi={proyek.realisasi}
           posAnggaran={proyek.posAnggaran}
-          onClose={() => setIsAlokasiOpen(false)}
-          onSuccess={(msg) => {
-            invalidate("/api/pm/proyek");
-            refetch();
-            if (msg) setAlokasiSuccessToast(msg);
-          }}
+          onClose={() => setIsAjukanOpen(false)}
         />
       )}
 
@@ -754,12 +758,6 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         open={showSaveTimToast}
         message="Anggota tim proyek berhasil disimpan."
         onClose={() => setShowSaveTimToast(false)}
-      />
-
-      <Toast
-        open={!!alokasiSuccessToast}
-        message={alokasiSuccessToast}
-        onClose={() => setAlokasiSuccessToast("")}
       />
 
       <Toast

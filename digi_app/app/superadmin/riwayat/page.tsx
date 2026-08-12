@@ -7,7 +7,6 @@ import SuccessDialog from '@/components/success-dialog';
 import ConfirmDialog from '@/components/confirm-dialog';
 import ImagePreviewModal from './ImagePreviewModal';
 import ReimbursementDetailPanel from './ReimbursementDetailPanel';
-import CompactNominal from '@/components/compact-nominal';
 
 type Submission = {
   id: string;
@@ -454,9 +453,7 @@ export default function RiwayatPengajuanPage() {
                         {item.pos}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-stone-800">
-                      <CompactNominal value={item.amount} compactThreshold={100_000_000} />
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap font-medium text-stone-800">{item.amount}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col items-start gap-1">
                         <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${getStatusBadge(item.status)}`}>

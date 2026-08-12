@@ -246,26 +246,30 @@ export async function GET(req: NextRequest) {
               },
             },
           },
+          akunDebit: { select: { nomorAkun: true, namaAkun: true } },
+          akunKredit: { select: { nomorAkun: true, namaAkun: true } },
         },
         orderBy: { id: 'desc' },
         take: 5,
       });
 
       const recentJournals = recentJournalsRaw.map((j) => {
-        const tanggal = j.reimbursement?.tanggalStruk || null;
-        const tipePengajuan = j.reimbursement?.tipe || 'Pengajuan';
-        const kategori = j.reimbursement?.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
-          || j.reimbursement?.keteranganAnggaran?.keterangan
+        // PERUBAHAN: Mengambil tanggal dan tipe langsung dari tabel karena ocrData dihapus
+        const tanggal = j.reimbursement.tanggalStruk || null;
+        const tipePengajuan = j.reimbursement.tipe || 'Pengajuan';
+        const kategori = j.reimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain
+          || j.reimbursement.keteranganAnggaran?.keterangan
           || '-';
 
         return {
           jeId: `JE-${String(j.id).padStart(4, '0')}`,
           tanggal,
-          keterangan: j.keterangan || `Pencairan ${tipePengajuan} ${j.reimbursement?.user?.nama || ''} - ${kategori}`,
-          debitKode: j.noAkunDebit,
-          debitNama: j.noAkunDebit,
-          kreditKode: j.noAkunKredit,
-          kreditNama: j.noAkunKredit,
+          // PERUBAHAN: Teks dinamis sesuai tipe (Reimbursement / Realisasi Anggaran)
+          keterangan: j.keterangan || `Pencairan ${tipePengajuan} ${j.reimbursement.user.nama} - ${kategori}`,
+          debitKode: `${j.akunDebit.nomorAkun}`,
+          debitNama: j.akunDebit.namaAkun,
+          kreditKode: `${j.akunKredit.nomorAkun}`,
+          kreditNama: j.akunKredit.namaAkun,
           nominal: Number(j.nominal),
         };
       });
@@ -494,7 +498,7 @@ export async function GET(req: NextRequest) {
         where: { status: 'AKTIF' }
       });
 
-      const totalCoA = await prisma.masterSub.count({ where: { tipe: 'pemasukan' } });
+      const totalCoA = await prisma.chartOfAccounts.count();
 
       const totalUserAktif = await prisma.user.count(); 
 

@@ -7,7 +7,6 @@ import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import SuccessDialog from '@/components/success-dialog';
 import ConfirmDialog from '@/components/confirm-dialog';
-import CompactNominal from "@/components/compact-nominal";
 
 type Submission = {
   id: string;
@@ -18,7 +17,6 @@ type Submission = {
   project: string;
   pos: string;
   amount: string;
-  amountRaw: number;
   status: "Menunggu PM" | "Menunggu Keuangan" | "Dicairkan" | "Ditolak";
   isResubmit: boolean;
   isResubmitted: boolean;
@@ -580,7 +578,6 @@ export default function RiwayatPengajuanPage() {
           project: r.proyek?.nama || 'N/A',
           pos: r.posAnggaran?.deskripsi || r.posAnggaran?.namaPos || 'N/A',
           amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
-          amountRaw: Number(r.nominal),
           status: (r.status === 'SUBMITTED' ? 'Menunggu PM' :
                   r.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
                   r.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak') as Submission["status"],
@@ -879,9 +876,7 @@ export default function RiwayatPengajuanPage() {
                           {item.pos}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-stone-800">
-                        <CompactNominal value={item.amountRaw ?? item.amount} compactThreshold={100_000_000} />
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-stone-800">{item.amount}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
                           <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${getStatusBadge(item.status)}`}>

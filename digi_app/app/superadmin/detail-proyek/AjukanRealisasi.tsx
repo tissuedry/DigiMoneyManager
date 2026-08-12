@@ -82,18 +82,14 @@ export default function AjukanRealisasiModal({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const validateAndSetFile = (f: File) => {
-    setFile(f);
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) validateAndSetFile(e.target.files[0]);
+    if (e.target.files?.[0]) setFile(e.target.files[0]);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragActive(false);
-    if (e.dataTransfer.files?.[0]) validateAndSetFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -62,11 +62,8 @@ function getTitle(item: NotificationItem) {
   if (msg.includes("disetujui oleh keuangan") || msg.includes("disetujui oleh tim keuangan")) {
     return "Reimbursement disetujui Keuangan";
   }
-  if (msg.includes("realisasi")) {
-    if (msg.includes("dicairkan oleh tim keuangan")) {
-      return "Realisasi Dicairkan"
-    }
-    return "Realisasi ditolak"
+  if (msg.includes("realisasi") && msg.includes("dicairkan")) {
+    return "Realisasi dicairkan";
   }
   if (msg.includes("ditolak oleh pm") || msg.includes("ditolak oleh project manager")) {
     return "Reimbursement ditolak PM";
@@ -76,9 +73,6 @@ function getTitle(item: NotificationItem) {
   }
   if (msg.includes("pos anggaran") && msg.includes("ditolak")) {
     return "Pengajuan Pos Anggaran ditolak";
-  }
-  if (msg.includes("ditolak oleh direktur") && msg.includes("pengajuan")) {
-    return "Perubahan Anggaran ditolak Direktur"
   }
   if (msg.includes("dicairkan")) {
     return "Reimbursement dicairkan";

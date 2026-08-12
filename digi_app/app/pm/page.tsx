@@ -13,7 +13,6 @@ import {
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
-import CompactNominal from "@/components/compact-nominal";
 import { useApi } from "@/lib/use-api";
 import PMSkeleton from "./PMSkeleton";
 
@@ -162,29 +161,32 @@ export default function PMDashboardPage() {
                     const statCards = [
                       {
                         label: "Total Nilai Proyek",
-                        num: rab,
+                        value: formatRupiah(rab),
+                        raw: formatRupiah(rab),
                         sub: "Alokasi anggaran awal",
                         icon: <Wallet size={18} className="text-stone-600" />,
                         iconBg: "bg-stone-100",
                       },
                       {
                         label: "Total Terpakai",
-                        num: used,
+                        value: formatRupiah(used),
+                        raw: formatRupiah(used),
                         sub: `${usedPercentage.toFixed(1)}% dari total nilai proyek`,
                         icon: <TrendingUp size={18} className="text-rose-600" />,
                         iconBg: "bg-rose-50",
                       },
                       {
                         label: "Sisa Budget",
-                        num: rem,
+                        value: formatRupiah(rem),
+                        raw: formatRupiah(rem),
                         sub: `${remPercentage.toFixed(1)}% anggaran tersisa`,
                         icon: <Check size={18} className="text-emerald-600" />,
                         iconBg: "bg-emerald-50",
                       },
                       {
                         label: "Menunggu Persetujuan",
-                        num: null,
-                        customVal: `${data.pendingApprovalsCount} Pengajuan`,
+                        value: `${data.pendingApprovalsCount} Pengajuan`,
+                        raw: "",
                         sub: "Butuh review Anda segera",
                         icon: <FileCheck size={18} className="text-blue-600" />,
                         iconBg: "bg-blue-50",
@@ -209,12 +211,11 @@ export default function PMDashboardPage() {
                                 </div>
                               </div>
                               <div className="mt-4">
-                                <p className="text-[20px] font-bold text-stone-900 leading-tight">
-                                  {card.num !== null && card.num !== undefined ? (
-                                    <CompactNominal value={card.num} className="text-[20px] font-bold text-stone-900" />
-                                  ) : (
-                                    card.customVal
-                                  )}
+                                <p
+                                  title={card.raw || undefined}
+                                  className="text-[20px] font-bold text-stone-900 leading-tight cursor-pointer whitespace-nowrap"
+                                >
+                                  {card.value}
                                 </p>
                                 <p className="text-[11px] text-stone-400 mt-1 font-medium">
                                   {card.sub}
@@ -286,10 +287,9 @@ export default function PMDashboardPage() {
                                   const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
                                   const isOverBudget = real >= alloc;
                                   const isWarning = pct >= 80 && !isOverBudget;
-
-                                  let barColor = 'bg-emerald-600';
-                                  if (isOverBudget) barColor = 'bg-red-500';
-                                  else if (isWarning) barColor = 'bg-amber-500';
+                                  let barColor = 'bg-emerald-600'; // Default warna hijau (Aman)
+                                  if (isOverBudget) barColor = 'bg-red-500'; // Merah kalau Over Budget
+                                  else if (isWarning) barColor = 'bg-amber-500'; // Kuning kalau Warning
 
                                   return (
                                     <div key={pos.id} className="space-y-1.5">
@@ -302,7 +302,8 @@ export default function PMDashboardPage() {
                                             </span>
                                           )}
 
-                                          {isWarning && !isOverBudget && (
+                                          {/* Badge Hampir Limit */}
+                                          {isWarning && (
                                             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
                                               <AlertCircle size={8} /> Hampir Limit
                                             </span>

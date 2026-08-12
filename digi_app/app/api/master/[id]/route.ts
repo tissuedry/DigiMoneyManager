@@ -17,7 +17,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const body = await req.json();
-    const { type, nama, tipe } = body;
+    const { type, nama } = body;
 
     if (!type || !nama) {
       return NextResponse.json({ message: 'Type dan nama wajib diisi di dalam body' }, { status: 400 });
@@ -28,22 +28,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     let detailAudit = '';
 
     if (type === 'main') {
-      const updatePayload: any = { nama };
-      if (tipe) updatePayload.tipe = tipe;
       updatedData = await prisma.masterMain.update({
         where: { id: targetId },
-        data: updatePayload,
+        data: { nama },
       });
       detailAudit = `Mengubah Master Main (ID: ${targetId}) menjadi: ${nama}`;
 
     } else if (type === 'sub') {
-      const updatePayload: any = { nama };
-      if (tipe) updatePayload.tipe = tipe;
       updatedData = await prisma.masterSub.update({
         where: { id: targetId },
-        data: updatePayload,
+        data: { nama },
       });
       detailAudit = `Mengubah Master Sub (ID: ${targetId}) menjadi: ${nama}`;
+
+    } else if (type === 'keterangan') {
+      updatedData = await prisma.masterKeterangan.update({
+        where: { id: targetId },
+        data: { nama },
+      });
+      detailAudit = `Mengubah Master Keterangan (ID: ${targetId}) menjadi: ${nama}`;
 
     } else {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });
@@ -100,6 +103,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     } else if (type === 'sub') {
       await prisma.masterSub.delete({ where: { id: targetId } });
       detailAudit = `Menghapus Master Sub (ID: ${targetId})`;
+
+    } else if (type === 'keterangan') {
+      await prisma.masterKeterangan.delete({ where: { id: targetId } });
+      detailAudit = `Menghapus Master Keterangan (ID: ${targetId})`;
 
     } else {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });

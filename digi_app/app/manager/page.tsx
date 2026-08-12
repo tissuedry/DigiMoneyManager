@@ -4,8 +4,6 @@ import React, { useState, useRef } from "react";
 import { Loader2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
-import CompactNominal from "@/components/compact-nominal";
-import { formatFullRupiah } from "@/lib/format-nominal";
 
 // ── Type Definitions ──────────────────────────────────────────────────────────
 type CashFlowMonth = { bulan: string; inflow: number; outflow: number };
@@ -51,7 +49,10 @@ type DashboardResponse = {
 
 // ── Formatting Helpers ─────────────────────────────────────────────────────────
 const fmtShort = (n: number) => {
-  return formatFullRupiah(n);
+  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(1)} M`;
+  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(1)} jt`;
+  if (n >= 1_000) return `Rp ${(n / 1_000).toFixed(0)} rb`;
+  return `Rp ${n}`;
 };
 
 // ── Bar Chart Component ────────────────────────────────────────────────────────
@@ -194,7 +195,7 @@ export default function ManagerDashboardPage() {
   const statCards = [
     {
       label: "Total RAB Aktif",
-      rawNominal: metrics.totalRABActiveProyek ?? metrics.totalRABAllocated,
+      value: fmtShort(metrics.totalRABActiveProyek ?? metrics.totalRABAllocated),
       sub: `${metrics.activeProjectCount ?? metrics.projectCount} proyek aktif`,
       icon: "📋",
       trend: null,
@@ -202,7 +203,7 @@ export default function ManagerDashboardPage() {
     },
     {
       label: "Realisasi YTD",
-      rawNominal: metrics.realisasiYTD,
+      value: fmtShort(metrics.realisasiYTD),
       sub: metrics.totalRABAllocated > 0
         ? `${((metrics.realisasiYTD / metrics.totalRABAllocated) * 100).toFixed(1)}% dari RAB`
         : "—",
@@ -212,7 +213,7 @@ export default function ManagerDashboardPage() {
     },
     {
       label: "Pendapatan Bulan Ini",
-      rawNominal: metrics.pendapatanBulanIni,
+      value: fmtShort(metrics.pendapatanBulanIni),
       sub: "",
       icon: "⬆",
       trend: "↑ 14.9%",
@@ -220,7 +221,7 @@ export default function ManagerDashboardPage() {
     },
     {
       label: "Margin Bersih",
-      stringValue: `${metrics.marginBersih}%`,
+      value: `${metrics.marginBersih}%`,
       sub: "",
       icon: "✓",
       trend: `↑ 2.1% vs bulan lalu`,
@@ -254,13 +255,7 @@ export default function ManagerDashboardPage() {
               <span className="text-base">{card.icon}</span>
             </div>
             <div>
-              <div className="text-[22px] font-bold text-stone-900 leading-tight">
-                {card.stringValue ? (
-                  card.stringValue
-                ) : (
-                  <CompactNominal value={card.rawNominal ?? 0} compactThreshold={100_000_000_000} />
-                )}
-              </div>
+              <p className="text-[22px] font-bold text-stone-900 leading-tight">{card.value}</p>
               {card.trend && (
                 <p className={`text-[11px] font-semibold mt-1 ${card.trendColor}`}>{card.trend}</p>
               )}
@@ -352,9 +347,9 @@ export default function ManagerDashboardPage() {
                       </p>
                     </td>
                     <td className="px-4 py-4 text-[12px] text-stone-500 font-medium">{p.klien}</td>
-                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono"><CompactNominal value={p.rabTotal} compactThreshold={100_000_000_000} /></td>
-                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono"><CompactNominal value={p.realisasi} compactThreshold={100_000_000_000} /></td>
-                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono"><CompactNominal value={p.sisaBudget} compactThreshold={100_000_000_000} /></td>
+                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono">{fmtShort(p.rabTotal)}</td>
+                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono">{fmtShort(p.realisasi)}</td>
+                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono">{fmtShort(p.sisaBudget)}</td>
                     <td className="px-4 py-4 w-32">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden">

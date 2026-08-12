@@ -7,7 +7,6 @@ import {
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import DatePicker from '@/components/date-picker';
-import CompactNominal from '@/components/compact-nominal';
 
 type JournalLine = {
   type: "Dr" | "Cr";
@@ -24,6 +23,7 @@ type JournalEntry = {
   ref: string;
   lines: JournalLine[];
 };
+
 
 
 function formatTanggal(iso: string) {
@@ -46,23 +46,16 @@ function periodeLabel(start: string, end: string) {
 function JurnalAkuntansiContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showPeriode, setShowPeriode] = useState(false);
-  const [showFilter, setShowFilter] = useState(false);
-  const [periodeStart, setPeriodeStart] = useState("");
-  const [periodeEnd, setPeriodeEnd] = useState("");
+  const [draftStart, setDraftStart] = useState("2026-05-01");
+  const [draftEnd, setDraftEnd] = useState("2026-06-30");
+  const [appliedStart, setAppliedStart] = useState("2026-05-01");
+  const [appliedEnd, setAppliedEnd] = useState("2026-06-30");
   const [selectedRangeOption, setSelectedRangeOption] = useState<string>("");
-  const [filterTipe, setFilterTipe] = useState("");
-  const [filterKaryawan, setFilterKaryawan] = useState("");
-  const [filterProyek, setFilterProyek] = useState("");
-  const [filterMin, setFilterMin] = useState("");
-  const [filterMax, setFilterMax] = useState("");
-  const [sortKey, setSortKey] = useState<string>("tanggal");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [reportData, setReportData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
   const periodeRef = useRef<HTMLDivElement>(null);
-  const filterRef = useRef<HTMLDivElement>(null);
 
   const getLocalDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -90,8 +83,10 @@ function JurnalAkuntansiContent() {
     const startStr = getLocalDateString(start);
     const endStr = getLocalDateString(end);
 
-    setPeriodeStart(startStr);
-    setPeriodeEnd(endStr);
+    setDraftStart(startStr);
+    setDraftEnd(endStr);
+    setAppliedStart(startStr);
+    setAppliedEnd(endStr);
     setSelectedRangeOption(option);
     setShowPeriode(false);
   };
@@ -117,90 +112,27 @@ function JurnalAkuntansiContent() {
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
-      const target = e.target as Node;
-      if ((target as HTMLElement)?.closest?.('.datepicker-popup')) return;
-      if (periodeRef.current && !periodeRef.current.contains(target)) {
+      if (periodeRef.current && !periodeRef.current.contains(e.target as Node)) {
         setShowPeriode(false);
       }
-      if (filterRef.current && !filterRef.current.contains(target)) {
-        setShowFilter(false);
-      }
     }
-    if (showPeriode || showFilter) document.addEventListener("mousedown", handleOutsideClick);
+    if (showPeriode) document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [showPeriode, showFilter]);
+  }, [showPeriode]);
 
+  // Client-side date filter for General Ledger (buku-besar) data
   const filteredReport = useMemo(() => {
     return reportData.filter((item) => {
       if (!item.Tanggal || item.Tanggal === 'N/A') return true;
-      if (periodeStart && item.Tanggal < periodeStart) return false;
-      if (periodeEnd && item.Tanggal > periodeEnd) return false;
+      if (appliedStart && item.Tanggal < appliedStart) return false;
+      if (appliedEnd && item.Tanggal > appliedEnd) return false;
       return true;
     });
-  }, [reportData, periodeStart, periodeEnd]);
+  }, [reportData, appliedStart, appliedEnd]);
 
-  const tipeOptions = useMemo(() => {
-    const set = new Set<string>();
-    reportData.forEach((item) => {
-      if (item.TipePencairan) set.add(item.TipePencairan);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [reportData]);
-
-  const karyawanOptions = useMemo(() => {
-    const set = new Set<string>();
-    reportData.forEach((item) => {
-      if (item.Karyawan && item.Karyawan !== '-') set.add(item.Karyawan);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [reportData]);
-
-  const proyekOptions = useMemo(() => {
-    const set = new Set<string>();
-    reportData.forEach((item) => {
-      if (item.Proyek && item.Proyek !== '-') set.add(item.Proyek);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [reportData]);
-
-  const filteredByAll = useMemo(() => {
-    const min = filterMin ? parseFloat(filterMin.replace(/\D/g, "")) || 0 : 0;
-    const max = filterMax ? parseFloat(filterMax.replace(/\D/g, "")) || 0 : 0;
-    return filteredReport.filter((item) => {
-      if (filterTipe && item.TipePencairan !== filterTipe) return false;
-      if (filterKaryawan && item.Karyawan !== filterKaryawan) return false;
-      if (filterProyek && item.Proyek !== filterProyek) return false;
-      if (min && Number(item.Nominal) < min) return false;
-      if (max && Number(item.Nominal) > max) return false;
-      return true;
-    });
-  }, [filteredReport, filterTipe, filterKaryawan, filterProyek, filterMin, filterMax]);
-
-  const sortedReport = useMemo(() => {
-    const arr = [...filteredByAll];
-    arr.sort((a, b) => {
-      const sortValue = (item: any): string | number => {
-        switch (sortKey) {
-          case "tanggal": return item.Tanggal || "";
-          case "jurnal": return Number(item.ID) || 0;
-          case "keterangan": return (item.Keterangan || "").toLowerCase();
-          case "debit": return Number(item.Nominal) || 0;
-          case "kredit": return Number(item.Nominal) || 0;
-          default: return item.Tanggal || "";
-        }
-      };
-      const va = sortValue(a);
-      const vb = sortValue(b);
-      const cmp = typeof va === "number" && typeof vb === "number"
-        ? va - vb
-        : String(va).localeCompare(String(vb));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return arr;
-  }, [filteredByAll, sortKey, sortDir]);
-
+  // Parse reportData into Journal Entries
   const journalEntries = useMemo(() => {
-    return sortedReport.map((item) => {
+    return filteredReport.map((item) => {
       const [dbCode, ...dbNameParts] = item['Akun Debit'].split(' - ');
       const dbName = dbNameParts.join(' - ');
 
@@ -221,21 +153,7 @@ function JurnalAkuntansiContent() {
       };
       return entry;
     });
-  }, [sortedReport]);
-
-  // Entries based on all data (ignores all filters) — for summary cards
-  const summaryEntries = useMemo(() => {
-    return reportData.map((item) => {
-      const formattedNominal = Number(item.Nominal).toLocaleString('id-ID');
-      return {
-        id: `JE-${String(item.ID).substring(0, 8).toUpperCase()}`,
-        lines: [
-          { type: "Dr" as const, kode: "", akun: "", debit: formattedNominal, kredit: null },
-          { type: "Cr" as const, kode: "", akun: "", debit: null, kredit: formattedNominal }
-        ]
-      };
-    });
-  }, [reportData]);
+  }, [filteredReport]);
 
 
   const parseFormattedNumber = (val: string | null): number => {
@@ -243,6 +161,7 @@ function JurnalAkuntansiContent() {
     return parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
   };
 
+  // Compute Metrics
   const totalDebit = useMemo(() => {
     return journalEntries.reduce((sum, entry) => {
       return sum + entry.lines.reduce((lineSum, line) => {
@@ -265,23 +184,16 @@ function JurnalAkuntansiContent() {
     }, 0);
   }, [journalEntries]);
 
-  const summaryTotalDebit = useMemo(() => {
-    return summaryEntries.reduce((sum, entry) => sum + parseFormattedNumber(entry.lines[0].debit), 0);
-  }, [summaryEntries]);
+  const isBalanced = Math.abs(totalDebit - totalKredit) < 0.01;
+  const selisih = Math.abs(totalDebit - totalKredit);
 
-  const summaryTotalKredit = useMemo(() => {
-    return summaryEntries.reduce((sum, entry) => sum + parseFormattedNumber(entry.lines[1].kredit), 0);
-  }, [summaryEntries]);
-
-  const isBalanced = Math.abs(summaryTotalDebit - summaryTotalKredit) < 0.01;
-  const selisih = Math.abs(summaryTotalDebit - summaryTotalKredit);
-
-  const toggleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+  const formatRupiahShort = (value: number): string => {
+    if (value >= 1_000_000_000) {
+      return `${(value / 1_000_000_000).toFixed(1)} M`;
+    } else if (value >= 1_000_000) {
+      return `${(value / 1_000_000).toFixed(1)} Jt`;
     } else {
-      setSortKey(key);
-      setSortDir("asc");
+      return value.toLocaleString('id-ID');
     }
   };
 
@@ -317,54 +229,40 @@ function JurnalAkuntansiContent() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
 
             {/* Kartu 1: Total Jurnal */}
-            <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
+            <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
+              <div className="flex justify-between items-start mb-4">
                 <span className="text-[12px] text-stone-500 font-medium">Total Jurnal</span>
-                <div className="w-7 h-7 border border-stone-300 rounded-lg flex items-center justify-center">
+                <div className="w-7 h-7 border border-stone-300 rounded flex items-center justify-center">
                   <BookOpen size={13} className="text-stone-500 stroke-[1.75]" />
                 </div>
               </div>
-              <div>
-                <p className="text-[28px] font-bold text-stone-900 leading-none">{summaryEntries.length}</p>
-                <p className="text-[11px] text-stone-400 mt-2 font-medium">Semua Data</p>
-              </div>
+              <p className="text-[32px] font-bold text-stone-900 leading-none">{journalEntries.length}</p>
+              <p className="text-[11px] text-stone-400 mt-2">Periode Terpilih</p>
             </div>
 
             {/* Kartu 2: Total Debit */}
-            <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
+            <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
+              <div className="flex justify-between items-start mb-4">
                 <span className="text-[12px] text-stone-500 font-medium">Total Debit</span>
-                <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center">
-                  <ArrowUp size={15} className="text-emerald-600 stroke-[2.5]" />
-                </div>
+                <ArrowUp size={18} className="text-emerald-500 stroke-[2.5]" />
               </div>
-              <div>
-                <div className="text-[22px] font-bold text-stone-900 leading-none">
-                  <CompactNominal value={summaryTotalDebit} compactThreshold={100_000_000_000} />
-                </div>
-                <p className="text-[11px] text-stone-400 mt-2 font-medium">{summaryEntries.length} entri jurnal</p>
-              </div>
+              <p className="text-[11px] text-stone-400 mb-0.5">Rp</p>
+              <p className="text-[28px] font-bold text-stone-900 leading-none">{formatRupiahShort(totalDebit)}</p>
             </div>
 
             {/* Kartu 3: Total Kredit */}
-            <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
+            <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
+              <div className="flex justify-between items-start mb-4">
                 <span className="text-[12px] text-stone-500 font-medium">Total Kredit</span>
-                <div className="w-7 h-7 bg-rose-50 rounded-lg flex items-center justify-center">
-                  <ArrowDown size={15} className="text-rose-600 stroke-[2.5]" />
-                </div>
+                <ArrowDown size={18} className="text-red-500 stroke-[2.5]" />
               </div>
-              <div>
-                <div className="text-[22px] font-bold text-stone-900 leading-none">
-                  <CompactNominal value={summaryTotalKredit} compactThreshold={100_000_000_000} />
-                </div>
-                <p className="text-[11px] text-stone-400 mt-2 font-medium">{summaryEntries.length} entri jurnal</p>
-              </div>
+              <p className="text-[11px] text-stone-400 mb-0.5">Rp</p>
+              <p className="text-[28px] font-bold text-stone-900 leading-none">{formatRupiahShort(totalKredit)}</p>
             </div>
 
             {/* Kartu 4: Saldo */}
-            <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
+            <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-sm">
+              <div className="flex justify-between items-start mb-4">
                 <span className="text-[12px] text-stone-500 font-medium">Status Saldo</span>
                 {isBalanced ? (
                   <div className="w-7 h-7 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center">
@@ -376,31 +274,29 @@ function JurnalAkuntansiContent() {
                   </div>
                 )}
               </div>
-              <div>
-                <p className={`text-[22px] font-bold leading-none ${isBalanced ? "text-stone-900" : "text-rose-600"}`}>
-                  {isBalanced ? "Seimbang" : "Tidak Seimbang"}
+              <p className={`text-[22px] font-bold leading-none ${isBalanced ? "text-stone-900" : "text-rose-600"}`}>
+                {isBalanced ? "Seimbang" : "Tidak Seimbang"}
+              </p>
+              {isBalanced ? (
+                <p className="text-[11px] text-emerald-600 font-semibold mt-2 flex items-center gap-1">
+                  <Check size={10} className="stroke-[3.5]" />
+                  Dr = Cr (Seimbang)
                 </p>
-                {isBalanced ? (
-                  <p className="text-[11px] text-emerald-600 font-semibold mt-2 flex items-center gap-1">
-                    <Check size={10} className="stroke-[3.5]" />
-                    Dr = Cr (Seimbang)
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-rose-600 font-semibold mt-2 flex items-center gap-1">
-                    <X size={10} className="stroke-[3.5]" />
-                    Selisih: Rp {selisih.toLocaleString('id-ID')}
-                  </p>
-                )}
-              </div>
+              ) : (
+                <p className="text-[11px] text-rose-600 font-semibold mt-2 flex items-center gap-1">
+                  <X size={10} className="stroke-[3.5]" />
+                  Selisih: Rp {selisih.toLocaleString('id-ID')}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Kontrol Periode + Filter + Export */}
+          {/* Kontrol Periode + Export */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-0 mb-4">
             <div />
 
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Wrapper Periode */}
+              {/* Wrapper unified Ref container */}
               <div ref={periodeRef} className="relative flex items-center gap-2 shrink-0">
                 {/* Label Periode */}
                 <button
@@ -408,200 +304,103 @@ function JurnalAkuntansiContent() {
                   className="flex items-center gap-2 text-[12px] font-medium text-stone-600 border border-stone-200 bg-stone-50 px-3 py-1.5 rounded-lg shrink-0 hover:bg-stone-100 transition cursor-pointer"
                 >
                   <Calendar size={13} className="text-stone-400 shrink-0" />
-                  <span>{periodeLabel(periodeStart, periodeEnd)}</span>
+                  <span>{periodeLabel(appliedStart, appliedEnd)}</span>
                 </button>
 
-                {/* Dropdown Periode */}
-                {showPeriode && (
-                  <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-stone-200 rounded-xl shadow-lg p-4 w-72">
-                    <p className="text-[12px] font-semibold text-stone-700 mb-3">Pilih Rentang Periode</p>
+                {/* Tombol Filter + Dropdown Periode */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowPeriode((v) => !v)}
+                    className={`flex items-center gap-1.5 text-[12px] font-medium border px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      showPeriode
+                        ? "bg-stone-100 border-stone-300 text-stone-800"
+                        : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50"
+                    }`}
+                  >
+                    <Filter size={13} className="text-stone-400" />
+                    <span>Filter</span>
+                    <ChevronDown size={12} className={`text-stone-400 transition-transform ${showPeriode ? "rotate-180" : ""}`} />
+                  </button>
 
-                    {/* Pilihan Cepat */}
-                    <div className="mb-4">
-                      <p className="text-[11px] font-medium text-stone-400 mb-2">Pilihan Cepat</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {["1 Minggu", "1 Bulan", "3 Bulan", "6 Bulan", "1 Tahun"].map((opt) => (
-                          <button
-                            key={opt}
-                            onClick={() => handleQuickRange(opt)}
-                            className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors cursor-pointer ${
-                              selectedRangeOption === opt
-                                ? "bg-stone-900 text-white"
-                                : "border border-stone-200 text-stone-600 hover:bg-stone-50 bg-white"
-                            }`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
+                  {showPeriode && (
+                    <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-stone-200 rounded-xl shadow-lg p-4 w-72">
+                      <p className="text-[12px] font-semibold text-stone-700 mb-3">Pilih Rentang Periode</p>
+
+                      {/* Pilihan Cepat */}
+                      <div className="mb-4">
+                        <p className="text-[11px] font-medium text-stone-400 mb-2">Pilihan Cepat</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {["1 Minggu", "1 Bulan", "3 Bulan", "6 Bulan", "1 Tahun"].map((opt) => (
+                            <button
+                              key={opt}
+                              onClick={() => handleQuickRange(opt)}
+                              className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors cursor-pointer ${
+                                selectedRangeOption === opt
+                                  ? "bg-stone-900 text-white"
+                                  : "border border-stone-200 text-stone-600 hover:bg-stone-50 bg-white"
+                              }`}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="h-px bg-stone-100 my-3" />
+                      <div className="h-px bg-stone-100 my-3" />
 
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-[11px] font-medium text-stone-400 mb-1 block">Dari</label>
-                        <DatePicker
-                          value={periodeStart}
-                          onChange={(v) => {
-                            setPeriodeStart(v);
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[11px] font-medium text-stone-400 mb-1 block">Dari</label>
+                          <DatePicker
+                            value={draftStart}
+                            onChange={(v) => {
+                              setDraftStart(v);
+                              setSelectedRangeOption("");
+                            }}
+                            size="sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-medium text-stone-400 mb-1 block">Sampai</label>
+                          <DatePicker
+                            value={draftEnd}
+                            min={draftStart}
+                            onChange={(v) => {
+                              setDraftEnd(v);
+                              setSelectedRangeOption("");
+                            }}
+                            size="sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center mt-4 pt-3 border-t border-stone-100">
+                        <button
+                          onClick={() => {
+                            setDraftStart("");
+                            setDraftEnd("");
                             setSelectedRangeOption("");
                           }}
-                          size="sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-stone-400 mb-1 block">Sampai</label>
-                        <DatePicker
-                          value={periodeEnd}
-                          min={periodeStart}
-                          onChange={(v) => {
-                            setPeriodeEnd(v);
-                            setSelectedRangeOption("");
+                          className="text-[12px] font-medium text-stone-400 hover:text-stone-600 transition"
+                        >
+                          Reset
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAppliedStart(draftStart);
+                            setAppliedEnd(draftEnd);
+                            setShowPeriode(false);
                           }}
-                          size="sm"
-                        />
+                          className="text-[12px] font-semibold text-white bg-stone-900 hover:bg-stone-700 transition px-4 py-1.5 rounded-lg"
+                        >
+                          Terapkan
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex justify-end mt-4 pt-3 border-t border-stone-100">
-                      <button
-                        onClick={() => {
-                          setPeriodeStart("");
-                          setPeriodeEnd("");
-                          setSelectedRangeOption("");
-                        }}
-                        className="text-[12px] font-medium text-stone-400 hover:text-stone-600 transition"
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Tombol Filter */}
-              <div ref={filterRef} className="relative shrink-0">
-                <button
-                  onClick={() => setShowFilter((v) => !v)}
-                  className={`flex items-center gap-1.5 text-[12px] font-medium border px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                    showFilter || filterTipe || filterKaryawan || filterProyek || filterMin || filterMax
-                      ? "bg-stone-100 border-stone-300 text-stone-800"
-                      : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50"
-                  }`}
-                >
-                  <Filter size={13} className="text-stone-400" />
-                  <span>Filter</span>
-                  {(filterTipe ? 1 : 0) + (filterKaryawan ? 1 : 0) + (filterProyek ? 1 : 0) + (filterMin ? 1 : 0) + (filterMax ? 1 : 0) > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-stone-900 text-white text-[9px] font-bold flex items-center justify-center">
-                      {(filterTipe ? 1 : 0) + (filterKaryawan ? 1 : 0) + (filterProyek ? 1 : 0) + (filterMin ? 1 : 0) + (filterMax ? 1 : 0)}
-                    </span>
                   )}
-                  <ChevronDown size={12} className={`text-stone-400 transition-transform ${showFilter ? "rotate-180" : ""}`} />
-                </button>
-
-                {showFilter && (
-                  <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-stone-200 rounded-xl shadow-lg p-4 w-80 max-h-[80vh] overflow-y-auto">
-                    <p className="text-[12px] font-semibold text-stone-700 mb-3">Filter Data Jurnal</p>
-
-                    <div className="space-y-3">
-                      {/* Filter Jenis Pencairan */}
-                      <div>
-                        <label className="text-[11px] font-medium text-stone-400 mb-1 block">Jenis Pencairan</label>
-                        <div className="relative">
-                          <select
-                            value={filterTipe}
-                            onChange={(e) => setFilterTipe(e.target.value)}
-                            className="w-full appearance-none px-3 py-2 text-[12px] bg-white border border-stone-200 rounded-lg outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200/60 transition text-stone-800 pr-8 cursor-pointer"
-                          >
-                            <option value="">Semua Jenis</option>
-                            {tipeOptions.map((tipe) => (
-                              <option key={tipe} value={tipe}>{tipe}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      {/* Filter Karyawan */}
-                      <div>
-                        <label className="text-[11px] font-medium text-stone-400 mb-1 block">Karyawan / Pengaju</label>
-                        <div className="relative">
-                          <select
-                            value={filterKaryawan}
-                            onChange={(e) => setFilterKaryawan(e.target.value)}
-                            className="w-full appearance-none px-3 py-2 text-[12px] bg-white border border-stone-200 rounded-lg outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200/60 transition text-stone-800 pr-8 cursor-pointer"
-                          >
-                            <option value="">Semua Karyawan</option>
-                            {karyawanOptions.map((k) => (
-                              <option key={k} value={k}>{k}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      {/* Filter Proyek */}
-                      <div>
-                        <label className="text-[11px] font-medium text-stone-400 mb-1 block">Proyek</label>
-                        <div className="relative">
-                          <select
-                            value={filterProyek}
-                            onChange={(e) => setFilterProyek(e.target.value)}
-                            className="w-full appearance-none px-3 py-2 text-[12px] bg-white border border-stone-200 rounded-lg outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200/60 transition text-stone-800 pr-8 cursor-pointer"
-                          >
-                            <option value="">Semua Proyek</option>
-                            {proyekOptions.map((proyek) => (
-                              <option key={proyek} value={proyek}>{proyek}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      {/* Filter Nominal Range */}
-                      <div>
-                        <label className="text-[11px] font-medium text-stone-400 mb-1 block">Range Nominal (Rp)</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={filterMin}
-                            onChange={(e) => setFilterMin(e.target.value)}
-                            placeholder="Min"
-                            className="w-full px-3 py-2 text-[12px] bg-white border border-stone-200 rounded-lg outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200/60 transition placeholder:text-stone-400 text-stone-800"
-                          />
-                          <span className="text-stone-400 text-[12px]">–</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={filterMax}
-                            onChange={(e) => setFilterMax(e.target.value)}
-                            placeholder="Max"
-                            className="w-full px-3 py-2 text-[12px] bg-white border border-stone-200 rounded-lg outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200/60 transition placeholder:text-stone-400 text-stone-800"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end mt-4 pt-3 border-t border-stone-100">
-                      <button
-                        onClick={() => {
-                          setFilterTipe("");
-                          setFilterKaryawan("");
-                          setFilterProyek("");
-                          setFilterMin("");
-                          setFilterMax("");
-                        }}
-                        className="text-[12px] font-medium text-stone-400 hover:text-stone-600 transition"
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
-
+              
               <button 
                 onClick={() => handleExport('csv')}
                 className="flex items-center gap-1.5 text-[12px] font-medium text-stone-700 border border-stone-200 bg-white px-3 py-1.5 rounded-lg hover:bg-stone-50 transition shrink-0 cursor-pointer"
@@ -621,53 +420,23 @@ function JurnalAkuntansiContent() {
                 <table className="w-full min-w-200">
                   <thead>
                     <tr className="border-b border-stone-200 bg-[#fafaf9]">
-                      <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-6 py-3.5 uppercase cursor-pointer select-none hover:text-stone-700 transition min-w-[140px]"
-                          onClick={() => toggleSort("jurnal")}>
-                        <span className="inline-flex items-center gap-1">
-                          No. Jurnal
-                          <span className="w-[11px] shrink-0">
-                            {sortKey === "jurnal" && (sortDir === "asc" ? <ArrowUp size={11} className="text-stone-700" /> : <ArrowDown size={11} className="text-stone-700" />)}
-                          </span>
-                        </span>
+                      <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-6 py-3.5 uppercase">
+                        No. Jurnal
                       </th>
-                      <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase whitespace-nowrap cursor-pointer select-none hover:text-stone-700 transition"
-                          onClick={() => toggleSort("tanggal")}>
-                        <span className="inline-flex items-center gap-1">
-                          Tanggal
-                          <span className="w-[11px] shrink-0">
-                            {sortKey === "tanggal" && (sortDir === "asc" ? <ArrowUp size={11} className="text-stone-700" /> : <ArrowDown size={11} className="text-stone-700" />)}
-                          </span>
-                        </span>
+                      <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase whitespace-nowrap">
+                        Tanggal
                       </th>
-                      <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase cursor-pointer select-none hover:text-stone-700 transition"
-                          onClick={() => toggleSort("keterangan")}>
-                        <span className="inline-flex items-center gap-1">
-                          Keterangan
-                          <span className="w-[11px] shrink-0">
-                            {sortKey === "keterangan" && (sortDir === "asc" ? <ArrowUp size={11} className="text-stone-700" /> : <ArrowDown size={11} className="text-stone-700" />)}
-                          </span>
-                        </span>
+                      <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase">
+                        Keterangan
                       </th>
                       <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase">
                         Akun
                       </th>
-                      <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase cursor-pointer select-none hover:text-stone-700 transition"
-                          onClick={() => toggleSort("debit")}>
-                        <span className="inline-flex items-center gap-1 justify-end">
-                          Debit
-                          <span className="w-[11px] shrink-0">
-                            {sortKey === "debit" && (sortDir === "asc" ? <ArrowUp size={11} className="text-stone-700" /> : <ArrowDown size={11} className="text-stone-700" />)}
-                          </span>
-                        </span>
+                      <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase">
+                        Debit
                       </th>
-                      <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase cursor-pointer select-none hover:text-stone-700 transition"
-                          onClick={() => toggleSort("kredit")}>
-                        <span className="inline-flex items-center gap-1 justify-end">
-                          Kredit
-                          <span className="w-[11px] shrink-0">
-                            {sortKey === "kredit" && (sortDir === "asc" ? <ArrowUp size={11} className="text-stone-700" /> : <ArrowDown size={11} className="text-stone-700" />)}
-                          </span>
-                        </span>
+                      <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase">
+                        Kredit
                       </th>
                       <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-6 py-3.5 uppercase">
                         Ref
@@ -703,7 +472,7 @@ function JurnalAkuntansiContent() {
                             {lineIdx === 0 && (
                               <td
                                 rowSpan={entry.lines.length}
-                                className="px-7 py-3 align-top text-[12px] font-mono font-semibold text-stone-800 whitespace-nowrap min-w-[130px]"
+                                className="px-6 py-3 align-top text-[12px] font-mono font-semibold text-stone-800 whitespace-nowrap"
                               >
                                 {entry.id}
                               </td>
@@ -740,10 +509,10 @@ function JurnalAkuntansiContent() {
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
-                              {line.debit ? <CompactNominal value={line.debit} compactThreshold={100_000_000_000_000} /> : "—"}
+                              {line.debit ? `Rp ${line.debit}` : "—"}
                             </td>
                             <td className="px-4 py-2.5 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
-                              {line.kredit ? <CompactNominal value={line.kredit} compactThreshold={100_000_000_000_000} /> : "—"}
+                              {line.kredit ? `Rp ${line.kredit}` : "—"}
                             </td>
                             {lineIdx === 0 && (
                               <td

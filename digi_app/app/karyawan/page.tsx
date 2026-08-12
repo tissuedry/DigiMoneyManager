@@ -6,7 +6,6 @@ import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
-import CompactNominal from "@/components/compact-nominal";
 
 // Tipe Data untuk State Frontend
 type DashboardData = {
@@ -140,9 +139,13 @@ export default function BerandaKaryawanPage() {
                       <FileText size={16} className="text-[#0277bd]" />
                     </div>
                   </div>
-                  <div className="text-[32px] font-bold text-stone-900 leading-none mb-2">
-                    <CompactNominal value={d.summary.totalNominalSubmitted} compactThreshold={100_000_000} />
-                  </div>
+                  <p className="text-[32px] font-bold text-stone-900 leading-none mb-2">
+                    <span className="text-[16px] font-semibold text-stone-500 mr-1">Rp</span>
+                    {formatShortAmount(d.summary.totalNominalSubmitted).value}{" "}
+                    <span className="text-[20px] font-semibold text-stone-500">
+                      {formatShortAmount(d.summary.totalNominalSubmitted).unit}
+                    </span>
+                  </p>
                   <p className="text-[12px] text-stone-400">{d.summary.totalSubmissions} pengajuan</p>
                 </div>
 

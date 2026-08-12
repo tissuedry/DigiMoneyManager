@@ -159,95 +159,56 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const actorKeuangan = isSuperAdmin ? 'Superadmin' : 'Tim Keuangan';
 
       if (action === 'APPROVE') {
-        const debitText = noAkunDebit || `MAIN · ${reimbursement.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'Beban Operasional'} > SUB · ${reimbursement.keteranganAnggaran?.subAnggaran?.namaSub || 'Beban'} > KET · ${reimbursement.keteranganAnggaran?.keterangan || 'Pengeluaran'}`;
-        const kreditText = noAkunKredit || '-';
+        if (!noAkunDebit || !noAkunKredit) {
+          return NextResponse.json({ message: 'noAkunDebit and noAkunKredit are required for disbursement journal' }, { status: 400 });
+        }
+
+        const deb = await prisma.chartOfAccounts.findFirst({ where: { nomorAkun: parseInt(noAkunDebit, 10) } });
+        const kre = await prisma.chartOfAccounts.findFirst({ where: { nomorAkun: parseInt(noAkunKredit, 10) } });
+
+        if (!deb || !kre) {
+          return NextResponse.json({ message: 'Invalid debit or credit account number' }, { status: 400 });
+        }
 
         const result = await prisma.$transaction(async (tx) => {
           const budget = await tx.budget.findUnique({
             where: { proyekId: reimbursement.proyekId },
           });
 
-          if (budget) {
-            const rabTotal = Number(budget.rabTotal);
-            const prevSisa = Number(budget.sisaBudget);
-            
-            const newSisa = prevSisa - nominal;
-            const newPengeluaran = Number(budget.totalPengeluaran) + nominal;
-            const newReimbursementVal = Number(budget.totalReimbursement) + nominal;
-
-            await tx.budget.update({
-              where: { proyekId: reimbursement.proyekId },
-              data: {
-                sisaBudget: newSisa,
-                totalPengeluaran: newPengeluaran,
-                totalReimbursement: newReimbursementVal,
-              },
-            });
-
-            if (rabTotal > 0) {
-              const prevPercentage = (prevSisa / rabTotal) * 100;
-              const newPercentage = (newSisa / rabTotal) * 100;
-              const thresholds = [50, 25, 10, 5, 0];
-              
-              for (const T of thresholds) {
-                if (prevPercentage > T && newPercentage <= T) {
-                  const alertMsg = `PERINGATAN BUDGET: Sisa budget proyek ${reimbursement.proyek.nama} telah mencapai batas/kurang dari ${T}% (Sisa: Rp ${newSisa.toLocaleString()})`;
-                  
-                  const pmUsers = await tx.user.findMany({
-                    where: {
-                      proyek: {
-                        some: {
-                          proyekId: reimbursement.proyekId,
-                          role: 'Project Manager',
-                        },
-                      },
-                    },
-                  });
-
-                  for (const pm of pmUsers) {
-                    await tx.notification.create({
-                      data: {
-                        userId: pm.id,
-                        tipe: 'alert',
-                        pesan: alertMsg,
-                      },
-                    });
-                  }
-
-                  const keuanganUsers = await tx.user.findMany({
-                    where: { role: 'Tim Keuangan' },
-                  });
-
-                  for (const finance of keuanganUsers) {
-                    await tx.notification.create({
-                      data: {
-                        userId: finance.id,
-                        tipe: 'alert',
-                        pesan: alertMsg,
-                      },
-                    });
-                  }
-                }
-              }
-            }
+          if (!budget) {
+            throw new Error(`Budget not configured for project ${reimbursement.proyek.nama}`);
           }
 
-          if (reimbursement.keteranganAnggaranId && reimbursement.keteranganAnggaran) {
-            await tx.keteranganAnggaran.update({
-              where: { id: reimbursement.keteranganAnggaranId },
-              data: {
-                nominalRealisasi: Number(reimbursement.keteranganAnggaran.nominalRealisasi || 0) + nominal,
-              },
-            });
-          }
+          const rabTotal = Number(budget.rabTotal);
+          const prevSisa = Number(budget.sisaBudget);
+          
+          const newSisa = prevSisa - nominal;
+          const newPengeluaran = Number(budget.totalPengeluaran) + nominal;
+          const newReimbursementVal = Number(budget.totalReimbursement) + nominal;
+
+          await tx.budget.update({
+            where: { proyekId: reimbursement.proyekId },
+            data: {
+              sisaBudget: newSisa,
+              totalPengeluaran: newPengeluaran,
+              totalReimbursement: newReimbursementVal,
+            },
+          });
+
+          await tx.keteranganAnggaran.update({
+            where: { id: reimbursement.keteranganAnggaranId },
+            data: {
+              nominalRealisasi: Number(reimbursement.keteranganAnggaran.nominalRealisasi) + nominal,
+            },
+          });
 
           const journal = await tx.jurnalAkuntansi.create({
             data: {
               reimbursementId: parseInt(id, 10),
-              noAkunDebit: debitText,
-              noAkunKredit: kreditText,
+              noAkunDebit: deb.id,
+              noAkunKredit: kre.id,
               nominal,
-              keterangan: `Pencairan ${tipePengajuan} ${id} - ${reimbursement.user.nama} untuk ${reimbursement.keteranganAnggaran?.keterangan || 'Pengajuan'}`,
+              keterangan: `Pencairan ${tipePengajuan} ${id} - ${reimbursement.user.nama} untuk ${reimbursement.keteranganAnggaran.keterangan}`,
             },
           });
 
@@ -289,7 +250,50 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             },
           });
 
+          const prevPercentage = (prevSisa / rabTotal) * 100;
+          const newPercentage = (newSisa / rabTotal) * 100;
+          const thresholds = [50, 25, 10, 5, 0];
+          
+          for (const T of thresholds) {
+            if (prevPercentage > T && newPercentage <= T) {
+              const alertMsg = `PERINGATAN BUDGET: Sisa budget proyek ${reimbursement.proyek.nama} telah mencapai batas/kurang dari ${T}% (Sisa: Rp ${newSisa.toLocaleString()})`;
+              
+              const pmUsers = await tx.user.findMany({
+                where: {
+                  proyek: {
+                    some: {
+                      proyekId: reimbursement.proyekId,
+                      role: 'Project Manager',
+                    },
+                  },
+                },
+              });
 
+              for (const pm of pmUsers) {
+                await tx.notification.create({
+                  data: {
+                    userId: pm.id,
+                    tipe: 'alert',
+                    pesan: alertMsg,
+                  },
+                });
+              }
+
+              const keuanganUsers = await tx.user.findMany({
+                where: { role: 'Tim Keuangan' },
+              });
+
+              for (const finance of keuanganUsers) {
+                await tx.notification.create({
+                  data: {
+                    userId: finance.id,
+                    tipe: 'alert',
+                    pesan: alertMsg,
+                  },
+                });
+              }
+            }
+          }
 
           return { rb, journal };
         });

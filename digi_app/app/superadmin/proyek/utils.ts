@@ -35,10 +35,29 @@ export const formatRupiah = (valStr: string | number | undefined) => {
   }).format(num);
 };
 
-import { formatFullRupiah } from "@/lib/format-nominal";
-
 export const formatSummaryRupiah = (num: number) => {
-  return formatFullRupiah(num);
+  if (!num || num === 0) return "Rp 0";
+  const abs = Math.abs(num);
+  const sign = num < 0 ? "-" : "";
+
+  let formatted = "";
+  if (abs >= 1_000_000_000_000) {
+    const v = Math.round(abs / 1_000_000_000_000);
+    formatted = `${v} t`;
+  } else if (abs >= 1_000_000_000) {
+    const v = Math.round(abs / 1_000_000_000);
+    formatted = `${v} m`;
+  } else if (abs >= 1_000_000) {
+    const v = Math.round(abs / 1_000_000);
+    formatted = `${v} jt`;
+  } else if (abs >= 1_000) {
+    const v = Math.round(abs / 1_000);
+    formatted = `${v} rb`;
+  } else {
+    formatted = Math.round(abs).toLocaleString("id-ID");
+  }
+
+  return `${sign}Rp ${formatted}`;
 };
 
 export const formatRibuan = (value: string) => {

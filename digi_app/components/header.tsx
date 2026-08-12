@@ -234,26 +234,17 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                                   if (msg.includes("disetujui oleh keuangan") || msg.includes("disetujui oleh tim keuangan")) {
                                     return "Reimbursement disetujui Keuangan";
                                   }
-                                  if (msg.includes("realisasi anggaran")) {
-                                    if (msg.includes("dicairkan oleh tim keuangan")) {
-                                      return "Realisasi dicairkan"
-                                    }
-                                    return "Realisasi ditolak"
-                                  }
                                   if (msg.includes("ditolak oleh pm") || msg.includes("ditolak oleh project manager")) {
                                     return "Reimbursement ditolak PM";
                                   }
                                   if (msg.includes("ditolak oleh keuangan") || msg.includes("ditolak oleh tim keuangan")) {
                                     return "Reimbursement ditolak Keuangan";
                                   }
-                                  if (msg.includes("ditolak oleh direktur") && msg.includes("pengajuan")) {
-                                    return "Perubahan Anggaran ditolak Direktur"
-                                  }
                                   if (msg.includes("dicairkan")) {
-                                    return "Reimbursement dicairkan";
+                                    return "Reimbursement Dicairkan";
                                   }
                                   if (msg.includes("ditolak")) {
-                                    return "Reimbursement ditolak";
+                                    return "Reimbursement Ditolak";
                                   }
                                   return "Pemberitahuan Sistem";
                                 })()}

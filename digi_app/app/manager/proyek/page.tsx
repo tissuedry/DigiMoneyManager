@@ -131,7 +131,7 @@ export default function KelolaProyekPage() {
     { deskripsi: "", nominalAlokasi: "" },
   ]);
 
-  const [activeTab, setActiveTab] = useState<"ringkasan" | "anggaran" | "tim" | "pemasukan">("ringkasan");
+  const [activeTab, setActiveTab] = useState<"ringkasan" | "anggaran" | "tim">("ringkasan");
   const [teamRows, setTeamRows] = useState<{ id: string; role: string; userId: string; isLocked: boolean }[]>([
     { id: "row-pm", role: "Project Manager", userId: "", isLocked: true },
     { id: "row-1", role: "", userId: "", isLocked: false }
@@ -182,7 +182,9 @@ export default function KelolaProyekPage() {
 
       const initial: Record<number, boolean> = {};
       list.forEach((prop: any) => {
-        initial[prop.id] = true;
+        (prop.items || []).forEach((it: any) => {
+          initial[it.id] = true;
+        });
       });
       setSelectedPendingIds(initial);
     } catch {
@@ -196,10 +198,24 @@ export default function KelolaProyekPage() {
     if (!detailedProjectInfo) return;
     if (loadingDetail) return;
 
-    const selectedIds = (pendingPengajuan || [])
-      .filter((p: any) => selectedPendingIds[p.id])
-      .map((p: any) => p.id);
-    if (selectedIds.length === 0) return;
+    const selectedItemIds = Object.keys(selectedPendingIds)
+      .map(Number)
+      .filter(id => selectedPendingIds[id]);
+
+    if (selectedItemIds.length === 0) return;
+
+    const itemIdsByProposal = new Map<number, number[]>();
+    const proposalsToProcess = new Set<number>();
+    (pendingPengajuan || []).forEach((prop: any) => {
+      const idsInProp = (prop.items || [])
+        .map((it: any) => it.id)
+        .filter((id: number) => selectedItemIds.includes(id));
+      if (idsInProp.length > 0) {
+        itemIdsByProposal.set(prop.id, idsInProp);
+      }
+    });
+
+    if (itemIdsByProposal.size === 0) return;
 
     setLoadingDetail(true);
     setFormError("");
@@ -207,11 +223,11 @@ export default function KelolaProyekPage() {
 
     try {
       const results = await Promise.all(
-        selectedIds.map((id: number) =>
-          fetch(`/api/pengajuan-anggaran/${id}/review`, {
+        Array.from(itemIdsByProposal.entries()).map(([propId, itemIds]) =>
+          fetch(`/api/pengajuan-anggaran/${propId}/review`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: action, catatan }),
+            body: JSON.stringify({ status: action, catatan, itemIds }),
           })
         )
       );
@@ -219,10 +235,10 @@ export default function KelolaProyekPage() {
       const allOk = results.every(res => res.ok);
       if (allOk) {
         if (action === 'REJECT') {
-          setBulkRejectedCount(selectedIds.length);
+          setBulkRejectedCount(selectedItemIds.length);
           setShowBulkRejectToast(true);
         } else {
-          setBulkApprovedCount(selectedIds.length);
+          setBulkApprovedCount(selectedItemIds.length);
           setShowBulkApproveSuccess(true);
         }
 
@@ -241,7 +257,7 @@ export default function KelolaProyekPage() {
           results.filter(res => !res.ok).map(res => res.json().catch(() => ({})))
         );
         const messages = failedBodies.map((b: any) => b.message).filter(Boolean);
-        const errorText = messages.length > 0 ? messages.join(' ') : "Beberapa pengajuan gagal diproses.";
+        const errorText = messages.length > 0 ? messages.join(' ') : "Beberapa item gagal diproses.";
         setErrorMessage(errorText);
         setFormError(errorText);
       }
@@ -358,20 +374,6 @@ export default function KelolaProyekPage() {
       setActiveTab("ringkasan");
     }
   };
-
-  // Refresh hanya data detail proyek (untuk update setelah aksi termin/alokasi)
-  const refreshDetailedProject = async (proyekId: number) => {
-    try {
-      const res = await fetch(`/api/proyek/${proyekId}`);
-      const data = await res.json();
-      if (res.ok && data.project) {
-        setDetailedProjectInfo(data.project);
-      }
-    } catch {
-      // silent refresh failure
-    }
-  };
-
 
   const handleDirectEdit = (project: Project) => {
     setIsDirectEdit(true);
@@ -1021,7 +1023,6 @@ export default function KelolaProyekPage() {
         setEditMode={setEditMode}
         handleReactivateProject={handleReactivateProject}
         currentStatus={currentStatus}
-        onTerminChanged={() => { if (showProjectDetail) refreshDetailedProject(showProjectDetail.id); }}
       />
 
       <EditProjectModal
@@ -1051,8 +1052,10 @@ export default function KelolaProyekPage() {
         onClose={() => setShowPendingPmModal(false)}
         detailedProjectInfo={detailedProjectInfo}
         pendingPengajuan={pendingPengajuan}
-        selectedIds={selectedPendingIds}
-        setSelectedIds={setSelectedPendingIds}
+        selectedPendingIds={selectedPendingIds}
+        setSelectedPendingIds={setSelectedPendingIds}
+        expandedSub={expandedSub}
+        setExpandedSub={setExpandedSub}
         rejectingPengajuan={rejectingPengajuan}
         setRejectingPengajuan={setRejectingPengajuan}
         rejectionReason={rejectionReason}

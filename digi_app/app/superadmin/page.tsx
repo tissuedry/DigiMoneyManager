@@ -5,7 +5,6 @@ import {
   Wallet, Users, Folder, Inbox, Layers, TrendingUp, Receipt, ArrowRight, Loader2
 } from "lucide-react";
 import Link from "next/link";
-import CompactNominal from "@/components/compact-nominal";
 
 interface DashboardStats {
   totalNilaiProyek: number;
@@ -93,7 +92,7 @@ export default function SuperAdminDashboard() {
       <div className="flex flex-wrap items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-2 bg-[#f2f4f7] px-3 py-1.5 rounded-lg border border-stone-100">
           <Wallet size={16} className="text-blue-500" />
-          <span className="text-sm font-bold text-stone-800"><CompactNominal value={stats.totalNilaiProyek} compactThreshold={100_000_000_000} /></span>
+          <span className="text-sm font-bold text-stone-800">{formatRupiah(stats.totalNilaiProyek)}</span>
           <span className="text-[11px] text-stone-500">Total Nilai Proyek</span>
         </div>
         <div className="flex items-center gap-2 bg-[#e6f4ea] px-3 py-1.5 rounded-lg border border-stone-100">

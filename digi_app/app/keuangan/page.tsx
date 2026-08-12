@@ -17,7 +17,6 @@ import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
-import CompactNominal from "@/components/compact-nominal";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatRupiah(amount: number): string {
@@ -112,28 +111,28 @@ export default function KeuanganDashboardPage() {
   const statCards = [
     {
       label: "Menunggu Pencairan",
-      rawNominal: metrics?.pendingDisbursementsNominal ?? 0,
+      value: formatRupiah(metrics?.pendingDisbursementsNominal ?? 0),
       sub: `${metrics?.pendingDisbursementCount ?? 0} antrian`,
       icon: <Wallet size={18} className="text-stone-500" />,
       iconBg: "bg-stone-100",
     },
     {
       label: "Dicairkan Hari ini",
-      rawNominal: metrics?.disbursedTodayNominal ?? 0,
+      value: formatRupiah(metrics?.disbursedTodayNominal ?? 0),
       sub: `${metrics?.disbursedTodayCount ?? 0} pencairan`,
       icon: <Check size={18} className="text-emerald-600" />,
       iconBg: "bg-emerald-50",
     },
     {
       label: `Jumlah Pencairan (${getCurrentMonthName()})`,
-      stringValue: String(metrics?.jurnalCountThisMonth ?? 0),
+      value: String(metrics?.jurnalCountThisMonth ?? 0),
       sub: "otomatis dari sistem",
       icon: <Notebook size={18} className="text-blue-500" />,
       iconBg: "bg-blue-50",
     },
     {
       label: "Total Dicairkan",
-      rawNominal: metrics?.totalDebit ?? 0,
+      value: formatRupiah(metrics?.totalDebit ?? 0),
       sub: isBalanced ? "✓ Seimbang" : `Selisih: Rp ${selisih.toLocaleString('id-ID')}`,
       icon: isBalanced ? <Check size={18} className="text-emerald-600" /> : <X size={18} className="text-rose-600" />,
       iconBg: isBalanced ? "bg-emerald-50" : "bg-rose-50",
@@ -248,13 +247,9 @@ export default function KeuanganDashboardPage() {
                       </div>
                     </div>
                     <div className="">
-                      <div className="text-[20px] font-bold text-stone-900 leading-tight">
-                        {card.stringValue ? (
-                          card.stringValue
-                        ) : (
-                          <CompactNominal value={card.rawNominal ?? 0} compactThreshold={100_000_000_000} />
-                        )}
-                      </div>
+                      <p className="text-[20px] font-bold text-stone-900 leading-tight">
+                        {card.value}
+                      </p>
                       <p className="text-[11px] text-stone-400 mt-1 font-medium">
                         {card.sub}
                       </p>
@@ -284,7 +279,7 @@ export default function KeuanganDashboardPage() {
                     </Link>
                   </div>
 
-                  <div className="divide-y divide-stone-200/80 overflow-y-auto max-h-105">
+                  <div className="divide-y divide-stone-100 overflow-y-auto max-h-105">
                     {pencairanList.length === 0 ? (
                       <div className="px-6 py-12 text-center">
                         <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto mb-3">
@@ -322,7 +317,7 @@ export default function KeuanganDashboardPage() {
                             {/* Nominal + Tombol Cairkan */}
                             <div className="flex items-center gap-3 shrink-0">
                               <span className="text-[13px] font-bold text-stone-800 tabular-nums">
-                                <CompactNominal value={item.nominal} compactThreshold={100_000_000_000_000} />
+                                {formatRupiah(item.nominal)}
                               </span>
                               <Link
                                 href={`/keuangan/pencairan?id=${item.id}`}
@@ -350,7 +345,7 @@ export default function KeuanganDashboardPage() {
                     </div>
                   </div>
 
-                  <div className="divide-y divide-stone-200/80 overflow-y-auto max-h-[420px]">
+                  <div className="divide-y divide-stone-100 overflow-y-auto max-h-[420px]">
                     {jurnalList.length === 0 ? (
                       <div className="px-6 py-12 text-center">
                         <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto mb-3">
@@ -363,11 +358,11 @@ export default function KeuanganDashboardPage() {
                       jurnalList.map((entry, idx) => (
                         <div key={idx} className="px-6 py-4 hover:bg-stone-50/80 transition-colors duration-150">
                           {/* JE header row */}
-                          <div className="flex items-center justify-between mb-2 leading-none">
-                            <span className="text-[11px] font-mono text-stone-500 bg-stone-100/80 border border-stone-200/60 px-2 py-1 rounded-md font-semibold inline-flex items-center">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-mono text-stone-400 bg-stone-50 px-2 py-0.5 rounded">
                               {entry.jeId}
                             </span>
-                            <span className="text-[11px] text-stone-400 font-medium inline-flex items-center">
+                            <span className="text-[11px] text-stone-400 font-medium">
                               {formatTanggal(entry.tanggal)}
                             </span>
                           </div>
@@ -381,23 +376,23 @@ export default function KeuanganDashboardPage() {
                           <div className="bg-stone-50/70 rounded-lg border border-stone-100 px-3.5 py-2.5 space-y-1.5">
                             {/* Debit line */}
                             <div className="flex justify-between items-center text-[11px]">
-                              <span className="text-stone-600 font-medium truncate max-w-[65%]">
+                              <span className="text-stone-600 font-medium">
                                 <span className="inline-flex items-center justify-center w-5 h-4 bg-emerald-100 text-emerald-700 font-bold text-[9px] rounded mr-1.5">Dr</span>
                                 {entry.debitKode} {entry.debitNama}
                               </span>
-                              <span className="text-stone-800 font-bold tabular-nums shrink-0 ml-2">
-                                <CompactNominal value={entry.nominal} compactThreshold={100_000_000} />
+                              <span className="text-stone-800 font-bold tabular-nums">
+                                Rp {entry.nominal.toLocaleString("id-ID")}
                               </span>
                             </div>
 
                             {/* Kredit line — indented per accounting convention */}
                             <div className="flex justify-between items-center text-[11px] pl-4">
-                              <span className="text-stone-500 font-medium truncate max-w-[65%]">
+                              <span className="text-stone-500 font-medium">
                                 <span className="inline-flex items-center justify-center w-5 h-4 bg-blue-100 text-blue-700 font-bold text-[9px] rounded mr-1.5">Cr</span>
                                 {entry.kreditKode} {entry.kreditNama}
                               </span>
-                              <span className="text-stone-600 font-semibold tabular-nums shrink-0 ml-2">
-                                <CompactNominal value={entry.nominal} compactThreshold={100_000_000} />
+                              <span className="text-stone-600 font-semibold tabular-nums">
+                                Rp {entry.nominal.toLocaleString("id-ID")}
                               </span>
                             </div>
                           </div>

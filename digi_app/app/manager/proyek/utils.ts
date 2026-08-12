@@ -35,27 +35,36 @@ export const formatRupiah = (valStr: string | number | undefined) => {
   }).format(num);
 };
 
-import { formatFullRupiah } from "@/lib/format-nominal";
-
 export const formatSummaryRupiah = (num: number) => {
-  return formatFullRupiah(num);
+  if (!num || num === 0) return "Rp 0";
+  const abs = Math.abs(num);
+  const sign = num < 0 ? "-" : "";
+
+  let formatted = "";
+  if (abs >= 1_000_000_000_000) {
+    const v = Math.round(abs / 1_000_000_000_000);
+    formatted = `${v} t`;
+  } else if (abs >= 1_000_000_000) {
+    const v = Math.round(abs / 1_000_000_000);
+    formatted = `${v} m`;
+  } else if (abs >= 1_000_000) {
+    const v = Math.round(abs / 1_000_000);
+    formatted = `${v} jt`;
+  } else if (abs >= 1_000) {
+    const v = Math.round(abs / 1_000);
+    formatted = `${v} rb`;
+  } else {
+    formatted = Math.round(abs).toLocaleString("id-ID");
+  }
+
+  return `${sign}Rp ${formatted}`;
 };
 
-export function formatRibuan(value: string): string;
-export function formatRibuan(value: string, caretPos: number): { formatted: string; caret: number };
-export function formatRibuan(value: string, caretPos?: number) {
+export const formatRibuan = (value: string) => {
   const angkaMurni = value.replace(/[^0-9]/g, "");
-  const formatted = angkaMurni ? angkaMurni.replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
-  if (caretPos === undefined) return formatted;
-  const digitsBefore = value.slice(0, caretPos).replace(/[^0-9]/g, "").length;
-  let caret = 0;
-  let digits = 0;
-  for (let i = 0; i < formatted.length && digits < digitsBefore; i++) {
-    caret++;
-    if (/[0-9]/.test(formatted[i])) digits++;
-  }
-  return { formatted, caret };
-}
+  if (!angkaMurni) return "";
+  return angkaMurni.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
 
 export const ribuanToNumber = (stringRibuan: string) => {
   if (!stringRibuan) return 0;

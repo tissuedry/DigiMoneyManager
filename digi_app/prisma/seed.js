@@ -30,10 +30,25 @@ async function main() {
   await prisma.auditTrail.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.chartOfAccounts.deleteMany();
 
   // 2. Hash default passwords
   console.log('Hashing passwords...');
   const hashedPassword = await bcrypt.hash('password123', 10);
+
+  // 3. Create Chart of Accounts (CoA)
+  console.log('Seeding Chart of Accounts (CoA)...');
+  const coaData = [
+    { id: 'COA-KAS', nomorAkun: 10000, namaAkun: 'Kas & Bank', tipe: 'Asset', standar: 'IFRS' },
+    { id: 'COA-EXP-ATK', nomorAkun: 50001, namaAkun: 'Beban Perlengkapan & ATK', tipe: 'Expense', standar: 'IFRS' },
+    { id: 'COA-EXP-SIPIL', nomorAkun: 50002, namaAkun: 'Beban Bahan Bangunan & Sipil', tipe: 'Expense', standar: 'IFRS' },
+    { id: 'COA-EXP-LOG', nomorAkun: 50003, namaAkun: 'Beban Transportasi & Logistik', tipe: 'Expense', standar: 'IFRS' },
+    { id: 'COA-LIAB', nomorAkun: 21000, namaAkun: 'Utang Reimbursement Karyawan', tipe: 'Liability', standar: 'IFRS' },
+  ];
+
+  for (const coa of coaData) {
+    await prisma.chartOfAccounts.create({ data: coa });
+  }
 
   // 4. Create default active project (Proyek)
   console.log('Seeding initial project...');

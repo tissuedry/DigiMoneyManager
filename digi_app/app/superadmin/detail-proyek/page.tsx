@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import DetailAnggaranModal from "./DetailAnggaran";
-import AlokasiPosModal from "./AlokasiPos";
+import AjukanPosModal from "./AjukanPos";
 import AjukanRealisasiModal from "./AjukanRealisasi";
 import EditProyekModal from "./EditProyek";
 import ProyekSkeleton from "./ProyekSkeleton";
@@ -265,7 +265,7 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
 
 export default function KelolaProyekPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
+  const [isAjukanOpen, setIsAjukanOpen] = useState(false);
   const [isAjukanRealisasiOpen, setIsAjukanRealisasiOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -300,7 +300,6 @@ export default function KelolaProyekPage() {
   const [savingTim, setSavingTim] = useState(false);
   const [showSaveTimConfirm, setShowSaveTimConfirm] = useState(false);
   const [showSaveTimToast, setShowSaveTimToast] = useState(false);
-  const [alokasiSuccessToast, setAlokasiSuccessToast] = useState("");
   const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -403,7 +402,7 @@ export default function KelolaProyekPage() {
               <div>
                 <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
                 <p className="text-sm text-stone-500 mt-1">
-                  Pantau anggaran, alokasikan pos baru, dan kelola tim untuk proyekmu.
+                  Pantau anggaran, ajukan pos baru, dan kelola tim untuk proyekmu.
                 </p>
               </div>
 
@@ -518,11 +517,11 @@ export default function KelolaProyekPage() {
                       Lihat Detail Anggaran
                     </button>
                     <button
-                      onClick={() => setIsAlokasiOpen(true)}
+                      onClick={() => setIsAjukanOpen(true)}
                       className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
                     >
                       <Plus size={13} />
-                      Alokasi Pos
+                      Ajukan Pos
                     </button>
                     <button
                       onClick={() => setIsAjukanRealisasiOpen(true)}
@@ -690,20 +689,15 @@ export default function KelolaProyekPage() {
         />
       )}
 
-      {/* Alokasi Pos Modal */}
-      {isAlokasiOpen && proyek && (
-        <AlokasiPosModal
+      {/* Ajukan Pos Modal */}
+      {isAjukanOpen && proyek && (
+        <AjukanPosModal
           proyekId={proyek.id}
           proyekNama={proyek.nama}
           totalRAB={proyek.totalRAB}
           realisasi={proyek.realisasi}
           posAnggaran={proyek.posAnggaran}
-          onClose={() => setIsAlokasiOpen(false)}
-          onSuccess={(msg) => {
-            invalidate("/api/pm/proyek");
-            refetch();
-            if (msg) setAlokasiSuccessToast(msg);
-          }}
+          onClose={() => setIsAjukanOpen(false)}
         />
       )}
 
@@ -749,12 +743,6 @@ export default function KelolaProyekPage() {
         open={showSaveTimToast}
         message="Anggota tim proyek berhasil disimpan."
         onClose={() => setShowSaveTimToast(false)}
-      />
-
-      <Toast
-        open={!!alokasiSuccessToast}
-        message={alokasiSuccessToast}
-        onClose={() => setAlokasiSuccessToast("")}
       />
 
       <Toast

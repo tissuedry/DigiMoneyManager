@@ -17,68 +17,84 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('Memulai proses penambahan Master Data...');
 
-  // --- 5.1 BIAYA MARKETING PROYEK (PENGELUARAN) ---
+  // --- 5.1 BIAYA MARKETING PROYEK ---
   console.log('Menambahkan data 5.1...');
   const main51 = await prisma.masterMain.create({
-    data: { nama: 'BIAYA MARKETING PROYEK', tipe: 'pengeluaran' }
+    data: { nama: 'BIAYA MARKETING PROYEK' }
   });
   await prisma.masterSub.createMany({
     data: [
-      { mainId: main51.id, nama: 'Biaya Marketing Proyek', tipe: 'pengeluaran' },
-      { mainId: main51.id, nama: 'Biaya Marketing Proyek Lainnya', tipe: 'pengeluaran' },
+      { mainId: main51.id, nama: 'Biaya Marketing Proyek' },
+      { mainId: main51.id, nama: 'Biaya Marketing Proyek Lainnya' },
     ]
   });
 
-  // --- 5.2 BIAYA ADMINISTRASI PROYEK (PENGELUARAN) ---
+  // --- 5.2 BIAYA ADMINISTRASI PROYEK ---
   console.log('Menambahkan data 5.2...');
   const main52 = await prisma.masterMain.create({
-    data: { nama: 'BIAYA ADMINISTRASI PROYEK', tipe: 'pengeluaran' }
+    data: { nama: 'BIAYA ADMINISTRASI PROYEK' }
   });
   await prisma.masterSub.createMany({
     data: [
-      { mainId: main52.id, nama: 'Biaya Jaminan Proyek', tipe: 'pengeluaran' },
-      { mainId: main52.id, nama: 'Pembuatan Dokumen Kontrak', tipe: 'pengeluaran' },
-      { mainId: main52.id, nama: 'Biaya Administrasi Proyek Lainnya', tipe: 'pengeluaran' },
+      { mainId: main52.id, nama: 'Biaya Jaminan Proyek' },
+      { mainId: main52.id, nama: 'Pembuatan Dokumen Kontrak' },
+      { mainId: main52.id, nama: 'Biaya Administrasi Proyek Lainnya' },
     ]
   });
 
-  // --- 5.3 BIAYA PRODUKSI PROYEK (PENGELUARAN) ---
+  // --- 5.3 BIAYA PRODUKSI PROYEK ---
   console.log('Menambahkan data 5.3...');
   const main53 = await prisma.masterMain.create({
-    data: { nama: 'BIAYA PRODUKSI PROYEK', tipe: 'pengeluaran' }
+    data: { nama: 'BIAYA PRODUKSI PROYEK' }
   });
 
-  await prisma.masterSub.createMany({
+  // 5.3.01 Biaya Personil
+  const sub5301 = await prisma.masterSub.create({
+    data: { mainId: main53.id, nama: 'Biaya Personil' }
+  });
+  await prisma.masterKeterangan.createMany({
     data: [
-      { mainId: main53.id, nama: 'Biaya Personil', tipe: 'pengeluaran' },
-      { mainId: main53.id, nama: 'Biaya Non Personil', tipe: 'pengeluaran' },
-      { mainId: main53.id, nama: 'Biaya Pengadaan Barang dan Jasa', tipe: 'pengeluaran' },
-      { mainId: main53.id, nama: 'Biaya Garansi', tipe: 'pengeluaran' },
+      { subId: sub5301.id, nama: 'Gaji Personil' },
+      { subId: sub5301.id, nama: 'Biaya Personil lainnya' },
     ]
   });
 
-  // --- 1.1 KAS & BANK (PEMASUKAN / ASET) ---
-  console.log('Menambahkan data Master Pemasukan (Kas & Bank)...');
-  const mainKas = await prisma.masterMain.create({
-    data: { nama: 'Kas & Bank', tipe: 'pemasukan' }
+  // 5.3.02 Biaya Non Personil
+  const sub5302 = await prisma.masterSub.create({
+    data: { mainId: main53.id, nama: 'Biaya Non Personil' }
   });
-  await prisma.masterSub.createMany({
+  await prisma.masterKeterangan.createMany({
     data: [
-      { mainId: mainKas.id, nama: 'BCA', tipe: 'pemasukan' },
-      { mainId: mainKas.id, nama: 'Mandiri', tipe: 'pemasukan' },
-      { mainId: mainKas.id, nama: 'BRI', tipe: 'pemasukan' },
-      { mainId: mainKas.id, nama: 'Kas Kecil', tipe: 'pemasukan' },
+      { subId: sub5302.id, nama: 'Biaya Perjalanan Dinas' },
+      { subId: sub5302.id, nama: 'Biaya Pembahasan / Presentasi' },
+      { subId: sub5302.id, nama: 'Biaya Pelaporan' },
+      { subId: sub5302.id, nama: 'Biaya Pelatihan' },
+      { subId: sub5302.id, nama: 'Biaya Sosialisasi' },
+      { subId: sub5302.id, nama: 'Biaya Non Personil Lainnya' },
     ]
   });
 
-  // --- 1.2 PENDAPATAN PROYEK (PEMASUKAN) ---
-  const mainPendapatan = await prisma.masterMain.create({
-    data: { nama: 'Pendapatan Proyek', tipe: 'pemasukan' }
+  // 5.3.03 Biaya Pengadaan Barang dan Jasa
+  const sub5303 = await prisma.masterSub.create({
+    data: { mainId: main53.id, nama: 'Biaya Pengadaan Barang dan Jasa' }
   });
-  await prisma.masterSub.createMany({
+  await prisma.masterKeterangan.createMany({
     data: [
-      { mainId: mainPendapatan.id, nama: 'Termin 1 (DP)', tipe: 'pemasukan' },
-      { mainId: mainPendapatan.id, nama: 'Termin Pelunasan', tipe: 'pemasukan' },
+      { subId: sub5303.id, nama: 'Pembelian Barang Kena Pajak' },
+      { subId: sub5303.id, nama: 'Pembelian Jasa Kena Pajak' },
+      { subId: sub5303.id, nama: 'Pembelian Software' },
+      { subId: sub5303.id, nama: 'Pengadaan Jaringan' },
+    ]
+  });
+
+  // 5.3.04 Biaya Garansi
+  const sub5304 = await prisma.masterSub.create({
+    data: { mainId: main53.id, nama: 'Biaya Garansi' }
+  });
+  await prisma.masterKeterangan.createMany({
+    data: [
+      { subId: sub5304.id, nama: 'Gaji Personil' },
+      { subId: sub5304.id, nama: 'Biaya Perjalanan Dinas' },
     ]
   });
 

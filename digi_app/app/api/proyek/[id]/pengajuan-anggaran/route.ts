@@ -1,23 +1,25 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-type ValidateArgs = { rabTotal: number; sumLain: number; alokasiBaru: number; sumSub: number };
-
-export function validateAlokasi({ rabTotal, sumLain, alokasiBaru, sumSub }: ValidateArgs): boolean {
-  if (alokasiBaru < sumSub) return false;
-  if (sumLain + alokasiBaru > rabTotal) return false;
-  return true;
-}
-
-async function isPMOrSuperAdmin(userId: string | null, userRole: string | null, proyekId: number) {
-  const isSuper = userRole === 'Superadmin' || userRole === 'superadmin';
-  if (isSuper) return true;
+async function verifyCanAccessPengajuan(userId: string | null, userRole: string | null, proyekId: number) {
+  if (
+    userRole === 'Direktur / Manajemen' ||
+    userRole === 'Superadmin' ||
+    userRole === 'superadmin'
+  ) 
+  {
+    return true;
+  }
+  
   if (!userId) return false;
-  return !!(await prisma.userProyek.findFirst({
+  
+  const up = await prisma.userProyek.findFirst({
     where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
-  }));
+  });
+  return !!up;
 }
 
+// POST: PM atau Super Admin mengajukan proposal perubahan anggaran
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -25,68 +27,86 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    if (!(await isPMOrSuperAdmin(userId, userRole, proyekId))) {
-      return NextResponse.json({ message: 'Forbidden: Only the assigned Project Manager or Super Admin can submit proposals' }, { status: 403 });
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Superadmin' || userRole === 'superadmin';
+    const isPM = userId ? await prisma.userProyek.findFirst({
+      where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' },
+    }) : false;
+
+    if (!isPM && !isSuperAdmin) {
+      return NextResponse.json(
+        { message: 'Forbidden: Only the assigned Project Manager or Super Admin can submit proposals' },
+        { status: 403 },
+      );
     }
 
     const body = await req.json();
-    const { mainAnggaranId, alokasiBaru, catatan } = body;
-    const alokasi = Number(alokasiBaru);
+    const { judul, deskripsi, items } = body;
 
-    if (!mainAnggaranId || alokasi == null || alokasi < 0) {
-      return NextResponse.json({ message: 'mainAnggaranId and alokasiBaru (>= 0) are required' }, { status: 400 });
+    if (!judul?.trim() || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { message: 'judul and items (non-empty array) are required' },
+        { status: 400 },
+      );
     }
 
-    const budget = await prisma.budget.findUnique({ where: { proyekId } });
-    if (!budget) return NextResponse.json({ message: 'Budget untuk proyek ini belum diinisialisasi' }, { status: 400 });
+    for (const [i, item] of items.entries()) {
+      if (!['MAIN_ANGGARAN', 'SUB_ANGGARAN', 'KETERANGAN'].includes(item.tipe)) {
+        return NextResponse.json({ message: `items[${i}].tipe must be MAIN_ANGGARAN, SUB_ANGGARAN or KETERANGAN` }, { status: 400 });
+      }
+      if (!['TAMBAH', 'UBAH', 'HAPUS'].includes(item.aksi)) {
+        return NextResponse.json({ message: `items[${i}].aksi must be TAMBAH, UBAH, or HAPUS` }, { status: 400 });
+      }
+      if (item.aksi === 'TAMBAH' && item.tipe !== 'MAIN_ANGGARAN' && !item.parentId) {
+        return NextResponse.json({ message: `items[${i}].parentId required for TAMBAH` }, { status: 400 });
+      }
+      if (item.aksi === 'UBAH' && !item.targetId) {
+        return NextResponse.json({ message: `items[${i}].targetId required for UBAH` }, { status: 400 });
+      }
+      if (item.aksi === 'HAPUS' && !item.targetId) {
+        return NextResponse.json({ message: `items[${i}].targetId required for HAPUS` }, { status: 400 });
+      }
+      
+      if (['TAMBAH', 'UBAH'].includes(item.aksi)) {
 
-    const main = await prisma.mainAnggaran.findUnique({
-      where: { id: Number(mainAnggaranId) },
-      include: { subAnggaran: { select: { nominalAlokasi: true } } },
-    });
-    if (!main) return NextResponse.json({ message: 'MainAnggaran not found' }, { status: 404 });
-    if (main.budgetId !== budget.id) {
-      return NextResponse.json({ message: 'MainAnggaran tidak berada di proyek ini' }, { status: 400 });
-    }
+        if (!item.nama?.trim()) {
+          return NextResponse.json({ message: `items[${i}].nama is required for ${item.aksi}` }, { status: 400 });
+        }
 
-    const existing = await prisma.pengajuanAnggaran.findFirst({
-      where: { mainAnggaranId: Number(mainAnggaranId), status: 'PENDING' },
-    });
-    if (existing) {
-      return NextResponse.json({ message: 'Main anggaran ini masih memiliki pengajuan yang menunggu persetujuan' }, { status: 409 });
-    }
-
-    const others = await prisma.mainAnggaran.aggregate({
-      where: { budgetId: budget.id, id: { not: Number(mainAnggaranId) } },
-      _sum: { nominalAlokasi: true },
-    });
-    const sumLain = Number(others._sum.nominalAlokasi || 0);
-    const sumSub = main.subAnggaran.reduce((s, sub) => s + Number(sub.nominalAlokasi), 0);
-    const rabTotal = Number(budget.rabTotal);
-
-    if (!validateAlokasi({ rabTotal, sumLain, alokasiBaru: alokasi, sumSub })) {
-      return NextResponse.json({
-        message: `Alokasi baru tidak valid: tidak boleh kurang dari total alokasi sub (Rp ${sumSub.toLocaleString('id-ID')}) dan total seluruh main tidak boleh melebihi Nilai Proyek (Rp ${rabTotal.toLocaleString('id-ID')})`,
-      }, { status: 400 });
+        if (item.nominalAlokasi == null || Number(item.nominalAlokasi) < 0) {
+          return NextResponse.json({ message: `items[${i}].nominalAlokasi must be a non-negative number for ${item.aksi}` }, { status: 400 });
+        }
+      }
     }
 
     const pengajuan = await prisma.pengajuanAnggaran.create({
       data: {
         proyekId,
         pengajuId: parseInt(userId!, 10),
-        mainAnggaranId: Number(mainAnggaranId),
-        judul: `Perubahan alokasi anggaran: ${main.namaMain}`,
-        deskripsi: catatan?.trim() || null,
-        alokasiLama: main.nominalAlokasi,
-        alokasiBaru: alokasi,
+        judul: judul.trim(),
+        deskripsi: deskripsi?.trim() || null,
+        items: {
+          create: items.map((item: any) => ({
+            tipe: item.tipe,
+            aksi: item.aksi,
+            targetId: item.targetId || null,
+            parentId: item.parentId || null,
+            nama: item.nama?.trim() || null,
+            nominalAlokasi: item.nominalAlokasi != null ? Number(item.nominalAlokasi) : null,
+          })),
+        },
       },
-      include: { pengaju: { select: { id: true, nama: true } }, mainAnggaran: { select: { id: true, namaMain: true } } },
+      include: { items: true },
     });
 
     const reviewers = await prisma.user.findMany({
-      where: { role: { in: ['Direktur / Manajemen', 'Superadmin', 'superadmin'] } },
+      where: { 
+        role: { 
+          in: ['Direktur / Manajemen', 'Superadmin', 'superadmin'] 
+        } 
+      },
       select: { id: true },
     });
+    
     if (reviewers.length > 0) {
       await prisma.notification.createMany({
         data: reviewers.map((u) => ({
@@ -97,7 +117,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
     }
 
-    return NextResponse.json({ message: 'Pengajuan perubahan alokasi berhasil dikirim', pengajuan }, { status: 201 });
+    return NextResponse.json({ message: 'Pengajuan anggaran berhasil dikirim', pengajuan }, { status: 201 });
+
   } catch (error) {
     console.error('Create pengajuan error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -105,6 +126,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
+// GET: Daftar pengajuan anggaran untuk proyek ini
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -112,29 +134,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    const isSuper = userRole === 'Direktur / Manajemen' || userRole === 'Superadmin' || userRole === 'superadmin';
-    const isPM = userId
-      ? await prisma.userProyek.findFirst({ where: { userId: parseInt(userId, 10), proyekId, role: 'Project Manager' } })
-      : null;
-    if (!isSuper && !isPM) {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    // Otomatis tervalidasi jika PM, Direktur, atau Super Admin
+    if (!(await verifyCanAccessPengajuan(userId, userRole, proyekId))) {
+      return NextResponse.json(
+        { message: 'Forbidden: Only the assigned Project Manager, Direktur, or Super Admin can view proposals' },
+        { status: 403 },
+      );
     }
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
+
     const where: any = { proyekId };
     if (status) where.status = status;
 
     const list = await prisma.pengajuanAnggaran.findMany({
       where,
       include: {
+        items: true,
         pengaju: { select: { id: true, nama: true } },
-        mainAnggaran: { select: { id: true, namaMain: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json({ pengajuan: list });
+    
   } catch (error) {
     console.error('Get pengajuan list error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

@@ -42,7 +42,7 @@ export default function InitBudgetModal({
     async function fetchMasterMain() {
       setLoadingOptions(true);
       try {
-        const res = await fetch("/api/master?tipe=pengeluaran");
+        const res = await fetch("/api/master");
         if (res.ok && isMounted) {
           const data = await res.json();
           // Memastikan data yang dimasukkan ke state selalu berbentuk array
@@ -186,13 +186,7 @@ export default function InitBudgetModal({
                   type="text"
                   required
                   value={rabTotal}
-                  onChange={(e) => {
-                          const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
-                    setRabTotal(formatted);
-                    requestAnimationFrame(() => {
-                      e.target.setSelectionRange(caret, caret);
-                    });
-                  }}
+                  onChange={(e) => setRabTotal(formatRibuan(e.target.value))}
                   style={{
                     flex: 1,
                     border: 'none',
@@ -350,12 +344,8 @@ export default function InitBudgetModal({
                         value={pos.nominalAlokasi}
                         onChange={(e) => {
                           const newList = [...posAnggaranList];
-                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
-                          newList[idx].nominalAlokasi = formatted;
+                          newList[idx].nominalAlokasi = formatRibuan(e.target.value);
                           setPosAnggaranList(newList);
-                          requestAnimationFrame(() => {
-                            e.target.setSelectionRange(caret, caret);
-                          });
                         }}
                         placeholder="Alokasi (Rp)"
                         className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[13px] bg-white font-mono text-stone-900 font-bold text-left focus:outline-none focus:border-stone-400 placeholder-stone-300"

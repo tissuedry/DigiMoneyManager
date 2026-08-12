@@ -5,32 +5,37 @@ import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
-import { formatFullRupiah } from "@/lib/format-nominal";
 
-type AlokasiKet = {
+type AjukanKet = {
   id: number;
   nama: string;
   alokasi: number;
   isDraft?: boolean;
   isLocalDraft?: boolean;
+  isPendingServer?: boolean;
+  status?: string;
 };
 
-type AlokasiSub = {
+type AjukanSub = {
   id: number;
   nama: string;
   alokasi: number;
+  status?: string;
   isDraft?: boolean;
   isLocalDraft?: boolean;
-  keterangan: AlokasiKet[];
+  isPendingServer?: boolean;
+  keterangan: AjukanKet[];
 };
 
-type AlokasiMain = {
+type AjukanMain = {
   id: number;
   nama: string;
   alokasi: number;
+  status?: string;
   isDraft?: boolean;
   isLocalDraft?: boolean;
-  subPos: AlokasiSub[];
+  isPendingServer?: boolean;
+  subPos: AjukanSub[];
 };
 
 let draftIdCounter = Date.now();
@@ -39,9 +44,9 @@ const generateDraftId = () => {
   return draftIdCounter;
 };
 
-const DRAFT_STORAGE_KEY = (pId: number) => `digi_alokasi_drafts_${pId}`;
+const DRAFT_STORAGE_KEY = (pId: number) => `digi_ajukan_drafts_${pId}`;
 
-const saveDraftsToStorage = (pId: number, dataList: AlokasiMain[]) => {
+const saveDraftsToStorage = (pId: number, dataList: AjukanMain[]) => {
   if (typeof window === "undefined") return;
   const draftMains: { id: number; nama: string; alokasi: number }[] = [];
   const draftSubs: { mainId: number; mainNama?: string; id: number; nama: string; alokasi: number }[] = [];
@@ -83,17 +88,24 @@ const getDraftsFromStorage = (pId: number) => {
 };
 
 const formatShort = (v: number): string => {
-  return formatFullRupiah(v);
+  const abs = Math.abs(v);
+  if (abs >= 100_000_000_000_000) {
+    const triliun = Math.floor(abs / 1_000_000_000_000);
+    return v < 0 ? `-${triliun} T` : `${triliun} T`;
+  }
+  if (v < 0) {
+    return `-Rp ${abs.toLocaleString("id-ID")}`;
+  }
+  return `Rp ${v.toLocaleString("id-ID")}`;
 };
 
-export default function AlokasiPosModal({
+export default function AjukanPosModal({
   proyekId,
   proyekNama,
   totalRAB,
   realisasi,
   posAnggaran,
   onClose,
-  onSuccess,
 }: {
   proyekId: number;
   proyekNama: string;
@@ -101,12 +113,13 @@ export default function AlokasiPosModal({
   realisasi: number;
   posAnggaran: any[];
   onClose: () => void;
-  onSuccess?: (message?: string) => void;
 }) {
-  const [data, setData] = useState<AlokasiMain[]>(() => []);
+  // Build initial data from API
+  const [data, setData] = useState<AjukanMain[]>(() => []);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [pendingItems, setPendingItems] = useState<any[]>([]);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
   const [pendingSubmitItems, setPendingSubmitItems] = useState<any[]>([]);
@@ -116,7 +129,7 @@ export default function AlokasiPosModal({
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    const mapped: AlokasiMain[] = posAnggaran.map((main) => ({
+    const mapped: AjukanMain[] = posAnggaran.map((main) => ({
       id: main.id,
       nama: main.nama,
       alokasi: main.alokasi,
@@ -138,12 +151,14 @@ export default function AlokasiPosModal({
 
     (savedDrafts.mains || []).forEach((dMain: any) => {
       if (!mapped.some((m) => m.nama.toUpperCase().trim() === dMain.nama.toUpperCase().trim())) {
-        const id = dMain.id || generateDraftId();
+        const id = dMain.id || Date.now();
         mapped.push({
           id,
           nama: dMain.nama,
           alokasi: dMain.alokasi,
+          status: "DRAFT",
           isLocalDraft: true,
+          isPendingServer: false,
           subPos: [],
         });
         autoExpandMains[id] = true;
@@ -156,10 +171,12 @@ export default function AlokasiPosModal({
         autoExpandMains[main.id] = true;
         if (!main.subPos.some((s) => s.nama.toUpperCase().trim() === dSub.nama.toUpperCase().trim())) {
           main.subPos.push({
-            id: dSub.id || generateDraftId(),
+            id: dSub.id || Date.now(),
             nama: dSub.nama,
             alokasi: dSub.alokasi,
+            status: "DRAFT",
             isLocalDraft: true,
+            isPendingServer: false,
             keterangan: [],
           });
         }
@@ -175,10 +192,11 @@ export default function AlokasiPosModal({
           autoExpandMains[main.id] = true;
           if (!sub.keterangan.some((k) => k.nama.toUpperCase().trim() === dKet.nama.toUpperCase().trim())) {
             sub.keterangan.push({
-              id: dKet.id || generateDraftId(),
+              id: dKet.id || Date.now(),
               nama: dKet.nama,
               alokasi: dKet.alokasi,
               isLocalDraft: true,
+              isPendingServer: false,
             });
           }
           break;
@@ -214,13 +232,134 @@ export default function AlokasiPosModal({
 
   // Master data states for dropdowns
   const [masterMainList, setMasterMainList] = useState<any[]>([]);
-  const [subOptions, setSubOptions] = useState<Record<number, any[]>>({});
+  const [subOptions, setSubOptions] = useState<Record<number, any[]>>({}); // mainId -> MasterSub[]
   const [loadingSubOptions, setLoadingSubOptions] = useState<Record<number, boolean>>({});
+  const [ketOptions, setKetOptions] = useState<Record<number, any[]>>({}); // subId -> MasterKeterangan[]
+  const [loadingKetOptions, setLoadingKetOptions] = useState<Record<number, boolean>>({});
+
+  // Fetch pending pengajuan items untuk merge ke tree & cek duplikasi
+  useEffect(() => {
+    const fetchPendingItems = async () => {
+      try {
+        const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran?status=PENDING`);
+        if (res.ok) {
+          const result = await res.json();
+          const allItems = (result.pengajuan || []).flatMap((p: any) =>
+            (p.items || []).map((item: any) => ({ ...item, pengajuanId: p.id, judul: p.judul }))
+          );
+          setPendingItems(allItems);
+
+          // Merge pending items from server into data tree
+          setData((prevData) => {
+            let changed = false;
+            const autoExpandMains: Record<number, boolean> = {};
+            const updatedData = [...prevData];
+
+            // 0. Pending MAIN_ANGGARAN
+            allItems
+              .filter((item: any) => item.tipe === "MAIN_ANGGARAN")
+              .forEach((item: any) => {
+                const targetId = item.targetId || item.id || Date.now();
+                autoExpandMains[targetId] = true;
+                if (!updatedData.some((m) => m.nama.toUpperCase().trim() === item.nama?.toUpperCase().trim())) {
+                  updatedData.push({
+                    id: targetId,
+                    nama: item.nama,
+                    alokasi: Number(item.nominalAlokasi) || 0,
+                    status: "MENUNGGU",
+                    isLocalDraft: false,
+                    isPendingServer: true,
+                    subPos: [],
+                  });
+                  changed = true;
+                }
+              });
+
+            const updated = updatedData.map((main) => {
+              const subList = [...main.subPos];
+
+              // 1. Pending SUB_ANGGARAN
+              allItems
+                .filter(
+                  (item: any) =>
+                    item.tipe === "SUB_ANGGARAN" &&
+                    (item.parentId === main.id ||
+                      allItems.some(
+                        (pMain: any) =>
+                          pMain.tipe === "MAIN_ANGGARAN" &&
+                          pMain.nama?.toUpperCase().trim() === main.nama.toUpperCase().trim() &&
+                          pMain.targetId === item.parentId
+                      ))
+                )
+                .forEach((item: any) => {
+                  autoExpandMains[main.id] = true;
+                  if (!subList.some((s) => s.nama.toUpperCase().trim() === item.nama?.toUpperCase().trim())) {
+                    subList.push({
+                      id: item.targetId || Date.now(),
+                      nama: item.nama,
+                      alokasi: Number(item.nominalAlokasi) || 0,
+                      status: "MENUNGGU",
+                      isLocalDraft: false,
+                      isPendingServer: true,
+                      keterangan: [],
+                    });
+                    changed = true;
+                  }
+                });
+
+              // 2. Pending KETERANGAN
+              const finalSubList = subList.map((sub) => {
+                const ketList = [...sub.keterangan];
+                allItems
+                  .filter(
+                    (item: any) =>
+                      item.tipe === "KETERANGAN" &&
+                      (item.parentId === sub.id ||
+                        allItems.some(
+                          (pSub: any) =>
+                            pSub.tipe === "SUB_ANGGARAN" &&
+                            pSub.nama?.toUpperCase().trim() === sub.nama.toUpperCase().trim() &&
+                            pSub.targetId === item.parentId
+                        ))
+                  )
+                  .forEach((item: any) => {
+                    autoExpandMains[main.id] = true;
+                    if (!ketList.some((k) => k.nama.toUpperCase().trim() === item.nama?.toUpperCase().trim())) {
+                      ketList.push({
+                        id: item.id || Date.now(),
+                        nama: item.nama,
+                        alokasi: Number(item.nominalAlokasi) || 0,
+                        status: "MENUNGGU",
+                        isLocalDraft: false,
+                        isPendingServer: true,
+                      });
+                      changed = true;
+                    }
+                  });
+                return { ...sub, keterangan: ketList };
+              });
+
+              return { ...main, subPos: finalSubList };
+            });
+
+            if (changed) {
+              setExpandedMain((prev) => ({ ...prev, ...autoExpandMains }));
+              return updated;
+            }
+            return prevData;
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch pending items:", err);
+      }
+    };
+    fetchPendingItems();
+  }, [proyekId]);
 
   useEffect(() => {
     const fetchMasterMain = async () => {
       try {
-        const res = await fetch("/api/master?tipe=pengeluaran");
+        const res = await fetch("/api/master");
         if (res.ok) {
           const raw = await res.json();
           const data = Array.isArray(raw) ? raw : (raw.data || []);
@@ -239,7 +378,7 @@ export default function AlokasiPosModal({
     try {
       let mainList = Array.isArray(masterMainList) ? masterMainList : [];
       if (mainList.length === 0) {
-        const res = await fetch("/api/master?tipe=pengeluaran");
+        const res = await fetch("/api/master");
         if (res.ok) {
           const raw = await res.json();
           mainList = Array.isArray(raw) ? raw : (raw.data || []);
@@ -269,7 +408,65 @@ export default function AlokasiPosModal({
     }
   };
 
+  const loadKetOptions = async (subId: number, subNama: string) => {
+    if (ketOptions[subId]) return;
+    setLoadingKetOptions((prev) => ({ ...prev, [subId]: true }));
+    try {
+      const parentMain = data.find((m) => m.subPos.some((s) => s.id === subId));
+      if (!parentMain) return;
 
+      let mainList = Array.isArray(masterMainList) ? masterMainList : [];
+      if (mainList.length === 0) {
+        const res = await fetch("/api/master");
+        if (res.ok) {
+          const raw = await res.json();
+          mainList = Array.isArray(raw) ? raw : (raw.data || []);
+          setMasterMainList(mainList);
+        }
+      }
+
+      const matchingMain = mainList.find(
+        (m: any) => m.nama.toUpperCase().trim() === parentMain.nama.toUpperCase().trim()
+      );
+      if (!matchingMain) return;
+
+      const matchingSubFromTree = matchingMain.MasterSub?.find(
+        (s: any) => s.nama.toUpperCase().trim() === subNama.toUpperCase().trim()
+      );
+
+      if (matchingSubFromTree && matchingSubFromTree.MasterKeterangan) {
+        setKetOptions((prev) => ({ ...prev, [subId]: matchingSubFromTree.MasterKeterangan }));
+        setNewKetName("");
+      } else {
+        let subs = subOptions[parentMain.id] || matchingMain.MasterSub;
+        if (!subs) {
+          const res = await fetch(`/api/master?mainId=${matchingMain.id}`);
+          if (res.ok) {
+            subs = await res.json();
+            setSubOptions((prev) => ({ ...prev, [parentMain.id]: subs }));
+          }
+        }
+
+        if (subs) {
+          const matchingSub = subs.find(
+            (s: any) => s.nama.toUpperCase().trim() === subNama.toUpperCase().trim()
+          );
+          if (matchingSub) {
+            const res = await fetch(`/api/master?subId=${matchingSub.id}`);
+            if (res.ok) {
+              const kets = await res.json();
+              setKetOptions((prev) => ({ ...prev, [subId]: kets }));
+              setNewKetName("");
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load ket options:", err);
+    } finally {
+      setLoadingKetOptions((prev) => ({ ...prev, [subId]: false }));
+    }
+  };
 
   const toggleMain = (id: number) => setExpandedMain((p) => ({ ...p, [id]: !p[id] }));
   const toggleSub = (id: number) => setExpandedSub((p) => ({ ...p, [id]: !p[id] }));
@@ -282,7 +479,7 @@ export default function AlokasiPosModal({
 
   const handleAddMain = () => {
     if (!newMainName || !newMainAlokasi) {
-      alert("Harap isi semua kolom untuk menambah Main Pos baru!");
+      alert("Harap isi semua kolom untuk mengajukan Main Pos baru!");
       return;
     }
     const alokasiVal = parseRupiahInput(newMainAlokasi);
@@ -294,11 +491,13 @@ export default function AlokasiPosModal({
     }
 
     const newMainId = generateDraftId();
-    const newMainItem: AlokasiMain = {
+    const newMainItem: AjukanMain = {
       id: newMainId,
       nama: newMainName,
       alokasi: alokasiVal,
+      status: "DRAFT",
       isLocalDraft: true,
+      isPendingServer: false,
       subPos: [],
     };
 
@@ -345,7 +544,7 @@ export default function AlokasiPosModal({
 
   const handleAddSub = (mainId: number) => {
     if (!newSubName || !newSubAlokasi) {
-      alert("Harap isi semua kolom untuk menambah Sub baru!");
+      alert("Harap isi semua kolom untuk mengajukan Sub baru!");
       return;
     }
     const alokasiVal = parseRupiahInput(newSubAlokasi);
@@ -358,14 +557,15 @@ export default function AlokasiPosModal({
       return;
     }
 
-    const draftSubId = generateDraftId();
     const nextData = data.map((main) => {
       if (main.id === mainId) {
-        const updatedSub: AlokasiSub = {
-          id: draftSubId,
+        const updatedSub = {
+          id: Date.now(),
           nama: newSubName,
           alokasi: alokasiVal,
+          status: "DRAFT",
           isLocalDraft: true,
+          isPendingServer: false,
           keterangan: [],
         };
         setExpandedSub((prevSub) => ({ ...prevSub, [updatedSub.id]: true }));
@@ -384,12 +584,12 @@ export default function AlokasiPosModal({
 
   const handleAddKet = (subId: number) => {
     if (!newKetName || !newKetAlokasi) {
-      alert("Harap isi semua kolom untuk menambah Keterangan baru!");
+      alert("Harap isi semua kolom untuk mengajukan Keterangan baru!");
       return;
     }
     const alokasiVal = parseRupiahInput(newKetAlokasi);
 
-    let parentSub: AlokasiSub | undefined;
+    let parentSub: AjukanSub | undefined;
     for (const m of data) {
       const found = m.subPos.find((s) => s.id === subId);
       if (found) {
@@ -413,10 +613,11 @@ export default function AlokasiPosModal({
             keterangan: [
               ...sub.keterangan,
               {
-                id: generateDraftId(),
+                id: Date.now(),
                 nama: newKetName,
                 alokasi: alokasiVal,
                 isLocalDraft: true,
+                isPendingServer: false,
               },
             ],
           };
@@ -435,9 +636,9 @@ export default function AlokasiPosModal({
 
   const handleSubmit = () => {
     const items: any[] = [];
+
     const draftIdMap = new Map<number, number>();
     let draftIdx = 0;
-
     const draftRef = (draftId: number) => {
       if (!draftIdMap.has(draftId)) {
         draftIdx += 1;
@@ -447,7 +648,7 @@ export default function AlokasiPosModal({
     };
 
     data.forEach((main) => {
-      const isDraftMain = main.isLocalDraft;
+      const isDraftMain = main.isLocalDraft || main.status === "MENUNGGU";
       const mainParentRef = isDraftMain ? draftRef(main.id) : main.id;
 
       if (main.isLocalDraft) {
@@ -462,7 +663,7 @@ export default function AlokasiPosModal({
       }
 
       main.subPos.forEach((sub) => {
-        const isDraftSub = sub.isLocalDraft;
+        const isDraftSub = sub.isLocalDraft || sub.status === "MENUNGGU";
         const subParentRef = isDraftMain ? mainParentRef : main.id;
         const ketParentRef = isDraftSub ? draftRef(sub.id) : sub.id;
 
@@ -503,28 +704,69 @@ export default function AlokasiPosModal({
     setSubmitting(true);
     setError("");
     try {
-      const res = await fetch(`/api/proyek/${proyekId}/alokasi-pos`, {
+      const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: pendingSubmitItems }),
+        body: JSON.stringify({
+          judul: `Pengajuan pos anggaran untuk ${proyekNama}`,
+          deskripsi: `Pengajuan ${pendingSubmitItems.length} item baru`,
+          items: pendingSubmitItems,
+        }),
       });
-      const result = await res.json().catch(() => ({ message: "" }));
+      const result = await res.json();
       if (!res.ok) {
-        setError(result.message || "Gagal menyimpan alokasi pos");
+        setError(result.message || "Gagal mengajukan pos");
         setShowSubmitConfirm(false);
         return;
       }
-      const msg = `Alokasi ${pendingSubmitItems.length} pos anggaran berhasil disimpan.`;
       localStorage.removeItem(DRAFT_STORAGE_KEY(proyekId));
       setShowSubmitConfirm(false);
-      if (onSuccess) onSuccess(msg);
-      onClose();
-    } catch (err: any) {
-      setError(err?.message || "Terjadi kesalahan koneksi");
+      setShowSubmitSuccess(true);
+    } catch {
+      setError("Terjadi kesalahan koneksi");
       setShowSubmitConfirm(false);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const isMainInPending = (mainName: string) =>
+    pendingItems.some((item) =>
+      item.tipe === "MAIN_ANGGARAN" &&
+      item.nama?.toUpperCase().trim() === mainName.toUpperCase().trim()
+    );
+
+  const isSubInPending = (mainId: number, subName: string) =>
+    pendingItems.some((item) =>
+      item.tipe === "SUB_ANGGARAN" &&
+      item.parentId === mainId &&
+      item.nama?.toUpperCase().trim() === subName.toUpperCase().trim()
+    );
+
+  const isKetInPending = (sub: AjukanSub, mainId: number, ketName: string) => {
+    const name = ketName.toUpperCase().trim();
+    // Direct: ket under existing sub by parentId
+    if (pendingItems.some((item) =>
+      item.tipe === "KETERANGAN" &&
+      item.parentId === sub.id &&
+      item.nama?.toUpperCase().trim() === name
+    )) return true;
+    // Draft sub: cari SUB_ANGGARAN pending dgn nama+main yg sama,
+    // lalu cocokkan parentId = targetId sub draft
+    const pendingSub = pendingItems.find((item) =>
+      item.tipe === "SUB_ANGGARAN" &&
+      item.parentId === mainId &&
+      item.nama?.toUpperCase().trim() === sub.nama.toUpperCase().trim()
+    );
+    if (pendingSub) {
+      return pendingItems.some((item) =>
+        item.tipe === "KETERANGAN" &&
+        item.pengajuanId === pendingSub.pengajuanId &&
+        item.parentId === pendingSub.targetId &&
+        item.nama?.toUpperCase().trim() === name
+      );
+    }
+    return false;
   };
 
   const parseRupiahInput = (val: string): number => {
@@ -547,12 +789,18 @@ export default function AlokasiPosModal({
   };
 
   let localDraftCount = 0;
+  let serverPendingCount = 0;
   data.forEach((main) => {
     if (main.isLocalDraft) localDraftCount++;
+    else if (main.isPendingServer || main.status === "MENUNGGU") serverPendingCount++;
+
     main.subPos.forEach((sub) => {
       if (sub.isLocalDraft) localDraftCount++;
+      else if (sub.isPendingServer || sub.status === "MENUNGGU") serverPendingCount++;
+
       sub.keterangan.forEach((ket) => {
         if (ket.isLocalDraft) localDraftCount++;
+        else if (ket.isPendingServer || ket.status === "MENUNGGU") serverPendingCount++;
       });
     });
   });
@@ -577,7 +825,7 @@ export default function AlokasiPosModal({
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-[#e6e1d4] flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-[17px] font-bold text-[#14130f] leading-[25.5px]">Alokasi Pos</h2>
+            <h2 className="text-[17px] font-bold text-[#14130f] leading-[25.5px]">Ajukan Pos</h2>
             <p className="text-[12.5px] text-[#6a6660] leading-[18.75px] mt-0.5">{proyekNama}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-[#f3f0e9] rounded-xl transition text-[#14130f] hover:text-black cursor-pointer">
@@ -623,7 +871,7 @@ export default function AlokasiPosModal({
 
           <div className="flex items-center justify-between px-0.5">
             <p className="text-[12.5px] font-semibold text-[#14130f]">
-              Anggaran Proyek — klik &quot;+ Tambah&quot; untuk menambah Main / Sub / Keterangan baru
+              Anggaran Proyek — klik &quot;+ Tambah&quot; untuk mengajukan Main / Sub / Keterangan baru
             </p>
             {!isAddingMain && (masterMainList || []).some((m: any) => !data.some((d) => d.nama.toUpperCase().trim() === m.nama.toUpperCase().trim())) && (
               <button
@@ -697,7 +945,7 @@ export default function AlokasiPosModal({
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <button
                   onClick={handleAddMain}
-                  disabled={!newMainName || (!!newMainName && data.some((m) => m.nama === newMainName))}
+                  disabled={!newMainName || (!!newMainName && (data.some((m) => m.nama === newMainName) || isMainInPending(newMainName)))}
                   className="px-3.5 py-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer shrink-0 disabled:opacity-50"
                 >
                   Simpan Draft
@@ -708,6 +956,12 @@ export default function AlokasiPosModal({
                 >
                   Batal
                 </button>
+                {newMainName && data.some((m) => m.nama === newMainName) && (
+                  <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Main Pos sudah pernah ditambahkan atau diajukan</span>
+                )}
+                {newMainName && !data.some((m) => m.nama === newMainName) && isMainInPending(newMainName) && (
+                  <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Main Pos sudah diajukan dan menunggu persetujuan Direktur</span>
+                )}
               </div>
             </div>
           )}
@@ -724,6 +978,7 @@ export default function AlokasiPosModal({
               const hasAvailableSub = masterSubs
                 ? masterSubs.some((ms: any) => !main.subPos.some((s) => s.nama.toUpperCase().trim() === ms.nama.toUpperCase().trim()))
                 : true;
+              const hasSubInMaster = Boolean(masterMain && masterMain.MasterSub && masterMain.MasterSub.length > 0);
 
               return (
                 <div key={main.id} className="bg-white">
@@ -747,7 +1002,7 @@ export default function AlokasiPosModal({
                     </div>
 
                     <div className="flex items-center gap-3 ml-auto">
-                      {main.isLocalDraft && (
+                      {main.isLocalDraft ? (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -760,7 +1015,11 @@ export default function AlokasiPosModal({
                           <span className="group-hover/btn:hidden">DRAFT</span>
                           <span className="hidden group-hover/btn:inline">Batal</span>
                         </button>
-                      )}
+                      ) : (main.isPendingServer || main.status === "MENUNGGU") ? (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#ffedd5] text-[#c2410c] border border-[#fed7aa] tracking-wider select-none">
+                          MENUNGGU
+                        </span>
+                      ) : null}
 
                       <span className="text-[11.5px] font-normal text-[#9a948b] font-mono text-right min-w-[90px]">{formatShort(main.alokasi)}</span>
                     </div>
@@ -770,19 +1029,32 @@ export default function AlokasiPosModal({
                     <div className="bg-white pb-1.5">
                       {main.subPos.map((sub) => {
                         const isSubOpen = expandedSub[sub.id] ?? false;
-                        const canExpandSub = true;
+                        const masterSub = masterMain?.MasterSub?.find(
+                          (s: any) => s.nama.toUpperCase().trim() === sub.nama.toUpperCase().trim()
+                        );
+                        const masterKets = ketOptions[sub.id] || masterSub?.MasterKeterangan;
+                        const hasAvailableKet = masterKets
+                          ? masterKets.some((mk: any) => !sub.keterangan.some((k) => k.nama.toUpperCase().trim() === mk.nama.toUpperCase().trim()))
+                          : true;
+                        const hasKetInMaster = Boolean(masterSub && masterSub.MasterKeterangan && masterSub.MasterKeterangan.length > 0);
+                        const canExpandSub = sub.keterangan.length > 0 || hasKetInMaster;
 
                         return (
                           <div key={sub.id} className="bg-white">
                             {/* Sub Pos Header */}
                             <div
-                              onClick={() => toggleSub(sub.id)}
-                              className="pl-10 pr-4 py-1.5 flex items-center justify-between transition select-none cursor-pointer hover:bg-[#fbfaf6]"
+                              onClick={() => canExpandSub && toggleSub(sub.id)}
+                              className={`pl-10 pr-4 py-1.5 flex items-center justify-between transition select-none ${canExpandSub ? "cursor-pointer hover:bg-[#fbfaf6]" : ""
+                                }`}
                             >
                               <div className="flex items-center gap-2 flex-wrap">
-                                <div className="p-0.5 rounded transition shrink-0 text-[#6a6660]">
-                                  {isSubOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                                </div>
+                                {canExpandSub ? (
+                                  <div className="p-0.5 rounded transition shrink-0 text-[#6a6660]">
+                                    {isSubOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                  </div>
+                                ) : (
+                                  <div className="w-3 shrink-0" />
+                                )}
                                 <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">SUB</span>
                                 {sub.isLocalDraft ? (
                                   <span className="text-[12.5px] font-medium text-[#2c2a24]">
@@ -794,7 +1066,7 @@ export default function AlokasiPosModal({
                               </div>
 
                               <div className="flex items-center gap-3 ml-auto">
-                                {sub.isLocalDraft && (
+                                {sub.isLocalDraft ? (
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -807,14 +1079,18 @@ export default function AlokasiPosModal({
                                     <span className="group-hover/btn:hidden">DRAFT</span>
                                     <span className="hidden group-hover/btn:inline">Batal</span>
                                   </button>
-                                )}
+                                ) : (sub.isPendingServer || sub.status === "MENUNGGU") ? (
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#e0f1ec] text-[#005836] border border-[#b2dccd] tracking-wider select-none">
+                                    MENUNGGU
+                                  </span>
+                                ) : null}
 
                                 <span className="text-[11.5px] font-normal text-[#9a948b] font-mono text-right min-w-[90px]">{formatShort(sub.alokasi)}</span>
                               </div>
                             </div>
 
                             {/* Keterangan List */}
-                            {isSubOpen && (
+                            {isSubOpen && canExpandSub && (
                               <div className="pl-[88px] pr-4 py-1 space-y-1 bg-white">
                                 {sub.keterangan.map((ket) => (
                                   <div key={ket.id} className="flex items-center justify-between py-1 text-[12px] text-[#6a6660]">
@@ -830,7 +1106,7 @@ export default function AlokasiPosModal({
                                     </div>
 
                                     <div className="flex items-center gap-3 ml-auto">
-                                      {ket.isLocalDraft && (
+                                      {ket.isLocalDraft ? (
                                         <button
                                           type="button"
                                           onClick={() => handleRemoveKetDraft(sub.id, ket.id)}
@@ -840,109 +1116,140 @@ export default function AlokasiPosModal({
                                           <span className="group-hover/btn:hidden">DRAFT</span>
                                           <span className="hidden group-hover/btn:inline">Batal</span>
                                         </button>
-                                      )}
+                                      ) : (ket.isPendingServer || ket.status === "MENUNGGU") ? (
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#e0f2fe] text-[#005d8d] border border-[#bae6fd] tracking-wider select-none">
+                                          MENUNGGU
+                                        </span>
+                                      ) : null}
 
                                       <span className="text-[#9a948b] font-mono text-[11px] text-right min-w-[90px]">{formatShort(ket.alokasi)}</span>
                                     </div>
                                   </div>
                                 ))}
 
-                                {/* Add Keterangan inline under Sub */}
-                                <div className="py-1 -ml-6">
-                                  {addingKetSubId === sub.id ? (
-                                    <div className="space-y-3 my-2 bg-white ml-6">
-                                      {/* Budget summary for this Sub */}
-                                      {(() => {
-                                        const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
-                                        const inputVal = parseRupiahInput(newKetAlokasi);
-                                        const liveTotalKet = totalKet + inputVal;
-                                        const sisaKet = sub.alokasi - liveTotalKet;
-                                        const isOverKet = sisaKet < 0;
-                                        return (
-                                          <div className="grid grid-cols-2 gap-3">
-                                            <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
-                                              <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
-                                              <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalKet)}</p>
-                                            </div>
-                                            {isOverKet ? (
-                                              <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
-                                                <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
-                                                <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaKet)}</p>
-                                              </div>
-                                            ) : (
+                                {/* Add Keterangan inline */}
+                                {hasKetInMaster && hasAvailableKet && (
+                                  <div className="py-1 -ml-6">
+                                    {addingKetSubId === sub.id ? (
+                                      <div className="space-y-3 my-2 bg-white ml-6">
+                                        {/* Budget summary for this Sub */}
+                                        {(() => {
+                                          const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
+                                          const inputVal = parseRupiahInput(newKetAlokasi);
+                                          const liveTotalKet = totalKet + inputVal;
+                                          const sisaKet = sub.alokasi - liveTotalKet;
+                                          const isOverKet = sisaKet < 0;
+                                          return (
+                                            <div className="grid grid-cols-2 gap-3">
                                               <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
-                                                <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa Sub Belum Dialokasikan</p>
-                                                <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaKet)}</p>
+                                                <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
+                                                <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalKet)}</p>
                                               </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
+                                              {isOverKet ? (
+                                                <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
+                                                  <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
+                                                  <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaKet)}</p>
+                                                </div>
+                                              ) : (
+                                                <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+                                                  <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa SUB · {sub.nama} Belum Dialokasikan</p>
+                                                  <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaKet)}</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
 
-                                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                                        <span className="text-[12px] font-medium text-[#14130f] shrink-0 min-w-24">Keterangan Baru:</span>
-                                        <div className="flex-1 min-w-0">
-                                          <input
-                                            type="text"
-                                            value={newKetName}
-                                            onChange={(e) => setNewKetName(e.target.value)}
-                                            placeholder="Ketik Nama Keterangan..."
-                                            className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] text-[#14130f] h-[37px]"
-                                          />
-                                        </div>
-                                        <div className="w-full sm:w-60 shrink-0">
-                                          <input
-                                            type="text"
-                                            value={newKetAlokasi}
-                                            onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))}
-                                            placeholder="Alokasi"
-                                            className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] font-mono text-[#14130f] h-[37px]"
-                                          />
-                                        </div>
-                                      </div>
+                                        {(() => {
+                                          const availableKetOptions = (ketOptions[sub.id] || []).filter(
+                                            (opt: any) => !sub.keterangan.some((k) => k.nama.toUpperCase().trim() === opt.nama.toUpperCase().trim())
+                                          );
+                                          return (
+                                            <>
+                                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                                <span className="text-[12px] font-medium text-[#14130f] shrink-0 min-w-32">Keterangan Baru:</span>
+                                                <div className="flex-1 min-w-0">
+                                                  {loadingKetOptions[sub.id] ? (
+                                                    <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
+                                                      <Loader2 size={12} className="animate-spin" />
+                                                      Memuat pilihan...
+                                                    </div>
+                                                  ) : (
+                                                    <select
+                                                      value={newKetName}
+                                                      onChange={(e) => setNewKetName(e.target.value)}
+                                                      className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] text-[#14130f] h-[37px]"
+                                                    >
+                                                      {availableKetOptions.length > 0 ? (
+                                                        <>
+                                                          <option value="">Pilih Keterangan Pos</option>
+                                                          {availableKetOptions.map((opt: any) => (
+                                                            <option key={opt.id} value={opt.nama}>
+                                                              {opt.nama}
+                                                            </option>
+                                                          ))}
+                                                        </>
+                                                      ) : (
+                                                        <option value="">Tidak ada pilihan keterangan pos</option>
+                                                      )}
+                                                    </select>
+                                                  )}
+                                                </div>
+                                                <div className="w-full sm:w-60 shrink-0">
+                                                  <input
+                                                    type="text"
+                                                    value={newKetAlokasi}
+                                                    onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))}
+                                                    placeholder="Alokasi"
+                                                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] font-mono text-[#14130f] h-[37px]"
+                                                  />
+                                                </div>
+                                              </div>
 
-                                      <div className="flex items-center gap-3 pt-1">
-                                        <button
-                                          onClick={() => handleAddKet(sub.id)}
-                                          disabled={!newKetName.trim() || sub.keterangan.some((k) => k.nama.toUpperCase().trim() === newKetName.toUpperCase().trim())}
-                                          className="px-3.5 py-1.5 bg-[#005d8d] hover:bg-[#00476e] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer shrink-0 disabled:opacity-50"
-                                        >
-                                          Simpan Draft
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setAddingKetSubId(null);
-                                            setNewKetName("");
-                                            setNewKetAlokasi("");
-                                          }}
-                                          className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer shrink-0"
-                                        >
-                                          Batal
-                                        </button>
+                                              <div className="flex flex-wrap items-center gap-3 pt-1">
+                                                <button
+                                                  onClick={() => handleAddKet(sub.id)}
+                                                  disabled={loadingKetOptions[sub.id] || availableKetOptions.length === 0 || !newKetName || sub.keterangan.some(k => k.nama === newKetName) || isKetInPending(sub, main.id, newKetName)}
+                                                  className="px-3.5 py-1.5 bg-[#005d8d] hover:bg-[#00476d] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer disabled:opacity-50"
+                                                >
+                                                  Simpan Draft
+                                                </button>
+                                                <button
+                                                  onClick={() => { setAddingKetSubId(null); setNewKetName(""); setNewKetAlokasi(""); }}
+                                                  className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer"
+                                                >
+                                                  Batal
+                                                </button>
+                                                {newKetName && sub.keterangan.some(k => k.nama === newKetName) && (
+                                                  <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah pernah ditambahkan atau diajukan</span>
+                                                )}
+                                                {newKetName && !sub.keterangan.some(k => k.nama === newKetName) && isKetInPending(sub, main.id, newKetName) && (
+                                                  <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Keterangan sudah diajukan dan menunggu persetujuan Direktur</span>
+                                                )}
+                                              </div>
+                                            </>
+                                          );
+                                        })()}
                                       </div>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => {
-                                        setAddingKetSubId(sub.id);
-                                        setNewKetName("");
-                                        setNewKetAlokasi("");
-                                      }}
-                                      className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#005d8d] hover:underline cursor-pointer ml-6"
-                                    >
-                                      <Plus size={12} /> Tambah Keterangan
-                                    </button>
-                                  )}
-                                </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => { setAddingKetSubId(sub.id); loadKetOptions(sub.id, sub.nama); }}
+                                        className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#005d8d] hover:underline cursor-pointer py-1"
+                                      >
+                                        <Plus size={12} /> Tambah Keterangan
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
                         );
                       })}
 
-                      {/* Add Sub inline under Main (rendered ONLY ONCE per Main) */}
-                      {hasAvailableSub && (
-                        <div className="pl-10 pr-4 py-1">
+                      {/* Add Sub inline */}
+                      {hasSubInMaster && hasAvailableSub && (
+                        <div className="pl-10 pr-4 py-1 bg-white">
                           {addingSubMainId === main.id ? (
                             <div className="space-y-3 my-2 bg-white">
                               {/* Budget summary for this Main */}
@@ -965,7 +1272,7 @@ export default function AlokasiPosModal({
                                       </div>
                                     ) : (
                                       <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
-                                        <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa Main Belum Dialokasikan</p>
+                                        <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa MAIN · {main.nama} Belum Dialokasikan</p>
                                         <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaSub)}</p>
                                       </div>
                                     )}
@@ -973,66 +1280,81 @@ export default function AlokasiPosModal({
                                 );
                               })()}
 
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                                <span className="text-[12px] font-medium text-[#14130f] shrink-0 min-w-24">Sub Baru:</span>
-                                <div className="flex-1 min-w-0">
-                                  {loadingSubOptions[main.id] ? (
-                                    <div className="text-[11.5px] text-[#9a948b] py-2">Memuat opsi...</div>
-                                  ) : (
-                                    <select
-                                      value={newSubName}
-                                      onChange={(e) => setNewSubName(e.target.value)}
-                                      className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005836] text-[#14130f] h-[37px]"
-                                    >
-                                      <option value="">Pilih Sub</option>
-                                      {(subOptions[main.id] || masterMain?.MasterSub || [])
-                                        .filter((ms: any) => !main.subPos.some((s) => s.nama.toUpperCase().trim() === ms.nama.toUpperCase().trim()))
-                                        .map((ms: any) => (
-                                          <option key={ms.id} value={ms.nama}>
-                                            {ms.nama}
-                                          </option>
-                                        ))}
-                                    </select>
-                                  )}
-                                </div>
-                                <div className="w-full sm:w-60 shrink-0">
-                                  <input
-                                    type="text"
-                                    value={newSubAlokasi}
-                                    onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))}
-                                    placeholder="Alokasi"
-                                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005836] font-mono text-[#14130f] h-[37px]"
-                                  />
-                                </div>
-                              </div>
+                              {(() => {
+                                const availableSubOptions = (subOptions[main.id] || []).filter(
+                                  (opt: any) => !main.subPos.some((s) => s.nama.toUpperCase().trim() === opt.nama.toUpperCase().trim())
+                                );
+                                return (
+                                  <>
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                      <span className="text-[12px] font-medium text-[#14130f] shrink-0 min-w-24">Sub Baru:</span>
+                                      <div className="flex-1 min-w-0">
+                                        {loadingSubOptions[main.id] ? (
+                                          <div className="flex items-center gap-2 text-xs text-[#9a948b] py-1.5">
+                                            <Loader2 size={12} className="animate-spin" />
+                                            Memuat pilihan...
+                                          </div>
+                                        ) : (
+                                          <select
+                                            value={newSubName}
+                                            onChange={(e) => setNewSubName(e.target.value)}
+                                            className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] text-[#14130f] h-[37px]"
+                                          >
+                                            {availableSubOptions.length > 0 ? (
+                                              <>
+                                                <option value="">Pilih Sub</option>
+                                                {availableSubOptions.map((opt: any) => (
+                                                  <option key={opt.id} value={opt.nama}>
+                                                    {opt.nama}
+                                                  </option>
+                                                ))}
+                                              </>
+                                            ) : (
+                                              <option value="">Tidak ada pilihan sub pos</option>
+                                            )}
+                                          </select>
+                                        )}
+                                      </div>
+                                      <div className="w-full sm:w-60 shrink-0">
+                                        <input
+                                          type="text"
+                                          value={newSubAlokasi}
+                                          onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))}
+                                          placeholder="Alokasi"
+                                          className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#009162] font-mono text-[#14130f] h-[37px]"
+                                        />
+                                      </div>
+                                    </div>
 
-                              <div className="flex items-center gap-3 pt-1">
-                                <button
-                                  onClick={() => handleAddSub(main.id)}
-                                  disabled={!newSubName || (!!newSubName && main.subPos.some((s) => s.nama === newSubName))}
-                                  className="px-3.5 py-1.5 bg-[#005836] hover:bg-[#004027] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer shrink-0 disabled:opacity-50"
-                                >
-                                  Simpan Draft
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setAddingSubMainId(null);
-                                    setNewSubName("");
-                                    setNewSubAlokasi("");
-                                  }}
-                                  className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer shrink-0"
-                                >
-                                  Batal
-                                </button>
-                              </div>
+                                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                                      <button
+                                        onClick={() => handleAddSub(main.id)}
+                                        disabled={loadingSubOptions[main.id] || availableSubOptions.length === 0 || !newSubName || main.subPos.some(s => s.nama === newSubName) || isSubInPending(main.id, newSubName)}
+                                        className="px-3.5 py-1.5 bg-[#009162] hover:bg-[#00754c] text-white text-[11px] font-bold rounded-[7px] transition cursor-pointer shrink-0 disabled:opacity-50"
+                                      >
+                                        Simpan Draft
+                                      </button>
+                                      <button
+                                        onClick={() => { setAddingSubMainId(null); setNewSubName(""); setNewSubAlokasi(""); }}
+                                        className="text-[11px] font-semibold text-[#9a948b] hover:text-[#14130f] transition cursor-pointer shrink-0"
+                                      >
+                                        Batal
+                                      </button>
+                                      {newSubName && main.subPos.some(s => s.nama === newSubName) && (
+                                        <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah pernah ditambahkan atau diajukan</span>
+                                      )}
+                                      {newSubName && !main.subPos.some(s => s.nama === newSubName) && isSubInPending(main.id, newSubName) && (
+                                        <span className="text-[11px] font-semibold text-[#902f33] bg-[#fdf3f2] border border-[#f3d1ce] px-2.5 py-1 rounded-lg ml-auto">⚠ Sub Pos sudah diajukan dan menunggu persetujuan Direktur</span>
+                                      )}
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
                           ) : (
                             <button
-                              onClick={() => {
-                                setAddingSubMainId(main.id);
-                                loadSubOptions(main.id, main.nama);
-                              }}
-                              className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#005836] hover:underline cursor-pointer"
+                              onClick={() => { setAddingSubMainId(main.id); loadSubOptions(main.id, main.nama); }}
+                              className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#005836] hover:underline cursor-pointer py-1"
                             >
                               <Plus size={12} /> Tambah Sub
                             </button>
@@ -1055,6 +1377,11 @@ export default function AlokasiPosModal({
                 {localDraftCount} pos draft
               </span>
             )}
+            {serverPendingCount > 0 && (
+              <span className="text-[11px] font-semibold text-[#92400e] bg-[#fef3c7] px-2.5 py-0.5 rounded-full border border-[#fcd34d]">
+                {serverPendingCount} pos menunggu persetujuan
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -1072,7 +1399,7 @@ export default function AlokasiPosModal({
               className="px-4 py-2 bg-[#14130f] hover:bg-black text-[#fbfaf6] text-[13px] font-semibold rounded-[12px] transition cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
             >
               {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              Simpan Alokasi
+              Ajukan
             </button>
           </div>
         </div>
@@ -1080,13 +1407,13 @@ export default function AlokasiPosModal({
 
       <ConfirmDialog
         open={showSubmitConfirm}
-        title="Simpan Alokasi Pos"
+        title="Ajukan Pos Anggaran"
         description={
           <>
-            Apakah Anda yakin ingin mengalokasikan <span className="font-semibold text-stone-900">{pendingSubmitItems.length} pos</span> baru untuk proyek <span className="font-semibold text-stone-900">{proyekNama}</span>? Alokasi ini akan langsung disimpan.
+            Apakah Anda yakin ingin mengajukan <span className="font-semibold text-stone-900">{pendingSubmitItems.length} pos</span> baru untuk proyek <span className="font-semibold text-stone-900">{proyekNama}</span>? Pengajuan ini akan masuk ke antrian persetujuan Direktur/Manajemen.
           </>
         }
-        confirmLabel="Simpan Alokasi"
+        confirmLabel="Ajukan"
         isLoading={submitting}
         onCancel={() => setShowSubmitConfirm(false)}
         onConfirm={handleConfirmSubmit}
@@ -1094,7 +1421,7 @@ export default function AlokasiPosModal({
 
       <Toast
         open={showSubmitSuccess}
-        message={`Alokasi ${pendingSubmitItems.length} pos anggaran berhasil disimpan.`}
+        message={`Pengajuan ${pendingSubmitItems.length} pos anggaran berhasil dikirim dan menunggu persetujuan.`}
         onClose={() => {
           setShowSubmitSuccess(false);
           onClose();
@@ -1104,8 +1431,12 @@ export default function AlokasiPosModal({
       <SuccessDialog
         open={showEmptyWarning}
         variant="warning"
-        title="Belum Ada Pos Baru"
-        description="Tambahkan minimal satu Sub Pos atau Keterangan baru sebelum menyimpan alokasi."
+        title={pendingItems.length > 0 ? "Masih Ada Pengajuan Menunggu" : "Belum Ada Pos Baru"}
+        description={
+          pendingItems.length > 0
+            ? "Pos yang sudah diajukan masih menunggu persetujuan Direktur. Tambahkan Sub Pos atau Keterangan baru jika ingin mengajukan lagi."
+            : "Tambahkan minimal satu Sub Pos atau Keterangan baru sebelum mengajukan."
+        }
         closeLabel="Mengerti"
         onClose={() => setShowEmptyWarning(false)}
       />
