@@ -51,15 +51,22 @@ export default function MasterCoAPage() {
   const closeModal = () => setModalConfig({ isOpen: false, type: null, data: null });
 
   // Filter master data berdasarkan tab aktif (Aset = pemasukan, Beban = pengeluaran, Semua = all)
-  const filteredMasterData = masterData.filter((item) => {
-    if (activeTab === "Aset") {
-      return item.tipe === "pemasukan";
-    }
-    if (activeTab === "Beban") {
-      return item.tipe === "pengeluaran";
-    }
-    return true;
-  });
+  // Di tab Semua, kelompokkan per tipe (Pengeluaran lalu Pemasukan) supaya Main baru
+  // masuk ke bagian tipenya sendiri, bukan tercampur/nyelip di bawah tipe lain.
+  const filteredMasterData = masterData
+    .filter((item) => {
+      if (activeTab === "Aset") {
+        return item.tipe === "pemasukan";
+      }
+      if (activeTab === "Beban") {
+        return item.tipe === "pengeluaran";
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (activeTab !== "Semua" || a.tipe === b.tipe) return 0;
+      return a.tipe === "pengeluaran" ? -1 : 1;
+    });
 
   const getDeleteType = (type: ModalType) => {
     if (type === 'deleteMain') return 'main';
@@ -67,18 +74,12 @@ export default function MasterCoAPage() {
     return null;
   };
 
-  const getTabLabel = () => {
-    if (activeTab === "Aset") return "Revenue / Pemasukan";
-    if (activeTab === "Beban") return "Expense / Pengeluaran";
-    return "Semua Kategori";
-  };
-
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto min-h-full flex flex-col bg-[#f9f8f4]">
       {/* Header Info */}
       <div className="mb-6">
-        <h1 className="text-[28px] font-bold text-stone-900 leading-tight">Chart of Accounts & Master Anggaran</h1>
-        <p className="text-stone-500 mt-1 text-[15px]">Kelola referensi akun pemasukan/revenue serta pengeluaran/expense proyek dalam struktur Main dan Sub.</p>
+        <h1 className="text-[28px] font-bold text-stone-900 leading-tight">Master Chart of Accounts</h1>
+        <p className="text-stone-500 mt-1 text-[15px]">Kelola chart of accounts dari pemasukan dan pengeluaran proyek dalam struktur Main dan Sub</p>
       </div>
 
       {/* Tabs & Actions Bar */}
@@ -92,14 +93,14 @@ export default function MasterCoAPage() {
                 activeTab === tab ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
               }`}
             >
-              {tab === "Aset" ? "Revenue (Pemasukan)" : tab === "Beban" ? "Expense (Pengeluaran)" : tab}
+              {tab === "Aset" ? "Pemasukan (Revenue)" : tab === "Beban" ? "Pengeluaran (Expense)" : tab}
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => openModal('tambahMain', { tipe: activeTab === 'Aset' ? 'pemasukan' : 'pengeluaran' })}
+          <button
+            onClick={() => openModal('tambahMain', activeTab === 'Semua' ? {} : { tipe: activeTab === 'Aset' ? 'pemasukan' : 'pengeluaran' })}
             className="flex items-center gap-2 px-4 py-2 bg-[#008f5d] text-white rounded-xl text-sm font-bold shadow-sm hover:bg-[#007a4f] transition cursor-pointer"
           >
             <Plus size={16} strokeWidth={3} /> Tambah Main {activeTab === 'Aset' ? 'Pemasukan' : activeTab === 'Beban' ? 'Pengeluaran' : ''}
@@ -110,8 +111,8 @@ export default function MasterCoAPage() {
       {/* HIRARKI TREE MASTER MAIN & SUB */}
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm flex-1 flex flex-col overflow-hidden">
         <div className="bg-[#f5f4ef] border-b border-stone-200 px-6 py-4 flex items-center justify-between text-[11px] font-bold text-stone-500 uppercase tracking-wider shrink-0">
-          <span>Struktur Master {getTabLabel()} (Main - Sub)</span>
-          <span>{filteredMasterData.length} Main Items</span>
+          <span>Struktur Master (Main - Sub)</span>
+          <span>{filteredMasterData.length} Main</span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -131,7 +132,7 @@ export default function MasterCoAPage() {
 
               return (
                 <div key={mainItem.id} className="border border-stone-200 rounded-xl overflow-hidden bg-white">
-                  <div 
+                  <div
                     className="bg-[#f5f4ef] px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-[#eae8e0] transition"
                     onClick={() => toggleMain(mainItem.id)}
                   >
@@ -139,27 +140,29 @@ export default function MasterCoAPage() {
                       {isMainOpen ? <ChevronDown size={16} className="text-stone-500" /> : <ChevronRight size={16} className="text-stone-500" />}
                       <span className="text-[10px] font-bold text-stone-400 bg-white px-1.5 py-0.5 rounded border border-stone-200 shadow-sm">MAIN</span>
                       <span className="font-bold text-stone-800 text-[13px]">{mainItem.nama}</span>
-                      
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isPemasukan ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
-                      }`}>
-                        {isPemasukan ? "Revenue / Pemasukan" : "Expense / Pengeluaran"}
-                      </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); openModal('editMain', { ...mainItem, main: mainItem.nama }); }} 
-                        className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-lg transition bg-white border border-stone-200 shadow-sm cursor-pointer"
-                      >
-                        <Settings size={14} />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); openModal('deleteMain', mainItem); }} 
-                        className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition bg-white border border-stone-200 shadow-sm cursor-pointer"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        isPemasukan ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                      }`}>
+                        {isPemasukan ? "Pemasukan" : "Pengeluaran"}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openModal('editMain', { ...mainItem, main: mainItem.nama }); }}
+                          className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-lg transition bg-white border border-stone-200 shadow-sm cursor-pointer"
+                        >
+                          <Settings size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openModal('deleteMain', mainItem); }}
+                          className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition bg-white border border-stone-200 shadow-sm cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -172,9 +175,9 @@ export default function MasterCoAPage() {
                               <span className="text-[9px] font-bold text-stone-400">SUB</span>
                               <span className="font-bold text-stone-700 text-[12px]">{subItem.nama}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition">
-                              <button 
-                                onClick={() => openModal('editSub', { ...subItem, main: mainItem.nama, sub: subItem.nama })} 
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => openModal('editSub', { ...subItem, main: mainItem.nama, sub: subItem.nama })}
                                 className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
                               >
                                 <Settings size={14} />

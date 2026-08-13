@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { ChevronRight } from "lucide-react";
 import ModalWrapper from "./ModalWrapper";
+import Toast from "@/components/toast";
 
 export default function EditSubModal({ isOpen, onClose, data, onRefresh }: any) {
   const [subBaru, setSubBaru] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -42,6 +44,7 @@ export default function EditSubModal({ isOpen, onClose, data, onRefresh }: any) 
 
       if (onRefresh) onRefresh();
       onClose();
+      setShowSuccess(true);
     } catch (err: any) {
       setErrorMsg(err.message || "Terjadi kesalahan");
     } finally {
@@ -50,9 +53,10 @@ export default function EditSubModal({ isOpen, onClose, data, onRefresh }: any) 
   };
 
   return (
-    <ModalWrapper 
-      isOpen={isOpen} 
-      onClose={onClose} 
+    <>
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
       title="Edit Sub"
       onAction={handleSubmit}
       isLoading={isLoading}
@@ -70,7 +74,7 @@ export default function EditSubModal({ isOpen, onClose, data, onRefresh }: any) 
     >
       {errorMsg && <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg">{errorMsg}</div>}
       <div className="text-[13px] text-stone-700 font-medium">
-        <span className="font-bold text-stone-800">MAIN</span> · {data?.main}
+        <span className="font-bold text-stone-800">SUB</span> · {data?.sub}
       </div>
       <div className="space-y-1.5">
         <label className="text-[13px] font-bold text-stone-800">Nama Sub Baru</label>
@@ -83,5 +87,11 @@ export default function EditSubModal({ isOpen, onClose, data, onRefresh }: any) 
         />
       </div>
     </ModalWrapper>
+    <Toast
+      open={showSuccess}
+      message={`Nama Sub berhasil diperbarui menjadi "${subBaru}".`}
+      onClose={() => setShowSuccess(false)}
+    />
+    </>
   );
 }
