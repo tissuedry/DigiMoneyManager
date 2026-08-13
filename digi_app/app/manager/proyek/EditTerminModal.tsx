@@ -63,54 +63,94 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
         if (field === 'nominal') {
             // Format otomatis dengan titik saat user mengetik angka
             updated[index] = { ...updated[index], nominal: formatRupiahInput(value) };
-        } else {
-            updated[index] = { ...updated[index], [field]: value };
+        } else if (field === 'progress') {
+            // Sanitasi angka desimal & batasi maksimal 100
+            let cleanVal = value.replace(/[^0-9.]/g, '');
+            const parts = cleanVal.split('.');
+            if (parts.length > 2) {
+                cleanVal = parts[0] + '.' + parts.slice(1).join('');
+            }
+            const num = parseFloat(cleanVal);
+            if (!isNaN(num) && num > 100) {
+                cleanVal = '100';
+            }
+            updated[index] = { ...updated[index], progress: cleanVal };
         }
         setTerminData(updated);
     };
 
     const handleSimpanTermin = async () => {
-    setLoading(true);
-    setErrorMsg('');
-    setSuccessMsg('');
+        setErrorMsg('');
+        setSuccessMsg('');
 
-    try {
-        // Petakan semua data termin termasuk ID aslinya jika ada
-        const payload = terminData.map((t, idx) => ({
-            id: t.id, // ID penting agar backend tahu ini data lama yang harus di-update
-            namaTermin: `Termin ${idx + 1}`,
-            nominal: parseFloat(String(t.nominal).replace(/\./g, '')),
-            persentaseProgress: parseFloat(String(t.progress)),
-        }));
+        // Validasi input progress & nominal untuk setiap termin
+        for (let i = 0; i < terminData.length; i++) {
+            const t = terminData[i];
+            if (t.progress === '' || t.progress === null || t.progress === undefined) {
+                setErrorMsg(`Progress untuk Termin ${i + 1} harus diisi!`);
+                return;
+            }
+            const progNum = parseFloat(String(t.progress));
+            if (isNaN(progNum) || progNum < 0 || progNum > 100) {
+                setErrorMsg(`Progress Termin ${i + 1} tidak boleh kurang dari 0% atau lebih dari 100%!`);
+                return;
+            }
 
-        const res = await fetch(`/api/proyek/${proyekId}/termin`, {
-            method: "POST", // Mengirim seluruh array sekaligus ke backend
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ terminData: payload }),
-        });
-
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.message || 'Gagal menyimpan termin');
+            const nomClean = String(t.nominal).replace(/\./g, '');
+            if (!nomClean || isNaN(Number(nomClean)) || Number(nomClean) <= 0) {
+                setErrorMsg(`Nominal untuk Termin ${i + 1} harus diisi dengan benar!`);
+                return;
+            }
         }
 
-        setSuccessMsg('Termin pembayaran berhasil diperbarui!');
-        
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('terminUpdated'));
+        // Validasi progress bertahap naik: Termin 1 < Termin 2 < Termin 3 ...
+        for (let i = 0; i < terminData.length - 1; i++) {
+            const currentProg = parseFloat(String(terminData[i].progress));
+            const nextProg = parseFloat(String(terminData[i + 1].progress));
+            if (currentProg >= nextProg) {
+                setErrorMsg(`Progress Termin ${i + 1} (${currentProg}%) harus lebih kecil dari Termin ${i + 2} (${nextProg}%)!`);
+                return;
+            }
         }
 
-        setTimeout(() => {
-            onSuccess();
-            onClose();
-        }, 1200);
+        setLoading(true);
+        try {
+            // Petakan semua data termin termasuk ID aslinya jika ada
+            const payload = terminData.map((t, idx) => ({
+                id: t.id, // ID penting agar backend tahu ini data lama yang harus di-update
+                namaTermin: `Termin ${idx + 1}`,
+                nominal: parseFloat(String(t.nominal).replace(/\./g, '')),
+                persentaseProgress: parseFloat(String(t.progress)),
+            }));
 
-    } catch (err: any) {
-        setErrorMsg(err.message || 'Terjadi kesalahan jaringan.');
-    } finally {
-        setLoading(false);
-    }
-};
+            const res = await fetch(`/api/proyek/${proyekId}/termin`, {
+                method: "POST", // Mengirim seluruh array sekaligus ke backend
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ terminData: payload }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || 'Gagal menyimpan termin');
+            }
+
+            setSuccessMsg('Termin pembayaran berhasil diperbarui!');
+            
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('terminUpdated'));
+            }
+
+            setTimeout(() => {
+                onSuccess();
+                onClose();
+            }, 1200);
+
+        } catch (err: any) {
+            setErrorMsg(err.message || 'Terjadi kesalahan jaringan.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -148,11 +188,14 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
                             Jumlah Termin
                         </label>
                         <input 
-                            type="number" 
+                            type="text"
+                            inputMode="numeric" 
                             value={jumlahTermin}
-                            onChange={(e) => setJumlahTermin(Math.max(1, Number(e.target.value)))}
-                            className="w-20 border border-[#e6e2d6] rounded-[12px] px-4 py-2 text-[14px] font-bold text-stone-900 outline-none focus:border-[#00966c]"
-                            min={1}
+                            onChange={(e) => {
+                                const cleanVal = e.target.value.replace(/\D/g, "");
+                                setJumlahTermin(cleanVal ? Math.max(1, parseInt(cleanVal, 10)) : 1);
+                            }}
+                            className="w-20 border border-[#e6e2d6] rounded-[12px] px-4 py-2 text-[14px] font-bold text-stone-900 outline-none focus:border-[#00966c] text-center"
                         />
                     </div>
 
@@ -181,7 +224,8 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
                                 {/* Input Progress (%) */}
                                 <div className="col-span-3 relative">
                                     <input 
-                                        type="number" 
+                                        type="text"
+                                        inputMode="decimal" 
                                         value={terminData[idx]?.progress ?? ''}
                                         onChange={(e) => handleInputChange(idx, 'progress', e.target.value)}
                                         placeholder="0"

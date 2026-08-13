@@ -24,33 +24,64 @@ const THEME_COLORS: Record<string, { primary: string; hover: string; bgLight: st
   general: { primary: "bg-[#00966c]", hover: "hover:bg-[#007f5a]", bgLight: "bg-[#f2f9f6]" },
 };
 
-function Row({ children, onClick, className = "" }: any) {
+// ─── Shared constants (mirip DetailAnggaran) ────────────────────────────────
+const COL_CLASS = "flex items-center gap-3 px-6 py-1.5 hover:bg-stone-50 transition";
+const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[440px]";
+
+// Row dengan support indent (persis seperti DetailAnggaran)
+function Row({ children, onClick, indent = 0, className = "" }: any) {
+  const childrenArray = React.Children.toArray(children);
+  const firstChild = childrenArray[0];
+  const restChildren = childrenArray.slice(1);
+
+  const modifiedFirstChild = React.isValidElement(firstChild)
+    ? React.cloneElement(firstChild as React.ReactElement<any>, {
+      style: {
+        ...((firstChild as React.ReactElement<any>).props?.style || {}),
+        paddingLeft: indent * 24,
+      },
+    })
+    : firstChild;
+
   return (
     <div
       onClick={onClick}
-      className={`flex items-center px-6 py-3 border-b border-stone-100 hover:bg-stone-50/80 transition-colors ${onClick ? "cursor-pointer select-none" : ""} ${className}`}
+      className={`${COL_CLASS} ${onClick ? "cursor-pointer select-none" : ""} ${className}`}
+      style={{ paddingLeft: 24 }}
     >
-      {children}
+      {modifiedFirstChild}
+      {restChildren}
     </div>
   );
 }
 
 function ProgressCell({ pct }: { pct: number }) {
   const displayPct = Math.min(Math.max(pct, 0), 100);
-  const isOver = pct > 100;
-  const barColor = isOver ? "bg-[#c95d5d]" : "bg-[#00966c]";
-  const textColor = isOver ? "text-[#c95d5d]" : "text-[#00966c]";
+
+  // Warna dinamis: hijau → kuning → merah (seperti DetailAnggaran)
+  let barColor = "#008f5d";
+  let textColor = "#005836";
+  if (pct >= 90) {
+    barColor = "#d36c66";
+    textColor = "#991b1b";
+  } else if (pct >= 75) {
+    barColor = "#d8953d";
+    textColor = "#92400e";
+  }
 
   return (
-    <div className="w-[300px] flex items-center justify-center shrink-0">
-      <div className="w-[240px] flex items-center gap-3.5">
-        <div className="flex-1 bg-[#f0efe9] h-3 rounded-full overflow-hidden">
-          <div 
-            className={`h-full rounded-full transition-all duration-300 ${barColor}`} 
-            style={{ width: `${Math.min(displayPct, 100)}%` }} 
+    <div className="flex items-center justify-center shrink-0" style={{ width: 320 }}>
+      <div className="flex items-center justify-center gap-2.5 w-full px-3 shrink-0">
+        <div className="flex-1 bg-stone-100 h-2.5 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${displayPct}%`, backgroundColor: barColor }}
           />
         </div>
-        <span className={`text-[12px] font-extrabold tabular-nums w-14 text-left shrink-0 ${textColor}`}>
+        <span
+          className="text-[11px] font-bold tabular-nums w-12 text-left shrink-0"
+          style={{ color: textColor }}
+        >
           {pct.toFixed(1)}%
         </span>
       </div>
@@ -58,15 +89,58 @@ function ProgressCell({ pct }: { pct: number }) {
   );
 }
 
-function AksiButton({ children, onClick }: any) {
+// Cell dengan lebar tetap (mirip DetailAnggaran)
+function Cell({
+  children,
+  bold,
+  style,
+}: {
+  children: React.ReactNode;
+  bold?: boolean;
+  style?: React.CSSProperties;
+}) {
   return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-      className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[#00966c]/60 text-[#00966c] bg-[#f2f9f6] hover:bg-[#e0f3eb] transition cursor-pointer whitespace-nowrap"
+    <span
+      className={`text-[12px] text-stone-800 shrink-0 text-center whitespace-nowrap ${bold ? "font-bold" : ""}`}
+      style={{ width: 220, ...style }}
     >
-      <Settings size={13} />
       {children}
-    </button>
+    </span>
+  );
+}
+
+// AksiButton dengan warna per variant (persis DetailAnggaran)
+type AksiVariant = "main" | "sub";
+
+const VARIANT_STYLES: Record<AksiVariant, { bg: string; border: string; text: string }> = {
+  main: { bg: "#fdf7f2", border: "#b38355", text: "#8d5423" },
+  sub: { bg: "#f1f7f4", border: "#388863", text: "#1f6245" },
+};
+
+function AksiButton({
+  children,
+  variant = "sub",
+  onClick,
+}: {
+  children: React.ReactNode;
+  variant?: AksiVariant;
+  onClick?: () => void;
+}) {
+  const styles = VARIANT_STYLES[variant];
+  // MAIN pakai Plus (sama seperti "Ajukan Alokasi" di DetailAnggaran)
+  // SUB pakai Settings (sama seperti "Edit Alokasi" di DetailAnggaran)
+  const Icon = variant === "main" ? Plus : Settings;
+  return (
+    <div className="flex justify-center shrink-0" style={{ width: 120 }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+        className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-sm"
+        style={{ backgroundColor: styles.bg, borderColor: styles.border, color: styles.text }}
+      >
+        <Icon size={12} style={{ color: styles.text }} />
+        {children}
+      </button>
+    </div>
   );
 }
 
@@ -91,7 +165,24 @@ export default function AlokasiPemasukanModal({
   const [newSubNominal, setNewSubNominal] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // ── Master data (master_main + master_sub tipe=pemasukan) ──────────────────
+  const [masterData, setMasterData] = useState<any[]>([]);
+  const [isMasterLoading, setIsMasterLoading] = useState(false);
+
   const currentTheme = THEME_COLORS[kategoriProyek] || THEME_COLORS.general;
+
+  // Fetch master data saat modal dibuka
+  useEffect(() => {
+    if (!isOpen) return;
+    setIsMasterLoading(true);
+    fetch("/api/master?tipe=pemasukan")
+      .then((res) => res.json())
+      .then((json) => {
+        setMasterData(json.data || []);
+      })
+      .catch((err) => console.error("Gagal fetch master pemasukan:", err))
+      .finally(() => setIsMasterLoading(false));
+  }, [isOpen]);
 
   useEffect(() => {
     setExpandedMain({});
@@ -103,21 +194,23 @@ export default function AlokasiPemasukanModal({
     setNewSubNominal("");
   }, [proyekId]);
 
-  async function ambilDataProyek(proyekId: number) {
-  try {
-    const response = await fetch(`/api/proyek/${proyekId}`);
-    
-    if (!response.ok) {
-      throw new Error("Gagal terhubung ke server");
-    }
-    const result = await response.json();
-
-    console.log("Nama Proyek:", result.namaProyek);
-    
-  } catch (error) {
-    console.error("Terjadi error:", error instanceof Error ? error.message : String(error));
+  // ── Helper: cari nominal alokasi dari dataPemasukan berdasarkan nama ───────
+  // dataPemasukan = data alokasi proyek yang sudah tersimpan di DB proyek
+  // masterData    = daftar kategori master (master_main / master_sub)
+  function cariAlokasiMain(namaMain: string) {
+    const found = (dataPemasukan || []).find(
+      (m: any) => (m.namaMain || "").toLowerCase() === namaMain.toLowerCase()
+    );
+    return found || null;
   }
-}
+
+  function cariAlokasiSub(namaMain: string, namaSub: string) {
+    const mainItem = cariAlokasiMain(namaMain);
+    if (!mainItem) return null;
+    return ((mainItem.subAnggaran || []).find(
+      (s: any) => (s.namaSub || "").toLowerCase() === namaSub.toLowerCase()
+    )) || null;
+  }
 
   if (!isOpen) return null;
 
@@ -181,7 +274,9 @@ export default function AlokasiPemasukanModal({
     }
   };
 
-  const handleSimpanSub = async (mainItem: any) => {
+  // masterMain = data dari masterData (nama, id dari master_main)
+  // alokasiMain = data dari dataPemasukan (nominalAlokasi, subAnggaran, namaMain)
+  const handleSimpanSub = async (masterMain: any, alokasiMain: any) => {
     const nominalSubBaru = Number(newSubNominal.replace(/\./g, "")) || 0;
 
     if (!newSubName || nominalSubBaru <= 0) {
@@ -189,20 +284,34 @@ export default function AlokasiPemasukanModal({
       return;
     }
 
-    // Hitung total sub yang sudah ada di dalam MAIN ini
-    const totalSubSebelumnya = (mainItem.subAnggaran || []).reduce(
-      (sum: number, sub: any) => sum + (Number(sub.nominalAlokasi) || 0), 
+    if (newSubName.trim().toLowerCase() === masterMain.nama.trim().toLowerCase()) {
+      alert("Nama Sub dan Main tidak boleh sama!");
+      return;
+    }
+
+    // Hitung total sub yang sudah ada & cek duplikasi sub
+    const subAnggaranSaatIni = alokasiMain?.subAnggaran || [];
+    const isSubDuplicate = subAnggaranSaatIni.some(
+      (sub: any) => (sub.namaSub || "").trim().toLowerCase() === newSubName.trim().toLowerCase()
+    );
+    if (isSubDuplicate) {
+      alert(`Sub "${newSubName}" sudah ditambahkan di bawah Main "${masterMain.nama}"!`);
+      return;
+    }
+
+    const totalSubSebelumnya = subAnggaranSaatIni.reduce(
+      (sum: number, sub: any) => sum + (Number(sub.nominalAlokasi) || 0),
       0
     );
 
-    const batasMaksimalMain = Number(mainItem.nominalAlokasi) || 0;
+    const batasMaksimalMain = Number(alokasiMain?.nominalAlokasi) || 0;
     const sisaKuota = batasMaksimalMain - totalSubSebelumnya;
 
-    // Jika sub baru membuat total sub melewati batas MAIN, tolak!
-    if (nominalSubBaru > sisaKuota) {
+    // Validasi hanya jika main sudah punya alokasi (ada batas)
+    if (batasMaksimalMain > 0 && nominalSubBaru > sisaKuota) {
       alert(
         `GAGAL: Total alokasi sub akan melewati batas MAIN!\n\n` +
-        `Batas Patokan MAIN "${mainItem.namaMain}": Rp ${batasMaksimalMain.toLocaleString("id-ID")}\n` +
+        `Batas Patokan MAIN "${masterMain.nama}": Rp ${batasMaksimalMain.toLocaleString("id-ID")}\n` +
         `Sudah terpakai sub lain: Rp ${totalSubSebelumnya.toLocaleString("id-ID")}\n` +
         `Sisa kuota maksimal sub: Rp ${sisaKuota.toLocaleString("id-ID")}`
       );
@@ -215,8 +324,8 @@ export default function AlokasiPemasukanModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          namaMain: mainItem.namaMain, 
-          namaSub: newSubName,     
+          namaMain: masterMain.nama,
+          namaSub: newSubName,
           nominal: nominalSubBaru
         }),
       });
@@ -234,7 +343,7 @@ export default function AlokasiPemasukanModal({
       if (response.ok) {
         setNewSubName("");
         setNewSubNominal("");
-        setAddingSubId(null); 
+        setAddingSubId(null);
         if (onRefresh) onRefresh();
       } else {
         alert(result.message || "Gagal menyimpan alokasi sub");
@@ -255,196 +364,244 @@ export default function AlokasiPemasukanModal({
   // Ambang untuk menandai sisa alokasi berwarna merah (mis. ketika negatif)
   const persentaseTerpakaiMerah = 0;
 
+  // Master main yang sudah terpilih / dialokasikan di proyek
+  const selectedMasterData = masterData.filter((main: any) => Boolean(cariAlokasiMain(main.nama)));
+  // Master main yang belum terpilih untuk dropdown Tambah Main
+  const unselectedMasterData = masterData.filter((main: any) => !cariAlokasiMain(main.nama));
+
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1100px] max-h-[90vh] flex flex-col overflow-hidden text-left" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1260px] max-h-[85vh] flex flex-col overflow-hidden text-left" onClick={(e) => e.stopPropagation()}>
 
+          {/* Header */}
           <div className="px-6 pt-5 pb-4 border-b border-stone-100 flex items-start justify-between shrink-0">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-extrabold text-stone-900">Edit Alokasi</h3>
+                <h3 className="text-lg font-sans font-bold text-stone-900">Edit Alokasi</h3>
                 {kategoriProyek !== "general" && (
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${currentTheme.bgLight} text-stone-700`}>
                     {kategoriProyek}
                   </span>
                 )}
               </div>
-              <p className="text-sm text-stone-500 mt-0.5">{proyekNama} (ID: {proyekId})</p>
+              <p className="text-sm font-sans text-stone-500 mt-0.5">{proyekNama}</p>
             </div>
             <button onClick={onClose} className="p-1.5 hover:bg-stone-100 rounded-lg transition text-stone-400 hover:text-stone-600 cursor-pointer">
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
-          <div className="px-6 py-4 shrink-0 bg-white">
-            <div className="border border-[#e2e2e0] rounded-2xl p-5 shadow-sm">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[13px] font-bold text-stone-800">Alokasi Pemasukan</span>
-                <span className="text-[13px] font-extrabold text-stone-900">{progressGlobal.toFixed(0)}%</span>
-              </div>
-              <div className="w-full h-2 bg-[#f0efe9] rounded-full overflow-hidden mb-4">
-                <div
-                  className="h-full bg-[#00966c] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(progressGlobal, 100)}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[11.5px] items-center">
-                <span className="text-stone-700 font-medium">
-                  Total Pemasukan
-                  <span className="text-[10px] text-stone-400 font-bold ml-1.5 mr-0.5">Rp</span>
-                  <b className="text-stone-900 text-[13px] tracking-tight">{totalPemasukan.toLocaleString("id-ID")}</b>
-                </span>
-                <span className="text-stone-700 font-medium">
-                  Teralokasi
-                  <span className="text-[10px] text-stone-400 font-bold ml-1.5 mr-0.5">Rp</span>
-                  <b className="text-stone-900 text-[13px] tracking-tight">{hitungTeralokasi.toLocaleString("id-ID")}</b>
-                </span>
-                <span className="text-stone-700 font-medium">
-                  Sisa Alokasi
-                  <span className="text-[10px] text-stone-400 font-bold ml-1.5 mr-0.5">Rp</span>
-                  <b className={`text-[13px] tracking-tight ${sisaAlokasi < persentaseTerpakaiMerah ? 'text-red-600 font-bold' : 'text-stone-900'}`}>
-                    {sisaAlokasi.toLocaleString("id-ID")}
-                  </b>
-                </span>
-              </div>
-            </div>
+          {/* Column headers */}
+          <div className="flex items-center gap-3 px-6 py-2 bg-stone-50 border-b border-stone-100 shrink-0">
+            <span className="flex-1 min-w-0 max-w-[440px] text-[10px] font-bold text-stone-400 uppercase tracking-wider">MAIN · SUB</span>
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center" style={{ width: 320 }}>PROGRESS</span>
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center" style={{ width: 220 }}>ALOKASI</span>
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center" style={{ width: 120 }}>AKSI</span>
           </div>
 
-          <div className="flex items-center px-6 py-3 bg-white border-y border-stone-100 shrink-0">
-            <span className="flex-1 min-w-0 text-[10px] font-extrabold text-stone-400 uppercase tracking-wider">MAIN · SUB</span>
-            <span className="w-[300px] text-[10px] font-extrabold text-stone-400 uppercase tracking-wider text-center">PROGRESS</span>
-            <span className="w-[180px] text-[10px] font-extrabold text-stone-400 uppercase tracking-wider text-left">ALOKASI</span>
-            <span className="w-[120px] text-[10px] font-extrabold text-stone-400 uppercase tracking-wider text-left pl-1">AKSI</span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto bg-white">
-            {(dataPemasukan || []).length === 0 ? (
-              <div className="p-12 text-center text-stone-400 text-sm italic">
-                Belum ada data pemasukan untuk proyek ini.
+          {/* Scrollable rows — hanya menampilkan main yang terpilih */}
+          <div className="flex-1 overflow-y-auto divide-y divide-stone-50 bg-white">
+            {isMasterLoading ? (
+              <div className="p-12 text-center text-stone-400 text-sm">
+                Memuat data master...
+              </div>
+            ) : selectedMasterData.length === 0 ? (
+              <div className="p-12 text-center border border-stone-200 rounded-xl m-6">
+                <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">Belum Ada Pemasukan Terpilih</div>
+                <div className="font-sans text-xs text-stone-400">Silakan klik "Tambah Main" untuk memilih dan mengalokasikan pemasukan.</div>
               </div>
             ) : (
-              (dataPemasukan || []).map((main: any) => {
+              selectedMasterData.map((main: any) => {
                 const isMainOpen = expandedMain[main.id] ?? true;
-                const totalTeralokasiSub = (main.subAnggaran || []).reduce((s: number, i: any) => s + (Number(i.nominalAlokasi) || 0), 0);
-                const rawMainAlokasi = Number(main.nominalAlokasi) || 0;
-                const mainAlokasi = rawMainAlokasi > totalTeralokasiSub ? rawMainAlokasi : rawMainAlokasi; 
-                const mainTerpakai = Number(main.nominalTerpakai) || 0;
-                const hasTermin = Array.isArray(main.termin) ? main.termin.length > 0 : Boolean(main.termin);
+
+                // Cari data alokasi proyek yang sudah ada (untuk nominal & progress)
+                const alokasiMain = cariAlokasiMain(main.nama);
+                const mainAlokasi = Number(alokasiMain?.nominalAlokasi) || 0;
+                const mainTerpakai = Number(alokasiMain?.nominalTerpakai) || 0;
+                const hasTermin = alokasiMain
+                  ? (Array.isArray(alokasiMain.termin) ? alokasiMain.termin.length > 0 : Boolean(alokasiMain.termin))
+                  : false;
                 const mainPct = hasTermin && mainAlokasi > 0 ? (mainTerpakai / mainAlokasi) * 100 : 0;
-                
+                const totalTeralokasiSub = (alokasiMain?.subAnggaran || []).reduce(
+                  (s: number, i: any) => s + (Number(i.nominalAlokasi) || 0), 0
+                );
+
                 return (
-                  <div key={main.id} className="border-b border-stone-100/50 last:border-0">
+                  <div key={main.id}>
+                    {/* MAIN row — dari master_main */}
                     <Row onClick={() => toggleMain(main.id)}>
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <div className="text-stone-500 shrink-0">
-                          {isMainOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                      <div className={NAME_CLASS}>
+                        <div className="p-0.5 shrink-0">
+                          {isMainOpen ? (
+                            <ChevronDown size={13} className="text-stone-500" />
+                          ) : (
+                            <ChevronRight size={13} className="text-stone-500" />
+                          )}
                         </div>
-                        <span className="text-[13px] font-bold text-stone-800 shrink-0">MAIN</span>
-                        <span className="text-[13px] font-bold text-stone-800 truncate">· {main.namaMain}</span>
+                        <span
+                          className="text-[13px] font-bold uppercase shrink-0"
+                          style={{ color: "#14130F" }}
+                        >
+                          MAIN
+                        </span>
+                        <span className="text-[13px] font-semibold text-stone-800 truncate">
+                          {main.nama}
+                        </span>
                       </div>
 
-                      {/* Progress bar tetap dirender menampilkan 0.0% jika tidak ada termin */}
                       <ProgressCell pct={mainPct} />
 
-                      <div className="w-[180px] text-[13px] font-medium text-stone-600 shrink-0">
-                        Rp {mainAlokasi.toLocaleString("id-ID")}
-                      </div>
+                      <Cell bold>
+                        {mainAlokasi > 0 ? `Rp ${mainAlokasi.toLocaleString("id-ID")}` : <span className="text-stone-400 font-normal">Belum dialokasikan</span>}
+                      </Cell>
 
-                      <div className="w-[120px] flex justify-start shrink-0">
-                        <AksiButton onClick={() => setEditTarget({
-                          type: "main", id: main.id, nama: main.namaMain,
-                          currentAlokasi: main.nominalAlokasi, totalRAB: totalPemasukan, totalTeralokasi: totalTeralokasiSub
-                        })}>
-                          Edit Alokasi
-                        </AksiButton>
-                      </div>
+                      <AksiButton
+                        variant="main"
+                        onClick={() => alokasiMain && setEditTarget({
+                          type: "main",
+                          id: alokasiMain.id,
+                          nama: alokasiMain.namaMain,
+                          currentAlokasi: alokasiMain.nominalAlokasi,
+                          totalRAB: totalPemasukan,
+                          totalTeralokasi: totalTeralokasiSub
+                        })}
+                      >
+                        Edit Alokasi
+                      </AksiButton>
                     </Row>
 
                     {isMainOpen && (
-                      <div className="bg-white">
-                        {(main.subAnggaran || []).map((sub: any) => {
-                          const subAlokasi = Number(sub.nominalAlokasi) || 0;
-                          const subTerpakai = Number(sub.nominalTerpakai) || 0;
-                          
-                          const subHasTermin = Array.isArray(sub.termin) ? sub.termin.length > 0 : (hasTermin || Boolean(sub.termin));
-                          const subPct = subHasTermin && subAlokasi > 0 ? (subTerpakai / subAlokasi) * 100 : 0;
+                      <div className="bg-stone-50/50">
+                        {/* SUB: hanya tampilkan yang sudah diinput user (dari dataPemasukan) */}
+                        {(alokasiMain?.subAnggaran || []).length === 0 ? (
+                          <p className="pl-14 py-2.5 text-[12px] text-stone-400 italic">
+                            Belum ada sub pemasukan.
+                          </p>
+                        ) : (
+                          (alokasiMain?.subAnggaran || []).map((sub: any) => {
+                            const subAlokasi = Number(sub.nominalAlokasi) || 0;
+                            const subTerpakai = Number(sub.nominalTerpakai) || 0;
+                            const subHasTermin = Array.isArray(sub.termin)
+                              ? sub.termin.length > 0
+                              : (hasTermin || Boolean(sub.termin));
+                            const subPct = subHasTermin && subAlokasi > 0 ? (subTerpakai / subAlokasi) * 100 : 0;
 
-                          return (
-                            <Row key={sub.id} className="bg-white">
-                              <div className="flex items-center gap-2.5 flex-1 min-w-0" style={{ paddingLeft: 28 }}>
-                                <span className="text-[11px] font-bold text-stone-400 shrink-0">SUB</span>
-                                <span className="text-[13px] font-medium text-stone-600 truncate">· {sub.namaSub}</span>
-                              </div>
-                              
-                              {/* Progress bar sub tetap dirender menampilkan 0.0% jika tidak ada termin */}
-                              <ProgressCell pct={subPct} />
+                            return (
+                              <Row key={sub.id} indent={1} className="hover:bg-stone-100/60">
+                                <div className={NAME_CLASS}>
+                                  <div className="p-0.5 shrink-0">
+                                    <ChevronRight size={12} className="text-stone-400" />
+                                  </div>
+                                  <span
+                                    className="text-[9px] font-bold uppercase shrink-0"
+                                    style={{ color: "#9A948B" }}
+                                  >
+                                    SUB
+                                  </span>
+                                  <span className="text-[12px] font-semibold text-stone-700 truncate">
+                                    {sub.namaSub}
+                                  </span>
+                                </div>
 
-                              <div className="w-[180px] text-[13px] font-medium text-stone-600 shrink-0">
-                                Rp {subAlokasi.toLocaleString("id-ID")}
-                              </div>
-                              <div className="w-[120px] flex justify-start shrink-0">
-                                <AksiButton onClick={() => setEditTarget({
-                                  type: "sub", id: sub.id, mainId: main.id, nama: sub.namaSub, parentNama: main.namaMain,
-                                  currentAlokasi: sub.nominalAlokasi, totalRAB: main.nominalAlokasi, totalTeralokasi: totalTeralokasiSub
-                                })}>
+                                <ProgressCell pct={subPct} />
+
+                                <Cell>
+                                  {subAlokasi > 0 ? `Rp ${subAlokasi.toLocaleString("id-ID")}` : <span className="text-stone-400">—</span>}
+                                </Cell>
+
+                                {/* Edit Alokasi SUB — sama seperti MAIN, selalu aktif */}
+                                <AksiButton
+                                  variant="sub"
+                                  onClick={() => setEditTarget({
+                                    type: "sub",
+                                    id: sub.id,
+                                    mainId: alokasiMain?.id,
+                                    nama: sub.namaSub,
+                                    parentNama: alokasiMain?.namaMain,
+                                    currentAlokasi: sub.nominalAlokasi,
+                                    totalRAB: alokasiMain?.nominalAlokasi,
+                                    totalTeralokasi: totalTeralokasiSub
+                                  })}
+                                >
                                   Edit Alokasi
                                 </AksiButton>
-                              </div>
-                            </Row>
+                              </Row>
+                            );
+                          })
+                        )}
+
+                        {addingSubId === main.id ? (() => {
+                          const existingSubNames = (alokasiMain?.subAnggaran || []).map(
+                            (s: any) => (s.namaSub || "").trim().toLowerCase()
                           );
-                        })}
+                          const availableMasterSubs = (main.MasterSub || []).filter((ms: any) => {
+                            const msName = (ms.nama || "").trim().toLowerCase();
+                            const mainName = (main.nama || "").trim().toLowerCase();
+                            return msName !== mainName && !existingSubNames.includes(msName);
+                          });
 
-                        {addingSubId === main.id ? (
-                          <div className="p-4 mx-4 mb-4 bg-white border border-stone-200/70 rounded-xl flex flex-col gap-3 shadow-sm ml-12">
-                            <span className="text-[12px] font-extrabold text-stone-700 uppercase">
-                              Sub Baru (Untuk: {main.namaMain})
-                            </span>
+                          return (
+                            <div className="p-4 mx-4 mb-4 bg-white border border-stone-200/70 rounded-xl flex flex-col gap-3 shadow-sm ml-12">
+                              <span className="text-[12px] font-extrabold text-stone-700 uppercase">
+                                Sub Baru (Untuk: {main.nama})
+                              </span>
 
-                            <div className="flex gap-3 items-center">
-                              <div className="flex-1 bg-stone-50 border border-stone-200 rounded-lg flex items-center px-3 py-2">
-                                <input
-                                  type="text"
-                                  placeholder="Nama Sub Pemasukan"
-                                  value={newSubName}
-                                  onChange={(e) => setNewSubName(e.target.value)}
-                                  className="w-full text-[12px] text-stone-800 outline-none placeholder:text-stone-400 font-medium bg-transparent"
-                                />
+                              <div className="flex gap-3 items-center">
+                                {/* Dropdown master_sub yang sesuai (filter out sub name sama dengan main & sub yang sudah terpilih) */}
+                                <div className="flex-1 bg-stone-50 border border-stone-200 rounded-lg flex items-center px-3 py-2">
+                                  <select
+                                    value={newSubName}
+                                    onChange={(e) => setNewSubName(e.target.value)}
+                                    className="w-full text-[12px] text-stone-800 outline-none font-medium bg-transparent cursor-pointer"
+                                  >
+                                    <option value="">
+                                      {availableMasterSubs.length === 0
+                                        ? "-- Semua Sub Pemasukan Sudah Ditambahkan --"
+                                        : "-- Pilih Sub Pemasukan --"}
+                                    </option>
+                                    {availableMasterSubs.map((ms: any) => (
+                                      <option key={ms.id} value={ms.nama}>
+                                        {ms.nama}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="w-1/3 bg-stone-50 border border-stone-200 rounded-lg flex items-center px-3 py-2">
+                                  <span className="text-[12px] font-bold text-stone-400 mr-2">Rp</span>
+                                  <input
+                                    type="text"
+                                    placeholder="0"
+                                    value={newSubNominal}
+                                    onChange={handleSubNominalChange}
+                                    className="w-full text-[12px] text-stone-800 outline-none font-mono font-bold bg-transparent"
+                                  />
+                                </div>
                               </div>
-                              <div className="w-1/3 bg-stone-50 border border-stone-200 rounded-lg flex items-center px-3 py-2">
-                                <span className="text-[12px] font-bold text-stone-400 mr-2">Rp</span>
-                                <input
-                                  type="text"
-                                  placeholder="0"
-                                  value={newSubNominal}
-                                  onChange={handleSubNominalChange}
-                                  className="w-full text-[12px] text-stone-800 outline-none font-mono font-bold bg-transparent"
-                                />
+
+                              <div className="flex items-center gap-3 mt-1">
+                                <button
+                                  onClick={() => handleSimpanSub(main, alokasiMain)}
+                                  disabled={isSaving}
+                                  className={`px-4 py-2 text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-50 cursor-pointer ${currentTheme.primary} ${currentTheme.hover}`}
+                                >
+                                  {isSaving ? "Menyimpan..." : "Simpan Sub"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setAddingSubId(null);
+                                    setNewSubName("");
+                                    setNewSubNominal("");
+                                  }}
+                                  className="text-[11px] font-bold text-stone-500 hover:text-stone-800 transition-colors cursor-pointer"
+                                >
+                                  Batal
+                                </button>
                               </div>
                             </div>
-
-                            <div className="flex items-center gap-3 mt-1">
-                              <button
-                                onClick={() => handleSimpanSub(main)}
-                                disabled={isSaving}
-                                className={`px-4 py-2 text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-50 cursor-pointer ${currentTheme.primary} ${currentTheme.hover}`}
-                              >
-                                {isSaving ? "Menyimpan..." : "Simpan Sub"}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setAddingSubId(null);
-                                  setNewSubName("");
-                                  setNewSubNominal("");
-                                }}
-                                className="text-[11px] font-bold text-stone-500 hover:text-stone-800 transition-colors cursor-pointer"
-                              >
-                                Batal
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="py-3" style={{ paddingLeft: 52 }}>
+                          );
+                        })() : (
+                          <div className="py-2.5" style={{ paddingLeft: 52 }}>
                             <button
                               onClick={() => setAddingSubId(main.id)}
                               className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#00966c] hover:text-[#007f5a] transition cursor-pointer"
@@ -467,14 +624,20 @@ export default function AlokasiPemasukanModal({
                 </span>
 
                 <div className="flex gap-4 items-center">
+                  {/* Dropdown master_main yang belum dipilih */}
                   <div className="flex-1 bg-white border border-stone-200 rounded-lg flex items-center px-4 py-2.5">
-                    <input
-                      type="text"
-                      placeholder="Nama Pemasukan (cth: Penjualan Jasa Tambahan)"
+                    <select
                       value={newMainName}
                       onChange={(e) => setNewMainName(e.target.value)}
-                      className="w-full text-[13px] text-stone-800 outline-none placeholder:text-stone-400 font-medium bg-transparent"
-                    />
+                      className="w-full text-[13px] text-stone-800 outline-none font-medium bg-transparent cursor-pointer"
+                    >
+                      <option value="">-- Pilih Pemasukan --</option>
+                      {unselectedMasterData.map((m: any) => (
+                        <option key={m.id} value={m.nama}>
+                          {m.nama}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="w-1/3 bg-white border border-stone-200 rounded-lg flex items-center px-4 py-2.5">
                     <span className="text-[13px] font-bold text-stone-400 mr-2">Rp</span>
@@ -520,8 +683,8 @@ export default function AlokasiPemasukanModal({
             )}
           </div>
 
-          <div className="px-6 py-5 border-t border-stone-100 flex justify-end bg-white shrink-0">
-            <button onClick={onClose} className="px-7 py-2.5 bg-[#1c1c1c] hover:bg-black text-white text-[13px] font-bold rounded-xl transition cursor-pointer">
+          <div className="px-6 py-4 border-t border-stone-100 flex justify-end bg-white shrink-0">
+            <button onClick={onClose} className="px-5 py-2 bg-stone-800 hover:bg-stone-900 text-white text-[13px] font-bold rounded-xl transition cursor-pointer">
               Tutup
             </button>
           </div>
