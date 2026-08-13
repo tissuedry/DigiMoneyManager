@@ -38,7 +38,9 @@ export async function GET(req: NextRequest) {
       const data = await prisma.masterMain.findMany({
         where: whereCond,
         include: {
-          MasterSub: tipeFilter && tipeFilter !== 'all' ? { where: { tipe: tipeFilter } } : true,
+          MasterSub: tipeFilter && tipeFilter !== 'all'
+            ? { where: { tipe: tipeFilter }, orderBy: { id: 'asc' } }
+            : { orderBy: { id: 'asc' } },
         },
         orderBy: { id: 'asc' },
       });
