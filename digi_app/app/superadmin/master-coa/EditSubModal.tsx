@@ -70,7 +70,7 @@ export default function EditSubModal({ isOpen, onClose, data, onRefresh }: any) 
     >
       {errorMsg && <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg">{errorMsg}</div>}
       <div className="text-[13px] text-stone-700 font-medium">
-        <span className="font-bold text-stone-800">MAIN</span> · {data?.main}
+        <span className="font-bold text-stone-800">SUB</span> · {data?.sub}
       </div>
       <div className="space-y-1.5">
         <label className="text-[13px] font-bold text-stone-800">Nama Sub Baru</label>
