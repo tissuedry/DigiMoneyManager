@@ -186,7 +186,7 @@ function ProyekCard({
           ) : (
             <p className="text-[11px] text-stone-400 mt-2 flex items-center gap-1">
               <AlertCircle size={12} className="text-amber-500" />
-              Budget belum diinisialisasi — PM belum bisa tambah pos anggaran
+              Budget belum diinisialisasi
             </p>
           )}
         </div>
@@ -295,9 +295,9 @@ export default function KeuanganBudgetPage() {
       <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
         {/* Page Header */}
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">Manajemen Budget Proyek</h1>
+          <h1 className="text-2xl font-bold text-stone-900">Laporan Anggaran Proyek</h1>
           <p className="text-sm text-stone-500 mt-1">
-            Inisialisasi dan kelola RAB (Rencana Anggaran Biaya) per proyek. Budget yang diinisialisasi memungkinkan PM menambah pos anggaran.
+            Pantau status anggaran (RAB) setiap proyek dan unduh laporan anggaran dalam format Excel.
           </p>
         </div>
 
