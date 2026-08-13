@@ -96,7 +96,7 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
       {errorMsg && <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg">{errorMsg}</div>}
       {showTipeSelector && (
         <div className="space-y-1.5">
-          <label className="text-[13px] font-bold text-stone-800">Tipe Kategori</label>
+          <label className="text-[13px] font-bold text-stone-800">Kategori</label>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
