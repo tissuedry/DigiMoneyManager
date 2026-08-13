@@ -2,6 +2,8 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
+export const dynamic = 'force-dynamic';
+
 async function checkAuthorization(req: NextRequest, proyekId: number) {
   const userId = req.headers.get('x-user-id');
   const userRole = req.headers.get('x-user-role');
@@ -18,8 +20,6 @@ async function checkAuthorization(req: NextRequest, proyekId: number) {
   return isDirektur || isSuperAdmin || isMember;
 }
 
-// GET: Mengambil data alokasi pemasukan (MainAnggaran & SubAnggaran bertipe "pemasukan")
-//      beserta saldo pemasukanBelumDialokasikan dari Budget
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -50,7 +50,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Budget belum diinisialisasi untuk proyek ini' }, { status: 404 });
     }
 
-    // Ambil master data pemasukan untuk pilihan alokasi
     const masterPemasukan = await prisma.masterMain.findMany({
       where: { tipe: 'pemasukan' },
       include: {
@@ -75,7 +74,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// POST: Alokasikan nominal dari pemasukanBelumDialokasikan ke MainAnggaran / SubAnggaran tipe "pemasukan"
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -87,106 +85,163 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const body = await req.json();
-    const { namaMain, namaSub, nominal } = body;
+    const { mainAnggaranId, subAnggaranId, alokasiBaru, namaMain, namaSub, nominal } = body;
 
-    if (!namaMain || !nominal || parseFloat(nominal) <= 0) {
-      return NextResponse.json({ message: 'namaMain dan nominal (> 0) wajib diisi' }, { status: 400 });
-    }
+    // ─── SKENARIO 1: Tambah Main baru ───────────────────────────────────────
+    if (namaMain && !namaSub && !mainAnggaranId) {
+      const nominalNum = Number(nominal) || 0;
+      if (!namaMain || nominalNum <= 0) {
+        return NextResponse.json(
+          { message: 'Nama Main dan Nominal harus diisi dengan benar' },
+          { status: 400 }
+        );
+      }
 
-    const nominalAlokasi = parseFloat(nominal);
-
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Cek saldo yang tersedia
-      const budget = await tx.budget.findUnique({ where: { proyekId } });
+      const budget = await prisma.budget.findUnique({ where: { proyekId } });
       if (!budget) {
-        throw new Error('Budget tidak ditemukan');
+        return NextResponse.json({ message: 'Budget belum diinisialisasi untuk proyek ini' }, { status: 404 });
       }
 
-      const saldoTersedia = Number(budget.pemasukanBelumDialokasikan);
-      if (nominalAlokasi > saldoTersedia) {
-        throw new Error(`ValidationError: Nominal alokasi (Rp ${nominalAlokasi.toLocaleString('id-ID')}) melebihi saldo yang tersedia (Rp ${saldoTersedia.toLocaleString('id-ID')})`);
-      }
-
-      // 2. Cari atau buat MainAnggaran tipe pemasukan
-      let mainAnggaran = await tx.mainAnggaran.findFirst({
-        where: {
+      const newMain = await prisma.mainAnggaran.create({
+        data: {
           budgetId: budget.id,
           namaMain,
+          nominalAlokasi: nominalNum,
           tipe: 'pemasukan',
         },
       });
 
+      clearCache('proyek:');
+      clearCache('dashboard:');
+      return NextResponse.json({ success: true, data: newMain }, { status: 201 });
+    }
+
+    // ─── SKENARIO 2: Tambah Sub baru ────────────────────────────────────────
+    if (namaMain && namaSub) {
+      const nominalNum = Number(nominal) || 0;
+      if (!namaSub || nominalNum <= 0) {
+        return NextResponse.json(
+          { message: 'Nama Sub dan Nominal harus diisi dengan benar' },
+          { status: 400 }
+        );
+      }
+
+      const budget = await prisma.budget.findUnique({ where: { proyekId } });
+      if (!budget) {
+        return NextResponse.json({ message: 'Budget belum diinisialisasi untuk proyek ini' }, { status: 404 });
+      }
+
+      // Cari mainAnggaran berdasarkan namaMain
+      const mainAnggaran = await prisma.mainAnggaran.findFirst({
+        where: { budgetId: budget.id, namaMain, tipe: 'pemasukan' },
+        include: { subAnggaran: true },
+      });
+
       if (!mainAnggaran) {
-        mainAnggaran = await tx.mainAnggaran.create({
-          data: {
-            budgetId: budget.id,
-            namaMain,
-            tipe: 'pemasukan',
-            nominalAlokasi: 0,
-            nominalTerpakai: 0,
-          },
-        });
+        return NextResponse.json({ message: 'Main Anggaran tidak ditemukan' }, { status: 404 });
       }
 
-      let targetRecord: any;
-
-      if (namaSub) {
-        // Alokasi ke Sub Anggaran
-        let subAnggaran = await tx.subAnggaran.findFirst({
-          where: {
-            mainAnggaranId: mainAnggaran.id,
-            namaSub,
-            tipe: 'pemasukan',
+      // Validasi kuota main
+      const totalSubSebelumnya = mainAnggaran.subAnggaran.reduce(
+        (sum, sub) => sum + Number(sub.nominalAlokasi || 0),
+        0
+      );
+      const sisaKuota = Number(mainAnggaran.nominalAlokasi || 0) - totalSubSebelumnya;
+      if (nominalNum > sisaKuota) {
+        return NextResponse.json(
+          {
+            message: `Total alokasi sub akan melewati batas MAIN "${namaMain}". Sisa kuota: Rp ${sisaKuota.toLocaleString('id-ID')}`,
           },
-        });
-
-        if (!subAnggaran) {
-          subAnggaran = await tx.subAnggaran.create({
-            data: {
-              mainAnggaranId: mainAnggaran.id,
-              namaSub,
-              tipe: 'pemasukan',
-              nominalAlokasi: 0,
-              nominalTerpakai: 0,
-            },
-          });
-        }
-
-        targetRecord = await tx.subAnggaran.update({
-          where: { id: subAnggaran.id },
-          data: { nominalAlokasi: { increment: nominalAlokasi } },
-        });
-
-        // Update nominalAlokasi MainAnggaran juga
-        await tx.mainAnggaran.update({
-          where: { id: mainAnggaran.id },
-          data: { nominalAlokasi: { increment: nominalAlokasi } },
-        });
-      } else {
-        // Alokasi langsung ke Main Anggaran
-        targetRecord = await tx.mainAnggaran.update({
-          where: { id: mainAnggaran.id },
-          data: { nominalAlokasi: { increment: nominalAlokasi } },
-        });
+          { status: 400 }
+        );
       }
 
-      // 3. Kurangi saldo pemasukanBelumDialokasikan di Budget
-      const updatedBudget = await tx.budget.update({
-        where: { proyekId },
+      const newSub = await prisma.subAnggaran.create({
         data: {
-          pemasukanBelumDialokasikan: { decrement: nominalAlokasi },
+          mainAnggaranId: mainAnggaran.id,
+          namaSub,
+          nominalAlokasi: nominalNum,
+          tipe: 'pemasukan',
         },
       });
 
-      return { targetRecord, budget: updatedBudget };
+      clearCache('proyek:');
+      clearCache('dashboard:');
+      return NextResponse.json({ success: true, data: newSub }, { status: 201 });
+    }
+
+    // ─── SKENARIO 3: Edit Alokasi Main atau Sub ──────────────────────────────
+    if (!mainAnggaranId || alokasiBaru === undefined || alokasiBaru < 0) {
+      return NextResponse.json(
+        { message: 'mainAnggaranId dan alokasiBaru wajib diisi dengan benar' },
+        { status: 400 }
+      );
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const mainAnggaran = await tx.mainAnggaran.findUnique({
+        where: { id: mainAnggaranId },
+        include: { subAnggaran: true },
+      });
+
+      if (!mainAnggaran) {
+        throw new Error('ValidationError: Main Anggaran tidak ditemukan');
+      }
+
+      // Jika subAnggaranId dikirim, update SubAnggaran
+      if (subAnggaranId) {
+        const subAnggaran = await tx.subAnggaran.findUnique({ where: { id: subAnggaranId } });
+        if (!subAnggaran) throw new Error('ValidationError: Sub Anggaran tidak ditemukan');
+
+        const updatedSub = await tx.subAnggaran.update({
+          where: { id: subAnggaranId },
+          data: { nominalAlokasi: alokasiBaru },
+        });
+        return { targetRecord: updatedSub };
+      }
+
+      // Update MainAnggaran
+      const sumSub = mainAnggaran.subAnggaran.reduce(
+        (acc, sub) => acc + Number(sub.nominalAlokasi || 0),
+        0
+      );
+      if (alokasiBaru < sumSub) {
+        throw new Error(
+          `ValidationError: Alokasi baru tidak boleh kurang dari total sub anggaran (Rp ${sumSub.toLocaleString('id-ID')})`
+        );
+      }
+
+      const budget = await tx.budget.findUnique({ where: { proyekId } });
+      if (!budget) throw new Error('ValidationError: Budget tidak ditemukan');
+
+      const selisihAlokasi = alokasiBaru - Number(mainAnggaran.nominalAlokasi || 0);
+      const saldoTersedia = Number(budget.pemasukanBelumDialokasikan || 0);
+
+      if (selisihAlokasi > 0 && selisihAlokasi > saldoTersedia) {
+        throw new Error(
+          'ValidationError: Penambahan alokasi melebihi sisa pemasukan yang belum dialokasikan.'
+        );
+      }
+
+      const updatedMain = await tx.mainAnggaran.update({
+        where: { id: mainAnggaranId },
+        data: { nominalAlokasi: alokasiBaru },
+      });
+
+      await tx.budget.update({
+        where: { proyekId },
+        data: { pemasukanBelumDialokasikan: { decrement: selisihAlokasi } },
+      });
+
+      return { mainAnggaran: updatedMain };
     });
 
     clearCache('proyek:');
     clearCache('dashboard:');
-    return NextResponse.json({ success: true, data: result }, { status: 201 });
+    return NextResponse.json({ success: true, data: result }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Alokasi pemasukan error:', error);
+    console.error('Perubahan alokasi error:', error);
     if (error.message?.startsWith('ValidationError:')) {
       return NextResponse.json(
         { message: error.message.replace('ValidationError:', '').trim() },
