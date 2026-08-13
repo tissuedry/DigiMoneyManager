@@ -31,7 +31,7 @@ function formatTanggal(iso: string) {
   const parts = iso.split("-");
   if (parts.length < 3) return iso;
   const [y, m, d] = parts;
-  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
   const mIdx = parseInt(m) - 1;
   return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
 }
@@ -74,7 +74,7 @@ function JurnalAkuntansiContent() {
   const handleQuickRange = (option: string) => {
     const end = new Date();
     const start = new Date();
-    
+
     if (option === "1 Minggu") {
       start.setDate(end.getDate() - 7);
     } else if (option === "1 Bulan") {
@@ -312,8 +312,8 @@ function JurnalAkuntansiContent() {
 
   return (
     <div className="flex h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
-      <Sidebar 
-        isSidebarOpen={isSidebarOpen} 
+      <Sidebar
+        isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         userRole="Tim Keuangan"
       />
@@ -442,11 +442,10 @@ function JurnalAkuntansiContent() {
                           <button
                             key={opt}
                             onClick={() => handleQuickRange(opt)}
-                            className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors cursor-pointer ${
-                              selectedRangeOption === opt
-                                ? "bg-stone-900 text-white"
-                                : "border border-stone-200 text-stone-600 hover:bg-stone-50 bg-white"
-                            }`}
+                            className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors cursor-pointer ${selectedRangeOption === opt
+                              ? "bg-stone-900 text-white"
+                              : "border border-stone-200 text-stone-600 hover:bg-stone-50 bg-white"
+                              }`}
                           >
                             {opt}
                           </button>
@@ -502,11 +501,10 @@ function JurnalAkuntansiContent() {
               <div ref={filterRef} className="relative shrink-0">
                 <button
                   onClick={() => setShowFilter((v) => !v)}
-                  className={`flex items-center gap-1.5 text-[12px] font-medium border px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                    showFilter || filterTipe || filterKaryawan || filterProyek || filterMin || filterMax
-                      ? "bg-stone-100 border-stone-300 text-stone-800"
-                      : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50"
-                  }`}
+                  className={`flex items-center gap-1.5 text-[12px] font-medium border px-3 py-1.5 rounded-lg transition cursor-pointer ${showFilter || filterTipe || filterKaryawan || filterProyek || filterMin || filterMax
+                    ? "bg-stone-100 border-stone-300 text-stone-800"
+                    : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50"
+                    }`}
                 >
                   <Filter size={13} className="text-stone-400" />
                   <span>Filter</span>
@@ -620,7 +618,7 @@ function JurnalAkuntansiContent() {
                 )}
               </div>
 
-              <button 
+              <button
                 onClick={() => handleExport('csv')}
                 className="flex items-center gap-1.5 text-[12px] font-medium text-stone-700 border border-stone-200 bg-white px-3 py-1.5 rounded-lg hover:bg-stone-50 transition shrink-0 cursor-pointer"
               >
@@ -640,7 +638,7 @@ function JurnalAkuntansiContent() {
                   <thead>
                     <tr className="border-b border-stone-200 bg-[#fafaf9]">
                       <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-6 py-3.5 uppercase cursor-pointer select-none hover:text-stone-700 transition min-w-[140px]"
-                          onClick={() => toggleSort("jurnal")}>
+                        onClick={() => toggleSort("jurnal")}>
                         <span className="inline-flex items-center gap-1">
                           No. Jurnal
                           <span className="w-[11px] shrink-0">
@@ -649,7 +647,7 @@ function JurnalAkuntansiContent() {
                         </span>
                       </th>
                       <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase whitespace-nowrap cursor-pointer select-none hover:text-stone-700 transition"
-                          onClick={() => toggleSort("tanggal")}>
+                        onClick={() => toggleSort("tanggal")}>
                         <span className="inline-flex items-center gap-1">
                           Tanggal
                           <span className="w-[11px] shrink-0">
@@ -658,7 +656,7 @@ function JurnalAkuntansiContent() {
                         </span>
                       </th>
                       <th className="text-left text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase cursor-pointer select-none hover:text-stone-700 transition"
-                          onClick={() => toggleSort("keterangan")}>
+                        onClick={() => toggleSort("keterangan")}>
                         <span className="inline-flex items-center gap-1">
                           Keterangan
                           <span className="w-[11px] shrink-0">
@@ -670,7 +668,7 @@ function JurnalAkuntansiContent() {
                         Akun
                       </th>
                       <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase cursor-pointer select-none hover:text-stone-700 transition"
-                          onClick={() => toggleSort("debit")}>
+                        onClick={() => toggleSort("debit")}>
                         <span className="inline-flex items-center gap-1 justify-end">
                           Debit
                           <span className="w-[11px] shrink-0">
@@ -679,7 +677,7 @@ function JurnalAkuntansiContent() {
                         </span>
                       </th>
                       <th className="text-right text-[11px] font-semibold text-stone-400 tracking-wider px-4 py-3.5 uppercase cursor-pointer select-none hover:text-stone-700 transition"
-                          onClick={() => toggleSort("kredit")}>
+                        onClick={() => toggleSort("kredit")}>
                         <span className="inline-flex items-center gap-1 justify-end">
                           Kredit
                           <span className="w-[11px] shrink-0">
@@ -710,13 +708,12 @@ function JurnalAkuntansiContent() {
                         entry.lines.map((line, lineIdx) => (
                           <tr
                             key={`${entry.id}-${lineIdx}`}
-                            className={`${
-                              lineIdx < entry.lines.length - 1
-                                ? "border-b border-stone-100"
-                                : entryIdx < journalEntries.length - 1
+                            className={`${lineIdx < entry.lines.length - 1
+                              ? "border-b border-stone-100"
+                              : entryIdx < journalEntries.length - 1
                                 ? "border-b-2 border-stone-200"
                                 : ""
-                            } hover:bg-stone-50/30 transition-colors`}
+                              } hover:bg-stone-50/30 transition-colors`}
                           >
                             {lineIdx === 0 && (
                               <td
@@ -745,11 +742,10 @@ function JurnalAkuntansiContent() {
                             <td className="px-4 py-2.5">
                               <div className="flex items-center gap-2 text-[12px] font-mono text-stone-700">
                                 <span
-                                  className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                    line.type === "Dr"
-                                      ? "bg-[#d1fae5] text-[#065f46]"
-                                      : "bg-[#fee2e2] text-[#991b1b]"
-                                  }`}
+                                  className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${line.type === "Dr"
+                                    ? "bg-[#d1fae5] text-[#065f46]"
+                                    : "bg-[#fee2e2] text-[#991b1b]"
+                                    }`}
                                 >
                                   {line.type}
                                 </span>
