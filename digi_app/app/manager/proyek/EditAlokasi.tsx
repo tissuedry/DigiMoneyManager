@@ -409,7 +409,8 @@ export default function AlokasiPemasukanModal({
             ) : selectedMasterData.length === 0 ? (
               <div className="p-12 text-center border border-stone-200 rounded-xl m-6">
                 <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">Belum Ada Pemasukan Terpilih</div>
-                <div className="font-sans text-xs text-stone-400">Silakan klik "Tambah Main" untuk memilih dan mengalokasikan pemasukan.</div>
+                <div className="font-sans text-xs text-stone-400">{"Silakan klik \"Tambah Main\" untuk memilih dan mengalokasikan pemasukan."}</div>
+
               </div>
             ) : (
               selectedMasterData.map((main: any) => {
@@ -490,9 +491,6 @@ export default function AlokasiPemasukanModal({
                             return (
                               <Row key={sub.id} indent={1} className="hover:bg-stone-100/60">
                                 <div className={NAME_CLASS}>
-                                  <div className="p-0.5 shrink-0">
-                                    <ChevronRight size={12} className="text-stone-400" />
-                                  </div>
                                   <span
                                     className="text-[9px] font-bold uppercase shrink-0"
                                     style={{ color: "#9A948B" }}
@@ -543,10 +541,6 @@ export default function AlokasiPemasukanModal({
 
                           return (
                             <div className="p-4 mx-4 mb-4 bg-white border border-stone-200/70 rounded-xl flex flex-col gap-3 shadow-sm ml-12">
-                              <span className="text-[12px] font-extrabold text-stone-700 uppercase">
-                                Sub Baru (Untuk: {main.nama})
-                              </span>
-
                               <div className="flex gap-3 items-center">
                                 {/* Dropdown master_sub yang sesuai (filter out sub name sama dengan main & sub yang sudah terpilih) */}
                                 <div className="flex-1 bg-stone-50 border border-stone-200 rounded-lg flex items-center px-3 py-2">
