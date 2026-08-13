@@ -118,14 +118,14 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
               onClick={() => setSelectedTipe("pengeluaran")}
               className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-[13px] font-bold transition cursor-pointer active:scale-[0.98] ${
                 selectedTipe === "pengeluaran"
-                  ? "border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-500"
+                  ? "border-red-500 bg-red-50 text-red-700 ring-1 ring-red-500"
                   : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-700"
               }`}
             >
-              <TrendingDown size={15} className={selectedTipe === "pengeluaran" ? "text-amber-700 shrink-0" : "text-stone-400 shrink-0"} />
+              <TrendingDown size={15} className={selectedTipe === "pengeluaran" ? "text-red-600 shrink-0" : "text-stone-400 shrink-0"} />
               <span className="truncate">Pengeluaran</span>
               {selectedTipe === "pengeluaran" && (
-                <Check size={13} strokeWidth={3} className="text-amber-700 ml-auto shrink-0" />
+                <Check size={13} strokeWidth={3} className="text-red-600 ml-auto shrink-0" />
               )}
             </button>
           </div>

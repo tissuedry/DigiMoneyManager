@@ -146,27 +146,29 @@ export default function MasterCoAPage() {
                       {isMainOpen ? <ChevronDown size={16} className="text-stone-500" /> : <ChevronRight size={16} className="text-stone-500" />}
                       <span className="text-[10px] font-bold text-stone-400 bg-white px-1.5 py-0.5 rounded border border-stone-200 shadow-sm">MAIN</span>
                       <span className="font-bold text-stone-800 text-[13px]">{mainItem.nama}</span>
-                      
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isPemasukan ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
-                      }`}>
-                        {isPemasukan ? "Revenue / Pemasukan" : "Expense / Pengeluaran"}
-                      </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); openModal('editMain', { ...mainItem, main: mainItem.nama }); }} 
-                        className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-lg transition bg-white border border-stone-200 shadow-sm cursor-pointer"
-                      >
-                        <Settings size={14} />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); openModal('deleteMain', mainItem); }} 
-                        className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition bg-white border border-stone-200 shadow-sm cursor-pointer"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        isPemasukan ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                      }`}>
+                        {isPemasukan ? "Pemasukan" : "Pengeluaran"}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openModal('editMain', { ...mainItem, main: mainItem.nama }); }}
+                          className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-lg transition bg-white border border-stone-200 shadow-sm cursor-pointer"
+                        >
+                          <Settings size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openModal('deleteMain', mainItem); }}
+                          className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition bg-white border border-stone-200 shadow-sm cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
