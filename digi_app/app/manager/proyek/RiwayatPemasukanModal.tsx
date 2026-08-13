@@ -1,4 +1,6 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from "react";
 import { X } from 'lucide-react';
 
 type RiwayatItem = {
@@ -11,11 +13,11 @@ type RiwayatItem = {
 type Props = {
     isOpen: boolean;
     onClose: () => void;
+    proyekId: number; // Tambahkan proyekId agar bisa fetch data
     proyekNama: string;
     historyData?: RiwayatItem[];
 };
 
-// Helper format tanggal (contoh: 2026-05-22 -> 22 Mei 2026)
 function formatDate(dateStr: string | null): string {
     if (!dateStr) return "-";
     const date = new Date(dateStr);
@@ -26,30 +28,41 @@ function formatDate(dateStr: string | null): string {
     });
 }
 
-// Helper format angka rupiah dengan titik
 function formatNominal(val: number | string): string {
     const num = typeof val === "string" ? parseFloat(val) : val;
     if (isNaN(num)) return "0";
     return num.toLocaleString("id-ID");
 }
 
-export default function RiwayatPemasukanModal({ isOpen, onClose, proyekNama, historyData = [] }: Props) {
-    // Move ALL hooks to the top
-    const [someState, setSomeState] = useState(false);
-    const [riwayatData, setRiwayatData] = useState([]);
-    const [isOpenRiwayat, setIsOpenRiwayat] = useState(false);
+export default function RiwayatPemasukanModal({ isOpen, onClose, proyekId, proyekNama, historyData = [] }: Props) {
+    const [riwayatData, setRiwayatData] = useState<RiwayatItem[]>(historyData);
+    const [isLoading, setIsLoading] = useState(false);
 
-    // NOW you can have conditional logic
+    // Ambil data riwayat secara otomatis saat modal dibuka berdasarkan proyekId
+    useEffect(() => {
+        if (isOpen && proyekId) {
+            const fetchRiwayat = async () => {
+                setIsLoading(true);
+                try {
+                    const res = await fetch(`/api/proyek/${proyekId}/riwayat-pemasukan`);
+                    const json = await res.json();
+                    if (json.success || res.ok) {
+                        setRiwayatData(json.data || json);
+                    }
+                } catch (error) {
+                    console.error("Gagal memuat riwayat pemasukan:", error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            fetchRiwayat();
+        } else {
+            setRiwayatData(historyData);
+        }
+    }, [isOpen, proyekId, historyData]);
+
     if (!isOpen) return null;
 
-    const fetchRiwayat = async (proyekId: number) => {
-        const res = await fetch(`/api/proyek/${proyekId}/riwayat-pemasukan`);
-        const json = await res.json();
-        if (json.success) {
-            setRiwayatData(json.data);
-        }
-    };
-    // Saat modal dibuka, panggil fetchRiwayat(proyekId)
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white w-full max-w-xl rounded-2xl shadow-xl overflow-hidden flex flex-col">
@@ -82,14 +95,20 @@ export default function RiwayatPemasukanModal({ isOpen, onClose, proyekNama, his
                             </tr>
                         </thead>
                         <tbody>
-                            {historyData.length === 0 ? (
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={3} className="py-8 text-center text-stone-400 text-xs italic border border-[#e6e2d6]">
+                                        Memuat data riwayat...
+                                    </td>
+                                </tr>
+                            ) : riwayatData.length === 0 ? (
                                 <tr>
                                     <td colSpan={3} className="py-8 text-center text-stone-400 text-xs italic border border-[#e6e2d6]">
                                         Belum ada riwayat pemasukan yang dicairkan.
                                     </td>
                                 </tr>
                             ) : (
-                                historyData.map((item) => (
+                                riwayatData.map((item) => (
                                     <tr key={item.id} className="bg-white">
                                         <td className="py-4 px-4 border border-[#e6e2d6] text-[12px] font-medium text-stone-800">
                                             {formatDate(item.tanggalPencairan)}
@@ -111,8 +130,4 @@ export default function RiwayatPemasukanModal({ isOpen, onClose, proyekNama, his
             </div>
         </div>
     );
-}
-
-function useState<S>(initialState: S | (() => S)): [S, React.Dispatch<React.SetStateAction<S>>] {
-    return React.useState(initialState);
 }

@@ -259,17 +259,35 @@ export default function ProjectDetailSidebar({
     const [isPencairanOpen, setIsPencairanOpen] = useState(false);
     const [isAddTerminOpen, setIsAddTerminOpen] = useState(false);
     const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
-
-    // 2 STATE BARU UNTUK MODAL RIWAYAT DAN EDIT TERMIN
     const [isRiwayatOpen, setIsRiwayatOpen] = useState(false);
     const [isEditTerminOpen, setIsEditTerminOpen] = useState(false);
 
+    const [dataAlokasiModal, setDataAlokasiModal] = useState([]);
+
+    // Reset data alokasi modal setiap kali proyek yang dibuka berubah
+    useEffect(() => {
+        setDataAlokasiModal([]);
+    }, [showProjectDetail?.id]);
 
     useEffect(() => {
         if (detailedProjectInfo) {
             setInitialTeamRowsStr(JSON.stringify(teamRows));
         }
     }, [detailedProjectInfo]);
+
+    useEffect(() => {
+        if (isAlokasiOpen && showProjectDetail?.id) {
+            fetch(`/api/proyek/${showProjectDetail.id}/alokasi-pemasukan`)
+                .then(res => res.json())
+                .then(json => {
+                    console.log("Response dari API API Pemasukan:", json); // <-- CEK DI CONSOLE BROWSER
+                    if (json.alokasiPemasukan) {
+                        setDataAlokasiModal(json.alokasiPemasukan);
+                    }
+                })
+                .catch(err => console.error("Gagal fetch alokasi pemasukan:", err));
+        }
+    }, [isAlokasiOpen, showProjectDetail?.id]);
 
     const isDirty = JSON.stringify(teamRows) !== initialTeamRowsStr;
 
@@ -279,6 +297,37 @@ export default function ProjectDetailSidebar({
     const pemasukanBelumDialokasikan = parseFloat(detailedProjectInfo?.budget?.pemasukanBelumDialokasikan) || 0;
     const alokasiPemasukan: any[] = detailedProjectInfo?.budget?.alokasiPemasukan ?? [];
     const terminBelumDiterima = terminList.filter((t: any) => t.status === 'BELUM_DITERIMA');
+
+    // Calculate percentages and nominals for allocation
+    const nominalPenjualanJasa = alokasiPemasukan.find((a: any) => a.jenisPemasukan)?.nominal ?? 0;
+    const nominalPenjualanBarang = alokasiPemasukan.find((a: any) => a.jenisPemasukan)?.nominal ?? 0;
+    const sisaBelumDialokasikan = Math.max(0, totalPemasukan - nominalPenjualanJasa - nominalPenjualanBarang);
+    const pJasa = totalPemasukan > 0 ? (nominalPenjualanJasa / totalPemasukan) * 100 : 0;
+    const pBarang = totalPemasukan > 0 ? (nominalPenjualanBarang / totalPemasukan) * 100 : 0;
+
+    const fetchAlokasiModalData = async () => {
+        if (showProjectDetail?.id) {
+            try {
+                // Tambahkan ?t=timestamp agar browser tidak berani memakai cache lama
+                const timestamp = new Date().getTime();
+                const res = await fetch(`/api/proyek/${showProjectDetail.id}/alokasi-pemasukan?t=${timestamp}`, {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+
+                const json = await res.json();
+
+                if (json.alokasiPemasukan) {
+                    setDataAlokasiModal(json.alokasiPemasukan);
+                }
+            } catch (err) {
+                console.error("Gagal memuat ulang data alokasi:", err);
+            }
+        }
+    };
 
 
     if (!showProjectDetail || editMode || isDirectEdit) return null;
@@ -759,51 +808,91 @@ export default function ProjectDetailSidebar({
                                                 <p className="text-[20px] font-bold text-stone-900 tracking-tight">
                                                     <span className="text-stone-400 text-[14px] font-normal mr-1.5">Rp</span>
                                                     {
-                                                        terminList
-                                                            .filter((t: any) => t.status === 'DITERIMA')
-                                                            .reduce((sum: number, t: any) => sum + parseFloat(t.nominal || 0), 0)
-                                                            .toLocaleString("id-ID")
+                                                        Number(
+                                                            detailedProjectInfo?.budget?.total_pemasukan ??
+                                                            detailedProjectInfo?.budget?.totalPemasukan ??
+                                                            0
+                                                        ).toLocaleString("id-ID")
                                                     }
                                                 </p>
                                             </div>
 
                                             <div className="space-y-2 bg-stone-50/50 border border-stone-200/70 rounded-2xl p-4">
-                                                <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden flex">
-                                                    <div className="h-full bg-blue-500" style={{ width: '0%' }} title="Penjualan Jasa" />
-                                                    <div className="h-full bg-emerald-500" style={{ width: '0%' }} title="Penjualan Barang" />
-                                                    <div className="h-full bg-stone-400 flex-1" title="Belum dialokasikan" />
-                                                </div>
-                                                <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium pt-1">
-                                                    <span className="flex items-center gap-1.5 text-stone-700">
-                                                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
-                                                        Penjualan Jasa <b className="text-stone-900 ml-1">Rp 0</b>
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5 text-stone-700">
-                                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                                                        Penjualan Barang <b className="text-stone-900 ml-1">Rp 0</b>
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5 text-stone-700">
-                                                        <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
-                                                        Belum dialokasikan <b className="text-stone-900 ml-1">
-                                                            Rp {(terminList.filter((t: any) => t.status === 'DITERIMA').reduce((sum: number, t: any) => sum + parseFloat(t.nominal || 0), 0)-(detailedProjectInfo?.budget?.totalTeralokasi || 0)).toLocaleString("id-ID")}
-                                                        </b>
-                                                    </span>
-                                                </div>
-                                            </div>
 
-                                            {/* Rincian Pos (Penjualan Jasa & Penjualan Barang) */}
-                                            <div className="space-y-2.5 pt-1">
-                                                <div className="bg-[#f8f7f4] px-4 py-3.5 rounded-xl flex justify-between items-center">
-                                                    <span className="text-[13px] font-extrabold text-stone-900 tracking-wide uppercase">Penjualan Jasa</span>
-                                                    <span className="text-[12px] font-mono text-stone-500">Rp 0</span>
-                                                </div>
-                                                <div className="bg-[#f8f7f4] px-4 py-3.5 rounded-xl flex justify-between items-center">
-                                                    <span className="text-[13px] font-extrabold text-stone-900 tracking-wide uppercase">Penjualan Barang</span>
-                                                    <span className="text-[12px] font-mono text-stone-500">Rp 0</span>
+                                                <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium pt-1">
+                                                    {/* Progress Bar Dinamis */}
+                                                    <div className="space-y-2 bg-stone-50/50 border border-stone-200/70 rounded-2xl p-4">
+                                                        <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden flex">
+                                                            <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${pJasa}%` }} />
+                                                            <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${pBarang}%` }} />
+                                                            <div className="h-full bg-stone-400 flex-1 transition-all duration-300" title="Belum dialokasikan" />
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium pt-1">
+                                                            <span className="flex items-center gap-1.5 text-stone-700">
+                                                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                                                                Penjualan Jasa <b className="text-stone-900 ml-1">Rp {nominalPenjualanJasa.toLocaleString("id-ID")}</b>
+                                                            </span>
+                                                            <span className="flex items-center gap-1.5 text-stone-700">
+                                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                                                                Penjualan Barang <b className="text-stone-900 ml-1">Rp {nominalPenjualanBarang.toLocaleString("id-ID")}</b>
+                                                            </span>
+                                                            <span className="flex items-center gap-1.5 text-stone-700">
+                                                                <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
+                                                                Belum dialokasikan <b className="text-stone-900 ml-1">
+                                                                    Rp {sisaBelumDialokasikan.toLocaleString("id-ID")}
+                                                                </b>
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <div className="space-y-3 pt-1">
+    {((detailedProjectInfo?.budget?.alokasiPemasukan) || []).length === 0 ? (
+        <div className="text-center py-3 text-xs text-stone-400 italic bg-[#f8f7f4] rounded-xl">
+            Belum ada pos pemasukan
+        </div>
+    ) : (
+        (detailedProjectInfo.budget.alokasiPemasukan).map((item: any, idx: number) => {
+            const namaPos = item.namaMain || item.nama || "Kategori Lain";
+            const nominalAlokasi = parseFloat(item.nominalAlokasi || item.nominal || 0);
+            const nominalTerpakai = parseFloat(item.nominalTerpakai || 0);
+
+            // Hitung persentase progress (jika alokasi 0, persentase 0)
+            const pct = nominalAlokasi > 0 ? (nominalTerpakai / nominalAlokasi) * 100 : 0;
+            const displayPct = Math.min(Math.max(pct, 0), 100);
+            
+            // Kondisi warna: Merah jika sudah penuh/lebih (>= 100%), Hijau jika belum
+            const isFull = pct >= 100;
+            const barColor = isFull ? "bg-[#c95d5d]" : "bg-[#00966c]";
+
+            return (
+                <div key={item.id || idx} className="bg-[#f8f7f4] px-4 py-3.5 rounded-2xl flex flex-col gap-2">
+                    {/* Baris Atas: Nama Pos & Nominal */}
+                    <div className="flex justify-between items-center">
+                        <span className="text-[13px] font-extrabold text-stone-900 tracking-wide uppercase">
+                            {namaPos}
+                        </span>
+                        <span className="text-[12px] font-mono text-stone-600 font-bold">
+                            <span className="text-stone-400 text-[10px] mr-1">Rp</span>
+                            {nominalAlokasi.toLocaleString("id-ID")}
+                        </span>
+                    </div>
+
+                    {/* Baris Bawah: Progress Bar */}
+                    <div className="w-full bg-[#f0efe9] h-2.5 rounded-full overflow-hidden">
+                        <div 
+                            className={`h-full rounded-full transition-all duration-300 ${barColor}`} 
+                            style={{ width: `${displayPct}%` }} 
+                        />
+                    </div>
+                </div>
+            );
+        })
+    )}
+</div>
                                         </div>
 
+                                        {/* Rincian Pos (Penjualan Jasa & Penjualan Barang) */}
                                     </div>
 
                                     {/* Modal-modal Pendukung */}
@@ -821,13 +910,16 @@ export default function ProjectDetailSidebar({
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
                                         totalPemasukan={detailedProjectInfo?.budget?.totalPemasukan ?? 0}
-                                        teralokasi={(detailedProjectInfo?.budget?.totalPemasukan ?? 0) - (detailedProjectInfo?.budget?.pemasukanBelumDialokasikan ?? 0)}
-                                        dataPemasukan={detailedProjectInfo?.budget?.dataPemasukan ?? []}
-                                        onSuccess={() => { onTerminChanged?.(); }}
+                                        dataPemasukan={dataAlokasiModal}
+                                        onRefresh={() => {
+                                            fetchAlokasiModalData();
+                                            if (onTerminChanged) onTerminChanged();
+                                        }}
                                     />
                                     <RiwayatPemasukanModal
                                         isOpen={isRiwayatOpen}
                                         onClose={() => setIsRiwayatOpen(false)}
+                                        proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
                                         historyData={terminList.filter((t: any) => t.status === 'DITERIMA')}
                                     />

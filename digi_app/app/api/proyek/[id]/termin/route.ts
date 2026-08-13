@@ -60,12 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'Format data tidak valid' }, { status: 400 });
     }
 
-    // Gunakan transaction Prisma agar aman
     await prisma.$transaction(async (tx) => {
-      // 1. Opsi paling rapi untuk form "Edit Termin" massal:
-      // Hapus dulu termin lama yang statusnya masih BELUM_DITERIMA pada proyek ini, 
-      // lalu masukkan data yang baru dikirimkan dari frontend.
-      // (Termin yang sudah DITERIMA aman tidak akan terhapus demi menjaga riwayat pencairan).
       
       await tx.terminPembayaran.deleteMany({
         where: { 
@@ -74,11 +69,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       });
 
-      // 2. Masukkan ulang data termin yang diinput user
       for (let idx = 0; idx < terminData.length; idx++) {
         const t = terminData[idx];
         
-        // Cek jika termin ini sebelumnya sudah ada ID-nya (misal sudah terdaftar di DB)
         if (t.id) {
           await tx.terminPembayaran.upsert({
             where: { id: t.id },
@@ -98,7 +91,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             }
           });
         } else {
-          // Jika benar-benar baru
           await tx.terminPembayaran.create({
             data: {
               proyekId,
@@ -121,7 +113,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
-// PATCH: Konfirmasi pencairan termin — ubah status ke DITERIMA + update Budget
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
