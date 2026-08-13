@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import ModalWrapper from "./ModalWrapper";
+import Toast from "@/components/toast";
 
 export default function EditMainModal({ isOpen, onClose, data, onRefresh }: any) {
   const [namaBaru, setNamaBaru] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +42,7 @@ export default function EditMainModal({ isOpen, onClose, data, onRefresh }: any)
 
       if (onRefresh) onRefresh();
       onClose();
+      setShowSuccess(true);
     } catch (err: any) {
       setErrorMsg(err.message || "Terjadi kesalahan sistem");
     } finally {
@@ -48,9 +51,10 @@ export default function EditMainModal({ isOpen, onClose, data, onRefresh }: any)
   };
 
   return (
-    <ModalWrapper 
-      isOpen={isOpen} 
-      onClose={onClose} 
+    <>
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
       title="Edit Main"
       onAction={handleSubmit}
       isLoading={isLoading}
@@ -77,5 +81,11 @@ export default function EditMainModal({ isOpen, onClose, data, onRefresh }: any)
         />
       </div>
     </ModalWrapper>
+    <Toast
+      open={showSuccess}
+      message={`Nama Main berhasil diperbarui menjadi "${namaBaru}".`}
+      onClose={() => setShowSuccess(false)}
+    />
+    </>
   );
 }
