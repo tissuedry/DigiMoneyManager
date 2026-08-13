@@ -53,16 +53,16 @@ export default function GrafikProgressTermin({
 
     // Default fallback dataset if terminData is undefined
     const defaultTermins: TerminItem[] = [
-        { namaTermin: "Termin 1", persentaseProgress: 10, nominal: 200000 },
-        { namaTermin: "Termin 2", persentaseProgress: 20, nominal: 300000 },
-        { namaTermin: "Termin 3", persentaseProgress: 30, nominal: 3000000 },
-        { namaTermin: "Termin 4", persentaseProgress: 40, nominal: 3000000 },
-        { namaTermin: "Termin 5", persentaseProgress: 50, nominal: 30000000 },
-        { namaTermin: "Termin 6", persentaseProgress: 60, nominal: 3000000 },
-        { namaTermin: "Termin 7", persentaseProgress: 70, nominal: 3000000 },
-        { namaTermin: "Termin 8", persentaseProgress: 80, nominal: 3000000 },
-        { namaTermin: "Termin 9", persentaseProgress: 90, nominal: 3000000 },
-        { namaTermin: "Termin 10", persentaseProgress: 100, nominal: 300000000 },
+        { namaTermin: "Termin 1", persentaseProgress: 10, nominal: 200000, status: "DITERIMA" },
+        { namaTermin: "Termin 2", persentaseProgress: 20, nominal: 300000, status: "DITERIMA" },
+        { namaTermin: "Termin 3", persentaseProgress: 30, nominal: 3000000, status: "BELUM_DITERIMA" },
+        { namaTermin: "Termin 4", persentaseProgress: 40, nominal: 3000000, status: "BELUM_DITERIMA" },
+        { namaTermin: "Termin 5", persentaseProgress: 50, nominal: 30000000, status: "BELUM_DITERIMA" },
+        { namaTermin: "Termin 6", persentaseProgress: 60, nominal: 3000000, status: "BELUM_DITERIMA" },
+        { namaTermin: "Termin 7", persentaseProgress: 70, nominal: 3000000, status: "BELUM_DITERIMA" },
+        { namaTermin: "Termin 8", persentaseProgress: 80, nominal: 3000000, status: "BELUM_DITERIMA" },
+        { namaTermin: "Termin 9", persentaseProgress: 90, nominal: 3000000, status: "BELUM_DITERIMA" },
+        { namaTermin: "Termin 10", persentaseProgress: 100, nominal: 300000000, status: "BELUM_DITERIMA" },
     ];
 
     // If terminData is explicitly passed as empty array [], render empty state
@@ -73,6 +73,7 @@ export default function GrafikProgressTermin({
             namaTermin: t.namaTermin || `Termin ${idx + 1}`,
             persentaseProgress: Math.min(100, Math.max(0, Number(t.persentaseProgress) || 0)),
             nominal: t.nominal !== undefined ? Number(t.nominal) : (idx + 1) * 1000000,
+            status: t.status || (idx < 2 ? "DITERIMA" : "BELUM_DITERIMA"),
         }))
         : defaultTermins;
 
@@ -105,17 +106,25 @@ export default function GrafikProgressTermin({
     // Calculate maximum cumulative nominal (total accumulated income at final step)
     const maxCumNominal = Math.max(1, runningCumSum);
 
-    // Dynamic height boundaries (maxBlockHeight set to 150px)
+    // Dynamic height boundaries
     const minBlockHeight = 18;
     const maxBlockHeight = 150;
 
-    // Color theme configuration per step
-    const stepColors = [
-        { fill: "#d65f5f", text: "#d65f5f", dash: "#fca5a5" },
-        { fill: "#52b788", text: "#2e7d56", dash: "#6ee7b7" },
-        { fill: "#5b92e5", text: "#3b82f6", dash: "#93c5fd" },
-        { fill: "#eb9824", text: "#d97706", dash: "#fcd34d" },
-    ];
+    // Gap between blocks so they don't merge visually
+    const blockGap = 3;
+
+    const renderLegend = () => (
+        <div className="flex items-center gap-3.5 text-xs text-stone-600 font-medium bg-stone-50/90 border border-stone-200/70 px-3 py-1.5 rounded-xl w-fit">
+            <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#52b788] shadow-sm" />
+                <span>Sudah Dicairkan</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#9ca3af] shadow-sm" />
+                <span>Belum Dicairkan</span>
+            </div>
+        </div>
+    );
 
     const renderChartSvg = (isModal: boolean) => {
         const activeHoveredIdx = isModal ? hoveredIdxModal : hoveredIdxCard;
@@ -136,22 +145,56 @@ export default function GrafikProgressTermin({
             const blockHeight = minBlockHeight + scaledRatio * (maxBlockHeight - minBlockHeight);
             const blockY = yBottom - blockHeight;
 
-            return { xLeft, xRight, midX, pct, cumNominalVal, blockHeight, blockY };
+            // Determine status color: Green if disbursed (DITERIMA / PAID / DISBURSED), Grey if undisbursed (BELUM_DITERIMA)
+            const isDisbursed = t.status
+                ? ["DITERIMA", "PAID", "DISBURSED", "APPROVED"].includes(String(t.status).toUpperCase())
+                : idx < 2;
+
+            const color = isDisbursed
+                ? { fill: "#52b788", text: "#2e7d56", dash: "#6ee7b7" } // Hijau (Sudah dicairkan)
+                : { fill: "#9ca3af", text: "#4b5563", dash: "#d1d5db" }; // Abu-abu (Belum dicairkan)
+
+            return { xLeft, xRight, midX, pct, cumNominalVal, blockHeight, blockY, color, isDisbursed };
         });
 
+        // Edge-aware tooltip alignment so rightmost termins (e.g. Termin 10) never overflow right
+        let tooltipTranslateClass = "-translate-x-1/2";
+        if (activeHoveredIdx !== null) {
+            if (activeHoveredIdx >= count - 2) {
+                tooltipTranslateClass = "-translate-x-[85%]";
+            } else if (activeHoveredIdx === 0) {
+                tooltipTranslateClass = "-translate-x-[15%]";
+            }
+        }
+
         return (
-            <div className="relative w-full overflow-x-auto scrollbar-thin">
-                {/* Floating Tooltip Pill on Hover displaying Full Cumulative Nominal */}
+            <div className="relative w-full overflow-visible">
+                {/* Legend Pill positioned on the top-right section as requested by user arrow */}
+                <div className="mb-3 flex justify-end">
+                    {renderLegend()}
+                </div>
+
+                {/* Floating Tooltip Pill on Hover - Edge aware alignment */}
                 {activeHoveredIdx !== null && stepPositions[activeHoveredIdx] && (
                     <div
-                        className="absolute pointer-events-none z-50 transform -translate-x-1/2 -translate-y-full transition-all duration-150"
+                        className={`absolute pointer-events-none z-50 transform ${tooltipTranslateClass} -translate-y-full transition-all duration-150`}
                         style={{
                             left: `${(stepPositions[activeHoveredIdx].midX / viewWidth) * 100}%`,
-                            top: `${(stepPositions[activeHoveredIdx].blockY / viewHeight) * 100 - 3}%`,
+                            top: `${(stepPositions[activeHoveredIdx].blockY / viewHeight) * 100 + 25}%`,
                         }}
                     >
                         <div className="bg-white border border-stone-200/90 shadow-2xl rounded-xl px-3 py-1.5 text-[12px] font-bold font-mono text-stone-900 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
+                            <span
+                                className={`w-2 h-2 rounded-full ${
+                                    stepPositions[activeHoveredIdx].isDisbursed
+                                        ? "bg-emerald-500"
+                                        : "bg-stone-400"
+                                }`}
+                            />
                             {formatFullRupiah(termins[activeHoveredIdx].cumNominal)}
+                            <span className="text-[10px] text-stone-400 font-sans font-normal ml-0.5">
+                                ({stepPositions[activeHoveredIdx].isDisbursed ? "Sudah Dicairkan" : "Belum Dicairkan"})
+                            </span>
                         </div>
                     </div>
                 )}
@@ -190,12 +233,15 @@ export default function GrafikProgressTermin({
                         0%
                     </text>
 
-                    {/* Render Step Blocks */}
+                    {/* Render Step Blocks with subtle blockGap separation */}
                     {termins.map((t, idx) => {
-                        const color = stepColors[idx % stepColors.length];
-                        const { xLeft, xRight, midX, pct, blockY, blockHeight } = stepPositions[idx];
+                        const { xLeft, xRight, midX, pct, blockY, blockHeight, color } = stepPositions[idx];
                         const isHovered = activeHoveredIdx === idx;
                         const compactText = formatCompactRupiah(t.cumNominal);
+
+                        // Block rectangle with small gap separation
+                        const blockX = xLeft + blockGap / 2;
+                        const blockW = Math.max(2, sectionWidth - blockGap);
 
                         return (
                             <g
@@ -215,14 +261,15 @@ export default function GrafikProgressTermin({
                                     strokeDasharray="3 3"
                                 />
 
-                                {/* Solid Color Step Block */}
+                                {/* Solid Color Step Block with 3px gap separation and rx="2" rounded corners */}
                                 <rect
-                                    x={xLeft}
+                                    x={blockX}
                                     y={blockY}
-                                    width={sectionWidth}
+                                    width={blockW}
                                     height={blockHeight}
                                     fill={color.fill}
-                                    className={`transition-all duration-150 ${isHovered ? "brightness-110 opacity-90 stroke-white stroke-2" : ""}`}
+                                    rx="2"
+                                    className={`transition-all duration-150 ${isHovered ? "brightness-110 opacity-95 stroke-white stroke-2" : ""}`}
                                 />
 
                                 {/* Compact Cumulative Nominal Label Above Step Block */}
@@ -232,7 +279,7 @@ export default function GrafikProgressTermin({
                                         y={blockY - 7}
                                         textAnchor="middle"
                                         fill={color.text}
-                                        className={`text-[10.5px] font-bold font-mono tracking-tight transition-all ${isHovered ? "font-black" : ""}`}
+                                        className={`text-[10.5px] font-bold font-mono tracking-tight transition-all ${isHovered ? "font-black text-emerald-800" : ""}`}
                                     >
                                         {compactText}
                                     </text>
@@ -302,10 +349,10 @@ export default function GrafikProgressTermin({
                     }}
                 >
                     <div
-                        className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl max-w-5xl w-full border border-stone-100 animate-in zoom-in-95 duration-200 relative text-left overflow-hidden flex flex-col max-h-[90vh]"
+                        className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl max-w-5xl w-full border border-stone-100 animate-in zoom-in-95 duration-200 relative text-left flex flex-col max-h-[90vh] overflow-visible"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-start justify-between mb-4 border-b border-stone-100 pb-3 flex-shrink-0">
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-4 border-b border-stone-100 pb-3 flex-shrink-0">
                             <div>
                                 <h3 className="font-bold text-xl text-stone-900">Grafik Progres Termin</h3>
                                 {projectName && (
@@ -321,7 +368,7 @@ export default function GrafikProgressTermin({
                             </button>
                         </div>
 
-                        <div className="w-full flex-1 overflow-x-auto overflow-y-auto pt-4 pb-4">
+                        <div className="w-full flex-1 pt-2 pb-4 overflow-visible">
                             {!hasData ? (
                                 <div className="w-full h-[350px] bg-stone-50/60 border border-dashed border-stone-200 rounded-2xl flex items-center justify-center text-sm font-medium text-stone-400 italic">
                                     Termin pemasukan belum diatur
