@@ -67,10 +67,10 @@ export default function PencairanTerminModal({
       setError("Pilih termin yang akan dicairkan");
       return;
     }
-    if (!tanggalPencairan) {
-      setError("Tanggal pencairan wajib diisi");
-      return;
-    }
+
+    const tanggalHariIni = new Date().toLocaleDateString('en-CA');
+    
+    setTanggalPencairan(tanggalHariIni);
 
     setSubmitting(true);
     try {
@@ -79,7 +79,7 @@ export default function PencairanTerminModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           terminId: parseInt(selectedTerminId, 10),
-          tanggalPencairan,
+          tanggalPencairan: tanggalHariIni,
         }),
       });
 
@@ -174,20 +174,6 @@ export default function PencairanTerminModal({
               </div>
             </div>
           )}
-
-          {/* Tanggal Pencairan */}
-          <div>
-            <div>
-              <label className="block text-[13px] font-bold text-stone-900 mb-2">
-                Tanggal Pencairan <span className="text-red-500">*</span>
-              </label>
-              <DatePicker
-                value={tanggalPencairan}
-                onChange={(v: string) => { setTanggalPencairan(v); setError(""); }}
-                align="left"
-              />
-            </div>
-          </div>
 
           {/* Error */}
           {error && (
