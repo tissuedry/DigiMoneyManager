@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { X } from "lucide-react";
 
 export type TerminItem = {
     id?: number;
@@ -10,318 +11,318 @@ export type TerminItem = {
 
 type Props = {
     terminData?: TerminItem[];
+    projectName?: string;
+    showEnlargeHint?: boolean;
 };
 
-export default function GrafikProgressTermin({ terminData }: Props) {
-    // If no termin dataset is available from database, render clean empty state matching graph dimensions
-    if (!terminData || terminData.length === 0) {
-        return (
-            <div className="bg-white border border-stone-100 rounded-2xl p-4 shadow-[0_4px_12px_rgba(0,0,0,0.01)] text-left space-y-3">
-                <h4 className="text-[13px] font-bold text-stone-900 tracking-tight">
-                    Grafik Progress Termin
-                </h4>
-                <div className="w-full h-[210px] bg-stone-50/60 border border-dashed border-stone-200 rounded-xl flex items-center justify-center text-xs font-medium text-stone-400 italic">
-                    Termin pemasukan belum diatur
-                </div>
-            </div>
-        );
-    }
+function formatFullRupiah(val: number | string | undefined): string {
+    if (val === undefined || val === null || val === "") return "Rp 0";
+    const num = Number(val);
+    if (isNaN(num)) return "Rp 0";
+    return `Rp ${num.toLocaleString("id-ID")}`;
+}
 
-    const termins = terminData.map((t, idx) => ({
-        namaTermin: t.namaTermin || `Termin ${idx + 1}`,
-        persentaseProgress: Math.min(100, Math.max(0, Number(t.persentaseProgress) || 0)),
-    }));
+function formatCompactRupiah(val: number | string | undefined): string {
+    if (val === undefined || val === null || val === "") return "";
+    const num = Number(val);
+    if (isNaN(num) || num === 0) return "Rp 0";
+
+    if (num >= 1_000_000_000) {
+        const b = num / 1_000_000_000;
+        return `Rp ${b % 1 === 0 ? b : b.toFixed(1)} M`;
+    }
+    if (num >= 1_000_000) {
+        const m = num / 1_000_000;
+        return `Rp ${m % 1 === 0 ? m : m.toFixed(1)} jt`;
+    }
+    if (num >= 1_000) {
+        const k = num / 1_000;
+        return `Rp ${k % 1 === 0 ? k : k.toFixed(0)} rb`;
+    }
+    return `Rp ${num}`;
+}
+
+export default function GrafikProgressTermin({
+    terminData,
+    projectName = "Detail Proyek",
+    showEnlargeHint = true,
+}: Props) {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [hoveredIdxCard, setHoveredIdxCard] = useState<number | null>(null);
+    const [hoveredIdxModal, setHoveredIdxModal] = useState<number | null>(null);
+
+    // Default fallback dataset if terminData is undefined
+    const defaultTermins: TerminItem[] = [
+        { namaTermin: "Termin 1", persentaseProgress: 10, nominal: 200000 },
+        { namaTermin: "Termin 2", persentaseProgress: 20, nominal: 300000 },
+        { namaTermin: "Termin 3", persentaseProgress: 30, nominal: 3000000 },
+        { namaTermin: "Termin 4", persentaseProgress: 40, nominal: 3000000 },
+        { namaTermin: "Termin 5", persentaseProgress: 50, nominal: 30000000 },
+        { namaTermin: "Termin 6", persentaseProgress: 60, nominal: 3000000 },
+        { namaTermin: "Termin 7", persentaseProgress: 70, nominal: 3000000 },
+        { namaTermin: "Termin 8", persentaseProgress: 80, nominal: 3000000 },
+        { namaTermin: "Termin 9", persentaseProgress: 90, nominal: 3000000 },
+        { namaTermin: "Termin 10", persentaseProgress: 100, nominal: 300000000 },
+    ];
+
+    // If terminData is explicitly passed as empty array [], render empty state
+    const hasData = terminData !== undefined ? terminData.length > 0 : true;
+
+    const termins = (terminData && terminData.length > 0)
+        ? terminData.map((t, idx) => ({
+            namaTermin: t.namaTermin || `Termin ${idx + 1}`,
+            persentaseProgress: Math.min(100, Math.max(0, Number(t.persentaseProgress) || 0)),
+            nominal: t.nominal !== undefined ? Number(t.nominal) : (idx + 1) * 1000000,
+        }))
+        : defaultTermins;
 
     const count = termins.length;
 
-    // Canvas geometry
-    const viewWidth = 340;
-    const viewHeight = 175;
+    // SVG geometry with maxBlockHeight = 150px
+    const viewWidth = Math.max(540, (count + 1) * 80);
+    const viewHeight = 230;
 
-    const xStart = 65;
-    const xEnd = 325;
+    const xStart = 40;
+    const xEnd = viewWidth - 30;
     const totalWidth = xEnd - xStart;
 
-    const yTop = 28;
-    const yBottom = 142;
-    const totalHeight = yBottom - yTop;
+    const yTop = 15;
+    const yBottom = 175;
+    const totalHeight = yBottom - yTop; // 160px capacity
 
-    // Color definitions for up to N termins
-    const terminColors = [
-        {
-            theme: "red",
-            stroke: "#ef4444",
-            strokeLight: "#fca5a5",
-            bgFill: "rgba(254, 226, 226, 0.45)",
-            hatchId: "hatch-red",
-            badgeText: "text-red-500",
-            labelText: "#ef4444",
-            dashColor: "#f87171",
-        },
-        {
-            theme: "green",
-            stroke: "#10b981",
-            strokeLight: "#6ee7b7",
-            bgFill: "rgba(209, 250, 229, 0.45)",
-            hatchId: "hatch-green",
-            badgeText: "text-emerald-500",
-            labelText: "#10b981",
-            dashColor: "#34d399",
-        },
-        {
-            theme: "blue",
-            stroke: "#3b82f6",
-            strokeLight: "#93c5fd",
-            bgFill: "rgba(219, 234, 254, 0.45)",
-            hatchId: "hatch-blue",
-            badgeText: "text-blue-500",
-            labelText: "#3b82f6",
-            dashColor: "#60a5fa",
-        },
-        {
-            theme: "amber",
-            stroke: "#f59e0b",
-            strokeLight: "#fcd34d",
-            bgFill: "rgba(254, 243, 199, 0.45)",
-            hatchId: "hatch-amber",
-            badgeText: "text-amber-500",
-            labelText: "#f59e0b",
-            dashColor: "#fbbf24",
-        },
+    const sectionWidth = totalWidth / (count + 1);
+
+    // Calculate maximum nominal for nominal scaling
+    const maxNominal = Math.max(1, ...termins.map((t) => Number(t.nominal) || 0));
+
+    // Dynamic height boundaries (maxBlockHeight set to 150px as requested)
+    const minBlockHeight = 18;
+    const maxBlockHeight = 150;
+
+    // Color theme configuration per step
+    const stepColors = [
+        { fill: "#d65f5f", text: "#d65f5f", dash: "#fca5a5" },
+        { fill: "#52b788", text: "#2e7d56", dash: "#6ee7b7" },
+        { fill: "#5b92e5", text: "#3b82f6", dash: "#93c5fd" },
+        { fill: "#eb9824", text: "#d97706", dash: "#fcd34d" },
     ];
 
-    // Compute point coordinates
-    // Origin point P0 at xStart (Start of project progress at 0%)
-    const p0 = {
-        x: xStart,
-        y: yBottom,
-    };
+    const renderChartSvg = (isModal: boolean) => {
+        const activeHoveredIdx = isModal ? hoveredIdxModal : hoveredIdxCard;
+        const setHoveredIdx = isModal ? setHoveredIdxModal : setHoveredIdxCard;
 
-    const sectionWidth = totalWidth / count;
+        // Calculate step positions & heights
+        const stepPositions = termins.map((t, idx) => {
+            const xLeft = xStart + (idx + 1) * sectionWidth;
+            const xRight = xStart + (idx + 2) * sectionWidth;
+            const midX = (xLeft + xRight) / 2;
+            const pct = Number(t.persentaseProgress) || 0;
+            const nominalVal = Number(t.nominal) || 0;
 
-    const points = termins.map((t, idx) => {
-        const x = xStart + (idx + 1) * sectionWidth;
-        const pct = Math.max(0, Math.min(100, Number(t.persentaseProgress)));
-        const y = yBottom - (pct / 100) * totalHeight;
-        return { x, y, pct, name: t.namaTermin };
-    });
+            // Power-scaling (exponent 0.42) for clear visual step hierarchy
+            const linearRatio = maxNominal > 0 ? nominalVal / maxNominal : 0;
+            const scaledRatio = linearRatio > 0 ? Math.pow(linearRatio, 0.42) : 0;
 
-    const allPoints = [p0, ...points];
+            const blockHeight = minBlockHeight + scaledRatio * (maxBlockHeight - minBlockHeight);
+            const blockY = yBottom - blockHeight;
 
-    return (
-        <div className="bg-white border border-stone-100 rounded-2xl p-4 shadow-[0_4px_12px_rgba(0,0,0,0.01)] text-left space-y-3">
-            <h4 className="text-[13px] font-bold text-stone-900 tracking-tight">
-                Grafik Progress Termin
-            </h4>
+            return { xLeft, xRight, midX, pct, nominalVal, blockHeight, blockY };
+        });
 
-            <div className="w-full relative select-none">
+        return (
+            <div className="relative w-full overflow-x-auto scrollbar-thin">
+                {/* Floating Tooltip Pill on Hover */}
+                {activeHoveredIdx !== null && stepPositions[activeHoveredIdx] && (
+                    <div
+                        className="absolute pointer-events-none z-50 transform -translate-x-1/2 -translate-y-full transition-all duration-150"
+                        style={{
+                            left: `${(stepPositions[activeHoveredIdx].midX / viewWidth) * 100}%`,
+                            top: `${(stepPositions[activeHoveredIdx].blockY / viewHeight) * 100 - 3}%`,
+                        }}
+                    >
+                        <div className="bg-white border border-stone-200/90 shadow-2xl rounded-xl px-3 py-1.5 text-[12px] font-bold font-mono text-stone-900 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
+                            {formatFullRupiah(termins[activeHoveredIdx].nominal)}
+                        </div>
+                    </div>
+                )}
+
                 <svg
                     viewBox={`0 0 ${viewWidth} ${viewHeight}`}
-                    className="w-full h-auto overflow-visible"
-                    style={{ maxHeight: "240px" }}
+                    className="w-full h-auto overflow-visible select-none"
+                    style={{ maxHeight: isModal ? "540px" : "240px" }}
                 >
-                    <defs>
-                        {/* Hatch Pattern - Red */}
-                        <pattern
-                            id="hatch-red"
-                            width="6"
-                            height="6"
-                            patternUnits="userSpaceOnUse"
-                        >
-                            <rect width="6" height="6" fill="rgba(254, 226, 226, 0.4)" />
-                            <line x1="3" y1="0" x2="3" y2="6" stroke="#fca5a5" strokeWidth="0.8" />
-                        </pattern>
-
-                        {/* Hatch Pattern - Green */}
-                        <pattern
-                            id="hatch-green"
-                            width="6"
-                            height="6"
-                            patternUnits="userSpaceOnUse"
-                        >
-                            <rect width="6" height="6" fill="rgba(209, 250, 229, 0.4)" />
-                            <line x1="3" y1="0" x2="3" y2="6" stroke="#6ee7b7" strokeWidth="0.8" />
-                        </pattern>
-
-                        {/* Hatch Pattern - Blue */}
-                        <pattern
-                            id="hatch-blue"
-                            width="6"
-                            height="6"
-                            patternUnits="userSpaceOnUse"
-                        >
-                            <rect width="6" height="6" fill="rgba(219, 234, 254, 0.4)" />
-                            <line x1="3" y1="0" x2="3" y2="6" stroke="#93c5fd" strokeWidth="0.8" />
-                        </pattern>
-
-                        {/* Hatch Pattern - Amber */}
-                        <pattern
-                            id="hatch-amber"
-                            width="6"
-                            height="6"
-                            patternUnits="userSpaceOnUse"
-                        >
-                            <rect width="6" height="6" fill="rgba(254, 243, 199, 0.4)" />
-                            <line x1="3" y1="0" x2="3" y2="6" stroke="#fcd34d" strokeWidth="0.8" />
-                        </pattern>
-                    </defs>
-
-                    {/* Y-Axis Line */}
+                    {/* Horizontal Baseline */}
                     <line
-                        x1={xStart}
-                        y1={yTop - 5}
-                        x2={xStart}
-                        y2={yBottom + 2}
-                        stroke="#e7e5e4"
-                        strokeWidth="1.2"
-                    />
-
-                    {/* Baseline (X-Axis) */}
-                    <line
-                        x1={xStart}
+                        x1={xStart - 10}
                         y1={yBottom}
-                        x2={xEnd}
+                        x2={xEnd + 5}
                         y2={yBottom}
                         stroke="#e7e5e4"
                         strokeWidth="1.2"
                     />
 
-                    {/* Y-Axis Labels */}
+                    {/* Origin (0%) Vertical Dotted Line & Label */}
+                    <line
+                        x1={xStart}
+                        y1={yTop - 5}
+                        x2={xStart}
+                        y2={yBottom}
+                        stroke="#d6d3d1"
+                        strokeWidth="1"
+                        strokeDasharray="3 3"
+                    />
                     <text
-                        x={xStart - 8}
-                        y={yTop + 5}
-                        textAnchor="end"
-                        className="text-[9.5px] fill-stone-400 font-medium font-sans"
+                        x={xStart}
+                        y={yBottom + 26}
+                        textAnchor="middle"
+                        className="text-[9.5px] font-medium fill-stone-400 font-sans"
                     >
-                        Progress
-                    </text>
-                    <text
-                        x={xStart - 8}
-                        y={yBottom - 2}
-                        textAnchor="end"
-                        className="text-[9.5px] fill-stone-400 font-medium font-sans"
-                    >
-                        Pemasukan
+                        0%
                     </text>
 
-                    {/* Shaded Area Regions & Vertical Division Lines */}
-                    {points.map((pt, idx) => {
-                        const prevPt = allPoints[idx];
-                        const color = terminColors[idx % terminColors.length];
-
-                        // Polygon path for this section:
-                        // (prevPt.x, yBottom) -> (prevPt.x, prevPt.y) -> (pt.x, pt.y) -> (pt.x, yBottom)
-                        const polyD = `M ${prevPt.x},${yBottom} L ${prevPt.x},${prevPt.y} L ${pt.x},${pt.y} L ${pt.x},${yBottom} Z`;
+                    {/* Render Step Blocks */}
+                    {termins.map((t, idx) => {
+                        const color = stepColors[idx % stepColors.length];
+                        const { xLeft, xRight, midX, pct, blockY, blockHeight } = stepPositions[idx];
+                        const isHovered = activeHoveredIdx === idx;
+                        const compactText = formatCompactRupiah(t.nominal);
 
                         return (
-                            <g key={`region-${idx}`}>
-                                {/* Polygon hatch fill */}
-                                <path d={polyD} fill={`url(#${color.hatchId})`} />
-
-                                {/* Vertical dashed divider at section boundary */}
+                            <g
+                                key={`step-${idx}`}
+                                onMouseEnter={() => setHoveredIdx(idx)}
+                                onMouseLeave={() => setHoveredIdx(null)}
+                                className="cursor-pointer transition-opacity duration-150"
+                            >
+                                {/* Vertical Dotted Division Line at Milestone */}
                                 <line
-                                    x1={pt.x}
+                                    x1={xLeft}
                                     y1={yTop - 5}
-                                    x2={pt.x}
+                                    x2={xLeft}
                                     y2={yBottom}
-                                    stroke={color.dashColor}
+                                    stroke={color.dash}
                                     strokeWidth="1"
                                     strokeDasharray="3 3"
                                 />
-                            </g>
-                        );
-                    })}
 
-                    {/* Line segments connecting points */}
-                    {points.map((pt, idx) => {
-                        const prevPt = allPoints[idx];
-                        const color = terminColors[idx % terminColors.length];
-
-                        return (
-                            <line
-                                key={`line-${idx}`}
-                                x1={prevPt.x}
-                                y1={prevPt.y}
-                                x2={pt.x}
-                                y2={pt.y}
-                                stroke={color.stroke}
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                            />
-                        );
-                    })}
-
-                    {/* 0% Origin Marker P0 */}
-                    <g key="badge-p0">
-                        <circle
-                            cx={p0.x}
-                            cy={p0.y}
-                            r="3.5"
-                            fill="#78716c"
-                            stroke="#ffffff"
-                            strokeWidth="1.5"
-                        />
-                        <text
-                            x={p0.x}
-                            y={p0.y - 7}
-                            textAnchor="middle"
-                            fill="#78716c"
-                            className="text-[9.5px] font-extrabold font-mono"
-                        >
-                            0%
-                        </text>
-                    </g>
-
-                    {/* Points & Percentage Badges */}
-                    {points.map((pt, idx) => {
-                        const color = terminColors[idx % terminColors.length];
-                        return (
-                            <g key={`badge-${idx}`}>
-                                {/* Circle node on line */}
-                                <circle
-                                    cx={pt.x}
-                                    cy={pt.y}
-                                    r="3.5"
-                                    fill={color.stroke}
-                                    stroke="#ffffff"
-                                    strokeWidth="1.5"
+                                {/* Solid Color Step Block */}
+                                <rect
+                                    x={xLeft}
+                                    y={blockY}
+                                    width={sectionWidth}
+                                    height={blockHeight}
+                                    fill={color.fill}
+                                    className={`transition-all duration-150 ${isHovered ? "brightness-110 opacity-90 stroke-white stroke-2" : ""}`}
                                 />
 
-                                {/* Percentage label above dot */}
+                                {/* Compact Nominal Label Above Step Block */}
+                                {compactText && (
+                                    <text
+                                        x={midX}
+                                        y={blockY - 7}
+                                        textAnchor="middle"
+                                        fill={color.text}
+                                        className={`text-[10.5px] font-bold font-mono tracking-tight transition-all ${isHovered ? "font-black" : ""}`}
+                                    >
+                                        {compactText}
+                                    </text>
+                                )}
+
+                                {/* X-Axis Termin Name below milestone line */}
                                 <text
-                                    x={pt.x}
-                                    y={pt.y - 7}
+                                    x={xLeft}
+                                    y={yBottom + 16}
                                     textAnchor="middle"
-                                    fill={color.stroke}
-                                    className="text-[9.5px] font-extrabold font-mono"
+                                    className="text-[10px] font-bold fill-stone-700 font-sans"
                                 >
-                                    {pt.pct}%
+                                    {t.namaTermin}
+                                </text>
+
+                                {/* X-Axis Percentage below Termin Name */}
+                                <text
+                                    x={xLeft}
+                                    y={yBottom + 28}
+                                    textAnchor="middle"
+                                    className="text-[9.5px] font-medium fill-stone-400 font-sans"
+                                >
+                                    {pct}%
                                 </text>
                             </g>
                         );
                     })}
-
-                    {/* X-Axis Labels (Termin names) */}
-                    {points.map((pt, idx) => {
-                        const prevPt = allPoints[idx];
-                        const midX = (prevPt.x + pt.x) / 2;
-                        const color = terminColors[idx % terminColors.length];
-
-                        return (
-                            <text
-                                key={`label-${idx}`}
-                                x={midX}
-                                y={yBottom + 16}
-                                textAnchor="middle"
-                                fill={color.labelText}
-                                className="text-[9px] font-semibold tracking-tight"
-                            >
-                                {pt.name}
-                            </text>
-                        );
-                    })}
                 </svg>
             </div>
-        </div>
+        );
+    };
+
+    return (
+        <>
+            {/* Main Interactive Card */}
+            <div
+                onClick={() => setIsModalOpen(true)}
+                className="bg-white border border-stone-200 hover:border-emerald-500 rounded-2xl p-4 shadow-sm hover:shadow transition-all duration-200 cursor-pointer group text-left space-y-3"
+            >
+                <div className="flex items-center justify-between">
+                    <h4 className="text-[13px] font-bold text-stone-900 tracking-tight">
+                        Grafik Progress Termin
+                    </h4>
+                    {showEnlargeHint && (
+                        <span className="text-[11px] font-normal text-stone-400 group-hover:text-emerald-600 transition">
+                            Klik untuk perbesar
+                        </span>
+                    )}
+                </div>
+
+                {!hasData ? (
+                    <div className="w-full h-[200px] bg-stone-50/60 border border-dashed border-stone-200 rounded-xl flex items-center justify-center text-xs font-medium text-stone-400 italic">
+                        Termin pemasukan belum diatur
+                    </div>
+                ) : (
+                    renderChartSvg(false)
+                )}
+            </div>
+
+            {/* Pop-up Modal View - Enlarged 2x */}
+            {isModalOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsModalOpen(false);
+                    }}
+                >
+                    <div
+                        className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl max-w-5xl w-full border border-stone-100 animate-in zoom-in-95 duration-200 relative text-left overflow-hidden flex flex-col max-h-[90vh]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start justify-between mb-4 border-b border-stone-100 pb-3 flex-shrink-0">
+                            <div>
+                                <h3 className="font-bold text-xl text-stone-900">Grafik Progres Termin</h3>
+                                {projectName && (
+                                    <p className="text-xs text-stone-500 mt-1 font-medium">{projectName}</p>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsModalOpen(false)}
+                                className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition cursor-pointer"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="w-full flex-1 overflow-x-auto overflow-y-auto pt-4 pb-4">
+                            {!hasData ? (
+                                <div className="w-full h-[350px] bg-stone-50/60 border border-dashed border-stone-200 rounded-2xl flex items-center justify-center text-sm font-medium text-stone-400 italic">
+                                    Termin pemasukan belum diatur
+                                </div>
+                            ) : (
+                                renderChartSvg(true)
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

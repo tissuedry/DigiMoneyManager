@@ -469,7 +469,10 @@ export default function ProjectDetailSidebar({
                                     </div>
 
                                     {/* Grafik Progress Termin */}
-                                    <GrafikProgressTermin terminData={detailedProjectInfo?.terminPembayaran} />
+                                    <GrafikProgressTermin
+                                        terminData={detailedProjectInfo?.terminPembayaran}
+                                        projectName={detailedProjectInfo?.nama || showProjectDetail?.nama}
+                                    />
                                 </div>
                             )}
 
