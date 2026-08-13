@@ -33,6 +33,8 @@ export default function KeuanganBudgetPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [noBudgetList, setNoBudgetList] = useState<Proyek[]>([]);
   const [hasBudgetList, setHasBudgetList] = useState<Proyek[]>([]);
+  const [noBudgetAll, setNoBudgetAll] = useState<Proyek[]>([]);
+  const [hasBudgetAll, setHasBudgetAll] = useState<Proyek[]>([]);
   const [noBudgetTotal, setNoBudgetTotal] = useState(0);
   const [hasBudgetTotal, setHasBudgetTotal] = useState(0);
   const [pageNoBudget, setPageNoBudget] = useState(1);
@@ -61,21 +63,38 @@ export default function KeuanganBudgetPage() {
     }
   }, []);
 
+  const fetchAll = useCallback(async () => {
+    const [hasRes, noneRes] = await Promise.all([
+      fetch(`/api/proyek?limit=1000&budgetStatus=has`),
+      fetch(`/api/proyek?limit=1000&budgetStatus=none`),
+    ]);
+    if (hasRes.ok) {
+      const d = await hasRes.json();
+      setHasBudgetAll(d.projects ?? []);
+    }
+    if (noneRes.ok) {
+      const d = await noneRes.json();
+      setNoBudgetAll(d.projects ?? []);
+    }
+  }, []);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([
       fetchSection("has", pageHasBudget),
       fetchSection("none", pageNoBudget),
+      fetchAll(),
     ]);
     setLoading(false);
-  }, [fetchSection, pageHasBudget, pageNoBudget]);
+  }, [fetchSection, pageHasBudget, pageNoBudget, fetchAll]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
   useEffect(() => {
     setPageNoBudget(1);
     setPageHasBudget(1);
-  }, [activeStatus]);
+    if (activeStatus !== "Semua") fetchAll();
+  }, [activeStatus, fetchAll]);
 
   const switchTab = (tab: "none" | "has") => {
     setActiveTab(tab);
@@ -89,16 +108,29 @@ export default function KeuanganBudgetPage() {
   };
 
   const totalProjects = noBudgetTotal + hasBudgetTotal;
-  const noBudgetPages = Math.ceil(noBudgetTotal / LIMIT);
-  const hasBudgetPages = Math.ceil(hasBudgetTotal / LIMIT);
 
-  const activePages = activeTab === "has" ? hasBudgetPages : noBudgetPages;
-  const activePage = activeTab === "has" ? pageHasBudget : pageNoBudget;
+  const isFiltering = activeStatus !== "Semua";
+  const activeTabAll = activeTab === "has" ? hasBudgetAll : noBudgetAll;
+  const activeTabList = activeTab === "has" ? hasBudgetList : noBudgetList;
+  const activeTabTotal = activeTab === "has" ? hasBudgetTotal : noBudgetTotal;
+
+  let activeTotal: number;
+  let activeList: Proyek[];
+  if (isFiltering) {
+    const filtered = activeTabAll.filter(
+      (p) => STATUS_MAP[activeStatus].includes(p.status)
+    );
+    activeTotal = filtered.length;
+    activeList = filtered.slice(
+      ((activeTab === "has" ? pageHasBudget : pageNoBudget) - 1) * LIMIT,
+      (activeTab === "has" ? pageHasBudget : pageNoBudget) * LIMIT
+    );
+  } else {
+    activeTotal = activeTabTotal;
+    activeList = activeTabList;
+  }
+  const activePages = Math.ceil(activeTotal / LIMIT);
   const setActivePage = activeTab === "has" ? setPageHasBudget : setPageNoBudget;
-
-  const activeList = (activeTab === "has" ? hasBudgetList : noBudgetList).filter(
-    (p) => activeStatus === "Semua" || STATUS_MAP[activeStatus].includes(p.status)
-  );
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] text-stone-800 overflow-hidden">
@@ -199,11 +231,11 @@ export default function KeuanganBudgetPage() {
                 ))}
               </div>
               <Pagination
-                page={activePage}
+                page={activeTab === "has" ? pageHasBudget : pageNoBudget}
                 totalPages={activePages}
                 onChange={(p) => {
                   setActivePage(p);
-                  fetchSection(activeTab, p);
+                  if (!isFiltering) fetchSection(activeTab, p);
                 }}
               />
             </div>
