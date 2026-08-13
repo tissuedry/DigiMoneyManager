@@ -172,9 +172,9 @@ export default function MasterCoAPage() {
                               <span className="text-[9px] font-bold text-stone-400">SUB</span>
                               <span className="font-bold text-stone-700 text-[12px]">{subItem.nama}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition">
-                              <button 
-                                onClick={() => openModal('editSub', { ...subItem, main: mainItem.nama, sub: subItem.nama })} 
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => openModal('editSub', { ...subItem, main: mainItem.nama, sub: subItem.nama })}
                                 className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
                               >
                                 <Settings size={14} />
