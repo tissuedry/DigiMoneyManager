@@ -68,13 +68,23 @@ export default function GrafikProgressTermin({
     // If terminData is explicitly passed as empty array [], render empty state
     const hasData = terminData !== undefined ? terminData.length > 0 : true;
 
-    const termins = (terminData && terminData.length > 0)
+    const rawTermins = (terminData && terminData.length > 0)
         ? terminData.map((t, idx) => ({
             namaTermin: t.namaTermin || `Termin ${idx + 1}`,
             persentaseProgress: Math.min(100, Math.max(0, Number(t.persentaseProgress) || 0)),
             nominal: t.nominal !== undefined ? Number(t.nominal) : (idx + 1) * 1000000,
         }))
         : defaultTermins;
+
+    // Calculate CUMULATIVE NOMINAL for each running step
+    let runningCumSum = 0;
+    const termins = rawTermins.map((t) => {
+        runningCumSum += Number(t.nominal) || 0;
+        return {
+            ...t,
+            cumNominal: runningCumSum,
+        };
+    });
 
     const count = termins.length;
 
@@ -92,10 +102,10 @@ export default function GrafikProgressTermin({
 
     const sectionWidth = totalWidth / (count + 1);
 
-    // Calculate maximum nominal for nominal scaling
-    const maxNominal = Math.max(1, ...termins.map((t) => Number(t.nominal) || 0));
+    // Calculate maximum cumulative nominal (total accumulated income at final step)
+    const maxCumNominal = Math.max(1, runningCumSum);
 
-    // Dynamic height boundaries (maxBlockHeight set to 150px as requested)
+    // Dynamic height boundaries (maxBlockHeight set to 150px)
     const minBlockHeight = 18;
     const maxBlockHeight = 150;
 
@@ -111,27 +121,27 @@ export default function GrafikProgressTermin({
         const activeHoveredIdx = isModal ? hoveredIdxModal : hoveredIdxCard;
         const setHoveredIdx = isModal ? setHoveredIdxModal : setHoveredIdxCard;
 
-        // Calculate step positions & heights
+        // Calculate step positions & heights based on CUMULATIVE NOMINAL
         const stepPositions = termins.map((t, idx) => {
             const xLeft = xStart + (idx + 1) * sectionWidth;
             const xRight = xStart + (idx + 2) * sectionWidth;
             const midX = (xLeft + xRight) / 2;
             const pct = Number(t.persentaseProgress) || 0;
-            const nominalVal = Number(t.nominal) || 0;
+            const cumNominalVal = t.cumNominal;
 
-            // Power-scaling (exponent 0.42) for clear visual step hierarchy
-            const linearRatio = maxNominal > 0 ? nominalVal / maxNominal : 0;
-            const scaledRatio = linearRatio > 0 ? Math.pow(linearRatio, 0.42) : 0;
+            // Smooth ratio scaling based on CUMULATIVE NOMINAL relative to maxCumNominal
+            const linearRatio = maxCumNominal > 0 ? cumNominalVal / maxCumNominal : 0;
+            const scaledRatio = linearRatio > 0 ? Math.pow(linearRatio, 0.48) : 0;
 
             const blockHeight = minBlockHeight + scaledRatio * (maxBlockHeight - minBlockHeight);
             const blockY = yBottom - blockHeight;
 
-            return { xLeft, xRight, midX, pct, nominalVal, blockHeight, blockY };
+            return { xLeft, xRight, midX, pct, cumNominalVal, blockHeight, blockY };
         });
 
         return (
             <div className="relative w-full overflow-x-auto scrollbar-thin">
-                {/* Floating Tooltip Pill on Hover */}
+                {/* Floating Tooltip Pill on Hover displaying Full Cumulative Nominal */}
                 {activeHoveredIdx !== null && stepPositions[activeHoveredIdx] && (
                     <div
                         className="absolute pointer-events-none z-50 transform -translate-x-1/2 -translate-y-full transition-all duration-150"
@@ -141,7 +151,7 @@ export default function GrafikProgressTermin({
                         }}
                     >
                         <div className="bg-white border border-stone-200/90 shadow-2xl rounded-xl px-3 py-1.5 text-[12px] font-bold font-mono text-stone-900 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
-                            {formatFullRupiah(termins[activeHoveredIdx].nominal)}
+                            {formatFullRupiah(termins[activeHoveredIdx].cumNominal)}
                         </div>
                     </div>
                 )}
@@ -185,7 +195,7 @@ export default function GrafikProgressTermin({
                         const color = stepColors[idx % stepColors.length];
                         const { xLeft, xRight, midX, pct, blockY, blockHeight } = stepPositions[idx];
                         const isHovered = activeHoveredIdx === idx;
-                        const compactText = formatCompactRupiah(t.nominal);
+                        const compactText = formatCompactRupiah(t.cumNominal);
 
                         return (
                             <g
@@ -215,7 +225,7 @@ export default function GrafikProgressTermin({
                                     className={`transition-all duration-150 ${isHovered ? "brightness-110 opacity-90 stroke-white stroke-2" : ""}`}
                                 />
 
-                                {/* Compact Nominal Label Above Step Block */}
+                                {/* Compact Cumulative Nominal Label Above Step Block */}
                                 {compactText && (
                                     <text
                                         x={midX}
