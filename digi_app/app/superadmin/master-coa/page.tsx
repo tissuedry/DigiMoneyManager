@@ -51,15 +51,22 @@ export default function MasterCoAPage() {
   const closeModal = () => setModalConfig({ isOpen: false, type: null, data: null });
 
   // Filter master data berdasarkan tab aktif (Aset = pemasukan, Beban = pengeluaran, Semua = all)
-  const filteredMasterData = masterData.filter((item) => {
-    if (activeTab === "Aset") {
-      return item.tipe === "pemasukan";
-    }
-    if (activeTab === "Beban") {
-      return item.tipe === "pengeluaran";
-    }
-    return true;
-  });
+  // Di tab Semua, kelompokkan per tipe (Pengeluaran lalu Pemasukan) supaya Main baru
+  // masuk ke bagian tipenya sendiri, bukan tercampur/nyelip di bawah tipe lain.
+  const filteredMasterData = masterData
+    .filter((item) => {
+      if (activeTab === "Aset") {
+        return item.tipe === "pemasukan";
+      }
+      if (activeTab === "Beban") {
+        return item.tipe === "pengeluaran";
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (activeTab !== "Semua" || a.tipe === b.tipe) return 0;
+      return a.tipe === "pengeluaran" ? -1 : 1;
+    });
 
   const getDeleteType = (type: ModalType) => {
     if (type === 'deleteMain') return 'main';
@@ -98,8 +105,8 @@ export default function MasterCoAPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => openModal('tambahMain', { tipe: activeTab === 'Aset' ? 'pemasukan' : 'pengeluaran' })}
+          <button
+            onClick={() => openModal('tambahMain', activeTab === 'Semua' ? {} : { tipe: activeTab === 'Aset' ? 'pemasukan' : 'pengeluaran' })}
             className="flex items-center gap-2 px-4 py-2 bg-[#008f5d] text-white rounded-xl text-sm font-bold shadow-sm hover:bg-[#007a4f] transition cursor-pointer"
           >
             <Plus size={16} strokeWidth={3} /> Tambah Main {activeTab === 'Aset' ? 'Pemasukan' : activeTab === 'Beban' ? 'Pengeluaran' : ''}
@@ -131,7 +138,7 @@ export default function MasterCoAPage() {
 
               return (
                 <div key={mainItem.id} className="border border-stone-200 rounded-xl overflow-hidden bg-white">
-                  <div 
+                  <div
                     className="bg-[#f5f4ef] px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-[#eae8e0] transition"
                     onClick={() => toggleMain(mainItem.id)}
                   >

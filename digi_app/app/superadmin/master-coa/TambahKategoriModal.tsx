@@ -1,17 +1,25 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, TrendingUp, TrendingDown, Check } from "lucide-react";
 import ModalWrapper from "./ModalWrapper";
+import Toast from "@/components/toast";
 
 export default function TambahKategoriModal({ isOpen, onClose, type, data, onRefresh }: any) {
   const [namaKategori, setNamaKategori] = useState("");
+  const [selectedTipe, setSelectedTipe] = useState<"pemasukan" | "pengeluaran">("pengeluaran");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const showTipeSelector = type === 'tambahMain' && !data?.tipe;
 
   useEffect(() => {
-    if (isOpen) setNamaKategori("");
-  }, [isOpen]);
+    if (isOpen) {
+      setNamaKategori("");
+      setSelectedTipe(data?.tipe || "pengeluaran");
+    }
+  }, [isOpen, data]);
 
   const getTitle = () => {
     if (type === 'tambahMain') return "Tambah Main Baru";
@@ -24,11 +32,11 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
     
     const payloadType = type === 'tambahSub' ? "sub" : "main";
 
-    const payload = { 
-      type: payloadType, 
+    const payload = {
+      type: payloadType,
       nama: namaKategori,
-      tipe: data?.tipe || "pengeluaran",
-      parentId: data?.parentId ? String(data.parentId) : undefined 
+      tipe: selectedTipe,
+      parentId: data?.parentId ? String(data.parentId) : undefined
     };
 
     try {
@@ -48,11 +56,17 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
 
       if (onRefresh) onRefresh();
       onClose();
+      setShowSuccess(true);
     } catch (err: any) {
       setErrorMsg(err.message || "Terjadi kesalahan sistem");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getSuccessMessage = () => {
+    if (type === 'tambahMain') return `Main "${namaKategori}" berhasil ditambahkan.`;
+    return `Sub "${namaKategori}" berhasil ditambahkan.`;
   };
 
   const getBreadcrumbs = () => {
@@ -69,9 +83,10 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
   };
 
   return (
-    <ModalWrapper 
-      isOpen={isOpen} 
-      onClose={onClose} 
+    <>
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
       actionLabel="Simpan"
       title={getTitle()}
       onAction={handleSubmit}
@@ -79,16 +94,59 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
       breadcrumbs={getBreadcrumbs()}
     >
       {errorMsg && <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg">{errorMsg}</div>}
+      {showTipeSelector && (
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-bold text-stone-800">Tipe Kategori</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedTipe("pemasukan")}
+              className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-[13px] font-bold transition cursor-pointer active:scale-[0.98] ${
+                selectedTipe === "pemasukan"
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500"
+                  : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-700"
+              }`}
+            >
+              <TrendingUp size={15} className={selectedTipe === "pemasukan" ? "text-emerald-600 shrink-0" : "text-stone-400 shrink-0"} />
+              <span className="truncate">Pemasukan</span>
+              {selectedTipe === "pemasukan" && (
+                <Check size={13} strokeWidth={3} className="text-emerald-600 ml-auto shrink-0" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedTipe("pengeluaran")}
+              className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-[13px] font-bold transition cursor-pointer active:scale-[0.98] ${
+                selectedTipe === "pengeluaran"
+                  ? "border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-500"
+                  : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-700"
+              }`}
+            >
+              <TrendingDown size={15} className={selectedTipe === "pengeluaran" ? "text-amber-700 shrink-0" : "text-stone-400 shrink-0"} />
+              <span className="truncate">Pengeluaran</span>
+              {selectedTipe === "pengeluaran" && (
+                <Check size={13} strokeWidth={3} className="text-amber-700 ml-auto shrink-0" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="space-y-1.5">
         <label className="text-[13px] font-bold text-stone-800">Nama Kategori Baru</label>
-        <input 
-          type="text" 
+        <input
+          type="text"
           value={namaKategori}
           onChange={(e) => setNamaKategori(e.target.value)}
-          placeholder="Masukkan nama..." 
-          className="w-full border border-stone-200 rounded-xl px-4 py-2.5 outline-none focus:border-[#008f5d]" 
+          placeholder="Masukkan nama..."
+          className="w-full bg-white border border-stone-200 text-stone-800 text-[14px] rounded-xl px-4 py-2.5 outline-none focus:border-[#008f5d] transition shadow-sm"
         />
       </div>
     </ModalWrapper>
+    <Toast
+      open={showSuccess}
+      message={getSuccessMessage()}
+      onClose={() => setShowSuccess(false)}
+    />
+    </>
   );
 }

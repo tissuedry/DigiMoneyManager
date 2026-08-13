@@ -2,10 +2,13 @@
 
 import React, { useState } from "react";
 import ModalWrapper from "./ModalWrapper";
+import Toast from "@/components/toast";
 
 export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
 
   const getTitle = () => {
     if (type === 'akun') return "Hapus Akun";
@@ -17,6 +20,12 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
   const getItemName = () => {
     if (type === 'akun') return `${data?.nomorAkun} - ${data?.namaAkun}`;
     return data?.nama || data?.main || data?.sub || "Item ini";
+  };
+
+  const getSuccessMessage = () => {
+    if (type === 'main') return `Main "${getItemName()}" berhasil dihapus.`;
+    if (type === 'sub') return `Sub "${getItemName()}" berhasil dihapus.`;
+    return `${getItemName()} berhasil dihapus.`;
   };
 
   const handleSubmit = async () => {
@@ -44,16 +53,20 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
         // Jika statusnya 404 (Not Found), artinya data sudah tidak ada di DB.
         // Anggap proses sukses, refresh tabel, lalu tutup modal.
         if (res.status === 404) {
+          setSuccessMsg(getSuccessMessage());
           if (onRefresh) onRefresh();
           onClose();
+          setShowSuccess(true);
           return;
         }
         throw new Error(responseData.message || "Gagal menghapus data");
       }
 
       // Refresh data di tabel utama dan tutup modal jika berhasil
+      setSuccessMsg(getSuccessMessage());
       if (onRefresh) onRefresh();
       onClose();
+      setShowSuccess(true);
     } catch (err: any) {
       setErrorMsg(err.message || "Terjadi kesalahan sistem");
     } finally {
@@ -62,12 +75,13 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
   };
 
   return (
-    <ModalWrapper 
-      isOpen={isOpen} 
-      onClose={onClose} 
-      title={getTitle()} 
-      actionLabel="Ya, Hapus" 
-      onAction={handleSubmit} 
+    <>
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      title={getTitle()}
+      actionLabel="Ya, Hapus"
+      onAction={handleSubmit}
       isLoading={isLoading}
     >
       {errorMsg && (
@@ -79,5 +93,11 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
         Apakah Anda yakin ingin menghapus <strong>{getItemName()}</strong>? Data yang sudah dihapus tidak dapat dikembalikan.
       </p>
     </ModalWrapper>
+    <Toast
+      open={showSuccess}
+      message={successMsg}
+      onClose={() => setShowSuccess(false)}
+    />
+    </>
   );
 }
