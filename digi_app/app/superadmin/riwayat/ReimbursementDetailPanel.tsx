@@ -387,37 +387,55 @@ export default function ReimbursementDetailPanel({
             </div>
 
             <div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Bukti Struk</p>
-                  <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] flex items-center justify-center">
-                    {raw.strukUrl ? (
-                      <>
-                        <img
-                          src={raw.strukUrl}
-                          alt="Bukti Struk"
-                          loading="lazy"
-                          className="w-full h-full object-cover cursor-pointer group-hover:opacity-90 transition"
-                          onClick={() => onOpenImage(raw.strukUrl)}
-                          onError={(e) => { (e.target as HTMLImageElement).src = "/bukti_struk.png"; }}
-                        />
-                        <div className="pointer-events-none absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
-                          <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
-                            <ZoomIn size={14} /> Klik untuk Memperbesar
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <img
-                        src="/bukti_struk.png"
-                        alt="Bukti Struk"
-                        loading="lazy"
-                        className="w-full h-full object-cover"
-                      />
-                    )}
+              <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Bukti Struk</p>
+              {raw.strukUrl ? (
+                raw.strukUrl.toLowerCase().split('?')[0].endsWith('.pdf') ? (
+                  <div className="border border-stone-200 rounded-xl p-3 bg-[#fdfaf5] flex items-center justify-between gap-3 w-full max-w-xs sm:max-w-sm">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center shrink-0 border border-red-200">
+                        PDF
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-stone-800 whitespace-nowrap">Dokumen Bukti (PDF)</p>
+                        <p className="text-[10px] text-stone-400 whitespace-nowrap">Klik untuk membuka file</p>
+                      </div>
+                    </div>
+                    <a
+                      href={raw.strukUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-1.5 bg-stone-900 text-white rounded-lg text-xs font-semibold shrink-0 hover:bg-stone-800 transition whitespace-nowrap"
+                    >
+                      Buka PDF
+                    </a>
                   </div>
+                ) : (
+                  <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] max-w-xs flex items-center justify-center">
+                    <img
+                      src={raw.strukUrl}
+                      alt="Bukti Struk"
+                      loading="lazy"
+                      className="w-full h-full object-cover cursor-pointer group-hover:opacity-90 transition"
+                      onClick={() => onOpenImage(raw.strukUrl)}
+                      onError={(e) => { (e.target as HTMLImageElement).src = "/bukti_struk.png"; }}
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                      <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                        <ZoomIn size={14} /> Klik untuk Memperbesar
+                      </span>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] max-w-xs flex items-center justify-center">
+                  <img
+                    src="/bukti_struk.png"
+                    alt="Bukti Struk"
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
