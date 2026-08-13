@@ -13,9 +13,12 @@ export async function GET(req: NextRequest) {
 
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
+    const budgetStatus = searchParams.get('budgetStatus') || 'all';
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '4', 10);
 
     // Perbaikan Cache Key agar tidak bug saat search/filter berubah
-    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}`;
+    const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}:budgetStatus=${budgetStatus}:page=${page}:limit=${limit}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
 
@@ -65,11 +68,19 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    let budgetFilter: any = {};
+    if (budgetStatus === 'has') {
+      budgetFilter = { budget: { isNot: null } };
+    } else if (budgetStatus === 'none') {
+      budgetFilter = { budget: { is: null } };
+    }
+
     const finalWhere = {
-      AND: [roleFilter, searchFilter, statusFilter]
+      AND: [roleFilter, searchFilter, statusFilter, budgetFilter]
     };
 
-    // 💡 TAMBAHAN 1: Ambil data opsi master_main dari database
+    const skip = (page - 1) * limit;
+
     const budgetOptions = await prisma.masterMain.findMany({
       select: {
         id: true,
@@ -78,18 +89,34 @@ export async function GET(req: NextRequest) {
       orderBy: { nama: 'asc' }
     });
 
-    // Eksekusi query daftar proyek
-    const projects = await prisma.proyek.findMany({
-      where: finalWhere,
-      include: {
-        budget: {
-          include: {
-            mainAnggaran: true,
+    const [totalItems, projects] = await prisma.$transaction([
+      prisma.proyek.count({ where: finalWhere }),
+      prisma.proyek.findMany({
+        where: finalWhere,
+        skip: skip,
+        take: limit,
+        include: {
+          budget: {
+            include: {
+              mainAnggaran: {
+                orderBy: { id: 'asc' },
+                include: {
+                  subAnggaran: {
+                    orderBy: { id: 'asc' },
+                    include: {
+                      keterangan: {
+                        orderBy: { id: 'asc' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
-      },
-      orderBy: { tanggalMulai: 'desc' },
-    });
+        orderBy: { tanggalMulai: 'desc' },
+      })
+    ]);
 
     const mappedProjects = projects.map((p) => {
       if (!p.budget) return p;
@@ -101,15 +128,31 @@ export async function GET(req: NextRequest) {
             ...m,
             deskripsi: m.namaMain,
             namaPos: m.namaMain,
+            nominalTerpakai: String(
+              m.subAnggaran.reduce(
+                (sum: number, sub: any) =>
+                  sum +
+                  sub.keterangan.reduce(
+                    (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0),
+                    0
+                  ),
+                0
+              )
+            ),
           })),
         },
       };
     });
 
-    // 💡 TAMBAHAN 2: Masukkan budgetOptions ke dalam JSON Response & Cache
     const responseData = {
       projects: mappedProjects,
-      budgetOptions: budgetOptions // <-- Data untuk dropdown Anda
+      budgetOptions: budgetOptions,
+      pagination: {
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+        currentPage: page,
+        limit
+      }
     };
 
     setCache(cacheKey, responseData);
