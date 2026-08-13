@@ -74,18 +74,12 @@ export default function MasterCoAPage() {
     return null;
   };
 
-  const getTabLabel = () => {
-    if (activeTab === "Aset") return "Revenue / Pemasukan";
-    if (activeTab === "Beban") return "Expense / Pengeluaran";
-    return "Semua Kategori";
-  };
-
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto min-h-full flex flex-col bg-[#f9f8f4]">
       {/* Header Info */}
       <div className="mb-6">
-        <h1 className="text-[28px] font-bold text-stone-900 leading-tight">Chart of Accounts & Master Anggaran</h1>
-        <p className="text-stone-500 mt-1 text-[15px]">Kelola referensi akun pemasukan/revenue serta pengeluaran/expense proyek dalam struktur Main dan Sub.</p>
+        <h1 className="text-[28px] font-bold text-stone-900 leading-tight">Master Chart of Accounts</h1>
+        <p className="text-stone-500 mt-1 text-[15px]">Kelola chart of accounts dari pemasukan dan pengeluaran proyek dalam struktur Main dan Sub</p>
       </div>
 
       {/* Tabs & Actions Bar */}
@@ -99,7 +93,7 @@ export default function MasterCoAPage() {
                 activeTab === tab ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
               }`}
             >
-              {tab === "Aset" ? "Revenue (Pemasukan)" : tab === "Beban" ? "Expense (Pengeluaran)" : tab}
+              {tab === "Aset" ? "Pemasukan (Revenue)" : tab === "Beban" ? "Pengeluaran (Expense)" : tab}
             </button>
           ))}
         </div>
@@ -117,8 +111,8 @@ export default function MasterCoAPage() {
       {/* HIRARKI TREE MASTER MAIN & SUB */}
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm flex-1 flex flex-col overflow-hidden">
         <div className="bg-[#f5f4ef] border-b border-stone-200 px-6 py-4 flex items-center justify-between text-[11px] font-bold text-stone-500 uppercase tracking-wider shrink-0">
-          <span>Struktur Master {getTabLabel()} (Main - Sub)</span>
-          <span>{filteredMasterData.length} Main Items</span>
+          <span>Struktur Master (Main - Sub)</span>
+          <span>{filteredMasterData.length} Main</span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
