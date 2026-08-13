@@ -42,7 +42,7 @@ export default function KeuanganBudgetPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isLaporanModalOpen, setIsLaporanModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"none" | "has">("none");
+  const [activeTab, setActiveTab] = useState<"none" | "has">("has");
   const [activeStatus, setActiveStatus] = useState("Semua");
 
   const fetchSection = useCallback(async (status: "has" | "none", page: number) => {
@@ -180,17 +180,6 @@ export default function KeuanganBudgetPage() {
               {/* Budget Filter */}
               <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 w-fit">
                 <button
-                  onClick={() => switchTab("none")}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 cursor-pointer ${
-                    activeTab === "none"
-                      ? "bg-white text-stone-900 font-semibold shadow-sm"
-                      : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
-                  }`}
-                >
-                  <AlertCircle size={14} className={activeTab === "none" ? "text-amber-600" : "text-stone-400"} />
-                  Perlu Diinisialisasi ({noBudgetTotal})
-                </button>
-                <button
                   onClick={() => switchTab("has")}
                   className={`flex items-center gap-1.5 px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 cursor-pointer ${
                     activeTab === "has"
@@ -200,6 +189,17 @@ export default function KeuanganBudgetPage() {
                 >
                   <Check size={14} className={activeTab === "has" ? "text-emerald-600" : "text-stone-400"} />
                   Budget Aktif ({hasBudgetTotal})
+                </button>
+                <button
+                  onClick={() => switchTab("none")}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 cursor-pointer ${
+                    activeTab === "none"
+                      ? "bg-white text-stone-900 font-semibold shadow-sm"
+                      : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                  }`}
+                >
+                  <AlertCircle size={14} className={activeTab === "none" ? "text-amber-600" : "text-stone-400"} />
+                  Perlu Diinisialisasi ({noBudgetTotal})
                 </button>
               </div>
 
