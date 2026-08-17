@@ -1,50 +1,177 @@
-"use client";
-
-import React, { useState } from "react";
-import { ChevronDown, ChevronRight, X, Check, Clock, Settings } from "lucide-react";
+import React from "react";
+import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
 import { formatReimbursementDate } from "./utils";
+
 import { formatFullRupiah } from "@/lib/format-nominal";
-import EditAlokasiModal from "./PerubahanAlokasi";
 
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
   return formatFullRupiah(n);
 }
 
-function formatSisaCurrency(num: number): string {
-  const n = Number(num) || 0;
-  if (n < 0) {
-    return `-Rp ${Math.abs(Math.round(n)).toLocaleString("id-ID")}`;
-  }
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
-}
+const STATUS_BADGE: Record<string, string> = {
+  "Dicairkan": "bg-emerald-100 text-emerald-700",
+  "APPROVED": "bg-emerald-100 text-emerald-700",
+  "Menunggu PM": "bg-amber-100 text-amber-700",
+  "SUBMITTED": "bg-amber-100 text-amber-700",
+  "Menunggu Keuangan": "bg-blue-100 text-blue-700",
+  "APPROVED_BY_PM": "bg-blue-100 text-blue-700",
+  "Ditolak": "bg-red-100 text-red-700",
+  "REJECTED": "bg-red-100 text-red-700",
+  "PENDING": "bg-blue-100 text-blue-700",
+};
 
 function statusLabel(s: string): string {
   const map: Record<string, string> = {
-    APPROVED: "Dicairkan",
-    SUBMITTED: "Menunggu PM",
-    REJECTED: "Ditolak",
-    PENDING: "Menunggu Keuangan",
-    APPROVED_BY_PM: "Menunggu Keuangan",
-    PAID: "Dicairkan",
-    DISBURSED: "Dicairkan",
+    "APPROVED": "Dicairkan",
+    "SUBMITTED": "Menunggu PM",
+    "REJECTED": "Ditolak",
+    "PENDING": "Menunggu Keuangan",
+    "APPROVED_BY_PM": "Menunggu Keuangan",
   };
   return map[s] || s;
 }
 
 function getStatusRank(status: string): number {
-  if (["APPROVED", "PAID", "DISBURSED"].includes(status)) return 1;
-  if (["SUBMITTED"].includes(status)) return 2;
-  if (["APPROVED_BY_PM", "PENDING"].includes(status)) return 3;
+  if (['APPROVED', 'PAID', 'DISBURSED'].includes(status)) return 1;
+  if (['SUBMITTED'].includes(status)) return 2;
+  if (['APPROVED_BY_PM', 'PENDING'].includes(status)) return 3;
   return 4;
 }
 
 function reimbType(s: string): string {
   const map: Record<string, string> = {
     "Realisasi Anggaran": "REAL",
-    Reimbursement: "REIMB",
+    "Reimbursement": "REIMB",
   };
+
   return map[s] || s || "REIMB";
+}
+
+const COL_CLASS =
+  "flex items-center gap-3 px-6 py-1.5 hover:bg-stone-50 transition";
+const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[440px]";
+
+function Row({
+  children,
+  indent = 0,
+  className = "",
+  onClick,
+}: {
+  children: React.ReactNode;
+  indent?: number;
+  className?: string;
+  onClick?: () => void;
+}) {
+  const childrenArray = React.Children.toArray(children);
+  const firstChild = childrenArray[0];
+  const restChildren = childrenArray.slice(1);
+
+  const modifiedFirstChild = React.isValidElement(firstChild)
+    ? React.cloneElement(firstChild as React.ReactElement<any>, {
+        style: {
+          ...((firstChild as React.ReactElement<any>).props?.style || {}),
+          paddingLeft: indent * 24,
+        },
+      })
+    : firstChild;
+
+  return (
+    <div
+      onClick={onClick}
+      className={`${COL_CLASS} ${onClick ? "cursor-pointer select-none" : ""} ${className}`}
+      style={{ paddingLeft: 24 }}
+    >
+      {modifiedFirstChild}
+      {restChildren}
+    </div>
+  );
+}
+
+function ProgressCell({ pct, exactPctText }: { pct: number; exactPctText?: string }) {
+  const displayPct = Math.min(Math.max(pct, 0), 100);
+  let barColor = "#008f5d";
+  let textColor = "#005836";
+
+  if (pct >= 90) {
+    barColor = "#d36c66";
+    textColor = "#991b1b";
+  } else if (pct >= 75) {
+    barColor = "#d8953d";
+    textColor = "#92400e";
+  }
+
+  return (
+    <div className="flex items-center justify-center shrink-0" style={{ width: 200 }}>
+      <div className="flex items-center justify-center gap-2.5 w-full px-3 shrink-0">
+        <div className="flex-1 bg-stone-100 h-2.5 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${displayPct}%`, backgroundColor: barColor }}
+          />
+        </div>
+        <span
+          className="text-[11px] font-bold tabular-nums w-12 text-left shrink-0"
+          style={{ color: textColor }}
+          title={exactPctText ? `${exactPctText}%` : `${pct.toFixed(2)}%`}
+        >
+          {pct.toFixed(1)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Cell({
+  children,
+  bold,
+  style,
+}: {
+  children: React.ReactNode;
+  bold?: boolean;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      className={`text-[12px] text-stone-800 shrink-0 text-center whitespace-nowrap ${bold ? "font-bold" : ""}`}
+      style={{ width: 210, ...style }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ReimbRealisasiCell({
+  nominal,
+  status,
+}: {
+  nominal: number;
+  status: string;
+}) {
+  let textColor = "#78716C";
+  let icon: React.ReactNode = null;
+
+  if (status === "Dicairkan") {
+    textColor = "#44403C";
+    icon = <Check size={13} className="shrink-0 stroke-[2.5] text-emerald-600" />;
+  } else if (status === "Menunggu PM") {
+    textColor = "#A8A29E";
+    icon = <Clock size={13} className="shrink-0 text-amber-600" />;
+  } else if (status === "Menunggu Keuangan") {
+    textColor = "#A8A29E";
+    icon = <Clock size={13} className="shrink-0 text-sky-600" />;
+  } else {
+    textColor = "#A8A29E";
+  }
+
+  return (
+    <Cell style={{ color: textColor }}>
+      <span className="inline-flex items-center justify-center gap-1.5">
+        <span>{formatFullCurrency(nominal)}</span>
+        {icon}
+      </span>
+    </Cell>
+  );
 }
 
 type Props = {
@@ -57,7 +184,6 @@ type Props = {
   setExpandedSub: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   expandedKet: Record<string, boolean>;
   setExpandedKet: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  onRefresh?: () => void;
 };
 
 export default function DetailBudgetModal({
@@ -70,574 +196,321 @@ export default function DetailBudgetModal({
   setExpandedSub,
   expandedKet,
   setExpandedKet,
-  onRefresh,
 }: Props) {
-  const [editTarget, setEditTarget] = useState<{
-    type: "main" | "sub";
-    id: number;
-    mainId?: number;
-    nama: string;
-    currentAlokasi: number;
-    totalRAB?: number;
-    totalTeralokasi?: number;
-  } | null>(null);
-
   if (!showDetailBudgetModal) return null;
 
   const posAnggaran = detailedProjectInfo?.budget?.posAnggaran || [];
-  const projectName = detailedProjectInfo?.nama || "Pembangunan Gudang Cikarang Fase 2";
-  const totalPemasukan =
-    Number(detailedProjectInfo?.budget?.nilaiTotal) ||
-    Number(detailedProjectInfo?.nilaiProyek) ||
-    0;
 
   return (
-    <>
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <div
-        className="fixed inset-0 z-50 bg-[#14120E]/60 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-200"
-        onClick={onClose}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[1140px] max-h-[85vh] flex flex-col overflow-hidden text-left"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="bg-white rounded-[20px] shadow-[0px_24px_64px_rgba(20,18,14,0.30)] w-full max-w-[1112px] max-h-[88vh] flex flex-col overflow-hidden text-left border border-[#E6E1D4] animate-in fade-in zoom-in-95 duration-150"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="px-7 pt-[22px] pb-[18px] border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
-            <div className="flex flex-col">
-              <h3 className="text-[19px] font-bold text-[#14130F] leading-[28.5px] font-sans">
-                Detail Anggaran
-              </h3>
-              <p className="text-[13px] text-[#6A6660] leading-[19.5px] mt-0.5 font-sans">
-                {projectName}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-[#2C2A24] hover:bg-[#F1EEE6] rounded-xl transition cursor-pointer"
-              aria-label="Tutup"
-            >
-              <X size={18} />
-            </button>
+        {/* Header */}
+        <div className="px-6 pt-5 pb-4 border-b border-stone-100 flex items-start justify-between shrink-0">
+          <div>
+            <h3 className="text-lg font-sans font-bold text-stone-900">
+              Detail Anggaran
+            </h3>
+            <p className="text-sm font-sans text-stone-500 mt-0.5">
+              {detailedProjectInfo?.nama || "Pembangunan Gudang Cikarang Fase 2"}
+            </p>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-stone-100 rounded-lg transition text-stone-400 hover:text-stone-600 cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-          {/* Column headers */}
-          <div className="px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
-            <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              MAIN · SUB · KETERANGAN
-            </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              REALISASI
-            </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              ALOKASI
-            </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              SISA
-            </div>
-            <div className="w-[125px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              AKSI
-            </div>
-          </div>
+        {/* Column headers */}
+        <div className="flex items-center gap-3 px-6 py-2 bg-stone-50 border-b border-stone-100 shrink-0">
+          <span className="flex-1 min-w-0 max-w-[440px] text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+            MAIN · SUB · KETERANGAN
+          </span>
+          <span
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center"
+            style={{ width: 200 }}
+          >
+            PROGRESS
+          </span>
+          <span
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center"
+            style={{ width: 210 }}
+          >
+            ALOKASI
+          </span>
+          <span
+            className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center"
+            style={{ width: 210 }}
+          >
+            REALISASI
+          </span>
+        </div>
 
-          {/* Scrollable rows */}
-          <div className="flex-1 overflow-y-auto px-7 py-3 flex flex-col gap-2">
-            {posAnggaran.length > 0 ? (
-              posAnggaran.map((pos: any, idxPos: number) => {
-                const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
-                const isMainOpen = expandedMain[idxPos] ?? true;
+        {/* Scrollable rows */}
+        <div className="flex-1 overflow-y-auto divide-y divide-stone-50">
+          {posAnggaran.length > 0 ? (
+            posAnggaran.map((pos: any, idxPos: number) => {
+              const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
+              const isMainOpen = expandedMain[idxPos] ?? true;
 
-                const alokasiPos = parseFloat(pos.nominalAlokasi) || parseFloat(pos.alokasi) || 0;
-                const terpakaiPos = hasSub
-                  ? pos.subAnggaran.reduce((accSub: number, sub: any) => {
+              const alokasiPos = parseFloat(pos.nominalAlokasi) || parseFloat(pos.alokasi) || 0;
+              const terpakaiPos = hasSub
+                ? pos.subAnggaran.reduce((accSub: number, sub: any) => {
                     const hasKet = sub.keterangan && sub.keterangan.length > 0;
                     const subRealisasi = hasKet
                       ? sub.keterangan.reduce((accKet: number, k: any) => {
-                        const reimbs = (k.reimbursements || []).filter((r: any) =>
-                          ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
-                        );
-                        const sumReimbs = reimbs.reduce(
-                          (accR: number, r: any) => accR + (parseFloat(r.nominal) || 0),
-                          0
-                        );
-                        return (
-                          accKet +
-                          (sumReimbs ||
-                            parseFloat(k.nominalRealisasi) ||
-                            parseFloat(k.realisasi) ||
-                            0)
-                        );
-                      }, 0)
+                          const reimbs = (k.reimbursements || []).filter((r: any) =>
+                            ['APPROVED'].includes(r.status)
+                          );
+                          const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
+                          return accKet + (sumReimbs || parseFloat(k.nominalRealisasi) || parseFloat(k.realisasi) || 0);
+                        }, 0)
                       : parseFloat(sub.nominalTerpakai) || parseFloat(sub.realisasi) || 0;
                     return accSub + subRealisasi;
                   }, 0)
-                  : parseFloat(pos.nominalTerpakai) || parseFloat(pos.realisasi) || 0;
+                : parseFloat(pos.nominalTerpakai) || parseFloat(pos.realisasi) || 0;
 
-                const sisaPos = alokasiPos - terpakaiPos;
+              const pctPos = alokasiPos > 0 ? (terpakaiPos / alokasiPos) * 100 : 0;
+              const pctPosExact = alokasiPos > 0 ? ((terpakaiPos / alokasiPos) * 100).toFixed(5) : '0.00000';
 
-                return (
-                  <div key={pos.id || idxPos} className="flex flex-col pb-1 border-b border-[#E6E1D4]">
-                    {/* MAIN row */}
-                    <div
-                      onClick={() =>
-                        setExpandedMain((prev) => ({ ...prev, [idxPos]: !isMainOpen }))
-                      }
-                      className="py-1.5 flex items-center hover:bg-stone-50/80 rounded-lg cursor-pointer select-none transition"
-                    >
-                      {/* Left: Main pos name */}
-                      <div className="flex-1 min-w-[280px] flex items-center gap-2 pr-2">
-                        <div className="p-0.5 shrink-0 text-[#6A6660]">
-                          {isMainOpen ? (
-                            <ChevronDown size={13} className="shrink-0" />
-                          ) : (
-                            <ChevronRight size={13} className="shrink-0" />
-                          )}
-                        </div>
-                        <span className="text-[13.5px] font-bold text-[#14130F] uppercase tracking-[0.27px] shrink-0 font-sans">
-                          MAIN
-                        </span>
-                        <span className="text-[13.5px] font-semibold text-[#2C2A24] truncate font-sans">
-                          · {pos.namaPos || pos.deskripsi || pos.nama}
-                        </span>
-                      </div>
-
-                      {/* Column 2: REALISASI */}
-                      <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(terpakaiPos)}
-                      </div>
-
-                      {/* Column 3: ALOKASI */}
-                      <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(alokasiPos)}
-                      </div>
-
-                      {/* Column 4: SISA */}
-                      <div
-                        className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${sisaPos < 0 ? "text-[#902F33]" : "text-[#005836]"
-                          }`}
-                      >
-                        {formatSisaCurrency(sisaPos)}
-                      </div>
-
-                      {/* Column 5: AKSI */}
-                      <div className="w-[125px] shrink-0 flex justify-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditTarget({
-                              type: "main",
-                              id: pos.id,
-                              nama: pos.namaPos || pos.nama || pos.deskripsi,
-                              currentAlokasi: alokasiPos,
-                            });
-                          }}
-                          className="h-7 px-2 py-1 bg-[#FCF7F0] rounded-md outline outline-[0.8px] outline-[#894C06] -outline-offset-1 inline-flex items-center justify-center gap-1 text-[#894C06] text-[10.5px] font-semibold hover:bg-[#F7EEE0] transition cursor-pointer font-sans"
-                        >
-                          <Settings size={11} className="stroke-[2] shrink-0" />
-                          <span>Ajukan Alokasi</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* SUB rows */}
-                    {isMainOpen && (
-                      <div className="flex flex-col">
-                        {!hasSub ? (
-                          <div className="pl-7 py-2 text-[12px] text-[#9A948B] font-sans font-normal">
-                            Belum ada rincian sub-pos.
-                          </div>
+              return (
+                <div key={pos.id || idxPos}>
+                  {/* MAIN row */}
+                  <Row onClick={() => setExpandedMain((prev) => ({ ...prev, [idxPos]: !isMainOpen }))}>
+                    <div className={NAME_CLASS}>
+                      <div className="p-0.5 shrink-0">
+                        {isMainOpen ? (
+                          <ChevronDown size={13} className="text-stone-500" />
                         ) : (
-                          pos.subAnggaran.map((sub: any, idxSub: number) => {
-                            const hasKet = sub.keterangan && sub.keterangan.length > 0;
-                            const subKey = `${idxPos}-${idxSub}`;
-                            const isSubOpen = expandedSub[subKey] ?? true;
-
-                            const alokasiSub =
-                              parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0;
-                            const terpakaiSub = hasKet
-                              ? sub.keterangan.reduce((acc: number, k: any) => {
-                                const reimbs = (k.reimbursements || []).filter((r: any) =>
-                                  ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
-                                );
-                                const sumReimbs = reimbs.reduce(
-                                  (accR: number, r: any) =>
-                                    accR + (parseFloat(r.nominal) || 0),
-                                  0
-                                );
-                                return (
-                                  acc +
-                                  (sumReimbs ||
-                                    parseFloat(k.nominalRealisasi) ||
-                                    parseFloat(k.realisasi) ||
-                                    0)
-                                );
-                              }, 0)
-                              : parseFloat(sub.nominalTerpakai) || parseFloat(sub.realisasi) || 0;
-
-                            const sisaSub = alokasiSub - terpakaiSub;
-
-                            return (
-                              <div key={sub.id || idxSub} className="flex flex-col">
-                                {/* SUB row */}
-                                <div
-                                  onClick={() =>
-                                    setExpandedSub((prev) => ({
-                                      ...prev,
-                                      [subKey]: !isSubOpen,
-                                    }))
-                                  }
-                                  className="py-1.5 flex items-center hover:bg-stone-50/70 rounded-lg cursor-pointer select-none transition"
-                                >
-                                  {/* Left: Sub pos name */}
-                                  <div className="flex-1 min-w-[280px] pl-7 flex items-center gap-2 pr-2">
-                                    <div className="p-0.5 shrink-0 text-[#6A6660]">
-                                      {isSubOpen ? (
-                                        <ChevronDown size={12} className="shrink-0" />
-                                      ) : (
-                                        <ChevronRight size={12} className="shrink-0" />
-                                      )}
-                                    </div>
-                                    <span className="text-[10.5px] font-bold text-[#9A948B] uppercase tracking-[0.2px] shrink-0 font-sans">
-                                      SUB
-                                    </span>
-                                    <span className="text-[12.5px] font-semibold text-[#14130F] truncate font-sans">
-                                      · {sub.namaSub || sub.nama}
-                                    </span>
-                                  </div>
-
-                                  {/* Column 2: REALISASI */}
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(terpakaiSub)}
-                                  </div>
-
-                                  {/* Column 3: ALOKASI */}
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#005836]">
-                                    {formatFullCurrency(alokasiSub)}
-                                  </div>
-
-                                  {/* Column 4: SISA */}
-                                  <div
-                                    className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${sisaSub < 0 ? "text-[#902F33]" : "text-[#005836]"
-                                      }`}
-                                  >
-                                    {formatSisaCurrency(sisaSub)}
-                                  </div>
-
-                                  {/* Column 5: AKSI */}
-                                  <div className="w-[125px] shrink-0 flex justify-center">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditTarget({
-                                          type: "sub",
-                                          id: sub.id,
-                                          mainId: pos.id,
-                                          nama: sub.namaSub || sub.nama,
-                                          currentAlokasi: alokasiSub,
-                                          totalRAB: alokasiPos,
-                                          totalTeralokasi: 0,
-                                        });
-                                      }}
-                                      className="h-7 px-2 py-1 bg-[#EEF6F2] rounded-md outline outline-[0.8px] outline-[#005836] -outline-offset-1 inline-flex items-center justify-center gap-1 text-[#005836] text-[10.5px] font-semibold hover:bg-[#DDF0E6] transition cursor-pointer font-sans"
-                                    >
-                                      <Settings size={11} className="stroke-[2] shrink-0" />
-                                      <span>Edit Alokasi</span>
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* KET rows */}
-                                {isSubOpen && (
-                                  <div className="flex flex-col">
-                                    {!hasKet ? (
-                                      <div className="pl-14 py-1.5 text-[12px] text-[#9A948B] italic font-sans">
-                                        Belum ada pos keterangan.
-                                      </div>
-                                    ) : (
-                                      sub.keterangan.map((ket: any, idxKet: number) => {
-                                        const alokasiKet =
-                                          parseFloat(ket.nominalAlokasi) ||
-                                          parseFloat(ket.alokasi) ||
-                                          0;
-                                        const childReimbursements = ket.reimbursements || [];
-                                        const approvedReimbs = childReimbursements
-                                          .filter((r: any) =>
-                                            [
-                                              "APPROVED",
-                                              "APPROVED_BY_PM",
-                                              "SUBMITTED",
-                                              "PAID",
-                                              "DISBURSED",
-                                            ].includes(r.status)
-                                          )
-                                          .sort(
-                                            (a: any, b: any) =>
-                                              getStatusRank(a.status) - getStatusRank(b.status)
-                                          );
-                                        const hasReimbs = approvedReimbs.length > 0;
-
-                                        const disbursedReimbs = childReimbursements.filter(
-                                          (r: any) =>
-                                            ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
-                                        );
-                                        const realisasiKet = hasReimbs
-                                          ? disbursedReimbs.reduce(
-                                            (accR: number, r: any) =>
-                                              accR + (parseFloat(r.nominal) || 0),
-                                            0
-                                          )
-                                          : parseFloat(ket.nominalRealisasi) ||
-                                          parseFloat(ket.realisasi) ||
-                                          0;
-
-                                        const sisaKet = alokasiKet - realisasiKet;
-                                        const ketKey = `${subKey}-${idxKet}`;
-                                        const isKetOpen = expandedKet[ketKey] ?? true;
-
-                                        return (
-                                          <div key={ket.id || idxKet} className="flex flex-col">
-                                            {/* KET row */}
-                                            <div
-                                              onClick={() =>
-                                                setExpandedKet((prev) => ({
-                                                  ...prev,
-                                                  [ketKey]: !isKetOpen,
-                                                }))
-                                              }
-                                              className="py-1.5 flex items-center hover:bg-stone-50/70 rounded-lg cursor-pointer select-none transition"
-                                            >
-                                              {/* Left: Ket name */}
-                                              <div className="flex-1 min-w-[280px] pl-14 flex items-center gap-2 pr-2">
-                                                <div className="p-0.5 shrink-0 text-[#6A6660]">
-                                                  {isKetOpen ? (
-                                                    <ChevronDown size={12} className="shrink-0" />
-                                                  ) : (
-                                                    <ChevronRight size={12} className="shrink-0" />
-                                                  )}
-                                                </div>
-                                                <span className="text-[10px] font-bold text-[#9A948B] uppercase tracking-[0.2px] shrink-0 font-sans">
-                                                  KET
-                                                </span>
-                                                <span className="text-[12px] font-normal text-[#6A6660] truncate font-sans">
-                                                  · {ket.keterangan || ket.nama}
-                                                </span>
-                                              </div>
-
-                                              {/* Column 2: REALISASI */}
-                                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-normal text-[#6A6660]">
-                                                {formatFullCurrency(realisasiKet)}
-                                              </div>
-
-                                              {/* Column 3: ALOKASI */}
-                                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-normal text-[#6A6660]">
-                                                {formatFullCurrency(alokasiKet)}
-                                              </div>
-
-                                              {/* Column 4: SISA */}
-                                              <div
-                                                className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${sisaKet < 0 ? "text-[#902F33]" : "text-[#005836]"
-                                                  }`}
-                                              >
-                                                {formatSisaCurrency(sisaKet)}
-                                              </div>
-
-                                              {/* Column 5: AKSI */}
-                                              <div className="w-[125px] shrink-0 flex justify-center">
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setEditTarget({
-                                                      type: "sub",
-                                                      id: sub.id,
-                                                      mainId: pos.id,
-                                                      nama: ket.keterangan || ket.nama,
-                                                      currentAlokasi: alokasiKet,
-                                                      totalRAB: alokasiSub,
-                                                      totalTeralokasi: 0,
-                                                    });
-                                                  }}
-                                                  className="h-7 px-2 py-1 bg-[#F0F7FB] rounded-md outline outline-[0.8px] outline-[#005D8D] -outline-offset-1 inline-flex items-center justify-center gap-1 text-[#005D8D] text-[10.5px] font-semibold hover:bg-[#E0EFF7] transition cursor-pointer font-sans"
-                                                >
-                                                  <Settings size={11} className="stroke-[2] shrink-0" />
-                                                  <span>Edit Alokasi</span>
-                                                </button>
-                                              </div>
-                                            </div>
-
-                                            {/* REIMB / REAL rows */}
-                                            {isKetOpen && (
-                                              <div className="flex flex-col">
-                                                {approvedReimbs.length === 0 ? (
-                                                  <div className="pl-20 py-1.5 text-[11px] text-[#9A948B] italic font-sans">
-                                                    Belum ada realisasi reimbursement.
-                                                  </div>
-                                                ) : (
-                                                  approvedReimbs.map((reimb: any) => {
-                                                    const ocrObj =
-                                                      reimb.ocrData && typeof reimb.ocrData === "object"
-                                                        ? reimb.ocrData
-                                                        : {};
-                                                    const reimbName =
-                                                      ocrObj.merchant ||
-                                                      ocrObj.keterangan ||
-                                                      ocrObj.namaVendor ||
-                                                      null;
-                                                    const displayName =
-                                                      reimb.merchant ||
-                                                      reimb.keterangan ||
-                                                      reimb.nama ||
-                                                      reimbName ||
-                                                      "Pengeluaran";
-                                                    const dateStr = formatReimbursementDate(reimb);
-                                                    const displayStatus = statusLabel(reimb.status);
-
-                                                    return (
-                                                      <div
-                                                        key={reimb.id}
-                                                        className="py-1.5 flex items-center hover:bg-stone-50/70 rounded-lg transition"
-                                                      >
-                                                        {/* Left: Badge + Merchant + Date + Status */}
-                                                        <div
-                                                          className="flex-1 min-w-[280px] pl-20 flex items-center gap-2 pr-2"
-                                                          title={displayName}
-                                                        >
-                                                          <span
-                                                            className={`text-[9.5px] font-bold uppercase shrink-0 font-sans ${reimb.tipe === "Realisasi Anggaran"
-                                                                ? "text-[#483E90]"
-                                                                : "text-[#005D8D]"
-                                                              }`}
-                                                          >
-                                                            {reimbType(reimb.tipe)}
-                                                          </span>
-                                                          <span
-                                                            className="text-[11.5px] text-[#9A948B] font-normal truncate font-sans"
-                                                            title={displayName}
-                                                          >
-                                                            · {displayName} · {dateStr}
-                                                          </span>
-                                                          <span
-                                                            className={`text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 font-sans ${displayStatus === "Dicairkan"
-                                                                ? "bg-[rgba(0,145,98,0.12)] text-[#005836]"
-                                                                : displayStatus === "Menunggu PM"
-                                                                  ? "bg-[#FCF7F0] text-[#894C06]"
-                                                                  : displayStatus === "Menunggu Keuangan"
-                                                                    ? "bg-[#F0F7FB] text-[#005D8D]"
-                                                                    : "bg-[#FDF2F2] text-[#902F33]"
-                                                              }`}
-                                                          >
-                                                            {displayStatus}
-                                                          </span>
-                                                        </div>
-
-                                                        {/* Column 2: REALISASI with Status Icon */}
-                                                        <div className="w-[145px] shrink-0 flex items-center justify-center gap-1.5">
-                                                          <span
-                                                            className={`text-[11px] font-mono font-normal ${displayStatus === "Dicairkan"
-                                                                ? "text-[#6A6660]"
-                                                                : "text-[#ADA79F]"
-                                                              }`}
-                                                          >
-                                                            {formatFullCurrency(
-                                                              Number(reimb.nominal) || 0
-                                                            )}
-                                                          </span>
-                                                          {displayStatus === "Dicairkan" ? (
-                                                            <Check
-                                                              size={13}
-                                                              className="text-[#009162] stroke-[2.5] shrink-0"
-                                                            />
-                                                          ) : displayStatus === "Menunggu PM" ? (
-                                                            <Clock
-                                                              size={13}
-                                                              className="text-[#D8953D] shrink-0"
-                                                            />
-                                                          ) : displayStatus === "Menunggu Keuangan" ? (
-                                                            <Clock
-                                                              size={13}
-                                                              className="text-[#367799] shrink-0"
-                                                            />
-                                                          ) : null}
-                                                        </div>
-
-                                                        {/* Columns 3, 4, 5: Empty for reimbursement row */}
-                                                        <div className="w-[145px] shrink-0" />
-                                                        <div className="w-[145px] shrink-0" />
-                                                        <div className="w-[125px] shrink-0" />
-                                                      </div>
-                                                    );
-                                                  })
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })
+                          <ChevronRight size={13} className="text-stone-500" />
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="p-12 text-center border border-stone-200 rounded-xl my-4">
-                <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
-                  Data Anggaran Kosong
-                </div>
-                <div className="font-sans text-xs text-stone-400">
-                  Belum ada data nilai proyek atau pos anggaran yang diinisialisasi.
-                </div>
-              </div>
-            )}
-          </div>
+                      <span
+                        className="text-[13px] font-bold uppercase shrink-0"
+                        style={{ color: "#14130F" }}
+                      >
+                        MAIN
+                      </span>
+                      <span className="text-[13px] font-semibold text-stone-800 truncate">
+                        {pos.namaPos || pos.deskripsi || pos.nama}
+                      </span>
+                    </div>
+                    <ProgressCell pct={pctPos} exactPctText={pctPosExact} />
+                    <Cell bold>{formatFullCurrency(alokasiPos)}</Cell>
+                    <Cell bold>{formatFullCurrency(terpakaiPos)}</Cell>
+                  </Row>
 
-          {/* Footer */}
-          <div className="px-7 py-3.5 border-t border-[#E6E1D4] flex justify-end shrink-0 bg-white">
-            <button
-              onClick={onClose}
-              className="px-5 py-2 bg-[#14130F] hover:bg-stone-900 text-[#FBFAF6] text-[13px] font-semibold rounded-xl transition cursor-pointer font-sans"
-            >
-              Tutup
-            </button>
-          </div>
+                  {/* SUB rows */}
+                  {isMainOpen && (
+                    <div className="bg-stone-50/50">
+                      {!hasSub ? (
+                        <p className="pl-14 py-2.5 text-[12px] text-stone-400 italic">
+                          Belum ada sub-pos anggaran.
+                        </p>
+                      ) : (
+                        pos.subAnggaran.map((sub: any, idxSub: number) => {
+                          const hasKet = sub.keterangan && sub.keterangan.length > 0;
+                          const subKey = `${idxPos}-${idxSub}`;
+                          const isSubOpen = expandedSub[subKey] ?? false;
+
+                          const alokasiSub = parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0;
+                          const terpakaiSub = hasKet
+                            ? sub.keterangan.reduce((acc: number, k: any) => {
+                                const reimbs = (k.reimbursements || []).filter((r: any) =>
+                                  ['APPROVED'].includes(r.status)
+                                );
+                                const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
+                                return acc + (sumReimbs || parseFloat(k.nominalRealisasi) || parseFloat(k.realisasi) || 0);
+                              }, 0)
+                            : parseFloat(sub.nominalTerpakai) || parseFloat(sub.realisasi) || 0;
+
+                          const pctSub = alokasiSub > 0 ? (terpakaiSub / alokasiSub) * 100 : 0;
+                          const pctSubExact = alokasiSub > 0 ? ((terpakaiSub / alokasiSub) * 100).toFixed(5) : '0.00000';
+
+                          return (
+                            <div key={sub.id || idxSub}>
+                              {/* SUB row */}
+                              <Row indent={1} onClick={() => setExpandedSub((prev) => ({ ...prev, [subKey]: !isSubOpen }))} className="hover:bg-stone-100/60">
+                                <div className={NAME_CLASS}>
+                                  <div className="p-0.5 shrink-0">
+                                    {isSubOpen ? (
+                                      <ChevronDown size={12} className="text-stone-400" />
+                                    ) : (
+                                      <ChevronRight size={12} className="text-stone-400" />
+                                    )}
+                                  </div>
+                                  <span
+                                    className="text-[9px] font-bold uppercase shrink-0"
+                                    style={{ color: "#9A948B" }}
+                                  >
+                                    SUB
+                                  </span>
+                                  <span className="text-[12px] font-semibold text-stone-700 truncate">
+                                    {sub.namaSub || sub.nama}
+                                  </span>
+                                </div>
+                                <ProgressCell pct={pctSub} exactPctText={pctSubExact} />
+                                <Cell>{formatFullCurrency(alokasiSub)}</Cell>
+                                <Cell>{formatFullCurrency(terpakaiSub)}</Cell>
+                              </Row>
+
+                              {/* KET rows */}
+                              {isSubOpen && (
+                                <div className="bg-stone-50/30">
+                                  {!hasKet ? (
+                                    <p className="pl-20 py-2.5 text-[12px] text-stone-400 italic">
+                                      Belum ada pos keterangan.
+                                    </p>
+                                  ) : (
+                                    sub.keterangan.map((ket: any, idxKet: number) => {
+                                      const alokasiKet = parseFloat(ket.nominalAlokasi) || parseFloat(ket.alokasi) || 0;
+                                      const childReimbursements = ket.reimbursements || [];
+                                      const approvedReimbs = childReimbursements
+                                        .filter((r: any) =>
+                                          ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
+                                        )
+                                        .sort((a: any, b: any) => getStatusRank(a.status) - getStatusRank(b.status));
+                                      const hasReimbs = approvedReimbs.length > 0;
+
+                                      const disbursedReimbs = childReimbursements.filter((r: any) =>
+                                        ['APPROVED'].includes(r.status)
+                                      );
+                                      const realisasiKet = hasReimbs
+                                        ? disbursedReimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0)
+                                        : parseFloat(ket.nominalRealisasi) || parseFloat(ket.realisasi) || 0;
+
+                                      const ketKey = `${subKey}-${idxKet}`;
+                                      const isKetOpen = expandedKet[ketKey] ?? false;
+
+                                      return (
+                                        <div key={ket.id || idxKet}>
+                                          {/* KET row */}
+                                          <Row indent={2} onClick={() => setExpandedKet((prev) => ({ ...prev, [ketKey]: !isKetOpen }))} className="hover:bg-stone-100/60">
+                                            <div className={NAME_CLASS}>
+                                              <div className="p-0.5 shrink-0">
+                                                {isKetOpen ? (
+                                                  <ChevronDown size={12} className="text-stone-400" />
+                                                ) : (
+                                                  <ChevronRight size={12} className="text-stone-400" />
+                                                )}
+                                              </div>
+                                              <span
+                                                className="text-[9px] font-bold uppercase shrink-0"
+                                                style={{ color: "#9A948B" }}
+                                              >
+                                                KET
+                                              </span>
+                                              <span className="text-[12px] text-stone-600 truncate">
+                                                {ket.keterangan || ket.nama}
+                                              </span>
+                                            </div>
+                                            <div style={{ width: 200, flexShrink: 0 }} />
+                                            <Cell style={{ color: "#78716C" }}>
+                                              {formatFullCurrency(alokasiKet)}
+                                            </Cell>
+                                            <Cell style={{ color: "#78716C" }}>
+                                              {formatFullCurrency(realisasiKet)}
+                                            </Cell>
+                                          </Row>
+
+                                          {/* REIMB rows */}
+                                          {isKetOpen && (
+                                            <div className="bg-white">
+                                              {approvedReimbs.length === 0 ? (
+                                                <p className="pl-24 py-2.5 text-[11px] text-stone-400 italic">
+                                                  Belum ada realisasi reimbursement.
+                                                </p>
+                                              ) : (
+                                                approvedReimbs.map((reimb: any) => {
+                                                  const ocrObj = reimb.ocrData && typeof reimb.ocrData === 'object' ? reimb.ocrData : {};
+                                                  const reimbName = ocrObj.merchant || ocrObj.keterangan || ocrObj.namaVendor || null;
+                                                  const displayName = reimb.merchant || reimb.keterangan || reimb.nama || reimbName || 'Reimbursement';
+                                                  const dateStr = formatReimbursementDate(reimb);
+                                                  const displayStatus = statusLabel(reimb.status);
+                                                  return (
+                                                    <Row key={reimb.id} indent={3}>
+                                                      <div className={NAME_CLASS} title={displayName}>
+                                                        <span
+                                                          className={`text-[9px] font-bold uppercase shrink-0 ${
+                                                            reimb.tipe === 'Realisasi Anggaran' ? 'text-[#483E90]' : 'text-[#005D8D]'
+                                                          }`}
+                                                        >
+                                                          {reimbType(reimb.tipe)}
+                                                        </span>
+                                                        <span
+                                                          className="text-[11px] text-stone-700 font-medium truncate shrink-1 cursor-pointer"
+                                                          title={displayName}
+                                                        >
+                                                          {displayName}
+                                                        </span>
+                                                        <span className="text-[10px] text-stone-400 shrink-0">
+                                                          {dateStr}
+                                                        </span>
+                                                        <span
+                                                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                                            STATUS_BADGE[displayStatus] ??
+                                                            "bg-stone-100 text-stone-500"
+                                                          }`}
+                                                        >
+                                                          {displayStatus}
+                                                        </span>
+                                                      </div>
+                                                      <div style={{ width: 200, flexShrink: 0 }} />
+                                                      <div style={{ width: 210, flexShrink: 0 }} />
+                                                      <ReimbRealisasiCell
+                                                        nominal={Number(reimb.nominal) || 0}
+                                                        status={displayStatus}
+                                                      />
+                                                    </Row>
+                                                  );
+                                                })
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-12 text-center border border-stone-200 rounded-xl m-6">
+              <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
+                Data Anggaran Kosong
+              </div>
+              <div className="font-sans text-xs text-stone-400">
+                Belum ada data nilai proyek atau pos anggaran yang diinisialisasi.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-stone-100 flex justify-end shrink-0">
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-stone-800 hover:bg-stone-900 text-white text-[13px] font-bold rounded-xl transition cursor-pointer"
+          >
+            Tutup
+          </button>
         </div>
       </div>
-
-      {editTarget && (
-        <EditAlokasiModal
-          proyekId={
-            typeof detailedProjectInfo?.id === "string"
-              ? parseInt(detailedProjectInfo.id, 10)
-              : detailedProjectInfo?.id || 0
-          }
-          main={{
-            id: editTarget.type === "sub" ? editTarget.mainId || 0 : editTarget.id,
-            nama: editTarget.nama,
-            alokasi: Number(editTarget.currentAlokasi) || 0,
-          }}
-          subId={editTarget.type === "sub" ? editTarget.id : undefined}
-          totalRAB={
-            editTarget.type === "sub"
-              ? Number(editTarget.totalRAB) || totalPemasukan
-              : totalPemasukan
-          }
-          sumLain={0}
-          sumSub={editTarget.totalTeralokasi || 0}
-          kategoriProyek={detailedProjectInfo?.kategori || "general"}
-          onClose={() => setEditTarget(null)}
-          onSuccess={() => {
-            setEditTarget(null);
-            onRefresh?.();
-          }}
-        />
-      )}
-    </>
+    </div>
   );
 }
