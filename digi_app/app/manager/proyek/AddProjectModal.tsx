@@ -75,7 +75,9 @@ export default function AddProjectModal({
             </div>
           </div>
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Status Proyek *</label>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
+              Status Proyek <span className="text-red-500"> *</span>
+            </label>
             <div className="flex flex-wrap gap-3 mt-1">
               {[
                 { value: "PLANNING", label: "Planning" },
