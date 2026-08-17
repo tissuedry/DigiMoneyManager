@@ -178,11 +178,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status } = body;
+    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal } = body;
 
     if (!nama || !tanggalMulai || !tanggalSelesai || !status) {
       return NextResponse.json({ message: 'Nama, Tanggal Mulai, Tanggal Selesai, dan Status Proyek wajib diisi' }, { status: 400 });
     }
+
+    const parsedRab = rabTotal !== undefined && rabTotal !== null && rabTotal !== '' 
+      ? (typeof rabTotal === 'number' ? rabTotal : parseFloat(String(rabTotal).replace(/[^0-9.-]+/g, ''))) 
+      : 0;
 
     const newProject = await prisma.proyek.create({
       data: {
@@ -191,7 +195,20 @@ export async function POST(req: NextRequest) {
         status: status,
         tanggalMulai: new Date(tanggalMulai),
         tanggalSelesai: new Date(tanggalSelesai),
+        ...(parsedRab && parsedRab > 0 ? {
+          budget: {
+            create: {
+              rabTotal: parsedRab,
+              sisaBudget: parsedRab,
+              totalPengeluaran: 0,
+              totalReimbursement: 0,
+            }
+          }
+        } : {})
       },
+      include: {
+        budget: true
+      }
     });
 
     if (userId) {
@@ -199,7 +216,9 @@ export async function POST(req: NextRequest) {
         data: {
           userId: parseInt(userId, 10),
           aksi: 'create_proyek',
-          detail: `Membuat proyek baru: ${nama}`,
+          detail: parsedRab && parsedRab > 0
+            ? `Membuat proyek baru: ${nama} dengan nilai Rp ${parsedRab.toLocaleString('id-ID')}`
+            : `Membuat proyek baru: ${nama}`,
         },
       });
     }

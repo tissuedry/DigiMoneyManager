@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
 import { Project, LogAktivitas, Member } from "./types";
-import { formatRupiah, formatSummaryRupiah, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
+import { formatRupiah, formatSummaryRupiah, formatRibuan, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
 
 import AddProjectModal from "./AddProjectModal";
 import AssignMembersModal from "./AssignMembersModal";
@@ -108,6 +108,7 @@ export default function KelolaProyekPage() {
   const [projectForm, setProjectForm] = useState({
     nama: "",
     deskripsi: "",
+    rabTotal: "",
     tanggalMulai: "",
     tanggalSelesai: "",
     status: "PLANNING",
@@ -116,6 +117,7 @@ export default function KelolaProyekPage() {
   const [editForm, setEditForm] = useState({
     nama: "",
     deskripsi: "",
+    rabTotal: "",
     tanggalMulai: "",
     tanggalSelesai: "",
     status: "PLANNING",
@@ -320,6 +322,7 @@ export default function KelolaProyekPage() {
         body: JSON.stringify({
           nama: projectForm.nama,
           deskripsi: projectForm.deskripsi,
+          rabTotal: ribuanToNumber(projectForm.rabTotal) || 0,
           tanggalMulai: projectForm.tanggalMulai,
           tanggalSelesai: projectForm.tanggalSelesai,
           status: projectForm.status,
@@ -334,7 +337,7 @@ export default function KelolaProyekPage() {
       }
 
       setNewProjectName(projectForm.nama);
-      setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "", status: "PLANNING" });
+      setProjectForm({ nama: "", deskripsi: "", rabTotal: "", tanggalMulai: "", tanggalSelesai: "", status: "PLANNING" });
       setShowAddProject(false);
       setShowAddProjectConfirm(false);
       setShowAddProjectSuccess(true);
@@ -382,6 +385,7 @@ export default function KelolaProyekPage() {
         setEditForm({
           nama: data.project.nama,
           deskripsi: data.project.deskripsi || "",
+          rabTotal: data.project.budget ? formatRibuan(String(Math.round(Number(data.project.budget.rabTotal)))) : "",
           tanggalMulai: data.project.tanggalMulai ? data.project.tanggalMulai.split('T')[0] : "",
           tanggalSelesai: data.project.tanggalSelesai ? data.project.tanggalSelesai.split('T')[0] : "",
           status: data.project.status,
@@ -409,6 +413,7 @@ export default function KelolaProyekPage() {
     setEditForm({
       nama: project.nama,
       deskripsi: project.deskripsi || "",
+      rabTotal: project.budget ? formatRibuan(String(Math.round(Number(project.budget.rabTotal)))) : "",
       tanggalMulai: project.tanggalMulai ? project.tanggalMulai.split('T')[0] : "",
       tanggalSelesai: project.tanggalSelesai ? project.tanggalSelesai.split('T')[0] : "",
       status: project.status,
@@ -441,6 +446,7 @@ export default function KelolaProyekPage() {
         body: JSON.stringify({
           nama: editForm.nama,
           deskripsi: editForm.deskripsi,
+          rabTotal: ribuanToNumber(editForm.rabTotal) || 0,
           tanggalMulai: editForm.tanggalMulai,
           tanggalSelesai: editForm.tanggalSelesai || null,
           status: editForm.status,
@@ -872,7 +878,7 @@ export default function KelolaProyekPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setShowInitBudget(project); setRabTotal(""); }}
+                        onClick={(e) => { e.stopPropagation(); handleDirectEdit(project); }}
                         className="px-4 py-1.5 bg-[#804f11] hover:bg-[#663f0e] text-white text-[12px] font-extrabold rounded-xl transition cursor-pointer"
                       >
                         Set Nilai

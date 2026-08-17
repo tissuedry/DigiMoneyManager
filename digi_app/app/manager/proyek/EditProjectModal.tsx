@@ -1,6 +1,7 @@
 import React from "react";
 import { X, Loader2 } from "lucide-react";
 import DatePicker from "@/components/date-picker";
+import { formatRibuan } from "./utils";
 
 type Props = {
   editMode: boolean;
@@ -41,6 +42,26 @@ export default function EditProjectModal({
           <div>
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Deskripsi Proyek</label>
             <textarea rows={3} value={editForm.deskripsi} onChange={(e) => setEditForm({ ...editForm, deskripsi: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white resize-none focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Total Nilai Proyek (Rupiah)</label>
+            <div className="relative flex items-center w-full">
+              <span className="absolute left-3.5 text-stone-500 font-mono text-[13px] font-semibold select-none">
+                Rp
+              </span>
+              <input
+                type="text"
+                value={editForm.rabTotal || ""}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    rabTotal: formatRibuan(e.target.value),
+                  })
+                }
+                placeholder="0"
+                className="w-full border border-stone-200 rounded-xl pl-10 pr-4 py-2.5 text-[13px] font-mono focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 bg-white"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

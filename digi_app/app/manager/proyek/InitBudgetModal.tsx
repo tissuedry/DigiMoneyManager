@@ -162,11 +162,11 @@ export default function InitBudgetModal({
         <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-            {/* Total Nilai Proyek (Rupiah) */}
+            {/* Total Nilai Proyek (Rupiah) - Read-only Information */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
               <div>
                 <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
-                  Total Nilai Proyek (Rupiah) <span style={{ color: '#902F33' }}>*</span>
+                  Total Nilai Proyek (Rupiah)
                 </span>
               </div>
               <div style={{
@@ -175,36 +175,21 @@ export default function InitBudgetModal({
                 alignItems: 'center',
                 width: '100%',
                 height: 40,
-                background: 'white',
+                background: '#F8F7F4',
                 borderRadius: 12,
                 border: '1px solid #E6E1D4',
                 paddingLeft: 12,
                 paddingRight: 12,
               }}>
-                <span style={{ fontSize: 13.50, fontFamily: 'IBM Plex Mono', fontWeight: '400', color: '#14130F', marginRight: 4 }}>Rp</span>
-                <input
-                  type="text"
-                  required
-                  value={rabTotal}
-                  onChange={(e) => {
-                          const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
-                    setRabTotal(formatted);
-                    requestAnimationFrame(() => {
-                      e.target.setSelectionRange(caret, caret);
-                    });
-                  }}
-                  style={{
-                    flex: 1,
-                    border: 'none',
-                    outline: 'none',
-                    background: 'transparent',
-                    fontFamily: 'IBM Plex Mono',
-                    fontSize: 13.50,
-                    fontWeight: '400',
-                    color: '#14130F',
-                  }}
-                  placeholder="0"
-                />
+                <span style={{ fontSize: 13.50, fontFamily: 'IBM Plex Mono', fontWeight: '500', color: '#78716C', marginRight: 6 }}>Rp</span>
+                <span style={{
+                  fontFamily: 'IBM Plex Mono',
+                  fontSize: 13.50,
+                  fontWeight: '600',
+                  color: '#14130F',
+                }}>
+                  {rabTotal || "0"}
+                </span>
               </div>
             </div>
 
