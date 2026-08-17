@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { X, ChevronDown, CalendarDays, Check, Loader2, TrendingUp } from "lucide-react";
-import DatePicker from "@/components/date-picker";
+import { X, Check, Loader2, TrendingUp } from "lucide-react";
 
 type Termin = {
   id: number;
@@ -35,42 +34,34 @@ export default function PencairanTerminModal({
   termin,
   onSuccess,
 }: Props) {
-  const belumDiterima = termin.filter((t) => t.status === "BELUM_DITERIMA");
+  const belumDiterima = termin
+    .filter((t) => t.status === "BELUM_DITERIMA")
+    .sort((a, b) => (Number(a.urutan) || 0) - (Number(b.urutan) || 0));
 
-  const [selectedTerminId, setSelectedTerminId] = useState<string>("");
-  const [tanggalPencairan, setTanggalPencairan] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
+  const nextTermin = belumDiterima.length > 0 ? belumDiterima[0] : null;
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Reset state saat modal dibuka
+  // Reset error saat modal dibuka
   useEffect(() => {
     if (isOpen) {
-      setSelectedTerminId(belumDiterima.length > 0 ? String(belumDiterima[0].id) : "");
-      setTanggalPencairan(new Date().toISOString().split("T")[0]);
       setError("");
     }
   }, [isOpen]);
 
-  const [someState, setSomeState] = useState(false);
-
   if (!isOpen) return null;
-
-  const selectedTermin = belumDiterima.find((t) => String(t.id) === selectedTerminId) ?? null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!selectedTerminId) {
-      setError("Pilih termin yang akan dicairkan");
+    if (!nextTermin) {
+      setError("Semua termin sudah dicairkan");
       return;
     }
 
     const tanggalHariIni = new Date().toLocaleDateString('en-CA');
-    
-    setTanggalPencairan(tanggalHariIni);
 
     setSubmitting(true);
     try {
@@ -78,7 +69,7 @@ export default function PencairanTerminModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          terminId: parseInt(selectedTerminId, 10),
+          terminId: nextTermin.id,
           tanggalPencairan: tanggalHariIni,
         }),
       });
@@ -127,39 +118,28 @@ export default function PencairanTerminModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 text-left flex-1">
-          {/* Pilih Termin */}
+          {/* Termin (Read Only) */}
           <div>
             <label className="block text-[13px] font-bold text-stone-900 mb-2">
-              Pilih Termin <span className="text-red-500">*</span>
+              Termin
             </label>
-            <div className="relative">
-              <select
-                value={selectedTerminId}
-                onChange={(e) => { setSelectedTerminId(e.target.value); setError(""); }}
-                className="w-full border border-stone-200 rounded-xl px-4 py-3.5 text-[14px] text-stone-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-stone-200 cursor-pointer"
-              >
-                {/* Teks default jika kosong / belum dipilih */}
-                <option value="">Pilih Termin</option>
-
-                {/* Daftar termin dari database */}
-                {belumDiterima.map((t) => (
-                  <option key={t.id} value={String(t.id)}>
-                    {t.namaTermin} - {formatRupiahDisplay(t.nominal)}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <input
+              type="text"
+              readOnly
+              value={nextTermin ? nextTermin.namaTermin : "Semua termin sudah dicairkan"}
+              className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[14px] text-stone-800 bg-[#F8F7F4] font-medium outline-none cursor-default"
+            />
           </div>
 
           {/* Grid: Nominal & Persentase (readonly dari data real) */}
-          {selectedTermin && (
+          {nextTermin && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[13px] font-bold text-stone-900 mb-2">Nominal</label>
                 <input
                   type="text"
                   readOnly
-                  value={formatRupiahDisplay(selectedTermin.nominal)}
+                  value={formatRupiahDisplay(nextTermin.nominal)}
                   className="w-full rounded-xl px-4 py-3 text-[13px] bg-[#fdf8f4] text-[#a67c52] font-semibold outline-none cursor-default"
                 />
               </div>
@@ -168,7 +148,7 @@ export default function PencairanTerminModal({
                 <input
                   type="text"
                   readOnly
-                  value={`${parseFloat(String(selectedTermin.persentaseProgress)) || 0}%`}
+                  value={`${parseFloat(String(nextTermin.persentaseProgress)) || 0}%`}
                   className="w-full rounded-xl px-4 py-3 text-[13px] bg-[#fdf8f4] text-[#a67c52] font-semibold outline-none cursor-default"
                 />
               </div>
@@ -184,31 +164,26 @@ export default function PencairanTerminModal({
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-[12px] text-stone-400">
-              <span className="text-red-500">*</span> wajib diisi
-            </div>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-5 py-2.5 border border-stone-200 rounded-xl text-[13px] font-semibold text-stone-700 hover:bg-stone-50 transition"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-5 py-2.5 bg-[#1a1a1a] text-white text-[13px] font-semibold rounded-xl hover:bg-black transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {submitting ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Check size={14} strokeWidth={3} />
-                )}
-                Konfirmasi Pencairan
-              </button>
-            </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-5 py-2.5 border border-stone-200 rounded-xl text-[13px] font-semibold text-stone-700 hover:bg-stone-50 transition"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !nextTermin}
+              className="px-5 py-2.5 bg-[#1a1a1a] text-white text-[13px] font-semibold rounded-xl hover:bg-black transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {submitting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Check size={14} strokeWidth={3} />
+              )}
+              Konfirmasi Pencairan
+            </button>
           </div>
         </form>
       </div>

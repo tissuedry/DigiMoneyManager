@@ -88,27 +88,29 @@ export default function GrafikProgressTermin({
     });
 
     const count = termins.length;
+    const hasTermin0 = termins.some((t) => Number(t.persentaseProgress) === 0 || t.namaTermin?.toLowerCase().includes("termin 0"));
+    const totalSections = hasTermin0 ? Math.max(1, count) : count + 1;
 
     // SVG geometry with maxBlockHeight = 150px
-    const viewWidth = Math.max(540, (count + 1) * 80);
+    const viewWidth = Math.max(540, totalSections * 80);
     const viewHeight = 230;
 
-    const xStart = 40;
-    const xEnd = viewWidth - 30;
+    const xStart = 62;
+    const xEnd = viewWidth - 25;
     const totalWidth = xEnd - xStart;
 
     const yTop = 15;
     const yBottom = 175;
     const totalHeight = yBottom - yTop; // 160px capacity
 
-    const sectionWidth = totalWidth / (count + 1);
+    const sectionWidth = totalWidth / totalSections;
 
     // Calculate maximum cumulative nominal (total accumulated income at final step)
     const maxCumNominal = Math.max(1, runningCumSum);
 
-    // Dynamic height boundaries
-    const minBlockHeight = 18;
+    // Height boundaries for truth-to-size proportional scaling
     const maxBlockHeight = 150;
+    const minBlockHeight = 4;
 
     // Gap between blocks so they don't merge visually
     const blockGap = 3;
@@ -132,17 +134,15 @@ export default function GrafikProgressTermin({
 
         // Calculate step positions & heights based on CUMULATIVE NOMINAL
         const stepPositions = termins.map((t, idx) => {
-            const xLeft = xStart + (idx + 1) * sectionWidth;
-            const xRight = xStart + (idx + 2) * sectionWidth;
+            const xLeft = hasTermin0 ? xStart + idx * sectionWidth : xStart + (idx + 1) * sectionWidth;
+            const xRight = hasTermin0 ? xStart + (idx + 1) * sectionWidth : xStart + (idx + 2) * sectionWidth;
             const midX = (xLeft + xRight) / 2;
             const pct = Number(t.persentaseProgress) || 0;
             const cumNominalVal = t.cumNominal;
 
-            // Smooth ratio scaling based on CUMULATIVE NOMINAL relative to maxCumNominal
+            // Strict linear scaling (Truth to size) based on CUMULATIVE NOMINAL
             const linearRatio = maxCumNominal > 0 ? cumNominalVal / maxCumNominal : 0;
-            const scaledRatio = linearRatio > 0 ? Math.pow(linearRatio, 0.48) : 0;
-
-            const blockHeight = minBlockHeight + scaledRatio * (maxBlockHeight - minBlockHeight);
+            const blockHeight = linearRatio > 0 ? Math.max(minBlockHeight, linearRatio * maxBlockHeight) : 0;
             const blockY = yBottom - blockHeight;
 
             // Determine status color: Green if disbursed (DITERIMA / PAID / DISBURSED), Grey if undisbursed (BELUM_DITERIMA)
@@ -191,7 +191,7 @@ export default function GrafikProgressTermin({
                                         : "bg-stone-400"
                                 }`}
                             />
-                            {formatFullRupiah(termins[activeHoveredIdx].cumNominal)}
+                            {formatFullRupiah(termins[activeHoveredIdx].nominal)}
                             <span className="text-[10px] text-stone-400 font-sans font-normal ml-0.5">
                                 ({stepPositions[activeHoveredIdx].isDisbursed ? "Sudah Dicairkan" : "Belum Dicairkan"})
                             </span>
@@ -215,29 +215,72 @@ export default function GrafikProgressTermin({
                     />
 
                     {/* Origin (0%) Vertical Dotted Line & Label */}
-                    <line
-                        x1={xStart}
-                        y1={yTop - 5}
-                        x2={xStart}
-                        y2={yBottom}
-                        stroke="#d6d3d1"
-                        strokeWidth="1"
-                        strokeDasharray="3 3"
-                    />
-                    <text
-                        x={xStart}
-                        y={yBottom + 26}
-                        textAnchor="middle"
-                        className="text-[9.5px] font-medium fill-stone-400 font-sans"
-                    >
-                        0%
-                    </text>
+                    {!hasTermin0 && (
+                        <>
+                            <line
+                                x1={xStart}
+                                y1={yTop - 5}
+                                x2={xStart}
+                                y2={yBottom}
+                                stroke="#d6d3d1"
+                                strokeWidth="1"
+                                strokeDasharray="3 3"
+                            />
+                            <text
+                                x={xStart}
+                                y={yBottom + 26}
+                                textAnchor="middle"
+                                className="text-[9.5px] font-medium fill-stone-400 font-sans"
+                            >
+                                0%
+                            </text>
+                        </>
+                    )}
+
+                    {/* Faint Horizontal Dotted Guidelines (Muncul Saat Hover) & Left Y-Axis Labels */}
+                    {termins.map((t, idx) => {
+                        const { blockY, xRight } = stepPositions[idx];
+                        const compactText = formatCompactRupiah(t.cumNominal);
+                        const isHovered = activeHoveredIdx === idx;
+
+                        return (
+                            <g key={`guide-${idx}`}>
+                                {/* Garis putus-putus samar abu-abu terang (hanya muncul saat di-hover) */}
+                                {isHovered && (
+                                    <line
+                                        x1={xStart - 4}
+                                        y1={blockY}
+                                        x2={xRight}
+                                        y2={blockY}
+                                        stroke="#c7c3bd"
+                                        strokeWidth="1"
+                                        strokeDasharray="3 3"
+                                        className="transition-all duration-150 animate-in fade-in"
+                                    />
+                                )}
+
+                                {/* Label Nominal di Sisi Kiri (Y-Axis) */}
+                                {compactText && (
+                                    <text
+                                        x={xStart - 8}
+                                        y={blockY + 3.5}
+                                        textAnchor="end"
+                                        className={`text-[9.5px] font-semibold font-mono tracking-tight transition-all ${
+                                            isHovered ? "fill-stone-900 font-extrabold" : "fill-[#a8a29e]"
+                                        }`}
+                                    >
+                                        {compactText}
+                                    </text>
+                                )}
+                            </g>
+                        );
+                    })}
 
                     {/* Render Step Blocks with subtle blockGap separation */}
                     {termins.map((t, idx) => {
-                        const { xLeft, xRight, midX, pct, blockY, blockHeight, color } = stepPositions[idx];
+                        const { xLeft, xRight, pct, blockY, blockHeight, color } = stepPositions[idx];
                         const isHovered = activeHoveredIdx === idx;
-                        const compactText = formatCompactRupiah(t.cumNominal);
+                        const isTermin0 = Number(pct) === 0 || t.namaTermin?.toLowerCase().includes("termin 0");
 
                         // Block rectangle with small gap separation
                         const blockX = xLeft + blockGap / 2;
@@ -272,38 +315,39 @@ export default function GrafikProgressTermin({
                                     className={`transition-all duration-150 ${isHovered ? "brightness-110 opacity-95 stroke-white stroke-2" : ""}`}
                                 />
 
-                                {/* Compact Cumulative Nominal Label Above Step Block */}
-                                {compactText && (
+                                {/* X-Axis Labels */}
+                                {isTermin0 ? (
                                     <text
-                                        x={midX}
-                                        y={blockY - 7}
+                                        x={xLeft}
+                                        y={yBottom + 20}
                                         textAnchor="middle"
-                                        fill={color.text}
-                                        className={`text-[10.5px] font-bold font-mono tracking-tight transition-all ${isHovered ? "font-black text-emerald-800" : ""}`}
+                                        className="text-[10px] font-bold fill-stone-700 font-sans"
                                     >
-                                        {compactText}
+                                        0%
                                     </text>
+                                ) : (
+                                    <>
+                                        {/* X-Axis Termin Name below milestone line */}
+                                        <text
+                                            x={xLeft}
+                                            y={yBottom + 16}
+                                            textAnchor="middle"
+                                            className="text-[10px] font-bold fill-stone-700 font-sans"
+                                        >
+                                            {t.namaTermin}
+                                        </text>
+
+                                        {/* X-Axis Percentage below Termin Name */}
+                                        <text
+                                            x={xLeft}
+                                            y={yBottom + 28}
+                                            textAnchor="middle"
+                                            className="text-[9.5px] font-medium fill-stone-400 font-sans"
+                                        >
+                                            {pct}%
+                                        </text>
+                                    </>
                                 )}
-
-                                {/* X-Axis Termin Name below milestone line */}
-                                <text
-                                    x={xLeft}
-                                    y={yBottom + 16}
-                                    textAnchor="middle"
-                                    className="text-[10px] font-bold fill-stone-700 font-sans"
-                                >
-                                    {t.namaTermin}
-                                </text>
-
-                                {/* X-Axis Percentage below Termin Name */}
-                                <text
-                                    x={xLeft}
-                                    y={yBottom + 28}
-                                    textAnchor="middle"
-                                    className="text-[9.5px] font-medium fill-stone-400 font-sans"
-                                >
-                                    {pct}%
-                                </text>
                             </g>
                         );
                     })}
