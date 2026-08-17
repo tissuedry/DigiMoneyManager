@@ -4,7 +4,7 @@ import { X, Check, Loader2, AlertCircle } from 'lucide-react';
 type TerminItem = {
     id?: number;
     progress: number | string;
-    nominal: string; // diubah ke string agar format titiknya mulus saat diketik
+    nominal: string;
 };
 
 type Props = {
@@ -25,47 +25,59 @@ function formatRupiahInput(value: string | number): string {
 }
 
 export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama, rabTotal, terminList }: Props) {
-    const [jumlahTermin, setJumlahTermin] = useState<number>(terminList.length > 0 ? terminList.length : 1);
-    
-    const [terminData, setTerminData] = useState<TerminItem[]>(
-        terminList.length > 0 
-            ? terminList.map(t => ({ 
-                id: t.id, 
-                progress: t.persentaseProgress || '', 
-                nominal: formatRupiahInput(t.nominal || '') 
-              }))
-            : [{ progress: '', nominal: '' }]
-    );
+    const [termin0, setTermin0] = useState<{ id?: number; nominal: string }>({ nominal: '' });
+    const [terminData, setTerminData] = useState<TerminItem[]>([{ progress: '', nominal: '' }]);
+    const [jumlahTerminInput, setJumlahTerminInput] = useState<string>('1');
 
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
     useEffect(() => {
-        setTerminData((prev) => {
-            const updated = [...prev];
-            if (jumlahTermin > updated.length) {
-                for (let i = updated.length; i < jumlahTermin; i++) {
-                    updated.push({ progress: '', nominal: '' });
-                }
-            } else {
-                updated.length = jumlahTermin;
-            }
-            return updated;
-        });
-    }, [jumlahTermin]);
-    
-    const [someState, setSomeState] = useState(false);
+        if (!isOpen) return;
+
+        const existingT0 = terminList.find((t: any) =>
+            t.namaTermin?.includes("Termin 0") ||
+            t.namaTermin?.toLowerCase().includes("down payment") ||
+            t.namaTermin?.toLowerCase().includes("dp") ||
+            (Number(t.persentaseProgress) === 0 && Number(t.urutan) === 1 && terminList.some((other: any) => Number(other.persentaseProgress) > 0))
+        );
+
+        if (existingT0) {
+            setTermin0({ id: existingT0.id, nominal: formatRupiahInput(existingT0.nominal || '') });
+        } else {
+            setTermin0({ nominal: '' });
+        }
+
+        const regularList = terminList.filter((t: any) =>
+            t !== existingT0 &&
+            !t.namaTermin?.includes("Termin 0") &&
+            !t.namaTermin?.toLowerCase().includes("down payment") &&
+            !t.namaTermin?.toLowerCase().includes("dp")
+        );
+
+        if (regularList.length > 0) {
+            setTerminData(regularList.map((t: any) => ({
+                id: t.id,
+                progress: t.persentaseProgress || '',
+                nominal: formatRupiahInput(t.nominal || ''),
+            })));
+            setJumlahTerminInput(String(regularList.length));
+        } else {
+            setTerminData([{ progress: '', nominal: '' }]);
+            setJumlahTerminInput('1');
+        }
+        setErrorMsg('');
+        setSuccessMsg('');
+    }, [isOpen, terminList]);
 
     if (!isOpen) return null;
 
     const handleInputChange = (index: number, field: 'progress' | 'nominal', value: string) => {
         const updated = [...terminData];
         if (field === 'nominal') {
-            // Format otomatis dengan titik saat user mengetik angka
             updated[index] = { ...updated[index], nominal: formatRupiahInput(value) };
         } else if (field === 'progress') {
-            // Sanitasi angka desimal & batasi maksimal 100
             let cleanVal = value.replace(/[^0-9.]/g, '');
             const parts = cleanVal.split('.');
             if (parts.length > 2) {
@@ -80,11 +92,38 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
         setTerminData(updated);
     };
 
+    const handleJumlahTerminChange = (value: string) => {
+        const cleanVal = value.replace(/\D/g, "");
+        setJumlahTerminInput(cleanVal);
+
+        if (cleanVal === "") {
+            return;
+        }
+
+        const num = parseInt(cleanVal, 10);
+        if (!isNaN(num)) {
+            setTerminData((prev) => {
+                const updated = [...prev];
+                if (num > updated.length) {
+                    for (let i = updated.length; i < num; i++) {
+                        updated.push({ progress: '', nominal: '' });
+                    }
+                } else if (num < updated.length) {
+                    updated.length = num;
+                }
+                return updated;
+            });
+        }
+    };
+
     const handleSimpanTermin = async () => {
         setErrorMsg('');
         setSuccessMsg('');
 
-        // Validasi input progress & nominal untuk setiap termin
+        const nom0Clean = String(termin0.nominal).replace(/\./g, '');
+        const hasT0 = nom0Clean !== '' && !isNaN(Number(nom0Clean)) && Number(nom0Clean) > 0;
+
+        // Validasi input progress & nominal untuk setiap termin reguler
         for (let i = 0; i < terminData.length; i++) {
             const t = terminData[i];
             if (t.progress === '' || t.progress === null || t.progress === undefined) {
@@ -92,8 +131,8 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
                 return;
             }
             const progNum = parseFloat(String(t.progress));
-            if (isNaN(progNum) || progNum < 0 || progNum > 100) {
-                setErrorMsg(`Progress Termin ${i + 1} tidak boleh kurang dari 0% atau lebih dari 100%!`);
+            if (isNaN(progNum) || progNum <= 0 || progNum > 100) {
+                setErrorMsg(`Progress Termin ${i + 1} harus lebih dari 0% dan maksimal 100%!`);
                 return;
             }
 
@@ -116,16 +155,30 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
 
         setLoading(true);
         try {
-            // Petakan semua data termin termasuk ID aslinya jika ada
-            const payload = terminData.map((t, idx) => ({
-                id: t.id, // ID penting agar backend tahu ini data lama yang harus di-update
-                namaTermin: `Termin ${idx + 1}`,
-                nominal: parseFloat(String(t.nominal).replace(/\./g, '')),
-                persentaseProgress: parseFloat(String(t.progress)),
-            }));
+            const payload: any[] = [];
+
+            // Jika Termin 0 diisi nominalnya, masukkan ke payload pertama
+            if (hasT0) {
+                payload.push({
+                    id: termin0.id,
+                    namaTermin: 'Termin 0',
+                    nominal: parseFloat(nom0Clean),
+                    persentaseProgress: 0,
+                });
+            }
+
+            // Masukkan termin reguler
+            terminData.forEach((t, idx) => {
+                payload.push({
+                    id: t.id,
+                    namaTermin: `Termin ${idx + 1}`,
+                    nominal: parseFloat(String(t.nominal).replace(/\./g, '')),
+                    persentaseProgress: parseFloat(String(t.progress)),
+                });
+            });
 
             const res = await fetch(`/api/proyek/${proyekId}/termin`, {
-                method: "POST", // Mengirim seluruh array sekaligus ke backend
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ terminData: payload }),
             });
@@ -136,7 +189,7 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
             }
 
             setSuccessMsg('Termin pembayaran berhasil diperbarui!');
-            
+
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('terminUpdated'));
             }
@@ -156,7 +209,7 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col">
-                
+
                 {/* Header Modal */}
                 <div className="px-6 py-5 border-b border-stone-100 flex justify-between items-start">
                     <div>
@@ -197,19 +250,22 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
                     </div>
 
                     {/* Input Jumlah Termin */}
-                    <div className="mb-6">
-                        <label className="block text-[12px] font-bold text-stone-800 mb-2">
+                    <div className="mb-5">
+                        <label className="block text-[12px] font-bold text-stone-800 mb-1.5">
                             Jumlah Termin
                         </label>
-                        <input 
+                        <input
                             type="text"
-                            inputMode="numeric" 
-                            value={jumlahTermin}
-                            onChange={(e) => {
-                                const cleanVal = e.target.value.replace(/\D/g, "");
-                                setJumlahTermin(cleanVal ? Math.max(1, parseInt(cleanVal, 10)) : 1);
+                            inputMode="numeric"
+                            value={jumlahTerminInput}
+                            onChange={(e) => handleJumlahTerminChange(e.target.value)}
+                            onBlur={() => {
+                                if (jumlahTerminInput === "" || parseInt(jumlahTerminInput, 10) === 0) {
+                                    setJumlahTerminInput(String(terminData.length));
+                                }
                             }}
-                            className="w-20 border border-[#e6e2d6] rounded-[12px] px-4 py-2 text-[14px] font-bold text-stone-900 outline-none focus:border-[#00966c] text-center"
+                            placeholder="0"
+                            className="w-20 border border-[#e6e2d6] rounded-[12px] px-4 py-2 text-[14px] font-bold text-stone-900 outline-none focus:border-[#00966c] text-center bg-white"
                         />
                     </div>
 
@@ -227,40 +283,76 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
                     </div>
 
                     {/* Baris Input Termin Dinamis */}
-                    <div className="space-y-2.5 max-h-[45vh] overflow-y-auto pr-1">
-                        {Array.from({ length: jumlahTermin }).map((_, idx) => (
+                    <div className="space-y-2.5 max-h-[42vh] overflow-y-auto pr-1">
+
+                        {/* Baris Khusus: Termin 0 (Down Payment) - Lock at 0% */}
+                        <div className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
+                            <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
+                                Termin 0 <span className="text-[11px] font-normal text-stone-500">(DP)</span>
+                            </div>
+
+                            {/* Progress (%) Lock 0% */}
+                            <div className="col-span-3 relative">
+                                <input
+                                    type="text"
+                                    disabled
+                                    value="0"
+                                    className="w-full bg-[#eeebe2] border border-[#dedad0] text-stone-600 rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-bold text-center cursor-not-allowed select-none"
+                                />
+                                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                                    %
+                                </span>
+                            </div>
+
+                            {/* Input Nominal DP */}
+                            <div className="col-span-6 relative">
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                                    Rp
+                                </span>
+                                <input
+                                    type="text"
+                                    value={termin0.nominal}
+                                    onChange={(e) => setTermin0({ ...termin0, nominal: formatRupiahInput(e.target.value) })}
+                                    placeholder="0"
+                                    className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-mono font-medium text-stone-800 outline-none focus:border-[#00966c]"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Baris Termin Reguler */}
+                        {terminData.map((_, idx) => (
                             <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
-                                
+
                                 <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
                                     Termin {idx + 1}
                                 </div>
-                                
+
                                 {/* Input Progress (%) */}
                                 <div className="col-span-3 relative">
-                                    <input 
+                                    <input
                                         type="text"
-                                        inputMode="decimal" 
+                                        inputMode="decimal"
                                         value={terminData[idx]?.progress ?? ''}
                                         onChange={(e) => handleInputChange(idx, 'progress', e.target.value)}
                                         placeholder="0"
-                                        className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-stone-800 outline-none focus:border-[#00966c] text-center" 
+                                        className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-stone-800 outline-none focus:border-[#00966c] text-center"
                                     />
                                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
                                         %
                                     </span>
                                 </div>
-                                
-                                {/* Input Nominal (Rp) dengan Format Titik Ribuan */}
+
+                                {/* Input Nominal (Rp) */}
                                 <div className="col-span-6 relative">
                                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
                                         Rp
                                     </span>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={terminData[idx]?.nominal ?? ''}
                                         onChange={(e) => handleInputChange(idx, 'nominal', e.target.value)}
                                         placeholder="0"
-                                        className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-mono font-medium text-stone-800 outline-none focus:border-[#00966c]" 
+                                        className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-mono font-medium text-stone-800 outline-none focus:border-[#00966c]"
                                     />
                                 </div>
 
@@ -271,14 +363,14 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
 
                 {/* Footer Modal */}
                 <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3 bg-stone-50/50">
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         disabled={loading}
                         className="px-6 py-2.5 bg-white border border-[#e2e2e0] text-stone-700 text-[12px] font-bold rounded-xl transition hover:bg-stone-50 shadow-sm cursor-pointer"
                     >
                         Batal
                     </button>
-                    <button 
+                    <button
                         onClick={handleSimpanTermin}
                         disabled={loading}
                         className="px-6 py-2.5 bg-[#1a1a1a] hover:bg-black text-white text-[12px] font-bold rounded-xl transition shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
