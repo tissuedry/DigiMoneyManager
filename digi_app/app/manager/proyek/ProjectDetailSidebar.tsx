@@ -439,7 +439,7 @@ export default function ProjectDetailSidebar({
                                     ) : (
                                         <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-xl text-xs flex items-center justify-between text-left">
                                             <span>Nilai Proyek belum diinisialisasi.</span>
-                                            <button type="button" onClick={() => { onClose(); setShowInitBudget(showProjectDetail); }} className="px-3 py-1.5 bg-amber-100 text-amber-900 font-bold rounded-lg text-[11px]">Set Nilai Proyek</button>
+                                            <button type="button" onClick={() => { setIsDirectEdit(false); setEditMode(true); }} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-lg text-[11px] transition cursor-pointer">Set Nilai Proyek</button>
                                         </div>
                                     )}
 
