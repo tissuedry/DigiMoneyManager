@@ -12,6 +12,7 @@ type Props = {
     onClose: () => void;
     proyekId: number;
     proyekNama: string;
+    rabTotal?: number | string;
     terminList: any[];
 };
 
@@ -23,7 +24,7 @@ function formatRupiahInput(value: string | number): string {
     return parseInt(cleanNum, 10).toLocaleString("id-ID");
 }
 
-export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama, terminList }: Props) {
+export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama, rabTotal, terminList }: Props) {
     const [jumlahTermin, setJumlahTermin] = useState<number>(terminList.length > 0 ? terminList.length : 1);
     
     const [terminData, setTerminData] = useState<TerminItem[]>(
@@ -181,6 +182,19 @@ export default function EditTerminModal({ isOpen, onClose, proyekId, proyekNama,
                             <span>{successMsg}</span>
                         </div>
                     )}
+
+                    {/* Total Nilai Proyek (Rupiah) - Read-only Information */}
+                    <div className="mb-5">
+                        <label className="block text-[12px] font-bold text-stone-800 mb-1.5">
+                            Total Nilai Proyek (Rupiah)
+                        </label>
+                        <div className="flex items-center w-full h-10 bg-[#F8F7F4] border border-[#e6e2d6] rounded-xl px-3.5">
+                            <span className="text-[13.5px] font-mono font-medium text-[#78716C] mr-1.5">Rp</span>
+                            <span className="text-[13.5px] font-mono font-bold text-stone-900">
+                                {formatRupiahInput(rabTotal || 0) || "0"}
+                            </span>
+                        </div>
+                    </div>
 
                     {/* Input Jumlah Termin */}
                     <div className="mb-6">

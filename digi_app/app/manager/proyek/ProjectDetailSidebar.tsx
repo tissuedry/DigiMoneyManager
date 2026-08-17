@@ -931,6 +931,7 @@ export default function ProjectDetailSidebar({
                                         onClose={() => setIsEditTerminOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        rabTotal={detailedProjectInfo?.budget?.rabTotal ?? showProjectDetail?.budget?.rabTotal ?? 0}
                                         terminList={terminList}
                                     />
                                 </>
