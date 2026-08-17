@@ -110,7 +110,7 @@ export default function KelolaProyekPage() {
     deskripsi: "",
     tanggalMulai: "",
     tanggalSelesai: "",
-    status: "Planning",
+    status: "PLANNING",
   });
 
   const [editForm, setEditForm] = useState({
@@ -118,7 +118,7 @@ export default function KelolaProyekPage() {
     deskripsi: "",
     tanggalMulai: "",
     tanggalSelesai: "",
-    status: "Planning",
+    status: "PLANNING",
   });
 
   // Assign members state
@@ -269,6 +269,28 @@ export default function KelolaProyekPage() {
   const handleAddProject = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+
+    if (!projectForm.nama || !projectForm.nama.trim()) {
+      setFormError("Nama proyek wajib diisi.");
+      return;
+    }
+    if (!projectForm.tanggalMulai) {
+      setFormError("Tanggal mulai wajib diisi.");
+      return;
+    }
+    if (!projectForm.tanggalSelesai) {
+      setFormError("Tanggal selesai wajib diisi.");
+      return;
+    }
+    if (projectForm.tanggalSelesai < projectForm.tanggalMulai) {
+      setFormError("Tanggal selesai tidak boleh sebelum tanggal mulai.");
+      return;
+    }
+    if (!projectForm.status) {
+      setFormError("Status proyek wajib diisi.");
+      return;
+    }
+
     setShowAddProjectConfirm(true);
   };
 
@@ -283,7 +305,7 @@ export default function KelolaProyekPage() {
           nama: projectForm.nama,
           deskripsi: projectForm.deskripsi,
           tanggalMulai: projectForm.tanggalMulai,
-          tanggalSelesai: projectForm.tanggalSelesai || undefined,
+          tanggalSelesai: projectForm.tanggalSelesai,
           status: projectForm.status,
         }),
       });
@@ -296,7 +318,7 @@ export default function KelolaProyekPage() {
       }
 
       setNewProjectName(projectForm.nama);
-      setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "", status: "Active" });
+      setProjectForm({ nama: "", deskripsi: "", tanggalMulai: "", tanggalSelesai: "", status: "PLANNING" });
       setShowAddProject(false);
       setShowAddProjectConfirm(false);
       setShowAddProjectSuccess(true);

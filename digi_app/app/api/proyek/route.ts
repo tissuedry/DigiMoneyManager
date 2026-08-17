@@ -178,19 +178,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { nama, deskripsi, tanggalMulai, tanggalSelesai } = body;
+    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status } = body;
 
-    if (!nama || !tanggalMulai) {
-      return NextResponse.json({ message: 'Nama and tanggalMulai are required' }, { status: 400 });
+    if (!nama || !tanggalMulai || !tanggalSelesai || !status) {
+      return NextResponse.json({ message: 'Nama, Tanggal Mulai, Tanggal Selesai, dan Status Proyek wajib diisi' }, { status: 400 });
     }
 
     const newProject = await prisma.proyek.create({
       data: {
         nama,
         deskripsi: deskripsi || null,
-        status: body.status || 'AKTIF',
+        status: status,
         tanggalMulai: new Date(tanggalMulai),
-        tanggalSelesai: tanggalSelesai ? new Date(tanggalSelesai) : null,
+        tanggalSelesai: new Date(tanggalSelesai),
       },
     });
 
