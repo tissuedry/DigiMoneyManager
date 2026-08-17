@@ -260,14 +260,14 @@ function HeaderIconButton({
 // Posisi & kursor tiap gagang resize (8 arah: 4 sisi + 4 sudut), diberi affordance visual sendiri
 // (bar/dot yang muncul saat hover) alih-alih mengandalkan resize bawaan browser yang tak terlihat.
 const RESIZE_HANDLES: { dir: ResizeDir; className: string; cursor: string; corner: boolean }[] = [
-  { dir: "n", className: "top-0 left-3 right-3 h-2", cursor: "ns-resize", corner: false },
-  { dir: "s", className: "bottom-0 left-3 right-3 h-2", cursor: "ns-resize", corner: false },
-  { dir: "e", className: "right-0 top-3 bottom-3 w-2", cursor: "ew-resize", corner: false },
-  { dir: "w", className: "left-0 top-3 bottom-3 w-2", cursor: "ew-resize", corner: false },
-  { dir: "ne", className: "top-0 right-0 w-4 h-4", cursor: "nesw-resize", corner: true },
-  { dir: "nw", className: "top-0 left-0 w-4 h-4", cursor: "nwse-resize", corner: true },
-  { dir: "se", className: "bottom-0 right-0 w-4 h-4", cursor: "nwse-resize", corner: true },
-  { dir: "sw", className: "bottom-0 left-0 w-4 h-4", cursor: "nesw-resize", corner: true },
+  { dir: "n", className: "-top-2 left-4 right-4 h-4", cursor: "ns-resize", corner: false },
+  { dir: "s", className: "-bottom-2 left-4 right-4 h-4", cursor: "ns-resize", corner: false },
+  { dir: "e", className: "-right-2 top-4 bottom-4 w-4", cursor: "ew-resize", corner: false },
+  { dir: "w", className: "-left-2 top-4 bottom-4 w-4", cursor: "ew-resize", corner: false },
+  { dir: "ne", className: "-top-2.5 -right-2.5 w-6 h-6", cursor: "nesw-resize", corner: true },
+  { dir: "nw", className: "-top-2.5 -left-2.5 w-6 h-6", cursor: "nwse-resize", corner: true },
+  { dir: "se", className: "-bottom-2.5 -right-2.5 w-6 h-6", cursor: "nwse-resize", corner: true },
+  { dir: "sw", className: "-bottom-2.5 -left-2.5 w-6 h-6", cursor: "nesw-resize", corner: true },
 ];
 
 function ResizeHandle({
@@ -286,17 +286,17 @@ function ResizeHandle({
   return (
     <div
       onPointerDown={(e) => onPointerDown(e, dir)}
-      className={`group/resize absolute z-30 ${className}`}
+      className={`group/resize absolute z-30 touch-none select-none ${className}`}
       style={{ cursor }}
     >
       {corner ? (
-        <span className="absolute inset-0 m-auto w-1.5 h-1.5 rounded-full bg-[#2d6a4f] opacity-0 group-hover/resize:opacity-70 transition-opacity" />
+        <span className="absolute inset-0 m-auto w-2 h-2 rounded-full bg-[#2d6a4f] opacity-0 group-hover/resize:opacity-80 transition-opacity" />
       ) : (
         <span
-          className={`absolute bg-[#2d6a4f] rounded-full opacity-0 group-hover/resize:opacity-60 transition-opacity ${
+          className={`absolute bg-[#2d6a4f] rounded-full opacity-0 group-hover/resize:opacity-70 transition-opacity ${
             dir === "n" || dir === "s"
-              ? "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-1"
-              : "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8"
+              ? "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-1"
+              : "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-10"
           }`}
         />
       )}
@@ -335,6 +335,8 @@ export default function SmartChatWidget() {
   const [panelAnchor, setPanelAnchor] = useState<Anchor>({ right: BTN_MARGIN, bottom: BTN_MARGIN });
   const [panelSize, setPanelSize] = useState<Size>(DEFAULT_PANEL_SIZE);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
   const dragMovedRef = useRef(false);
   const preMaximizeAnchorRef = useRef<Anchor>({ right: BTN_MARGIN, bottom: BTN_MARGIN });
 
@@ -545,7 +547,7 @@ export default function SmartChatWidget() {
   const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>, dir: ResizeDir) => {
     e.stopPropagation();
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    setIsResizing(true);
     setIsMaximized(false);
 
     const startX = e.clientX;
@@ -565,41 +567,113 @@ export default function SmartChatWidget() {
     const movesSouth = dir.includes("s");
     const movesNorth = dir.includes("n");
 
+    let animationFrameId: number | null = null;
+
     const handleMove = (ev: PointerEvent) => {
+      ev.preventDefault();
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
 
-      let width = startWidth;
-      let right = startRight;
-      if (movesEast) {
-        const newRightEdgeX = clamp(rightFixedX + dx, leftFixedX + PANEL_MIN_WIDTH, window.innerWidth);
-        width = newRightEdgeX - leftFixedX;
-        right = window.innerWidth - newRightEdgeX;
-      } else if (movesWest) {
-        const newLeftEdgeX = clamp(leftFixedX + dx, 0, rightFixedX - PANEL_MIN_WIDTH);
-        width = rightFixedX - newLeftEdgeX;
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
       }
 
-      let height = startHeight;
-      let bottom = startBottom;
-      if (movesSouth) {
-        const newBottomEdgeY = clamp(bottomFixedY + dy, topFixedY + PANEL_MIN_HEIGHT, window.innerHeight);
-        height = newBottomEdgeY - topFixedY;
-        bottom = window.innerHeight - newBottomEdgeY;
-      } else if (movesNorth) {
-        const newTopEdgeY = clamp(topFixedY + dy, 0, bottomFixedY - PANEL_MIN_HEIGHT);
-        height = bottomFixedY - newTopEdgeY;
-      }
+      animationFrameId = requestAnimationFrame(() => {
+        let width = startWidth;
+        let right = startRight;
+        if (movesEast) {
+          const newRightEdgeX = clamp(rightFixedX + dx, leftFixedX + PANEL_MIN_WIDTH, window.innerWidth);
+          width = newRightEdgeX - leftFixedX;
+          right = window.innerWidth - newRightEdgeX;
+        } else if (movesWest) {
+          const newLeftEdgeX = clamp(leftFixedX + dx, 0, rightFixedX - PANEL_MIN_WIDTH);
+          width = rightFixedX - newLeftEdgeX;
+        }
 
-      setPanelSize({ width, height });
-      setPanelAnchor({ right, bottom });
+        let height = startHeight;
+        let bottom = startBottom;
+        if (movesSouth) {
+          const newBottomEdgeY = clamp(bottomFixedY + dy, topFixedY + PANEL_MIN_HEIGHT, window.innerHeight);
+          height = newBottomEdgeY - topFixedY;
+          bottom = window.innerHeight - newBottomEdgeY;
+        } else if (movesNorth) {
+          const newTopEdgeY = clamp(topFixedY + dy, 0, bottomFixedY - PANEL_MIN_HEIGHT);
+          height = bottomFixedY - newTopEdgeY;
+        }
+
+        setPanelSize({ width, height });
+        setPanelAnchor({ right, bottom });
+      });
     };
+
     const handleUp = () => {
+      setIsResizing(false);
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
       document.removeEventListener("pointermove", handleMove);
       document.removeEventListener("pointerup", handleUp);
+      document.removeEventListener("pointercancel", handleUp);
     };
-    document.addEventListener("pointermove", handleMove);
+
+    document.addEventListener("pointermove", handleMove, { passive: false });
     document.addEventListener("pointerup", handleUp);
+    document.addEventListener("pointercancel", handleUp);
+  };
+
+  // Geser kotak panel Smart Chat lewat header (drag window)
+  const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Jangan drag jika yang diklik adalah tombol kontrol (reset/maximize/close)
+    if ((e.target as HTMLElement).closest("button")) return;
+    if (isMaximized) return; // Jangan drag jika sedang fullscreen/maximize
+
+    e.preventDefault();
+    setIsDraggingPanel(true);
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startRight = panelAnchor.right;
+    const startBottom = panelAnchor.bottom;
+
+    let animationFrameId: number | null = null;
+
+    const handleMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      animationFrameId = requestAnimationFrame(() => {
+        const newRight = clamp(
+          startRight - dx,
+          0,
+          Math.max(0, window.innerWidth - panelSize.width)
+        );
+        const newBottom = clamp(
+          startBottom - dy,
+          0,
+          Math.max(0, window.innerHeight - panelSize.height)
+        );
+        setPanelAnchor({ right: newRight, bottom: newBottom });
+      });
+    };
+
+    const handleUp = () => {
+      setIsDraggingPanel(false);
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      document.removeEventListener("pointermove", handleMove);
+      document.removeEventListener("pointerup", handleUp);
+      document.removeEventListener("pointercancel", handleUp);
+    };
+
+    document.addEventListener("pointermove", handleMove, { passive: false });
+    document.addEventListener("pointerup", handleUp);
+    document.addEventListener("pointercancel", handleUp);
   };
 
   // Kembalikan bulatan & panel chat ke posisi dan ukuran semula
@@ -634,7 +708,11 @@ export default function SmartChatWidget() {
   if (isOpen) {
     return (
       <div
-        className="fixed z-50 bg-white rounded-2xl border border-stone-200 shadow-2xl flex overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-200 transition-[width,height,right,bottom] ease-in-out"
+        className={`fixed z-50 bg-white rounded-2xl border border-stone-200 shadow-2xl flex overflow-hidden animate-in fade-in slide-in-from-bottom-3 ${
+          isResizing || isDraggingPanel
+            ? "transition-none select-none"
+            : "transition-[width,height,right,bottom] duration-200 ease-in-out"
+        }`}
         style={{
           right: panelAnchor.right,
           bottom: panelAnchor.bottom,
@@ -655,8 +733,13 @@ export default function SmartChatWidget() {
         />
       ))}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-stone-100 bg-[#f9f8f4] shrink-0">
+        {/* Header (Bisa di-drag untuk memindahkan posisi kotak) */}
+        <div
+          onPointerDown={handleHeaderPointerDown}
+          className={`flex items-center justify-between gap-3 px-4 py-3.5 border-b border-stone-100 bg-[#f9f8f4] shrink-0 select-none ${
+            isMaximized ? "cursor-default" : isDraggingPanel ? "cursor-grabbing" : "cursor-grab"
+          }`}
+        >
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-[#2d6a4f]/10 flex items-center justify-center shrink-0">
               <Bot size={18} className="text-[#2d6a4f]" />
