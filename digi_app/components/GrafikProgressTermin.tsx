@@ -78,12 +78,13 @@ export default function GrafikProgressTermin({
         : defaultTermins;
 
     // Calculate CUMULATIVE NOMINAL for each running step
-    let runningCumSum = 0;
-    const termins = rawTermins.map((t) => {
-        runningCumSum += Number(t.nominal) || 0;
+    const termins = rawTermins.map((t, idx, arr) => {
+        const cumNominal = arr
+            .slice(0, idx + 1)
+            .reduce((sum, item) => sum + (Number(item.nominal) || 0), 0);
         return {
             ...t,
-            cumNominal: runningCumSum,
+            cumNominal,
         };
     });
 
@@ -101,12 +102,11 @@ export default function GrafikProgressTermin({
 
     const yTop = 15;
     const yBottom = 175;
-    const totalHeight = yBottom - yTop; // 160px capacity
 
     const sectionWidth = totalWidth / totalSections;
 
     // Calculate maximum cumulative nominal (total accumulated income at final step)
-    const maxCumNominal = Math.max(1, runningCumSum);
+    const maxCumNominal = Math.max(1, termins.length > 0 ? termins[termins.length - 1].cumNominal : 1);
 
     // Height boundaries for truth-to-size proportional scaling
     const maxBlockHeight = 150;
@@ -278,7 +278,7 @@ export default function GrafikProgressTermin({
 
                     {/* Render Step Blocks with subtle blockGap separation */}
                     {termins.map((t, idx) => {
-                        const { xLeft, xRight, pct, blockY, blockHeight, color } = stepPositions[idx];
+                        const { xLeft, pct, blockY, blockHeight, color } = stepPositions[idx];
                         const isHovered = activeHoveredIdx === idx;
                         const isTermin0 = Number(pct) === 0 || t.namaTermin?.toLowerCase().includes("termin 0");
 
