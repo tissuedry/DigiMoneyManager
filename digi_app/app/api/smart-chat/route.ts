@@ -381,7 +381,7 @@ export async function POST(req: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-120b',
         messages: (() => {
           const apiMessages: any[] = [
             { role: 'system', content: systemPrompt }
@@ -423,11 +423,20 @@ export async function POST(req: NextRequest) {
 
     const groqData = await groqResponse.json();
     const reply = groqData.choices?.[0]?.message?.content || mockResponseText;
+    const usage = groqData.usage;
+
+    console.log(`[Smart Chat - GPT-OSS 120B] Usage: Prompt=${usage?.prompt_tokens || 0}, Completion=${usage?.completion_tokens || 0}, Total=${usage?.total_tokens || 0}`);
 
     return NextResponse.json({
       reply,
       queryMessage: message,
       timestamp: new Date(),
+      token_usage: {
+        model: 'openai/gpt-oss-120b',
+        prompt_tokens: usage?.prompt_tokens || 0,
+        completion_tokens: usage?.completion_tokens || 0,
+        total_tokens: usage?.total_tokens || 0,
+      },
     });
     
   } catch (error: any) {

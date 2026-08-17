@@ -128,6 +128,7 @@ function formatMarkdown(text: string): string {
   let html = "";
   let listBuffer: string[] = [];
   let listType: "ul" | "ol" | null = null;
+  let tableBuffer: string[] = [];
   let needsBreakBeforeNext = false;
 
   const flushList = () => {
@@ -140,7 +141,62 @@ function formatMarkdown(text: string): string {
     listType = null;
   };
 
+  const flushTable = () => {
+    if (tableBuffer.length >= 2) {
+      const parseCells = (row: string) => {
+        const raw = row.trim();
+        const trimmed = raw.startsWith("|") && raw.endsWith("|") ? raw.slice(1, -1) : raw;
+        return trimmed.split("|").map((c) => c.trim());
+      };
+
+      const headerCells = parseCells(tableBuffer[0]);
+      // Baris 1 adalah divider (|---|---|), ambil data mulai baris 2
+      const bodyRows = tableBuffer.slice(2).map(parseCells).filter(r => r.some(c => c.length > 0));
+
+      let tableHtml = `<div class="overflow-x-auto my-2.5 rounded-xl border border-stone-200 bg-white shadow-xs max-w-full">`;
+      tableHtml += `<table class="min-w-full text-[11.5px] border-collapse text-left">`;
+      tableHtml += `<thead class="bg-stone-100/90 text-stone-800 font-semibold border-b border-stone-200"><tr>`;
+      headerCells.forEach((c) => {
+        tableHtml += `<th class="py-2 px-2.5 whitespace-nowrap font-semibold border-r border-stone-200/60 last:border-r-0">${applyInlineMarkdown(c)}</th>`;
+      });
+      tableHtml += `</tr></thead>`;
+
+      tableHtml += `<tbody class="divide-y divide-stone-100 text-stone-800">`;
+      bodyRows.forEach((rowCells) => {
+        tableHtml += `<tr class="hover:bg-stone-50/80 transition-colors">`;
+        rowCells.forEach((c) => {
+          tableHtml += `<td class="py-1.5 px-2.5 align-top border-r border-stone-100 last:border-r-0">${applyInlineMarkdown(c)}</td>`;
+        });
+        tableHtml += `</tr>`;
+      });
+      tableHtml += `</tbody></table></div>`;
+
+      html += tableHtml;
+      needsBreakBeforeNext = false;
+    } else if (tableBuffer.length > 0) {
+      tableBuffer.forEach((r) => {
+        if (needsBreakBeforeNext) html += "<br/>";
+        html += applyInlineMarkdown(r);
+        needsBreakBeforeNext = true;
+      });
+    }
+    tableBuffer = [];
+  };
+
+  const isTableRow = (line: string) => {
+    const trimmed = line.trim();
+    return trimmed.startsWith("|") && trimmed.includes("|", 1);
+  };
+
   for (const rawLine of lines) {
+    if (isTableRow(rawLine)) {
+      flushList();
+      tableBuffer.push(rawLine);
+      continue;
+    } else if (tableBuffer.length > 0) {
+      flushTable();
+    }
+
     const bulletMatch = rawLine.match(/^\s*[-*]\s+(.+)$/);
     const numberedMatch = rawLine.match(/^\s*\d+[.)]\s+(.+)$/);
 
@@ -163,6 +219,7 @@ function formatMarkdown(text: string): string {
     needsBreakBeforeNext = true;
   }
   flushList();
+  flushTable();
 
   return html;
 }
@@ -735,7 +792,7 @@ export default function SmartChatWidget() {
                 {[
                   { label: "Periode", value: new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" }) },
                   { label: "Proyek", value: SCOPE_LABEL[role] },
-                  { label: "Model", value: "Llama 3.1 (GROQ)" },
+                  { label: "Model", value: "GPT-OSS 120B (GROQ)" },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-[12px]">
                     <span className="text-stone-400 font-medium">{label}</span>
