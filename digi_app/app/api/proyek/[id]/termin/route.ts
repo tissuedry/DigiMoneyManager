@@ -11,8 +11,8 @@ async function checkAuthorization(req: NextRequest, proyekId: number) {
 
   const isMember = userId
     ? await prisma.userProyek.findFirst({
-        where: { userId: parseInt(userId, 10), proyekId },
-      })
+      where: { userId: parseInt(userId, 10), proyekId },
+    })
     : null;
 
   return isDirektur || isSuperAdmin || isMember;
@@ -54,59 +54,135 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const body = await req.json();
-    const { terminData } = body; // Berisi array data termin dari frontend
+    const { terminData, namaTermin, nominal, persentaseProgress, catatan, posAnggaranList } = body;
 
-    if (!Array.isArray(terminData)) {
-      return NextResponse.json({ message: 'Format data tidak valid' }, { status: 400 });
-    }
+    // Skenario A: Update batch list termin (dari EditTerminModal)
+    if (Array.isArray(terminData)) {
+      await prisma.$transaction(async (tx) => {
+        await tx.terminPembayaran.deleteMany({
+          where: {
+            proyekId,
+            status: 'BELUM_DITERIMA'
+          },
+        });
 
-    await prisma.$transaction(async (tx) => {
-      
-      await tx.terminPembayaran.deleteMany({
-        where: { 
-          proyekId, 
-          status: 'BELUM_DITERIMA' 
-        },
+        for (let idx = 0; idx < terminData.length; idx++) {
+          const t = terminData[idx];
+
+          if (t.id) {
+            await tx.terminPembayaran.upsert({
+              where: { id: t.id },
+              update: {
+                namaTermin: t.namaTermin,
+                nominal: parseFloat(t.nominal),
+                persentaseProgress: parseFloat(t.persentaseProgress),
+                urutan: idx + 1,
+              },
+              create: {
+                proyekId,
+                namaTermin: t.namaTermin,
+                nominal: parseFloat(t.nominal),
+                persentaseProgress: parseFloat(t.persentaseProgress),
+                status: 'BELUM_DITERIMA',
+                urutan: idx + 1,
+              }
+            });
+          } else {
+            await tx.terminPembayaran.create({
+              data: {
+                proyekId,
+                namaTermin: t.namaTermin,
+                nominal: parseFloat(t.nominal),
+                persentaseProgress: parseFloat(t.persentaseProgress),
+                status: 'BELUM_DITERIMA',
+                urutan: idx + 1,
+              }
+            });
+          }
+        }
       });
 
-      for (let idx = 0; idx < terminData.length; idx++) {
-        const t = terminData[idx];
-        
-        if (t.id) {
-          await tx.terminPembayaran.upsert({
-            where: { id: t.id },
-            update: {
-              namaTermin: t.namaTermin,
-              nominal: parseFloat(t.nominal),
-              persentaseProgress: parseFloat(t.persentaseProgress),
-              urutan: idx + 1,
-            },
-            create: {
-              proyekId,
-              namaTermin: t.namaTermin,
-              nominal: parseFloat(t.nominal),
-              persentaseProgress: parseFloat(t.persentaseProgress),
-              status: 'BELUM_DITERIMA',
-              urutan: idx + 1,
-            }
-          });
-        } else {
-          await tx.terminPembayaran.create({
-            data: {
-              proyekId,
-              namaTermin: t.namaTermin,
-              nominal: parseFloat(t.nominal),
-              persentaseProgress: parseFloat(t.persentaseProgress),
-              status: 'BELUM_DITERIMA',
-              urutan: idx + 1,
-            }
-          });
-        }
-      }
-    });
+      clearCache('proyek:');
+      return NextResponse.json({ success: true, message: 'Termin berhasil diperbarui' }, { status: 200 });
+    }
 
-    clearCache('proyek:');
-    return NextResponse.json({ success: true, message: 'Termin berhasil diperbarui' }, { status: 200 });
+    // Skenario B: Tambah single termin & main alokasi pemasukan (dari AddPenambaganTermin)
+    if (namaTermin && nominal) {
+      const nominalNum = parseFloat(String(nominal));
+      const progressNum = persentaseProgress ? parseFloat(String(persentaseProgress)) : 0;
+
+      await prisma.$transaction(async (tx) => {
+        const countExisting = await tx.terminPembayaran.count({ where: { proyekId } });
+
+        // 1. Buat record TerminPembayaran
+        await tx.terminPembayaran.create({
+          data: {
+            proyekId,
+            namaTermin,
+            nominal: nominalNum,
+            persentaseProgress: progressNum,
+            catatan: catatan || null,
+            status: 'BELUM_DITERIMA',
+            urutan: countExisting + 1,
+          },
+        });
+
+        // 2. Buat / Update MainAnggaran tipe='pemasukan' jika posAnggaranList dikirim
+        if (Array.isArray(posAnggaranList) && posAnggaranList.length > 0) {
+          let budget = await tx.budget.findUnique({ where: { proyekId } });
+          if (!budget) {
+            budget = await tx.budget.create({
+              data: {
+                proyekId,
+                rabTotal: 0,
+                sisaBudget: 0,
+                totalPemasukan: 0,
+                pemasukanBelumDialokasikan: 0,
+              },
+            });
+          }
+
+          for (const pos of posAnggaranList) {
+            const posNama = (pos.deskripsi || pos.namaPos || pos.nama || '').trim();
+            const rawNominal = typeof pos.nominalAlokasi === 'string'
+              ? parseFloat(pos.nominalAlokasi.replace(/\./g, '').replace(',', '.'))
+              : Number(pos.nominalAlokasi) || 0;
+
+            if (posNama && rawNominal > 0) {
+              const existingMain = await tx.mainAnggaran.findFirst({
+                where: {
+                  budgetId: budget.id,
+                  namaMain: posNama,
+                  tipe: 'pemasukan',
+                },
+              });
+
+              if (existingMain) {
+                await tx.mainAnggaran.update({
+                  where: { id: existingMain.id },
+                  data: { nominalAlokasi: rawNominal },
+                });
+              } else {
+                await tx.mainAnggaran.create({
+                  data: {
+                    budgetId: budget.id,
+                    namaMain: posNama,
+                    nominalAlokasi: rawNominal,
+                    tipe: 'pemasukan',
+                  },
+                });
+              }
+            }
+          }
+        }
+      });
+
+      clearCache('proyek:');
+      clearCache('dashboard:');
+      return NextResponse.json({ success: true, message: 'Termin dan Main Alokasi Pemasukan berhasil ditambahkan' }, { status: 201 });
+    }
+
+    return NextResponse.json({ message: 'Format data tidak valid' }, { status: 400 });
 
   } catch (error: any) {
     console.error('Save termin error:', error);

@@ -74,8 +74,8 @@ export default function InitBudgetModal({
   useEffect(() => {
     if (!showInitBudget) return;
 
-    const existingList = 
-      detailedProjectInfo?.posAnggaran || 
+    const existingList =
+      detailedProjectInfo?.posAnggaran ||
       detailedProjectInfo?.budget?.posAnggaran ||
       detailedProjectInfo?.rincianPos ||
       detailedProjectInfo?.mainBudgets ||
@@ -135,7 +135,6 @@ export default function InitBudgetModal({
         maxHeight: '90vh',
         animation: 'fadeIn 0.2s ease',
       }}>
-        {/* Header */}
         <div style={{
           padding: '20px 24px',
           borderBottom: '0.80px #E6E1D4 solid',
@@ -145,7 +144,7 @@ export default function InitBudgetModal({
           flexShrink: 0,
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Edit Nilai Proyek</div>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 17, color: '#14130F', lineHeight: '25.50px' }}>Edit Pos Pengeluaran</div>
             <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 400, fontSize: 12, color: '#9A948B', lineHeight: '18px' }}>{showInitBudget.nama}</div>
           </div>
           <button
@@ -158,15 +157,13 @@ export default function InitBudgetModal({
           </button>
         </div>
 
-        {/* Form Body */}
         <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-            {/* Total Nilai Proyek (Rupiah) - Read-only Information */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
               <div>
                 <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
-                  Total Nilai Proyek (Rupiah)
+                  Nilai Proyek
                 </span>
               </div>
               <div style={{
@@ -188,7 +185,7 @@ export default function InitBudgetModal({
                   fontWeight: '600',
                   color: '#14130F',
                 }}>
-                  {rabTotal || "0"}
+                  {rabTotal ? (typeof rabTotal === "number" ? Math.round(rabTotal).toLocaleString("id-ID") : formatRibuan(String(rabTotal)) || "0") : "0"}
                 </span>
               </div>
             </div>
@@ -206,7 +203,7 @@ export default function InitBudgetModal({
               gap: 12
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>Realisasi Anggaran</span>
+                <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>Realisasi Pengeluaran</span>
                 <span style={{ color: '#14130F', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>{pctVal}%</span>
               </div>
               <div style={{ height: 8, background: '#F3F0E9', overflow: 'hidden', borderRadius: 999 }}>
@@ -235,7 +232,7 @@ export default function InitBudgetModal({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                 <span style={{ color: '#14130F', fontSize: 12.50, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
-                  Breakdown Pos Anggaran Main
+                  Alokasi Pengeluaran (Main)
                 </span>
                 <button
                   type="button"
@@ -276,7 +273,7 @@ export default function InitBudgetModal({
                   gap: 2
                 }}>
                   <div style={{ color: '#14130F', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
-                    Total Pos Teralokasi
+                    Total Nilai Proyek Teralokasi
                   </div>
                   <div style={{ color: 'black', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '500' }}>
                     Rp {totalPosAllocated.toLocaleString("id-ID")}
@@ -295,7 +292,7 @@ export default function InitBudgetModal({
                   gap: 2
                 }}>
                   <div style={{ color: isOverbudget ? '#D36C66' : '#14130F', fontSize: 11.5, fontFamily: 'Plus Jakarta Sans', fontWeight: '600' }}>
-                    {isOverbudget ? 'Kelebihan Alokasi (Overbudget)' : 'Sisa Pos Belum Dialokasikan'}
+                    {isOverbudget ? 'Kelebihan Alokasi (Overbudget)' : 'Sisa Nilai Proyek Belum Dialokasikan'}
                   </div>
                   <div style={{ color: isOverbudget ? '#D36C66' : 'black', fontSize: 13, fontFamily: 'IBM Plex Mono', fontWeight: '700' }}>
                     Rp {isOverbudget ? '-' : ''}{Math.abs(totalVal - totalPosAllocated).toLocaleString("id-ID")}
@@ -318,7 +315,7 @@ export default function InitBudgetModal({
                       className="flex-1 border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] font-medium bg-white focus:outline-none focus:border-stone-400 text-stone-700"
                     >
                       <option value="" disabled hidden>
-                        {loadingOptions ? "Memuat data..." : "-- Pilih Nama Budget/Pos --"}
+                        {loadingOptions ? "Memuat data..." : "Pilih Main"}
                       </option>
                       {Array.isArray(mainOptions) && mainOptions.map((opt) => (
                         <option key={opt.id} value={opt.nama}>
@@ -335,7 +332,7 @@ export default function InitBudgetModal({
                         value={pos.nominalAlokasi}
                         onChange={(e) => {
                           const newList = [...posAnggaranList];
-                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                          const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
                           newList[idx].nominalAlokasi = formatted;
                           setPosAnggaranList(newList);
                           requestAnimationFrame(() => {
@@ -439,7 +436,7 @@ export default function InitBudgetModal({
               className="hover:opacity-80 transition"
             >
               {submitting && <Loader2 size={13} className="animate-spin" />}
-              Simpan Nilai Proyek
+              Simpan
             </button>
           </div>
         </form>
