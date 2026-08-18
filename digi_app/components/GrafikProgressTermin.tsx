@@ -185,11 +185,10 @@ export default function GrafikProgressTermin({
                     >
                         <div className="bg-white border border-stone-200/90 shadow-2xl rounded-xl px-3 py-1.5 text-[12px] font-bold font-mono text-stone-900 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
                             <span
-                                className={`w-2 h-2 rounded-full ${
-                                    stepPositions[activeHoveredIdx].isDisbursed
+                                className={`w-2 h-2 rounded-full ${stepPositions[activeHoveredIdx].isDisbursed
                                         ? "bg-emerald-500"
                                         : "bg-stone-400"
-                                }`}
+                                    }`}
                             />
                             {formatFullRupiah(termins[activeHoveredIdx].nominal)}
                             <span className="text-[10px] text-stone-400 font-sans font-normal ml-0.5">
@@ -265,9 +264,8 @@ export default function GrafikProgressTermin({
                                         x={xStart - 8}
                                         y={blockY + 3.5}
                                         textAnchor="end"
-                                        className={`text-[9.5px] font-semibold font-mono tracking-tight transition-all ${
-                                            isHovered ? "fill-stone-900 font-extrabold" : "fill-[#a8a29e]"
-                                        }`}
+                                        className={`text-[9.5px] font-semibold font-mono tracking-tight transition-all ${isHovered ? "fill-stone-900 font-extrabold" : "fill-[#a8a29e]"
+                                            }`}
                                     >
                                         {compactText}
                                     </text>
@@ -398,7 +396,7 @@ export default function GrafikProgressTermin({
                     >
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-4 border-b border-stone-100 pb-3 flex-shrink-0">
                             <div>
-                                <h3 className="font-bold text-xl text-stone-900">Grafik Progres Termin</h3>
+                                <h3 className="font-bold text-xl text-stone-900">Grafik Pencairan Termin</h3>
                                 {projectName && (
                                     <p className="text-xs text-stone-500 mt-1 font-medium">{projectName}</p>
                                 )}
