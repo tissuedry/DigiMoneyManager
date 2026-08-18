@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Menu, LogOut, Check, ArrowRight, Loader2, X } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import Link from "next/link";
-import { useApi, useMutate } from "@/lib/use-api";
+import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
+import Notification from "@/components/notification";
 
 export type UserRole = "Karyawan" | "Project Manager" | "Tim Keuangan" | "Direktur / Manajemen" | "Superadmin";
 
@@ -24,18 +25,6 @@ type UserProfile = {
   assignments?: Array<{ proyekId: number; nama: string; role: string }>;
 };
 
-type NotificationItem = {
-  id: string;
-  userId: string;
-  tipe: string;
-  pesan: string;
-  dibaca: boolean;
-  timestamp: string;
-};
-
-type NotificationsResponse = {
-  notifications: NotificationItem[];
-};
 
 function getInitials(name: string) {
   if (!name) return "AI";
@@ -44,22 +33,6 @@ function getInitials(name: string) {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
   return name.substring(0, 2).toUpperCase();
-}
-
-function getRelativeTime(timestamp: string | Date) {
-  const now = new Date();
-  const past = new Date(timestamp);
-  const diffMs = now.getTime() - past.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  const diffMonths = Math.floor(diffDays / 30);
-
-  if (diffMins < 1) return "Baru saja";
-  if (diffMins < 60) return `${diffMins} mnt lalu`;
-  if (diffHours < 24) return `${diffHours} j lalu`;
-  if (diffDays < 30) return `${diffDays} hri lalu`;
-  return `${diffMonths} bln lalu`;
 }
 
 const ROLE_AVATAR_STYLES: Record<UserRole, { bg: string; text: string }> = {
@@ -71,54 +44,30 @@ const ROLE_AVATAR_STYLES: Record<UserRole, { bg: string; text: string }> = {
 };
 
 export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotificationDropdown = false }: HeaderProps) {
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   const { data: profileData } = useApi<UserProfile & { user: UserProfile }>("/api/auth/me");
-  const { data: notifData } = useApi<NotificationsResponse>(
-    hideNotificationDropdown ? null : "/api/notifications"
-  );
 
   const profile = profileData?.user ?? null;
-  const notifications = notifData?.notifications ?? [];
-
-  const markAllRead = useMutate("/api/notifications", "PUT", ["/api/notifications"]);
-  const markOneRead = useMutate("/api/notifications", "PUT", ["/api/notifications"]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsNotificationsOpen(false);
-      }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
       }
     }
 
-    if (isNotificationsOpen || isProfileOpen) {
+    if (isProfileOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isNotificationsOpen, isProfileOpen]);
-
-  const unreadCount = notifications.filter((n: NotificationItem) => !n.dibaca).length;
-
-  const handleMarkAllRead = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (unreadCount === 0 || markAllRead.isPending) return;
-    markAllRead.mutate({});
-  };
-
-  const handleMarkOneRead = async (id: string) => {
-    markOneRead.mutate({ id });
-  };
+  }, [isProfileOpen]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -158,149 +107,7 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
       </div>
 
       <div className="flex items-center gap-4 relative">
-        {!hideNotificationDropdown && (
-          <div ref={dropdownRef} className="relative">
-            <button
-              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-              className="relative p-2.5 bg-white border border-stone-200 rounded-xl shadow-sm hover:bg-stone-50 transition cursor-pointer"
-            >
-              <Bell size={18} className="text-stone-600" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-4.5 h-4.5 px-1 bg-[#a63737] text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-[#f9f8f4]">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-
-            {isNotificationsOpen && (
-              <div className="absolute right-0 mt-3 w-90 sm:w-105 bg-[#fdfcf9] border border-stone-200 rounded-2xl shadow-xl z-50 overflow-hidden flex flex-col max-h-[500px] animate-in fade-in slide-in-from-top-3 duration-250">
-                <div className="px-5 py-4 border-b border-stone-200/80 bg-[#f5f4ef] flex items-center justify-between">
-                  <div>
-                    <h4 className="text-[14px] font-bold text-stone-900 leading-tight">Notifikasi</h4>
-                    <p className="text-[11px] text-stone-500 mt-0.5 font-medium">
-                      {unreadCount} belum dibaca · {profile?.role || userRole}
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleMarkAllRead}
-                    disabled={unreadCount === 0 || markAllRead.isPending}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 border border-stone-200/80 rounded-full text-[11px] font-bold bg-white text-stone-700 hover:bg-stone-50 transition shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {markAllRead.isPending ? (
-                      <Loader2 size={12} className="animate-spin text-stone-500" />
-                    ) : (
-                      <Check size={12} className="text-stone-600" />
-                    )}
-                    Tandai semua dibaca
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto divide-y divide-stone-100 max-h-[350px]">
-                  {notifications.length > 0 ? (
-                    notifications.map((item: NotificationItem) => {
-                      const isRejected = item.tipe === "rejected" || item.pesan.toLowerCase().includes("ditolak");
-                      return (
-                        <div
-                          key={item.id}
-                          onClick={() => {
-                            if (!item.dibaca) handleMarkOneRead(item.id);
-                          }}
-                          className={`flex gap-3.5 p-4 transition-all duration-200 cursor-pointer ${
-                            !item.dibaca
-                              ? (isRejected ? "bg-[#fff5f5] hover:bg-[#fee2e2]" : "bg-[#f5fbf8] hover:bg-[#eaf5ef]")
-                              : "bg-transparent hover:bg-stone-50"
-                          }`}
-                        >
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-sm border ${
-                            isRejected
-                              ? "bg-red-50 text-red-700 border-red-100"
-                              : "bg-[#e2f1eb] text-[#117a5b] border-emerald-100"
-                          }`}>
-                            {isRejected ? (
-                              <X size={16} strokeWidth={2.5} />
-                            ) : (
-                              <Check size={16} strokeWidth={2.5} />
-                            )}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-[12px] font-bold text-stone-900 truncate">
-                                {(() => {
-                                  const msg = item.pesan.toLowerCase();
-                                  if (msg.includes("disetujui oleh pm") || msg.includes("disetujui oleh project manager")) {
-                                    return "Reimbursement disetujui PM";
-                                  }
-                                  if (msg.includes("disetujui oleh keuangan") || msg.includes("disetujui oleh tim keuangan")) {
-                                    return "Reimbursement disetujui Keuangan";
-                                  }
-                                  if (msg.includes("realisasi anggaran")) {
-                                    if (msg.includes("dicairkan oleh tim keuangan")) {
-                                      return "Realisasi dicairkan"
-                                    }
-                                    return "Realisasi ditolak"
-                                  }
-                                  if (msg.includes("ditolak oleh pm") || msg.includes("ditolak oleh project manager")) {
-                                    return "Reimbursement ditolak PM";
-                                  }
-                                  if (msg.includes("ditolak oleh keuangan") || msg.includes("ditolak oleh tim keuangan")) {
-                                    return "Reimbursement ditolak Keuangan";
-                                  }
-                                  if (msg.includes("ditolak oleh direktur") && msg.includes("pengajuan")) {
-                                    return "Perubahan Anggaran ditolak Direktur"
-                                  }
-                                  if (msg.includes("dicairkan")) {
-                                    return "Reimbursement dicairkan";
-                                  }
-                                  if (msg.includes("ditolak")) {
-                                    return "Reimbursement ditolak";
-                                  }
-                                  return "Pemberitahuan Sistem";
-                                })()}
-                              </p>
-                              <span className="text-[10px] text-stone-400 shrink-0 font-medium">
-                                {getRelativeTime(item.timestamp)}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-stone-600 leading-relaxed mt-1 font-medium break-words">
-                              {item.pesan}
-                            </p>
-                          </div>
-
-                          {!item.dibaca && (
-                            <div className="self-center pr-1">
-                              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full block shadow-sm border border-blue-200" />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="p-8 text-center text-stone-400 text-[12px] font-medium">
-                      Tidak ada notifikasi baru.
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t border-stone-200/80 bg-white">
-                  <Link
-                    href={"/notification"}
-                    onClick={() => setIsNotificationsOpen(false)}
-                    className="w-full py-3.5 flex items-center justify-center gap-2 text-stone-800 hover:text-stone-950 font-bold text-[12px] transition hover:bg-stone-50 cursor-pointer"
-                  >
-                    Lihat semua aktivitas <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {hideNotificationDropdown && (
-          <button className="relative p-1 text-stone-600 hover:text-stone-900 transition cursor-pointer">
-            <Bell size={20} className="stroke-2" />
-          </button>
-        )}
+        {!hideNotificationDropdown && <Notification role={profile?.role || userRole} />}
 
         <div ref={profileRef} className="relative">
           <div
@@ -315,7 +122,7 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
               <span className="text-[12px] font-bold text-stone-800 leading-tight">
                 {profile?.nama || "Daisaq Hadya Albar"}
               </span>
-              <span className="text-[10px] text-stone-500 max-w-[150px] truncate">
+              <span className="text-[10px] text-stone-500 max-w-37.5 truncate">
                 {profile?.proyek ? `${activeRole} · ${profile.proyek.nama}` : activeRole}
               </span>
             </div>
@@ -338,7 +145,7 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
                   <div className="px-4 py-1 text-[9px] font-bold text-stone-400 uppercase tracking-wider">
                     Proyek Aktif
                   </div>
-                  <div className="px-4 py-1 text-[11px] text-stone-700 font-bold truncate max-w-[180px]">
+                  <div className="px-4 py-1 text-[11px] text-stone-700 font-bold truncate max-w-45">
                     📂 {profile.proyek?.nama || 'Belum memilih'}
                   </div>
                   <Link
