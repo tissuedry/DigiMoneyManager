@@ -139,7 +139,7 @@ export async function GET(request: Request) {
         proyek.terminPembayaran.forEach((termin) => {
           const nominal = Number(termin.nominal) || 0;
 
-          let d = termin.tanggalPencairan ? new Date(termin.tanggalPencairan) : new Date(termin.createdAt);
+          const d = termin.tanggalPencairan ? new Date(termin.tanggalPencairan) : new Date(termin.createdAt);
 
           if (d.getFullYear() === tahun) {
             const mIdx = d.getMonth(); 
