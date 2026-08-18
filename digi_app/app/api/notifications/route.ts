@@ -5,7 +5,7 @@ import { getCached, setCache, clearCache } from '@/lib/route-cache';
 // GET: Fetch notifications for the logged-in user
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.headers.get('x-user-id');
+    const userId = parseInt(req.headers.get('x-user-id') || "", 10);
     if (!userId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
@@ -16,22 +16,35 @@ export async function GET(req: NextRequest) {
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    const notifications = await prisma.notification.findMany({
-      take: 10,
-      ...(cursor ? {
-        skip: 1,
-        cursor: { id: parseInt(cursor) },
-      } : {}),
-      where: { userId: parseInt(userId, 10) },
-      orderBy: { timestamp: 'desc' },
-    });
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const [,notifications] = await Promise.all([
+      prisma.notification.deleteMany({
+        where: {
+          userId: userId,
+          dibaca: true,
+          timestamp: { lt: cutoff }
+        }
+      }),
+      prisma.notification.findMany({
+        take: 10,
+        ...(cursor ? {
+          skip: 1,
+          cursor: { id: parseInt(cursor) },
+        } : {}),
+        where: { userId: userId, OR: [
+          { dibaca: false },
+          { timestamp: { gte: cutoff } },
+        ], },
+        orderBy: { timestamp: 'desc' },
+      })
+    ]);
 
     const lastNotif = notifications[notifications.length - 1];
     const nextCursor = lastNotif ? lastNotif.id : null;
 
     const [totalCount, unreadCount] = await Promise.all([
-      prisma.notification.count({ where: { userId: parseInt(userId, 10) } }),
-      prisma.notification.count({ where: { userId: parseInt(userId, 10), dibaca: false } }),
+      prisma.notification.count({ where: { userId: userId, OR: [{ dibaca: false }, { timestamp: { gte: cutoff } }] } }),
+      prisma.notification.count({ where: { userId: userId, dibaca: false } }),
     ]);
 
     const resp = { notifications, nextCursor, totalCount, unreadCount };
