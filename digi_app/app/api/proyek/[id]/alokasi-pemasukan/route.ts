@@ -10,6 +10,7 @@ async function checkAuthorization(req: NextRequest, proyekId: number) {
 
   const isDirektur = userRole === 'Direktur / Manajemen';
   const isSuperAdmin = userRole === 'Superadmin' || userRole === 'superadmin';
+  const isKeuangan = userRole === 'Tim Keuangan';
 
   const isMember = userId
     ? await prisma.userProyek.findFirst({
@@ -17,7 +18,7 @@ async function checkAuthorization(req: NextRequest, proyekId: number) {
       })
     : null;
 
-  return isDirektur || isSuperAdmin || isMember;
+  return isDirektur || isSuperAdmin || isKeuangan || isMember;
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
