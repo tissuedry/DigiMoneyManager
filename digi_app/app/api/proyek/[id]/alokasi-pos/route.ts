@@ -78,7 +78,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       for (const item of items) {
         if (item.tipe === 'MAIN_ANGGARAN') {
           const newAlokasi = Number(item.nominalAlokasi);
-          if (runningMainTotal + newAlokasi > Number(budget.rabTotal)) {
+          const itemTipe = item.tipeAnggaran || item.tipePos || 'pengeluaran';
+          
+          const sameTipeMains = budget.mainAnggaran.filter((m) => m.tipe === itemTipe);
+          const runningTipeTotal = sameTipeMains.reduce((sum, m) => sum + Number(m.nominalAlokasi), 0);
+          
+          if (runningTipeTotal + newAlokasi > Number(budget.rabTotal)) {
             throw new Error(
               `Total alokasi Main Pos melebihi RAB proyek (Rp ${Number(budget.rabTotal).toLocaleString('id-ID')})`
             );
@@ -90,6 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               namaMain: item.nama.trim(),
               nominalAlokasi: newAlokasi,
               nominalTerpakai: 0,
+              tipe: itemTipe,
             },
           });
           draftIdToRealId.set(item.targetId, mainAnggaran.id);
@@ -126,12 +132,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             );
           }
 
+          const itemTipe = item.tipeAnggaran || item.tipePos || mainAnggaran.tipe || 'pengeluaran';
+
           const subAnggaran = await tx.subAnggaran.create({
             data: {
               mainAnggaranId: parentMainId,
               namaSub: item.nama.trim(),
               nominalAlokasi: newAlokasi,
               nominalTerpakai: 0,
+              tipe: itemTipe,
             },
           });
           draftIdToRealId.set(item.targetId, subAnggaran.id);
