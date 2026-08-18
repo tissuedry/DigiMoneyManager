@@ -276,12 +276,14 @@ export default function ProjectDetailSidebar({
         }
     }, [detailedProjectInfo]);
 
+    const projectId = showProjectDetail?.id;
+
     const fetchAlokasiModalData = React.useCallback(async () => {
-        if (showProjectDetail?.id) {
+        if (projectId) {
             try {
                 // Tambahkan ?t=timestamp agar browser tidak berani memakai cache lama
                 const timestamp = new Date().getTime();
-                const res = await fetch(`/api/proyek/${showProjectDetail.id}/alokasi-pemasukan?t=${timestamp}`, {
+                const res = await fetch(`/api/proyek/${projectId}/alokasi-pemasukan?t=${timestamp}`, {
                     cache: 'no-store',
                     headers: {
                         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -298,7 +300,7 @@ export default function ProjectDetailSidebar({
                 console.error("Gagal memuat ulang data alokasi:", err);
             }
         }
-    }, [showProjectDetail?.id]);
+    }, [projectId]);
 
     useEffect(() => {
         if (isAlokasiOpen) {
