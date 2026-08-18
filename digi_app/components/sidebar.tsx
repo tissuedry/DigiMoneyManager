@@ -41,10 +41,10 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
   ],
   "Tim Keuangan": [
     { name: "Beranda", href: "/keuangan", icon: LayoutDashboard, hasBadge: false },
+    { name: "Kelola Proyek", href: "/keuangan/proyek", icon: FolderKanban, hasBadge: false },
     { name: "Pencairan", href: "/keuangan/pencairan", icon: Wallet, hasBadge: false },
     { name: "Laporan Anggaran", href: "/keuangan/budget", icon: BarChart3, hasBadge: false },
     { name: "Riwayat Pencairan", href: "/keuangan/jurnal", icon: BookOpen, hasBadge: false },
-    { name: "Chart of Accounts", href: "/keuangan/chart-of-account", icon: Settings, hasBadge: false },
   ],
   "Direktur / Manajemen": [
     { name: "Executive Dashboard", href: "/manager", icon: LayoutDashboard, hasBadge: false },

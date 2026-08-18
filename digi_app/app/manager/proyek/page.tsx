@@ -133,10 +133,9 @@ export default function KelolaProyekPage() {
     { deskripsi: "", nominalAlokasi: "" },
   ]);
 
-  const [activeTab, setActiveTab] = useState<"ringkasan" | "anggaran" | "tim" | "pemasukan">("ringkasan");
+  const [activeTab, setActiveTab] = useState<"ringkasan" | "pengeluaran" | "tim" | "pemasukan">("ringkasan");
   const [teamRows, setTeamRows] = useState<{ id: string; role: string; userId: string; isLocked: boolean }[]>([
-    { id: "row-pm", role: "Project Manager", userId: "", isLocked: true },
-    { id: "row-1", role: "", userId: "", isLocked: false }
+    { id: "row-pm", role: "Project Manager", userId: "", isLocked: true }
   ]);
 
   const fetchData = async () => {
@@ -362,7 +361,7 @@ export default function KelolaProyekPage() {
         ];
         setTeamRows(mappedRows);
       } else {
-        setTeamRows([{ id: "row-pm", role: "Project Manager", userId: "", isLocked: true }, { id: `row-empty-init`, role: "", userId: "", isLocked: false }]);
+        setTeamRows([{ id: "row-pm", role: "Project Manager", userId: "", isLocked: true }]);
       }
       if (res.ok && data.project) {
         setDetailedProjectInfo(data.project);

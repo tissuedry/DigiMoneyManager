@@ -6,6 +6,9 @@ import { formatReimbursementDate } from "./utils";
 import { formatFullRupiah } from "@/lib/format-nominal";
 import EditAlokasiModal from "./PerubahanAlokasi";
 
+const APPROVED_STATUSES = ["APPROVED", "PAID", "DISBURSED"];
+const VALID_REIMB_STATUSES = ["APPROVED", "APPROVED_BY_PM", "SUBMITTED", "PAID", "DISBURSED"];
+
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
   return formatFullRupiah(n);
@@ -33,9 +36,9 @@ function statusLabel(s: string): string {
 }
 
 function getStatusRank(status: string): number {
-  if (["APPROVED", "PAID", "DISBURSED"].includes(status)) return 1;
-  if (["SUBMITTED"].includes(status)) return 2;
-  if (["APPROVED_BY_PM", "PENDING"].includes(status)) return 3;
+  if (APPROVED_STATUSES.includes(status)) return 1;
+  if (status === "SUBMITTED") return 2;
+  if (status === "APPROVED_BY_PM" || status === "PENDING") return 3;
   return 4;
 }
 
@@ -45,6 +48,31 @@ function reimbType(s: string): string {
     Reimbursement: "REIMB",
   };
   return map[s] || s || "REIMB";
+}
+
+// Helpers untuk mencegah duplikasi logika perhitungan realisasi
+function calculateKetRealisasi(ket: any): number {
+  const reimbs = ket.reimbursements || [];
+  if (reimbs.length > 0) {
+    return reimbs
+      .filter((r: any) => APPROVED_STATUSES.includes(r.status))
+      .reduce((sum: number, r: any) => sum + (parseFloat(r.nominal) || 0), 0);
+  }
+  return parseFloat(ket.nominalRealisasi) || parseFloat(ket.realisasi) || 0;
+}
+
+function calculateSubRealisasi(sub: any): number {
+  if (sub.keterangan && sub.keterangan.length > 0) {
+    return sub.keterangan.reduce((acc: number, k: any) => acc + calculateKetRealisasi(k), 0);
+  }
+  return parseFloat(sub.nominalTerpakai) || parseFloat(sub.realisasi) || 0;
+}
+
+function calculatePosRealisasi(pos: any): number {
+  if (pos.subAnggaran && pos.subAnggaran.length > 0) {
+    return pos.subAnggaran.reduce((acc: number, sub: any) => acc + calculateSubRealisasi(sub), 0);
+  }
+  return parseFloat(pos.nominalTerpakai) || parseFloat(pos.realisasi) || 0;
 }
 
 type Props = {
@@ -134,9 +162,6 @@ export default function DetailBudgetModal({
             <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
               SISA
             </div>
-            <div className="w-[125px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              AKSI
-            </div>
           </div>
 
           {/* Scrollable rows */}
@@ -147,31 +172,7 @@ export default function DetailBudgetModal({
                 const isMainOpen = expandedMain[idxPos] ?? true;
 
                 const alokasiPos = parseFloat(pos.nominalAlokasi) || parseFloat(pos.alokasi) || 0;
-                const terpakaiPos = hasSub
-                  ? pos.subAnggaran.reduce((accSub: number, sub: any) => {
-                    const hasKet = sub.keterangan && sub.keterangan.length > 0;
-                    const subRealisasi = hasKet
-                      ? sub.keterangan.reduce((accKet: number, k: any) => {
-                        const reimbs = (k.reimbursements || []).filter((r: any) =>
-                          ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
-                        );
-                        const sumReimbs = reimbs.reduce(
-                          (accR: number, r: any) => accR + (parseFloat(r.nominal) || 0),
-                          0
-                        );
-                        return (
-                          accKet +
-                          (sumReimbs ||
-                            parseFloat(k.nominalRealisasi) ||
-                            parseFloat(k.realisasi) ||
-                            0)
-                        );
-                      }, 0)
-                      : parseFloat(sub.nominalTerpakai) || parseFloat(sub.realisasi) || 0;
-                    return accSub + subRealisasi;
-                  }, 0)
-                  : parseFloat(pos.nominalTerpakai) || parseFloat(pos.realisasi) || 0;
-
+                const terpakaiPos = calculatePosRealisasi(pos);
                 const sisaPos = alokasiPos - terpakaiPos;
 
                 return (
@@ -217,26 +218,6 @@ export default function DetailBudgetModal({
                       >
                         {formatSisaCurrency(sisaPos)}
                       </div>
-
-                      {/* Column 5: AKSI */}
-                      <div className="w-[125px] shrink-0 flex justify-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditTarget({
-                              type: "main",
-                              id: pos.id,
-                              nama: pos.namaPos || pos.nama || pos.deskripsi,
-                              currentAlokasi: alokasiPos,
-                            });
-                          }}
-                          className="h-7 px-2 py-1 bg-[#FCF7F0] rounded-md outline outline-[0.8px] outline-[#894C06] -outline-offset-1 inline-flex items-center justify-center gap-1 text-[#894C06] text-[10.5px] font-semibold hover:bg-[#F7EEE0] transition cursor-pointer font-sans"
-                        >
-                          <Settings size={11} className="stroke-[2] shrink-0" />
-                          <span>Ajukan Alokasi</span>
-                        </button>
-                      </div>
                     </div>
 
                     {/* SUB rows */}
@@ -254,26 +235,7 @@ export default function DetailBudgetModal({
 
                             const alokasiSub =
                               parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0;
-                            const terpakaiSub = hasKet
-                              ? sub.keterangan.reduce((acc: number, k: any) => {
-                                const reimbs = (k.reimbursements || []).filter((r: any) =>
-                                  ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
-                                );
-                                const sumReimbs = reimbs.reduce(
-                                  (accR: number, r: any) =>
-                                    accR + (parseFloat(r.nominal) || 0),
-                                  0
-                                );
-                                return (
-                                  acc +
-                                  (sumReimbs ||
-                                    parseFloat(k.nominalRealisasi) ||
-                                    parseFloat(k.realisasi) ||
-                                    0)
-                                );
-                              }, 0)
-                              : parseFloat(sub.nominalTerpakai) || parseFloat(sub.realisasi) || 0;
-
+                            const terpakaiSub = calculateSubRealisasi(sub);
                             const sisaSub = alokasiSub - terpakaiSub;
 
                             return (
@@ -322,29 +284,6 @@ export default function DetailBudgetModal({
                                   >
                                     {formatSisaCurrency(sisaSub)}
                                   </div>
-
-                                  {/* Column 5: AKSI */}
-                                  <div className="w-[125px] shrink-0 flex justify-center">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditTarget({
-                                          type: "sub",
-                                          id: sub.id,
-                                          mainId: pos.id,
-                                          nama: sub.namaSub || sub.nama,
-                                          currentAlokasi: alokasiSub,
-                                          totalRAB: alokasiPos,
-                                          totalTeralokasi: 0,
-                                        });
-                                      }}
-                                      className="h-7 px-2 py-1 bg-[#EEF6F2] rounded-md outline outline-[0.8px] outline-[#005836] -outline-offset-1 inline-flex items-center justify-center gap-1 text-[#005836] text-[10.5px] font-semibold hover:bg-[#DDF0E6] transition cursor-pointer font-sans"
-                                    >
-                                      <Settings size={11} className="stroke-[2] shrink-0" />
-                                      <span>Edit Alokasi</span>
-                                    </button>
-                                  </div>
                                 </div>
 
                                 {/* KET rows */}
@@ -362,35 +301,13 @@ export default function DetailBudgetModal({
                                           0;
                                         const childReimbursements = ket.reimbursements || [];
                                         const approvedReimbs = childReimbursements
-                                          .filter((r: any) =>
-                                            [
-                                              "APPROVED",
-                                              "APPROVED_BY_PM",
-                                              "SUBMITTED",
-                                              "PAID",
-                                              "DISBURSED",
-                                            ].includes(r.status)
-                                          )
+                                          .filter((r: any) => VALID_REIMB_STATUSES.includes(r.status))
                                           .sort(
                                             (a: any, b: any) =>
                                               getStatusRank(a.status) - getStatusRank(b.status)
                                           );
-                                        const hasReimbs = approvedReimbs.length > 0;
 
-                                        const disbursedReimbs = childReimbursements.filter(
-                                          (r: any) =>
-                                            ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
-                                        );
-                                        const realisasiKet = hasReimbs
-                                          ? disbursedReimbs.reduce(
-                                            (accR: number, r: any) =>
-                                              accR + (parseFloat(r.nominal) || 0),
-                                            0
-                                          )
-                                          : parseFloat(ket.nominalRealisasi) ||
-                                          parseFloat(ket.realisasi) ||
-                                          0;
-
+                                        const realisasiKet = calculateKetRealisasi(ket);
                                         const sisaKet = alokasiKet - realisasiKet;
                                         const ketKey = `${subKey}-${idxKet}`;
                                         const isKetOpen = expandedKet[ketKey] ?? true;
@@ -441,29 +358,6 @@ export default function DetailBudgetModal({
                                               >
                                                 {formatSisaCurrency(sisaKet)}
                                               </div>
-
-                                              {/* Column 5: AKSI */}
-                                              <div className="w-[125px] shrink-0 flex justify-center">
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setEditTarget({
-                                                      type: "sub",
-                                                      id: sub.id,
-                                                      mainId: pos.id,
-                                                      nama: ket.keterangan || ket.nama,
-                                                      currentAlokasi: alokasiKet,
-                                                      totalRAB: alokasiSub,
-                                                      totalTeralokasi: 0,
-                                                    });
-                                                  }}
-                                                  className="h-7 px-2 py-1 bg-[#F0F7FB] rounded-md outline outline-[0.8px] outline-[#005D8D] -outline-offset-1 inline-flex items-center justify-center gap-1 text-[#005D8D] text-[10.5px] font-semibold hover:bg-[#E0EFF7] transition cursor-pointer font-sans"
-                                                >
-                                                  <Settings size={11} className="stroke-[2] shrink-0" />
-                                                  <span>Edit Alokasi</span>
-                                                </button>
-                                              </div>
                                             </div>
 
                                             {/* REIMB / REAL rows */}
@@ -505,8 +399,8 @@ export default function DetailBudgetModal({
                                                         >
                                                           <span
                                                             className={`text-[9.5px] font-bold uppercase shrink-0 font-sans ${reimb.tipe === "Realisasi Anggaran"
-                                                                ? "text-[#483E90]"
-                                                                : "text-[#005D8D]"
+                                                              ? "text-[#483E90]"
+                                                              : "text-[#005D8D]"
                                                               }`}
                                                           >
                                                             {reimbType(reimb.tipe)}
@@ -519,12 +413,12 @@ export default function DetailBudgetModal({
                                                           </span>
                                                           <span
                                                             className={`text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 font-sans ${displayStatus === "Dicairkan"
-                                                                ? "bg-[rgba(0,145,98,0.12)] text-[#005836]"
-                                                                : displayStatus === "Menunggu PM"
-                                                                  ? "bg-[#FCF7F0] text-[#894C06]"
-                                                                  : displayStatus === "Menunggu Keuangan"
-                                                                    ? "bg-[#F0F7FB] text-[#005D8D]"
-                                                                    : "bg-[#FDF2F2] text-[#902F33]"
+                                                              ? "bg-[rgba(0,145,98,0.12)] text-[#005836]"
+                                                              : displayStatus === "Menunggu PM"
+                                                                ? "bg-[#FCF7F0] text-[#894C06]"
+                                                                : displayStatus === "Menunggu Keuangan"
+                                                                  ? "bg-[#F0F7FB] text-[#005D8D]"
+                                                                  : "bg-[#FDF2F2] text-[#902F33]"
                                                               }`}
                                                           >
                                                             {displayStatus}
@@ -535,8 +429,8 @@ export default function DetailBudgetModal({
                                                         <div className="w-[145px] shrink-0 flex items-center justify-center gap-1.5">
                                                           <span
                                                             className={`text-[11px] font-mono font-normal ${displayStatus === "Dicairkan"
-                                                                ? "text-[#6A6660]"
-                                                                : "text-[#ADA79F]"
+                                                              ? "text-[#6A6660]"
+                                                              : "text-[#ADA79F]"
                                                               }`}
                                                           >
                                                             {formatFullCurrency(
@@ -561,10 +455,9 @@ export default function DetailBudgetModal({
                                                           ) : null}
                                                         </div>
 
-                                                        {/* Columns 3, 4, 5: Empty for reimbursement row */}
+                                                        {/* Columns 3, 4: Empty for reimbursement row */}
                                                         <div className="w-[145px] shrink-0" />
                                                         <div className="w-[145px] shrink-0" />
-                                                        <div className="w-[125px] shrink-0" />
                                                       </div>
                                                     );
                                                   })

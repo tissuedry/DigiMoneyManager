@@ -4,8 +4,6 @@ import { Project, Member } from "./types";
 import PencairanTerminModal from "./PencairanTerminModal";
 import AddPenambaganTermin from "./AddPenambaganTermin";
 import AlokasiPemasukanModal from "./EditAlokasi";
-// IMPORT 2 MODAL BARU DI SINI
-import RiwayatPemasukanModal from "./RiwayatPemasukanModal";
 import EditTerminModal from "./EditTerminModal";
 
 import {
@@ -18,6 +16,14 @@ import {
 } from "./utils";
 import CompactNominal from "@/components/compact-nominal";
 import GrafikProgressTermin from "@/components/GrafikProgressTermin";
+
+function formatTerminDate(dateRaw?: any): string {
+    if (!dateRaw) return "-";
+    const d = new Date(dateRaw);
+    if (isNaN(d.getTime())) return "-";
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
+
 
 function getMemberInitials(name: string) {
     const parts = name.trim().split(" ").filter(Boolean);
@@ -168,8 +174,8 @@ type Props = {
     onClose: () => void;
     loadingDetail: boolean;
     detailedProjectInfo: any;
-    activeTab: "ringkasan" | "anggaran" | "tim" | "pemasukan";
-    setActiveTab: React.Dispatch<React.SetStateAction<"ringkasan" | "anggaran" | "tim" | "pemasukan">>;
+    activeTab: "ringkasan" | "pengeluaran" | "tim" | "pemasukan";
+    setActiveTab: React.Dispatch<React.SetStateAction<"ringkasan" | "pengeluaran" | "tim" | "pemasukan">>;
     timeFilter: "4M" | "12M" | "YTD";
     setTimeFilter: React.Dispatch<React.SetStateAction<"4M" | "12M" | "YTD">>;
     activeCashFlow: any[];
@@ -264,53 +270,20 @@ export default function ProjectDetailSidebar({
 
     const [dataAlokasiModal, setDataAlokasiModal] = useState([]);
 
-    // Reset data alokasi modal setiap kali proyek yang dibuka berubah
-    useEffect(() => {
-        setDataAlokasiModal([]);
-    }, [showProjectDetail?.id]);
-
     useEffect(() => {
         if (detailedProjectInfo) {
             setInitialTeamRowsStr(JSON.stringify(teamRows));
         }
     }, [detailedProjectInfo]);
 
-    useEffect(() => {
-        if (isAlokasiOpen && showProjectDetail?.id) {
-            fetch(`/api/proyek/${showProjectDetail.id}/alokasi-pemasukan`)
-                .then(res => res.json())
-                .then(json => {
-                    console.log("Response dari API API Pemasukan:", json); // <-- CEK DI CONSOLE BROWSER
-                    if (json.alokasiPemasukan) {
-                        setDataAlokasiModal(json.alokasiPemasukan);
-                    }
-                })
-                .catch(err => console.error("Gagal fetch alokasi pemasukan:", err));
-        }
-    }, [isAlokasiOpen, showProjectDetail?.id]);
+    const projectId = showProjectDetail?.id;
 
-    const isDirty = JSON.stringify(teamRows) !== initialTeamRowsStr;
-
-    // Derived data untuk pemasukan
-    const terminList: any[] = detailedProjectInfo?.terminPembayaran ?? [];
-    const totalPemasukan = parseFloat(detailedProjectInfo?.budget?.totalPemasukan) || 0;
-    const pemasukanBelumDialokasikan = parseFloat(detailedProjectInfo?.budget?.pemasukanBelumDialokasikan) || 0;
-    const alokasiPemasukan: any[] = detailedProjectInfo?.budget?.alokasiPemasukan ?? [];
-    const terminBelumDiterima = terminList.filter((t: any) => t.status === 'BELUM_DITERIMA');
-
-    // Calculate percentages and nominals for allocation
-    const nominalPenjualanJasa = alokasiPemasukan.find((a: any) => a.jenisPemasukan)?.nominal ?? 0;
-    const nominalPenjualanBarang = alokasiPemasukan.find((a: any) => a.jenisPemasukan)?.nominal ?? 0;
-    const sisaBelumDialokasikan = Math.max(0, totalPemasukan - nominalPenjualanJasa - nominalPenjualanBarang);
-    const pJasa = totalPemasukan > 0 ? (nominalPenjualanJasa / totalPemasukan) * 100 : 0;
-    const pBarang = totalPemasukan > 0 ? (nominalPenjualanBarang / totalPemasukan) * 100 : 0;
-
-    const fetchAlokasiModalData = async () => {
-        if (showProjectDetail?.id) {
+    const fetchAlokasiModalData = React.useCallback(async () => {
+        if (projectId) {
             try {
                 // Tambahkan ?t=timestamp agar browser tidak berani memakai cache lama
                 const timestamp = new Date().getTime();
-                const res = await fetch(`/api/proyek/${showProjectDetail.id}/alokasi-pemasukan?t=${timestamp}`, {
+                const res = await fetch(`/api/proyek/${projectId}/alokasi-pemasukan?t=${timestamp}`, {
                     cache: 'no-store',
                     headers: {
                         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -327,7 +300,29 @@ export default function ProjectDetailSidebar({
                 console.error("Gagal memuat ulang data alokasi:", err);
             }
         }
-    };
+    }, [projectId]);
+
+    useEffect(() => {
+        if (isAlokasiOpen) {
+            fetchAlokasiModalData();
+        }
+    }, [isAlokasiOpen, fetchAlokasiModalData]);
+
+    const isDirty = JSON.stringify(teamRows) !== initialTeamRowsStr;
+
+    // Derived data untuk pemasukan
+    const terminList: any[] = detailedProjectInfo?.terminPembayaran ?? [];
+    const totalPemasukan = parseFloat(detailedProjectInfo?.budget?.totalPemasukan) || 0;
+    const pemasukanBelumDialokasikan = parseFloat(detailedProjectInfo?.budget?.pemasukanBelumDialokasikan) || 0;
+    const alokasiPemasukan: any[] = detailedProjectInfo?.budget?.alokasiPemasukan ?? [];
+    const terminBelumDiterima = terminList.filter((t: any) => t.status === 'BELUM_DITERIMA');
+
+    // Calculate percentages and nominals for allocation
+    const nominalPenjualanJasa = alokasiPemasukan.find((a: any) => a.jenisPemasukan)?.nominal ?? 0;
+    const nominalPenjualanBarang = alokasiPemasukan.find((a: any) => a.jenisPemasukan)?.nominal ?? 0;
+    const sisaBelumDialokasikan = Math.max(0, totalPemasukan - nominalPenjualanJasa - nominalPenjualanBarang);
+    const pJasa = totalPemasukan > 0 ? (nominalPenjualanJasa / totalPemasukan) * 100 : 0;
+    const pBarang = totalPemasukan > 0 ? (nominalPenjualanBarang / totalPemasukan) * 100 : 0;
 
 
     if (!showProjectDetail || editMode || isDirectEdit) return null;
@@ -363,9 +358,9 @@ export default function ProjectDetailSidebar({
                             </p>
                             <div className="flex gap-4 border-b border-stone-100 mt-5 text-[13px] font-medium text-stone-400">
                                 <button type="button" onClick={() => setActiveTab("ringkasan")} className={`pb-2 transition ${activeTab === "ringkasan" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Ringkasan</button>
-                                <button type="button" onClick={() => setActiveTab("anggaran")} className={`pb-2 transition ${activeTab === "anggaran" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Anggaran</button>
-                                <button type="button" onClick={() => setActiveTab("tim")} className={`pb-2 transition ${activeTab === "tim" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Tim</button>
                                 <button type="button" onClick={() => setActiveTab("pemasukan")} className={`pb-2 whitespace-nowrap transition ${activeTab === "pemasukan" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Pemasukan</button>
+                                <button type="button" onClick={() => setActiveTab("pengeluaran")} className={`pb-2 transition ${activeTab === "pengeluaran" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Pengeluaran</button>
+                                <button type="button" onClick={() => setActiveTab("tim")} className={`pb-2 transition ${activeTab === "tim" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Tim</button>
                             </div>
                         </div>
 
@@ -439,7 +434,7 @@ export default function ProjectDetailSidebar({
                                     ) : (
                                         <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-xl text-xs flex items-center justify-between text-left">
                                             <span>Nilai Proyek belum diinisialisasi.</span>
-                                            <button type="button" onClick={() => { setIsDirectEdit(false); setEditMode(true); }} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-lg text-[11px] transition cursor-pointer">Set Nilai Proyek</button>
+                                            <button type="button" onClick={() => { onClose(); setShowInitBudget(showProjectDetail); }} className="px-3 py-1.5 bg-amber-100 text-amber-900 font-bold rounded-lg text-[11px]">Set Nilai Proyek</button>
                                         </div>
                                     )}
 
@@ -467,20 +462,16 @@ export default function ProjectDetailSidebar({
                                             </div>
                                         </div>
                                     </div>
-
                                     {/* Grafik Progress Termin */}
-                                    <GrafikProgressTermin
-                                        terminData={detailedProjectInfo?.terminPembayaran}
-                                        projectName={detailedProjectInfo?.nama || showProjectDetail?.nama}
-                                    />
+                                    <GrafikProgressTermin terminData={detailedProjectInfo?.terminPembayaran} />
                                 </div>
                             )}
 
-                            {activeTab === "anggaran" && (
-                                <div id="anggaran-sec" className="px-6 py-4 space-y-5 flex-shrink-0">
+                            {activeTab === "pengeluaran" && (
+                                <div id="pengeluaran-sec" className="px-6 py-4 space-y-5 flex-shrink-0">
                                     <div className="pb-2">
                                         <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider">
-                                            Rincian Pos Anggaran
+                                            Rincian Pos Pengeluaran
                                         </h3>
                                     </div>
 
@@ -527,7 +518,7 @@ export default function ProjectDetailSidebar({
                                                 className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer"
                                             >
                                                 <Settings size={13.5} className="text-stone-500" />
-                                                <span>Edit Nilai Proyek</span>
+                                                <span>Edit Pos Pengeluaran</span>
                                             </button>
                                         </div>
 
@@ -537,7 +528,7 @@ export default function ProjectDetailSidebar({
                                             className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer"
                                         >
                                             <Eye size={13.5} className="text-stone-500" />
-                                            <span>Lihat Detail Anggaran</span>
+                                            <span>Lihat Detail Pengeluaran</span>
                                         </button>
                                     </div>
 
@@ -725,6 +716,7 @@ export default function ProjectDetailSidebar({
 
                                         <div className="flex flex-col gap-3">
                                             <div className="flex gap-2 w-full">
+                                                {/* 1. Pencairan Termin (Tetap di posisi kiri) */}
                                                 <button
                                                     onClick={() => setIsPencairanOpen(true)}
                                                     className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-[#00966c] border border-transparent hover:bg-[#007f5a] text-white text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
@@ -732,73 +724,34 @@ export default function ProjectDetailSidebar({
                                                     <Plus size={14} className="shrink-0" /> Pencairan Termin
                                                 </button>
 
-                                                <button
-                                                    onClick={() => setIsAlokasiOpen(true)}
-                                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
-                                                >
-                                                    <Settings size={14} className="text-stone-500 shrink-0" /> Edit Alokasi
-                                                </button>
-
+                                                {/* 3. Edit Termin (Dipindahkan ke posisi tengah) */}
                                                 <button
                                                     onClick={() => setIsEditTerminOpen(true)}
                                                     className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                                 >
                                                     <Settings size={14} className="text-stone-500 shrink-0" /> Edit Termin
                                                 </button>
+
+                                                {/* 4. Tambah Termin (Menggantikan posisi Edit Termin di kanan) */}
+                                                <button
+                                                    onClick={() => setIsAddTerminOpen(true)}
+                                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                                                >
+                                                    <Plus size={14} className="text-stone-500 shrink-0" /> Edit Pemasukan
+                                                </button>
                                             </div>
 
+                                            {/* 2. Lihat Detail Pemasukan (Dipindahkan ke posisi tombol full-width di bawah) */}
                                             <button
-                                                onClick={() => setIsRiwayatOpen(true)}
+                                                onClick={() => setIsAlokasiOpen(true)}
                                                 className="w-full flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all cursor-pointer"
                                             >
-                                                <History size={14} className="text-stone-500 shrink-0" /> Riwayat Pemasukan
+                                                <Settings size={14} className="text-stone-500 shrink-0" /> Lihat Detail Pemasukan
                                             </button>
                                         </div>
 
+                                        {/* 1. Alokasi Pemasukan (Di bagian atas, di bawah Lihat Detail Pemasukan) */}
                                         <div className="space-y-3 pt-2 text-left">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <h3 className="text-[14px] font-extrabold text-stone-900">Termin Pembayaran</h3>
-                                                <span className="text-[12px] text-stone-400 font-medium">{terminList.length} termin</span>
-                                            </div>
-
-                                            {terminList.length === 0 ? (
-                                                <div className="text-center py-6 text-xs font-medium text-stone-400 bg-stone-50 rounded-2xl border border-stone-100">
-                                                    Belum ada termin yang didaftarkan
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {terminList.map((termin: any) => {
-                                                        const isDiterima = termin.status === 'DITERIMA';
-                                                        return (
-                                                            <div key={termin.id} className="flex justify-between items-center bg-[#f8f7f4] px-4 py-3.5 rounded-xl">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="text-[13px] font-bold text-stone-800">{termin.namaTermin}</span>
-                                                                    {parseFloat(termin.persentaseProgress) > 0 && (
-                                                                        <span className="text-[12px] text-stone-400 font-medium">({parseFloat(termin.persentaseProgress)}%)</span>
-                                                                    )}
-                                                                </div>
-                                                                <div className="flex items-center gap-4">
-                                                                    <span className="text-[12px] font-mono font-medium text-stone-500">
-                                                                        Rp &nbsp;{parseFloat(termin.nominal).toLocaleString('id-ID')}
-                                                                    </span>
-                                                                    {isDiterima ? (
-                                                                        <span className="px-3.5 py-1 bg-[#def2e6] text-[#21794b] text-[11px] font-bold rounded-full">
-                                                                            Diterima
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="px-3.5 py-1 bg-[#f4e4cf] text-[#8b5d2e] text-[11px] font-bold rounded-full">
-                                                                            Belum Diterima
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-3 pt-4 text-left border-t border-stone-100">
                                             <h3 className="text-[14px] font-extrabold text-stone-900">Alokasi Pemasukan</h3>
 
                                             <div className="bg-white border border-stone-200/80 rounded-2xl p-4 shadow-2xs">
@@ -820,79 +773,131 @@ export default function ProjectDetailSidebar({
                                                 </p>
                                             </div>
 
+                                            {/* Progress Bar Dinamis */}
                                             <div className="space-y-2 bg-stone-50/50 border border-stone-200/70 rounded-2xl p-4">
-
+                                                <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden flex">
+                                                    <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${pJasa}%` }} />
+                                                    <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${pBarang}%` }} />
+                                                    <div className="h-full bg-stone-400 flex-1 transition-all duration-300" title="Belum dialokasikan" />
+                                                </div>
                                                 <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium pt-1">
-                                                    {/* Progress Bar Dinamis */}
-                                                    <div className="space-y-2 bg-stone-50/50 border border-stone-200/70 rounded-2xl p-4">
-                                                        <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden flex">
-                                                            <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${pJasa}%` }} />
-                                                            <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${pBarang}%` }} />
-                                                            <div className="h-full bg-stone-400 flex-1 transition-all duration-300" title="Belum dialokasikan" />
-                                                        </div>
-                                                        <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium pt-1">
-                                                            <span className="flex items-center gap-1.5 text-stone-700">
-                                                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
-                                                                Penjualan Jasa <b className="text-stone-900 ml-1">Rp {nominalPenjualanJasa.toLocaleString("id-ID")}</b>
-                                                            </span>
-                                                            <span className="flex items-center gap-1.5 text-stone-700">
-                                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                                                                Penjualan Barang <b className="text-stone-900 ml-1">Rp {nominalPenjualanBarang.toLocaleString("id-ID")}</b>
-                                                            </span>
-                                                            <span className="flex items-center gap-1.5 text-stone-700">
-                                                                <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
-                                                                Belum dialokasikan <b className="text-stone-900 ml-1">
-                                                                    Rp {sisaBelumDialokasikan.toLocaleString("id-ID")}
-                                                                </b>
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                                                    <span className="flex items-center gap-1.5 text-stone-700">
+                                                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                                                        Penjualan Jasa <b className="text-stone-900 ml-1">Rp {nominalPenjualanJasa.toLocaleString("id-ID")}</b>
+                                                    </span>
+                                                    <span className="flex items-center gap-1.5 text-stone-700">
+                                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                                                        Penjualan Barang <b className="text-stone-900 ml-1">Rp {nominalPenjualanBarang.toLocaleString("id-ID")}</b>
+                                                    </span>
+                                                    <span className="flex items-center gap-1.5 text-stone-700">
+                                                        <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
+                                                        Belum dialokasikan <b className="text-stone-900 ml-1">
+                                                            Rp {sisaBelumDialokasikan.toLocaleString("id-ID")}
+                                                        </b>
+                                                    </span>
                                                 </div>
                                             </div>
+
                                             <div className="space-y-3 pt-1">
-    {((detailedProjectInfo?.budget?.alokasiPemasukan) || []).length === 0 ? (
-        <div className="text-center py-3 text-xs text-stone-400 italic bg-[#f8f7f4] rounded-xl">
-            Belum ada pos pemasukan
-        </div>
-    ) : (
-        (detailedProjectInfo.budget.alokasiPemasukan).map((item: any, idx: number) => {
-            const namaPos = item.namaMain || item.nama || "Kategori Lain";
-            const nominalAlokasi = parseFloat(item.nominalAlokasi || item.nominal || 0);
-            const nominalTerpakai = parseFloat(item.nominalTerpakai || 0);
+                                                {((detailedProjectInfo?.budget?.alokasiPemasukan) || []).length === 0 ? (
+                                                    <div className="text-center py-3 text-xs text-stone-400 italic bg-[#f8f7f4] rounded-xl">
+                                                        Belum ada pos pemasukan
+                                                    </div>
+                                                ) : (
+                                                    (detailedProjectInfo.budget.alokasiPemasukan).map((item: any, idx: number) => {
+                                                        const namaPos = item.namaMain || item.nama || "Kategori Lain";
+                                                        const nominalAlokasi = parseFloat(item.nominalAlokasi || item.nominal || 0);
+                                                        const nominalTerpakai = parseFloat(item.nominalTerpakai || 0);
 
-            // Hitung persentase progress (jika alokasi 0, persentase 0)
-            const pct = nominalAlokasi > 0 ? (nominalTerpakai / nominalAlokasi) * 100 : 0;
-            const displayPct = Math.min(Math.max(pct, 0), 100);
-            
-            // Kondisi warna: Merah jika sudah penuh/lebih (>= 100%), Hijau jika belum
-            const isFull = pct >= 100;
-            const barColor = isFull ? "bg-[#c95d5d]" : "bg-[#00966c]";
+                                                        // Hitung persentase progress (jika alokasi 0, persentase 0)
+                                                        const pct = nominalAlokasi > 0 ? (nominalTerpakai / nominalAlokasi) * 100 : 0;
+                                                        const displayPct = Math.min(Math.max(pct, 0), 100);
 
-            return (
-                <div key={item.id || idx} className="bg-[#f8f7f4] px-4 py-3.5 rounded-2xl flex flex-col gap-2">
-                    {/* Baris Atas: Nama Pos & Nominal */}
-                    <div className="flex justify-between items-center">
-                        <span className="text-[13px] font-extrabold text-stone-900 tracking-wide uppercase">
-                            {namaPos}
-                        </span>
-                        <span className="text-[12px] font-mono text-stone-600 font-bold">
-                            <span className="text-stone-400 text-[10px] mr-1">Rp</span>
-                            {nominalAlokasi.toLocaleString("id-ID")}
-                        </span>
-                    </div>
+                                                        // Kondisi warna: Merah jika sudah penuh/lebih (>= 100%), Hijau jika belum
+                                                        const isFull = pct >= 100;
+                                                        const barColor = isFull ? "bg-[#c95d5d]" : "bg-[#00966c]";
 
-                    {/* Baris Bawah: Progress Bar */}
-                    <div className="w-full bg-[#f0efe9] h-2.5 rounded-full overflow-hidden">
-                        <div 
-                            className={`h-full rounded-full transition-all duration-300 ${barColor}`} 
-                            style={{ width: `${displayPct}%` }} 
-                        />
-                    </div>
-                </div>
-            );
-        })
-    )}
-</div>
+                                                        return (
+                                                            <div key={item.id || idx} className="bg-[#f8f7f4] px-4 py-3.5 rounded-2xl flex flex-col gap-2">
+                                                                {/* Baris Atas: Nama Pos & Nominal */}
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-[13px] font-extrabold text-stone-900 tracking-wide uppercase">
+                                                                        {namaPos}
+                                                                    </span>
+                                                                    <span className="text-[12px] font-mono text-stone-600 font-bold">
+                                                                        <span className="text-stone-400 text-[10px] mr-1">Rp</span>
+                                                                        {nominalAlokasi.toLocaleString("id-ID")}
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Baris Bawah: Progress Bar */}
+                                                                <div className="w-full bg-[#f0efe9] h-2.5 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                                                                        style={{ width: `${displayPct}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* 2. Pencairan Termin (Di bagian bawah) */}
+                                        <div className="space-y-3 pt-4 text-left border-t border-stone-100">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h3 className="text-[14px] font-extrabold text-stone-900">Pencairan Termin</h3>
+                                                <span className="text-[12px] text-stone-400 font-medium">{terminList.length} termin</span>
+                                            </div>
+
+                                            {terminList.length === 0 ? (
+                                                <div className="text-center py-6 text-xs font-medium text-stone-400 bg-stone-50 rounded-2xl border border-stone-100">
+                                                    Belum ada termin yang didaftarkan
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {terminList.map((termin: any) => {
+                                                        const isDiterima = termin.status === 'DITERIMA';
+
+                                                        return (
+                                                            <div
+                                                                key={termin.id}
+                                                                className={`flex justify-between items-center px-4 py-3.5 rounded-xl gap-3 transition-colors ${isDiterima
+                                                                    ? "bg-[#eaf5ee] border border-[#c3e6cd]"
+                                                                    : "bg-[#f8f7f4]"
+                                                                    }`}
+                                                            >
+                                                                {/* Kiri: Nama Termin & Progress */}
+                                                                <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
+                                                                    <span className="text-[13px] font-bold text-stone-800 truncate">
+                                                                        {termin.namaTermin}
+                                                                    </span>
+                                                                    {parseFloat(termin.persentaseProgress) > 0 && (
+                                                                        <span className="text-[12px] text-stone-400 font-medium shrink-0">
+                                                                            ({parseFloat(termin.persentaseProgress)}%)
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Tengah: Tanggal (Hanya ada saat sudah DITERIMA) */}
+                                                                {isDiterima && (
+                                                                    <div className="text-[12px] text-stone-500 font-medium text-center shrink-0">
+                                                                        {formatTerminDate(termin.tanggalPencairan || termin.updatedAt)}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Kanan: Nominal */}
+                                                                <div className="flex items-center gap-4 shrink-0 justify-end">
+                                                                    <span className="text-[12px] font-mono font-medium text-stone-500">
+                                                                        Rp &nbsp;{parseFloat(termin.nominal).toLocaleString('id-ID')}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Rincian Pos (Penjualan Jasa & Penjualan Barang) */}
@@ -919,20 +924,23 @@ export default function ProjectDetailSidebar({
                                             if (onTerminChanged) onTerminChanged();
                                         }}
                                     />
-                                    <RiwayatPemasukanModal
-                                        isOpen={isRiwayatOpen}
-                                        onClose={() => setIsRiwayatOpen(false)}
-                                        proyekId={showProjectDetail?.id ?? 0}
-                                        proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
-                                        historyData={terminList.filter((t: any) => t.status === 'DITERIMA')}
-                                    />
                                     <EditTerminModal
                                         isOpen={isEditTerminOpen}
                                         onClose={() => setIsEditTerminOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
-                                        rabTotal={detailedProjectInfo?.budget?.rabTotal ?? showProjectDetail?.budget?.rabTotal ?? 0}
                                         terminList={terminList}
+                                    />
+                                    <AddPenambaganTermin
+                                        isOpen={isAddTerminOpen}
+                                        onClose={() => setIsAddTerminOpen(false)}
+                                        proyekId={showProjectDetail?.id ?? 0}
+                                        proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        totalRAB={(detailedProjectInfo as any)?.budget?.rabTotal ?? (showProjectDetail as any)?.nilaiProyek ?? 0}
+                                        onSuccess={() => {
+                                            fetchAlokasiModalData();
+                                            if (onTerminChanged) onTerminChanged();
+                                        }}
                                     />
                                 </>
                             )}

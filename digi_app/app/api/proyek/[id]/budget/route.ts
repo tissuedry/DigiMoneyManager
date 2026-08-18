@@ -223,17 +223,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
-// PATCH: Directly update a single pos alokasi (Main / Sub / Keterangan) — PM of project, Direktur, atau Super Admin
+// PATCH: Directly update a single pos alokasi (Main / Sub / Keterangan) — PM of project, Tim Keuangan, Direktur, atau Super Admin
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
+    const rolesHeader = req.headers.get('x-user-roles') || role || '';
+    const roles = rolesHeader.split(',');
     const userId = req.headers.get('x-user-id');
     const { id: proyekIdStr } = await params;
     const proyekId = parseInt(proyekIdStr, 10);
 
-    // Authorization: PM assigned to project, Direktur, or Super Admin
-    const isDirektur = role === 'Direktur / Manajemen';
-    const isSuperAdmin = role === 'Superadmin' || role === 'superadmin';
+    // Authorization: PM assigned to project, Tim Keuangan, Direktur, or Super Admin
+    const isDirektur = roles.includes('Direktur / Manajemen') || role === 'Direktur / Manajemen';
+    const isSuperAdmin = roles.includes('Superadmin') || roles.includes('superadmin') || role === 'Superadmin' || role === 'superadmin';
+    const isKeuangan = roles.includes('Tim Keuangan') || role === 'Tim Keuangan';
 
     const isPM = userId
       ? await prisma.userProyek.findFirst({
@@ -241,7 +244,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         })
       : null;
 
-    if (!isDirektur && !isPM && !isSuperAdmin) {
+    if (!isDirektur && !isPM && !isSuperAdmin && !isKeuangan) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -265,7 +268,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Audit trail
     if (userId) {
-      const actor = isSuperAdmin ? 'Super Admin' : (isDirektur ? 'Direktur' : 'Project Manager');
+      const actor = isSuperAdmin ? 'Super Admin' : (isDirektur ? 'Direktur' : (isKeuangan ? 'Tim Keuangan' : 'Project Manager'));
       
       await prisma.auditTrail.create({
         data: {
