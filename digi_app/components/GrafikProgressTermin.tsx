@@ -29,15 +29,15 @@ function formatCompactRupiah(val: number | string | undefined): string {
 
     if (num >= 1_000_000_000) {
         const b = num / 1_000_000_000;
-        return `Rp ${b % 1 === 0 ? b : b.toFixed(1)} M`;
+        return `Rp ${b % 1 === 0 ? b.toFixed(1) : b.toFixed(1)} M`;
     }
     if (num >= 1_000_000) {
         const m = num / 1_000_000;
-        return `Rp ${m % 1 === 0 ? m : m.toFixed(1)} jt`;
+        return `Rp ${m % 1 === 0 ? m.toFixed(1) : m.toFixed(1)} jt`;
     }
     if (num >= 1_000) {
         const k = num / 1_000;
-        return `Rp ${k % 1 === 0 ? k : k.toFixed(0)} rb`;
+        return `Rp ${k % 1 === 0 ? k.toFixed(0) : k.toFixed(0)} rb`;
     }
     return `Rp ${num}`;
 }
@@ -53,16 +53,9 @@ export default function GrafikProgressTermin({
 
     // Default fallback dataset if terminData is undefined
     const defaultTermins: TerminItem[] = [
-        { namaTermin: "Termin 1", persentaseProgress: 10, nominal: 200000, status: "DITERIMA" },
-        { namaTermin: "Termin 2", persentaseProgress: 20, nominal: 300000, status: "DITERIMA" },
-        { namaTermin: "Termin 3", persentaseProgress: 30, nominal: 3000000, status: "BELUM_DITERIMA" },
-        { namaTermin: "Termin 4", persentaseProgress: 40, nominal: 3000000, status: "BELUM_DITERIMA" },
-        { namaTermin: "Termin 5", persentaseProgress: 50, nominal: 30000000, status: "BELUM_DITERIMA" },
-        { namaTermin: "Termin 6", persentaseProgress: 60, nominal: 3000000, status: "BELUM_DITERIMA" },
-        { namaTermin: "Termin 7", persentaseProgress: 70, nominal: 3000000, status: "BELUM_DITERIMA" },
-        { namaTermin: "Termin 8", persentaseProgress: 80, nominal: 3000000, status: "BELUM_DITERIMA" },
-        { namaTermin: "Termin 9", persentaseProgress: 90, nominal: 3000000, status: "BELUM_DITERIMA" },
-        { namaTermin: "Termin 10", persentaseProgress: 100, nominal: 300000000, status: "BELUM_DITERIMA" },
+        { namaTermin: "Termin 1", persentaseProgress: 20, nominal: 2000000, status: "DITERIMA" },
+        { namaTermin: "Termin 2", persentaseProgress: 50, nominal: 3000000, status: "DITERIMA" },
+        { namaTermin: "Termin 3", persentaseProgress: 100, nominal: 5000000, status: "BELUM_DITERIMA" },
     ];
 
     // If terminData is explicitly passed as empty array [], render empty state
@@ -77,53 +70,68 @@ export default function GrafikProgressTermin({
         }))
         : defaultTermins;
 
-    // Calculate CUMULATIVE NOMINAL for each running step
+    // Calculate CUMULATIVE NOMINAL for each termin
     const termins = rawTermins.map((t, idx, arr) => {
-        const cumNominal = arr
-            .slice(0, idx + 1)
+        const prevCum = arr
+            .slice(0, idx)
             .reduce((sum, item) => sum + (Number(item.nominal) || 0), 0);
+        const cumNominal = prevCum + (Number(t.nominal) || 0);
         return {
             ...t,
+            nominalNum: Number(t.nominal) || 0,
+            prevCumNominal: prevCum,
             cumNominal,
         };
     });
 
     const count = termins.length;
-    const hasTermin0 = termins.some((t) => Number(t.persentaseProgress) === 0 || t.namaTermin?.toLowerCase().includes("termin 0"));
+
+    // Check if the first termin is DP / Termin 0%
+    const hasTermin0 = termins.length > 0 && (
+        Number(termins[0].persentaseProgress) === 0 ||
+        termins[0].namaTermin?.toLowerCase().trim() === "termin 0" ||
+        termins[0].namaTermin?.toLowerCase().trim() === "dp" ||
+        termins[0].namaTermin?.toLowerCase().includes("down payment")
+    );
+
+    // If there is Termin 0%, columns start right at xStart (totalSections = count).
+    // If no Termin 0%, the first section (0% to Termin 1) is empty space (totalSections = count + 1).
     const totalSections = hasTermin0 ? Math.max(1, count) : count + 1;
 
-    // SVG geometry with maxBlockHeight = 150px
-    const viewWidth = Math.max(540, totalSections * 80);
-    const viewHeight = 230;
+    // SVG geometry
+    const viewWidth = Math.max(560, totalSections * 115);
+    const viewHeight = 250;
 
-    const xStart = 62;
-    const xEnd = viewWidth - 25;
+    const xStart = 88;
+    const xEnd = viewWidth - 20;
     const totalWidth = xEnd - xStart;
 
-    const yTop = 15;
-    const yBottom = 175;
+    const yTop = 38;
+    const yBottom = 195;
+    const chartHeight = yBottom - yTop;
 
     const sectionWidth = totalWidth / totalSections;
 
-    // Calculate maximum cumulative nominal (total accumulated income at final step)
+    // Calculate maximum cumulative nominal
     const maxCumNominal = Math.max(1, termins.length > 0 ? termins[termins.length - 1].cumNominal : 1);
 
-    // Height boundaries for truth-to-size proportional scaling
-    const maxBlockHeight = 150;
-    const minBlockHeight = 4;
-
-    // Gap between blocks so they don't merge visually
-    const blockGap = 3;
-
-    const renderLegend = () => (
-        <div className="flex items-center gap-3.5 text-xs text-stone-600 font-medium bg-stone-50/90 border border-stone-200/70 px-3 py-1.5 rounded-xl w-fit">
-            <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#52b788] shadow-sm" />
-                <span>Sudah Dicairkan</span>
+    const renderLegend = (isModal: boolean) => (
+        <div className={`flex items-center font-medium text-stone-600 whitespace-nowrap flex-nowrap ${
+            isModal
+                ? "justify-end gap-4 text-xs"
+                : "justify-start sm:justify-end gap-2 sm:gap-3 text-[9px] sm:text-[10px]"
+        }`}>
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#4d9368] shadow-sm flex-shrink-0" />
+                <span className="text-stone-600">Nominal termin</span>
             </div>
-            <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#9ca3af] shadow-sm" />
-                <span>Belum Dicairkan</span>
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#afdcc9] shadow-sm flex-shrink-0" />
+                <span className="text-stone-600">Akumulasi sebelumnya</span>
+            </div>
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#8ea3b0] shadow-sm flex-shrink-0" />
+                <span className="text-stone-600">Belum dicairkan</span>
             </div>
         </div>
     );
@@ -132,223 +140,322 @@ export default function GrafikProgressTermin({
         const activeHoveredIdx = isModal ? hoveredIdxModal : hoveredIdxCard;
         const setHoveredIdx = isModal ? setHoveredIdxModal : setHoveredIdxCard;
 
-        // Calculate step positions & heights based on CUMULATIVE NOMINAL
+        // Calculate geometry for each termin column
         const stepPositions = termins.map((t, idx) => {
-            const xLeft = hasTermin0 ? xStart + idx * sectionWidth : xStart + (idx + 1) * sectionWidth;
-            const xRight = hasTermin0 ? xStart + (idx + 1) * sectionWidth : xStart + (idx + 2) * sectionWidth;
-            const midX = (xLeft + xRight) / 2;
-            const pct = Number(t.persentaseProgress) || 0;
-            const cumNominalVal = t.cumNominal;
+            const xMilestone = hasTermin0
+                ? xStart + idx * sectionWidth
+                : xStart + (idx + 1) * sectionWidth;
 
-            // Strict linear scaling (Truth to size) based on CUMULATIVE NOMINAL
-            const linearRatio = maxCumNominal > 0 ? cumNominalVal / maxCumNominal : 0;
-            const blockHeight = linearRatio > 0 ? Math.max(minBlockHeight, linearRatio * maxBlockHeight) : 0;
-            const blockY = yBottom - blockHeight;
+            const colX = hasTermin0
+                ? xStart + idx * sectionWidth + 3
+                : xStart + (idx + 1) * sectionWidth + 3;
 
-            // Determine status color: Green if disbursed (DITERIMA / PAID / DISBURSED), Grey if undisbursed (BELUM_DITERIMA)
+            const colWidth = Math.max(20, sectionWidth - 6);
+            const midX = colX + colWidth / 2;
+
             const isDisbursed = t.status
-                ? ["DITERIMA", "PAID", "DISBURSED", "APPROVED"].includes(String(t.status).toUpperCase())
+                ? ["DITERIMA", "PAID", "DISBURSED", "APPROVED", "SUDAH_DITERIMA", "SUDAH_DICAIRKAN", "CAIR"].includes(
+                    String(t.status).toUpperCase()
+                )
                 : idx < 2;
 
-            const color = isDisbursed
-                ? { fill: "#52b788", text: "#2e7d56", dash: "#6ee7b7" } // Hijau (Sudah dicairkan)
-                : { fill: "#9ca3af", text: "#4b5563", dash: "#d1d5db" }; // Abu-abu (Belum dicairkan)
+            // Height calculations
+            const curCumHeight = (t.cumNominal / maxCumNominal) * chartHeight;
+            const prevCumHeight = (t.prevCumNominal / maxCumNominal) * chartHeight;
+            const nominalHeight = (t.nominalNum / maxCumNominal) * chartHeight;
 
-            return { xLeft, xRight, midX, pct, cumNominalVal, blockHeight, blockY, color, isDisbursed };
+            const yTopCurCum = yBottom - curCumHeight;
+            const yTopPrevCum = yBottom - prevCumHeight;
+
+            return {
+                xMilestone,
+                colX,
+                colWidth,
+                midX,
+                isDisbursed,
+                nominalNum: t.nominalNum,
+                prevCumNominal: t.prevCumNominal,
+                cumNominal: t.cumNominal,
+                curCumHeight,
+                prevCumHeight,
+                nominalHeight,
+                yTopCurCum,
+                yTopPrevCum,
+            };
         });
 
-        // Edge-aware tooltip alignment so rightmost termins (e.g. Termin 10) never overflow right
-        let tooltipTranslateClass = "-translate-x-1/2";
-        if (activeHoveredIdx !== null) {
-            if (activeHoveredIdx >= count - 2) {
-                tooltipTranslateClass = "-translate-x-[85%]";
-            } else if (activeHoveredIdx === 0) {
-                tooltipTranslateClass = "-translate-x-[15%]";
-            }
-        }
+        const clipPrefix = isModal ? "modal" : "card";
 
         return (
             <div className="relative w-full overflow-visible">
-                {/* Legend Pill positioned on the top-right section as requested by user arrow */}
-                <div className="mb-3 flex justify-end">
-                    {renderLegend()}
+                {/* Header Legend */}
+                <div className="mb-3 w-full">
+                    {renderLegend(isModal)}
                 </div>
-
-                {/* Floating Tooltip Pill on Hover - Edge aware alignment */}
-                {activeHoveredIdx !== null && stepPositions[activeHoveredIdx] && (
-                    <div
-                        className={`absolute pointer-events-none z-50 transform ${tooltipTranslateClass} -translate-y-full transition-all duration-150`}
-                        style={{
-                            left: `${(stepPositions[activeHoveredIdx].midX / viewWidth) * 100}%`,
-                            top: `${(stepPositions[activeHoveredIdx].blockY / viewHeight) * 100 + 25}%`,
-                        }}
-                    >
-                        <div className="bg-white border border-stone-200/90 shadow-2xl rounded-xl px-3 py-1.5 text-[12px] font-bold font-mono text-stone-900 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
-                            <span
-                                className={`w-2 h-2 rounded-full ${stepPositions[activeHoveredIdx].isDisbursed
-                                        ? "bg-emerald-500"
-                                        : "bg-stone-400"
-                                    }`}
-                            />
-                            {formatFullRupiah(termins[activeHoveredIdx].nominal)}
-                            <span className="text-[10px] text-stone-400 font-sans font-normal ml-0.5">
-                                ({stepPositions[activeHoveredIdx].isDisbursed ? "Sudah Dicairkan" : "Belum Dicairkan"})
-                            </span>
-                        </div>
-                    </div>
-                )}
 
                 <svg
                     viewBox={`0 0 ${viewWidth} ${viewHeight}`}
                     className="w-full h-auto overflow-visible select-none"
-                    style={{ maxHeight: isModal ? "540px" : "240px" }}
+                    style={{ maxHeight: isModal ? "540px" : "230px" }}
                 >
+                    <defs>
+                        {/* Clip path for unified column with exactly 4 outer rounded corners */}
+                        {stepPositions.map((step, idx) => (
+                            <clipPath key={`clip-${clipPrefix}-${idx}`} id={`clip-${clipPrefix}-${idx}`}>
+                                <rect
+                                    x={step.colX}
+                                    y={step.yTopCurCum}
+                                    width={step.colWidth}
+                                    height={step.curCumHeight}
+                                    rx="4"
+                                />
+                            </clipPath>
+                        ))}
+                    </defs>
+
+                    {/* Y-Axis Section Header */}
+                    <text
+                        x={xStart - 8}
+                        y={yTop - 15}
+                        textAnchor="end"
+                        className="text-[9.5px] font-bold fill-stone-400 font-sans tracking-normal"
+                    >
+                        Total Kumulatif
+                    </text>
+
                     {/* Horizontal Baseline */}
                     <line
                         x1={xStart - 10}
                         y1={yBottom}
                         x2={xEnd + 5}
                         y2={yBottom}
-                        stroke="#e7e5e4"
+                        stroke="#e2e8f0"
                         strokeWidth="1.2"
                     />
 
-                    {/* Origin (0%) Vertical Dotted Line & Label */}
-                    {!hasTermin0 && (
-                        <>
-                            <line
-                                x1={xStart}
-                                y1={yTop - 5}
-                                x2={xStart}
-                                y2={yBottom}
-                                stroke="#d6d3d1"
-                                strokeWidth="1"
-                                strokeDasharray="3 3"
-                            />
-                            <text
-                                x={xStart}
-                                y={yBottom + 26}
-                                textAnchor="middle"
-                                className="text-[9.5px] font-medium fill-stone-400 font-sans"
-                            >
-                                0%
-                            </text>
-                        </>
-                    )}
+                    {/* Origin (0%) Vertical Dashed Line & Label */}
+                    <line
+                        x1={xStart}
+                        y1={yTop - 5}
+                        x2={xStart}
+                        y2={yBottom}
+                        stroke={(hasTermin0 && stepPositions[0]?.isDisbursed) ? "#7cd3c1" : "#d1d5db"}
+                        strokeWidth="1.2"
+                        strokeDasharray="4 4"
+                    />
+                    <text
+                        x={xStart}
+                        y={yBottom + 20}
+                        textAnchor="middle"
+                        className="text-[10px] font-medium fill-stone-400 font-sans"
+                    >
+                        0%
+                    </text>
 
-                    {/* Faint Horizontal Dotted Guidelines (Muncul Saat Hover) & Left Y-Axis Labels */}
-                    {termins.map((t, idx) => {
-                        const { blockY, xRight } = stepPositions[idx];
-                        const compactText = formatCompactRupiah(t.cumNominal);
+                    {/* Y-Axis Labels & Horizontal Guidelines (Hanya Muncul Saat di-Hover) */}
+                    {stepPositions.map((step, idx) => {
                         const isHovered = activeHoveredIdx === idx;
+                        const compactText = formatCompactRupiah(step.cumNominal);
 
                         return (
-                            <g key={`guide-${idx}`}>
-                                {/* Garis putus-putus samar abu-abu terang (hanya muncul saat di-hover) */}
+                            <g key={`y-axis-${idx}`}>
+                                {/* Garis putus-putus horizontal HANYA muncul saat di-hover */}
                                 {isHovered && (
                                     <line
                                         x1={xStart - 4}
-                                        y1={blockY}
-                                        x2={xRight}
-                                        y2={blockY}
-                                        stroke="#c7c3bd"
-                                        strokeWidth="1"
+                                        y1={step.yTopCurCum}
+                                        x2={step.colX + step.colWidth}
+                                        y2={step.yTopCurCum}
+                                        stroke="#94a3b8"
+                                        strokeWidth="1.2"
                                         strokeDasharray="3 3"
                                         className="transition-all duration-150 animate-in fade-in"
                                     />
                                 )}
 
-                                {/* Label Nominal di Sisi Kiri (Y-Axis) */}
-                                {compactText && (
-                                    <text
-                                        x={xStart - 8}
-                                        y={blockY + 3.5}
-                                        textAnchor="end"
-                                        className={`text-[9.5px] font-semibold font-mono tracking-tight transition-all ${isHovered ? "fill-stone-900 font-extrabold" : "fill-[#a8a29e]"
-                                            }`}
-                                    >
-                                        {compactText}
-                                    </text>
-                                )}
+                                {/* Left Y-Axis Label */}
+                                <text
+                                    x={xStart - 8}
+                                    y={step.yTopCurCum + 3.5}
+                                    textAnchor="end"
+                                    className={`text-[9.5px] font-mono tracking-tight transition-all ${isHovered
+                                            ? "fill-stone-900 font-extrabold text-[10.5px]"
+                                            : "fill-stone-400 font-medium"
+                                        }`}
+                                >
+                                    {compactText}
+                                </text>
                             </g>
                         );
                     })}
 
-                    {/* Render Step Blocks with subtle blockGap separation */}
-                    {termins.map((t, idx) => {
-                        const { xLeft, pct, blockY, blockHeight, color } = stepPositions[idx];
+                    {/* Render Columns & Milestones */}
+                    {stepPositions.map((step, idx) => {
+                        const t = termins[idx];
                         const isHovered = activeHoveredIdx === idx;
-                        const isTermin0 = Number(pct) === 0 || t.namaTermin?.toLowerCase().includes("termin 0");
-
-                        // Block rectangle with small gap separation
-                        const blockX = xLeft + blockGap / 2;
-                        const blockW = Math.max(2, sectionWidth - blockGap);
+                        const hasPrevCum = step.prevCumNominal > 0;
+                        const isTermin0Origin = hasTermin0 && idx === 0;
 
                         return (
                             <g
-                                key={`step-${idx}`}
+                                key={`col-group-${idx}`}
                                 onMouseEnter={() => setHoveredIdx(idx)}
                                 onMouseLeave={() => setHoveredIdx(null)}
                                 className="cursor-pointer transition-opacity duration-150"
                             >
-                                {/* Vertical Dotted Division Line at Milestone */}
-                                <line
-                                    x1={xLeft}
-                                    y1={yTop - 5}
-                                    x2={xLeft}
-                                    y2={yBottom}
-                                    stroke={color.dash}
-                                    strokeWidth="1"
-                                    strokeDasharray="3 3"
-                                />
-
-                                {/* Solid Color Step Block with 3px gap separation and rx="2" rounded corners */}
-                                <rect
-                                    x={blockX}
-                                    y={blockY}
-                                    width={blockW}
-                                    height={blockHeight}
-                                    fill={color.fill}
-                                    rx="2"
-                                    className={`transition-all duration-150 ${isHovered ? "brightness-110 opacity-95 stroke-white stroke-2" : ""}`}
-                                />
-
-                                {/* X-Axis Labels */}
-                                {isTermin0 ? (
-                                    <text
-                                        x={xLeft}
-                                        y={yBottom + 20}
-                                        textAnchor="middle"
-                                        className="text-[10px] font-bold fill-stone-700 font-sans"
-                                    >
-                                        0%
-                                    </text>
-                                ) : (
+                                {/* Milestone Vertical Dashed Line & Labels (Skip duplicate for 0% origin line) */}
+                                {!isTermin0Origin && (
                                     <>
-                                        {/* X-Axis Termin Name below milestone line */}
+                                        <line
+                                            x1={step.xMilestone}
+                                            y1={yTop - 5}
+                                            x2={step.xMilestone}
+                                            y2={yBottom}
+                                            stroke={step.isDisbursed ? "#7cd3c1" : "#d1d5db"}
+                                            strokeWidth="1.2"
+                                            strokeDasharray="4 4"
+                                        />
                                         <text
-                                            x={xLeft}
+                                            x={step.xMilestone}
                                             y={yBottom + 16}
                                             textAnchor="middle"
-                                            className="text-[10px] font-bold fill-stone-700 font-sans"
+                                            className="text-[10.5px] font-bold fill-stone-800 font-sans"
                                         >
                                             {t.namaTermin}
                                         </text>
-
-                                        {/* X-Axis Percentage below Termin Name */}
                                         <text
-                                            x={xLeft}
+                                            x={step.xMilestone}
                                             y={yBottom + 28}
                                             textAnchor="middle"
                                             className="text-[9.5px] font-medium fill-stone-400 font-sans"
                                         >
-                                            {pct}%
+                                            {t.persentaseProgress}%
                                         </text>
                                     </>
+                                )}
+
+                                {/* Unified Column Shape with 4 outer curves via clipPath */}
+                                <g clipPath={`url(#clip-${clipPrefix}-${idx})`}>
+                                    {step.isDisbursed ? (
+                                        <>
+                                            {/* Bottom: Previous Accumulation (#afdcc9) */}
+                                            {hasPrevCum && (
+                                                <rect
+                                                    x={step.colX}
+                                                    y={step.yTopPrevCum}
+                                                    width={step.colWidth}
+                                                    height={step.prevCumHeight}
+                                                    fill="#afdcc9"
+                                                />
+                                            )}
+
+                                            {/* Top: Current Disbursed Termin (#4d9368) */}
+                                            <rect
+                                                x={step.colX}
+                                                y={step.yTopCurCum}
+                                                width={step.colWidth}
+                                                height={step.nominalHeight}
+                                                fill="#4d9368"
+                                                className={`transition-all duration-150 ${isHovered ? "brightness-105" : ""}`}
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            {/* Bottom: Previous Accumulation for undisbursed (#cdd8df) */}
+                                            {hasPrevCum && (
+                                                <rect
+                                                    x={step.colX}
+                                                    y={step.yTopPrevCum}
+                                                    width={step.colWidth}
+                                                    height={step.prevCumHeight}
+                                                    fill="#cdd8df"
+                                                />
+                                            )}
+
+                                            {/* Top: Current Undisbursed Termin (#8ea3b0) */}
+                                            <rect
+                                                x={step.colX}
+                                                y={step.yTopCurCum}
+                                                width={step.colWidth}
+                                                height={step.nominalHeight}
+                                                fill="#8ea3b0"
+                                            />
+                                        </>
+                                    )}
+                                </g>
+
+                                {/* Hover Outline */}
+                                {isHovered && (
+                                    <rect
+                                        x={step.colX}
+                                        y={step.yTopCurCum}
+                                        width={step.colWidth}
+                                        height={step.curCumHeight}
+                                        fill="none"
+                                        stroke="#0284c7"
+                                        strokeWidth="2"
+                                        rx="4"
+                                        className="transition-all duration-150 pointer-events-none"
+                                    />
+                                )}
+
+                                {/* Text inside top block */}
+                                {step.nominalHeight >= 14 && (
+                                    <text
+                                        x={step.midX}
+                                        y={step.yTopCurCum + step.nominalHeight / 2 + 3}
+                                        textAnchor="middle"
+                                        className="text-[9px] font-bold fill-white font-mono tracking-tight pointer-events-none"
+                                    >
+                                        {formatCompactRupiah(step.nominalNum)}
+                                    </text>
                                 )}
                             </g>
                         );
                     })}
+
+                    {/* Floating Tooltip rendered directly in SVG coordinate space for identical positioning on all bars */}
+                    {activeHoveredIdx !== null && stepPositions[activeHoveredIdx] && (
+                        <foreignObject
+                            x={stepPositions[activeHoveredIdx].midX - 90}
+                            y={stepPositions[activeHoveredIdx].yTopCurCum - 58}
+                            width={180}
+                            height={65}
+                            className="overflow-visible pointer-events-none"
+                        >
+                            <div className="flex flex-col items-center justify-end w-full h-full">
+                                <div className="bg-white border border-stone-200/90 shadow-xl rounded-xl p-2.5 w-max text-left animate-in fade-in zoom-in-95 duration-150 space-y-0.5 whitespace-nowrap">
+                                    {/* Status Header */}
+                                    <div className="flex items-center gap-1.5 whitespace-nowrap mb-0.5">
+                                        <span
+                                            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                                stepPositions[activeHoveredIdx].isDisbursed ? "bg-[#4d9368]" : "bg-[#8ea3b0]"
+                                            }`}
+                                        />
+                                        <span className="text-[9.5px] font-medium text-stone-500 whitespace-nowrap">
+                                            {stepPositions[activeHoveredIdx].isDisbursed ? "Sudah dicairkan" : "Belum dicairkan"}
+                                        </span>
+                                    </div>
+
+                                    {/* Nominal Termin */}
+                                    <div className="flex items-center justify-between gap-3 text-[9px] whitespace-nowrap">
+                                        <span className="text-stone-400 font-medium whitespace-nowrap">Nominal termin</span>
+                                        <span className="font-bold text-[#2d6a4f] font-mono whitespace-nowrap">
+                                            {formatFullRupiah(termins[activeHoveredIdx].nominalNum)}
+                                        </span>
+                                    </div>
+
+                                    {/* Total Kumulatif */}
+                                    <div className="flex items-center justify-between gap-3 text-[9px] whitespace-nowrap">
+                                        <span className="text-stone-400 font-medium whitespace-nowrap">Total kumulatif</span>
+                                        <span className="font-bold text-stone-900 font-mono whitespace-nowrap">
+                                            {formatFullRupiah(termins[activeHoveredIdx].cumNominal)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </foreignObject>
+                    )}
                 </svg>
             </div>
         );
@@ -363,7 +470,7 @@ export default function GrafikProgressTermin({
             >
                 <div className="flex items-center justify-between">
                     <h4 className="text-[13px] font-bold text-stone-900 tracking-tight">
-                        Grafik Progress Termin
+                        Grafik Pencairan Termin
                     </h4>
                     {showEnlargeHint && (
                         <span className="text-[11px] font-normal text-stone-400 group-hover:text-emerald-600 transition">
@@ -381,7 +488,7 @@ export default function GrafikProgressTermin({
                 )}
             </div>
 
-            {/* Pop-up Modal View - Enlarged 2x */}
+            {/* Pop-up Modal View */}
             {isModalOpen && (
                 <div
                     className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
@@ -391,25 +498,31 @@ export default function GrafikProgressTermin({
                     }}
                 >
                     <div
-                        className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl max-w-5xl w-full border border-stone-100 animate-in zoom-in-95 duration-200 relative text-left flex flex-col max-h-[90vh] overflow-visible"
+                        className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl max-w-4xl w-full border border-stone-100 animate-in zoom-in-95 duration-200 relative text-left flex flex-col max-h-[90vh] overflow-visible"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex flex-wrap items-start justify-between gap-3 mb-4 border-b border-stone-100 pb-3 flex-shrink-0">
+                        {/* Modal Header */}
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-6 pb-2 flex-shrink-0">
                             <div>
-                                <h3 className="font-bold text-xl text-stone-900">Grafik Pencairan Termin</h3>
+                                <h3 className="font-bold text-xl sm:text-2xl text-stone-900 leading-tight">
+                                    Grafik Pencairan Termin
+                                </h3>
                                 {projectName && (
-                                    <p className="text-xs text-stone-500 mt-1 font-medium">{projectName}</p>
+                                    <p className="text-sm text-stone-500 mt-1 font-normal">
+                                        {projectName}
+                                    </p>
                                 )}
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setIsModalOpen(false)}
-                                className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition cursor-pointer"
+                                className="p-2.5 border border-stone-200 hover:border-stone-300 hover:bg-stone-50 rounded-2xl transition text-stone-500 hover:text-stone-800 cursor-pointer shadow-sm"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
+                        {/* Modal Chart Content */}
                         <div className="w-full flex-1 pt-2 pb-4 overflow-visible">
                             {!hasData ? (
                                 <div className="w-full h-[350px] bg-stone-50/60 border border-dashed border-stone-200 rounded-2xl flex items-center justify-center text-sm font-medium text-stone-400 italic">
