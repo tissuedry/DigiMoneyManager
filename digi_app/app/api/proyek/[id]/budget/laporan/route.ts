@@ -60,6 +60,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const normalFont = { bold: false, color: { argb: "FF000000" } };
     const reimbFont = { italic: true, color: { argb: "FF5A5A5A" } };
     const proyekNameFont = { bold: true, size: 14, color: { argb: "FF000000" } };
+
+    // ==========================================
+    // SHEET 1: PEMASUKAN
+    // ==========================================
     const sheetPemasukan = workbook.addWorksheet("Pemasukan");
 
     sheetPemasukan.columns = [
@@ -82,12 +86,53 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     row2Pem.fill = darkGreyFill as ExcelJS.FillPattern;
 
     let grandTotalPemasukan = 0;
-    const pemasukanMains = proyek.budget.mainAnggaran.filter(m => m.tipe === "pemasukan");
+    
+    // Tarik total Termin
+    let totalTermin = 0;
+    let hasTermin = false;
+    if (proyek.terminPembayaran && proyek.terminPembayaran.length > 0) {
+      hasTermin = true;
+      proyek.terminPembayaran.forEach(t => {
+        totalTermin += Number(t.nominal) || 0;
+      });
+    }
+
+    // Ambil data Pos Pemasukan
+    let pemasukanMains = proyek.budget.mainAnggaran.filter(m => m.tipe === "pemasukan");
+    
+    // Jika tidak ada pos pemasukan dari budget sama sekali TAPI ada termin,
+    // kita "paksa" buat objek Penjualan Jasa dummy agar termin bisa masuk
+    if (pemasukanMains.length === 0 && hasTermin) {
+       pemasukanMains = [
+         {
+           id: 99999, // dummy ID
+           budgetId: proyek.budget.id,
+           namaMain: "Penjualan Jasa",
+           nominalAlokasi: totalTermin,
+           tipe: "pemasukan",
+           nominalTerpakai: 0,
+           subAnggaran: [
+             {
+               id: 99999, // dummy ID
+               mainAnggaranId: 99999,
+               namaSub: "Penjualan Jasa",
+               nominalAlokasi: totalTermin,
+               nominalTerpakai: 0,
+               keterangan: []
+             }
+           ]
+         } as any 
+       ];
+    }
 
     const pemasukanData = pemasukanMains.map((main) => {
       let totalMain = 0;
+      const isPenjualanJasa = main.namaMain.trim().toUpperCase() === "PENJUALAN JASA";
+
       const subs = main.subAnggaran.map((sub) => {
         let totalSub = 0;
+        const isSubPenjualanJasa = sub.namaSub.trim().toUpperCase() === "PENJUALAN JASA";
+
         if (sub.keterangan && sub.keterangan.length > 0) {
           sub.keterangan.forEach((ket) => {
             totalSub += Number(ket.nominalRealisasi) || 0; 
@@ -95,23 +140,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         } else {
           totalSub += Number(sub.nominalAlokasi) || 0;
         }
-        totalMain += totalSub;
-        return { ...sub, totalSub };
-      });
-      grandTotalPemasukan += totalMain;
-      return { ...main, totalMain, subs };
-    });
+        
+        // --- INJEKSI TERMIN ---
+        // Jika ini adalah Sub Anggaran "PENJUALAN JASA", tambahkan totalTermin ke totalSub-nya
+        // Catatan: Jika ingin Termin di-render sebagai baris "keterangan" di bawah Sub Anggaran,
+        // kita akan buat formatnya nanti saat rendering baris Excel. 
+        if (isPenjualanJasa && isSubPenjualanJasa && hasTermin) {
+           // Jika sebelumnya totalSub didapat dari alokasi, kita override pakai Termin
+           // Atau jika ditambahkan sebagai realisasi tambahan
+           totalSub = totalTermin; 
+        }
 
-    let totalTermin = 0;
-    if (proyek.terminPembayaran && proyek.terminPembayaran.length > 0) {
-      proyek.terminPembayaran.forEach(t => {
-        totalTermin += Number(t.nominal) || 0;
+        totalMain += totalSub;
+        return { ...sub, totalSub, isSubPenjualanJasa };
       });
-    }
+      
+      grandTotalPemasukan += totalMain;
+      return { ...main, totalMain, subs, isPenjualanJasa };
+    });
 
     const finalTotalPendapatan = grandTotalPemasukan > 0 
       ? grandTotalPemasukan 
-      : (totalTermin > 0 ? totalTermin : Number(proyek.budget.totalPemasukan) || 0);
+      : (Number(proyek.budget.totalPemasukan) || 0);
 
     const row3Pem = sheetPemasukan.addRow({
       nama: "    NILAI PROYEK",
@@ -138,6 +188,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           });
           subRow.font = blackFont;
 
+          // Render keterangan reimbursement asli (jika ada)
           if (sub.keterangan && sub.keterangan.length > 0) {
             sub.keterangan.forEach((ket) => {
               const ketRow = sheetPemasukan.addRow({
@@ -147,30 +198,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               ketRow.font = normalFont;
             });
           }
+
+          // --- RENDER TERMIN ---
+          // Jika ini adalah Pos Penjualan Jasa, render Termin sebagai rincian (seperti keterangan)
+          if (main.isPenjualanJasa && sub.isSubPenjualanJasa && hasTermin) {
+             proyek.terminPembayaran.forEach((termin) => {
+               const ketRow = sheetPemasukan.addRow({
+                 nama: `                [Termin] ${termin.namaTermin}`,
+                 pendapatan: Number(termin.nominal) || 0,
+               });
+               ketRow.font = normalFont;
+             });
+          }
         });
         sheetPemasukan.addRow({}); 
       });
-    } else if (proyek.terminPembayaran && proyek.terminPembayaran.length > 0) {
-      const mainRow = sheetPemasukan.addRow({
-        nama: `        4.1 PENDAPATAN TERMIN PEMBAYARAN`,
-        pendapatan: totalTermin,
-      });
-      mainRow.font = whiteFont;
-      mainRow.fill = lightGreyFill as ExcelJS.FillPattern;
-
-      proyek.terminPembayaran.forEach((termin, tIdx) => {
-        const subNum = `4.1.${String(tIdx + 1).padStart(2, '0')}`;
-        const subRow = sheetPemasukan.addRow({
-          nama: `            ${subNum} ${termin.namaTermin}`,
-          pendapatan: Number(termin.nominal) || 0,
-        });
-        subRow.font = blackFont;
-      });
-      sheetPemasukan.addRow({});
     }
 
     sheetPemasukan.getColumn(2).numFmt = '_-"Rp"* #,##0_-;-"Rp"* #,##0_-;_-"Rp"* "-"_-;_-@_-';
 
+
+    // ==========================================
+    // SHEET 2: PENGELUARAN
+    // ==========================================
     const sheetPengeluaran = workbook.addWorksheet("Pengeluaran");
 
     sheetPengeluaran.columns = [

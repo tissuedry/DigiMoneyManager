@@ -51,9 +51,12 @@ export async function GET(request: Request) {
     const blackFont = { bold: true, color: { argb: "FF000000" } };
     const titleFont = { bold: true, size: 11, color: { argb: "FF000000" } };
 
-    // Pemasukkan
+    // ==========================================
+    // SHEET 1: PEMASUKAN
+    // ==========================================
     const sheetPem = workbook.addWorksheet("Pemasukan");
 
+    // Kolom Pendapatan dihapus, hanya menyisakan nama, realisasi bulan, dan total
     sheetPem.columns = [
       { key: "nama", width: 50 },
       { key: "m1", width: 18 }, { key: "m2", width: 18 }, { key: "m3", width: 18 }, { key: "m4", width: 18 },
@@ -82,27 +85,35 @@ export async function GET(request: Request) {
     let grandTotalRealisasiPem = 0;
 
     const mainPemMap = new Map();
-    const terminFallbackMonths = new Array(12).fill(0);
-    let terminFallbackRealisasi = 0;
-    let useTerminFallback = false;
 
     // --- AGREGASI DATA PEMASUKAN ---
     proyekList.forEach((proyek) => {
       const pemasukanMains = proyek.budget?.mainAnggaran.filter(m => m.tipe === "pemasukan") || [];
+      const hasPemasukan = pemasukanMains.length > 0;
 
-      if (pemasukanMains.length > 0) {
+      // 1. Cek Pos Pemasukan (Realisasi dari Reimbursement Pemasukan)
+      if (hasPemasukan) {
         pemasukanMains.forEach((main) => {
           const mainKey = main.namaMain.trim().toUpperCase();
           
           if (!mainPemMap.has(mainKey)) {
-            mainPemMap.set(mainKey, { namaOriginal: main.namaMain.trim(), months: new Array(12).fill(0), total: 0, subAnggaranMap: new Map() });
+            mainPemMap.set(mainKey, { 
+              namaOriginal: main.namaMain.trim(), 
+              months: new Array(12).fill(0), 
+              total: 0, 
+              subAnggaranMap: new Map() 
+            });
           }
           const mainData = mainPemMap.get(mainKey);
           
           main.subAnggaran.forEach((sub) => {
             const subKey = sub.namaSub.trim().toUpperCase();
             if (!mainData.subAnggaranMap.has(subKey)) {
-              mainData.subAnggaranMap.set(subKey, { namaOriginal: sub.namaSub.trim(), months: new Array(12).fill(0), total: 0 });
+              mainData.subAnggaranMap.set(subKey, { 
+                namaOriginal: sub.namaSub.trim(), 
+                months: new Array(12).fill(0), 
+                total: 0 
+              });
             }
             const subData = mainData.subAnggaranMap.get(subKey);
 
@@ -112,7 +123,6 @@ export async function GET(request: Request) {
                   ket.reimbursements.forEach((reimb) => {
                     if (reimb.createdAt) {
                       const d = new Date(reimb.createdAt);
-
                       if (!isNaN(d.getTime()) && d.getFullYear() === tahun) {
                         const mIdx = d.getMonth();
                         const nominal = Number(reimb.nominal) || 0;
@@ -132,19 +142,44 @@ export async function GET(request: Request) {
             }
           });
         });
-      } else if (proyek.terminPembayaran && proyek.terminPembayaran.length > 0) {
+      }
 
-        useTerminFallback = true;
-        
+      // 2. Cek Termin Pembayaran (Digabungkan langsung ke Penjualan Jasa)
+      if (proyek.terminPembayaran && proyek.terminPembayaran.length > 0) {
         proyek.terminPembayaran.forEach((termin) => {
           const nominal = Number(termin.nominal) || 0;
-
           const d = termin.tanggalPencairan ? new Date(termin.tanggalPencairan) : new Date(termin.createdAt);
 
           if (d.getFullYear() === tahun) {
             const mIdx = d.getMonth(); 
-            terminFallbackMonths[mIdx] += nominal;
-            terminFallbackRealisasi += nominal;
+
+            // Paksa masuk ke map Penjualan Jasa
+            const mainKey = "PENJUALAN JASA";
+            if (!mainPemMap.has(mainKey)) {
+              mainPemMap.set(mainKey, { 
+                namaOriginal: "Penjualan Jasa", 
+                months: new Array(12).fill(0), 
+                total: 0, 
+                subAnggaranMap: new Map() 
+              });
+            }
+            const mainData = mainPemMap.get(mainKey);
+            
+            const targetSubKey = "PENJUALAN JASA";
+            if (!mainData.subAnggaranMap.has(targetSubKey)) {
+              mainData.subAnggaranMap.set(targetSubKey, { 
+                namaOriginal: "Penjualan Jasa", 
+                months: new Array(12).fill(0), 
+                total: 0 
+              });
+            }
+            const subData = mainData.subAnggaranMap.get(targetSubKey);
+
+            // Termin adalah Realisasi, tambahkan ke months & total
+            subData.months[mIdx] += nominal;
+            subData.total += nominal;
+            mainData.months[mIdx] += nominal;
+            mainData.total += nominal;
             
             grandTotalMonthsPem[mIdx] += nominal;
             grandTotalRealisasiPem += nominal;
@@ -186,31 +221,12 @@ export async function GET(request: Request) {
       sheetPem.addRow({});
     });
 
-    if (useTerminFallback) {
-      const mainNum = `4.${pemCounter}`;
-      const mainRow = sheetPem.addRow({
-        nama: `        ${mainNum} PENDAPATAN TERMIN PEMBAYARAN`,
-        m1: terminFallbackMonths[0], m2: terminFallbackMonths[1], m3: terminFallbackMonths[2], m4: terminFallbackMonths[3],
-        m5: terminFallbackMonths[4], m6: terminFallbackMonths[5], m7: terminFallbackMonths[6], m8: terminFallbackMonths[7],
-        m9: terminFallbackMonths[8], m10: terminFallbackMonths[9], m11: terminFallbackMonths[10], m12: terminFallbackMonths[11],
-        total: terminFallbackRealisasi,
-      });
-      mainRow.font = whiteFont; mainRow.fill = lightGreyFill;
-
-      const subRow = sheetPem.addRow({
-        nama: `            ${mainNum}.01 Termin Proyek / Pencairan`,
-        m1: terminFallbackMonths[0], m2: terminFallbackMonths[1], m3: terminFallbackMonths[2], m4: terminFallbackMonths[3],
-        m5: terminFallbackMonths[4], m6: terminFallbackMonths[5], m7: terminFallbackMonths[6], m8: terminFallbackMonths[7],
-        m9: terminFallbackMonths[8], m10: terminFallbackMonths[9], m11: terminFallbackMonths[10], m12: terminFallbackMonths[11],
-        total: terminFallbackRealisasi,
-      });
-      subRow.font = blackFont;
-      sheetPem.addRow({});
-    }
-
     for (let i = 2; i <= 14; i++) sheetPem.getColumn(i).numFmt = '_-"Rp"* #,##0_-;-"Rp"* #,##0_-;_-"Rp"* "-"_-;_-@_-';
 
-    // Pengeluaran
+
+    // ==========================================
+    // SHEET 2: PENGELUARAN
+    // ==========================================
     const sheetPeng = workbook.addWorksheet("Pengeluaran");
 
     sheetPeng.columns = [
