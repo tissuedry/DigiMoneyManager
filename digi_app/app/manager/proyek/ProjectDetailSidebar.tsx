@@ -331,18 +331,8 @@ export default function ProjectDetailSidebar({
     const { percentUsed: calculatedPercentUsed, barWidth: calculatedBarWidth } = calculateBudgetProgress(calculatedTotalTerpakai, detailTotalRAB);
 
     return (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-100">
-            <div className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md bg-white border-l border-stone-200 shadow-2xl flex flex-col h-full">
-                <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50 flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded">PRJ-{String(showProjectDetail.id).padStart(3, "0")}</span>
-                        <h3 className="font-bold text-[15px] text-stone-900">Detail Proyek</h3>
-                    </div>
-                    <button type="button" onClick={onClose} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition">
-                        <X size={16} />
-                    </button>
-                </div>
-
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-100" onClick={onClose}>
+            <div className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-2xl bg-white border-l border-stone-200 shadow-2xl flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
                 {loadingDetail ? (
                     <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3 text-stone-400">
                         <Loader2 size={24} className="animate-spin" />
@@ -350,49 +340,100 @@ export default function ProjectDetailSidebar({
                     </div>
                 ) : (
                     <div className="flex-1 flex flex-col overflow-hidden">
-                        <div className="p-6 pb-3 flex-shrink-0 text-left">
-                            <span className="text-[11px] font-mono text-stone-400">PRJ-{String(showProjectDetail.id).padStart(3, "0")}</span>
-                            <h2 className="font-bold text-xl text-stone-900 leading-tight mt-0.5">{detailedProjectInfo?.nama || showProjectDetail.nama}</h2>
+                        <div className="px-8 pt-8 pb-4 flex-shrink-0 text-left">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-mono font-semibold text-stone-400">PRJ-{String(showProjectDetail.id).padStart(3, "0")}</span>
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="p-2 bg-black hover:bg-stone-900 text-white rounded-xl transition shadow-sm cursor-pointer flex items-center justify-center"
+                                    title="Tutup"
+                                >
+                                    <X size={15} className="stroke-[2.5]" />
+                                </button>
+                            </div>
+                            <h2 className="font-bold text-2xl text-stone-900 leading-tight mt-1">{detailedProjectInfo?.nama || showProjectDetail.nama}</h2>
                             <p className="text-xs text-stone-500 mt-1">
                                 {detailedProjectInfo?.deskripsi || showProjectDetail.deskripsi}
                             </p>
-                            <div className="flex gap-4 border-b border-stone-100 mt-5 text-[13px] font-medium text-stone-400">
-                                <button type="button" onClick={() => setActiveTab("ringkasan")} className={`pb-2 transition ${activeTab === "ringkasan" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Ringkasan</button>
-                                <button type="button" onClick={() => setActiveTab("pemasukan")} className={`pb-2 whitespace-nowrap transition ${activeTab === "pemasukan" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Pemasukan</button>
-                                <button type="button" onClick={() => setActiveTab("pengeluaran")} className={`pb-2 transition ${activeTab === "pengeluaran" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Pengeluaran</button>
-                                <button type="button" onClick={() => setActiveTab("tim")} className={`pb-2 transition ${activeTab === "tim" ? "border-b-2 border-stone-900 text-stone-900 font-semibold" : "hover:text-stone-700"}`}>Tim</button>
+                            <div className="flex flex-wrap items-center gap-2 mt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab("ringkasan")}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                                        activeTab === "ringkasan"
+                                            ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
+                                            : "text-stone-500 hover:text-stone-900 border border-transparent"
+                                    }`}
+                                >
+                                    Ringkasan
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab("pemasukan")}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                                        activeTab === "pemasukan"
+                                            ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
+                                            : "text-stone-500 hover:text-stone-900 border border-transparent"
+                                    }`}
+                                >
+                                    Pemasukan
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab("pengeluaran")}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                                        activeTab === "pengeluaran"
+                                            ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
+                                            : "text-stone-500 hover:text-stone-900 border border-transparent"
+                                    }`}
+                                >
+                                    Pengeluaran
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab("tim")}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                                        activeTab === "tim"
+                                            ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
+                                            : "text-stone-500 hover:text-stone-900 border border-transparent"
+                                    }`}
+                                >
+                                    Tim
+                                </button>
                             </div>
+                            <div className="border-b border-stone-100 mt-4" />
                         </div>
 
                         <div id="scroll-bridge-container" className="flex-1 flex flex-col overflow-y-auto scroll-smooth min-h-0">
                             {activeTab === "ringkasan" && (
-                                <div id="ringkasan-sec" className="px-6 py-4 space-y-5">
-                                    <div className="grid grid-cols-2 gap-y-4 gap-x-6 pt-2 text-left">
+                                <div id="ringkasan-sec" className="px-8 py-5 space-y-6">
+                                    <div className="grid grid-cols-2 gap-y-4 gap-x-6 pt-1 text-left">
                                         <div>
-                                            <span className="text-[11px] text-stone-400 block font-medium">Status</span>
+                                            <span className="text-xs text-stone-400 block font-medium">Status</span>
                                             {(() => {
                                                 const rawStatus = detailedProjectInfo?.status || showProjectDetail.status;
                                                 return (
-                                                    <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border mt-1 ${getStatusStyles(rawStatus)}`}>
+                                                    <span className={`inline-block text-[11px] font-bold px-3 py-1 rounded-full border mt-1 ${getStatusStyles(rawStatus)}`}>
                                                         {formatStatusLabel(rawStatus)}
                                                     </span>
                                                 );
                                             })()}
                                         </div>
                                         <div>
-                                            <span className="text-[11px] text-stone-400 block font-medium">Project Manager</span>
-                                            <span className="text-[13px] font-bold text-stone-800 block mt-1 truncate">
+                                            <span className="text-xs text-stone-400 block font-medium">Project Manager</span>
+                                            <span className="text-[13px] font-bold text-stone-800 block mt-1.5 truncate">
                                                 {detailedProjectInfo?.users?.find((u: any) => u.roleInProyek === 'Project Manager')?.nama || "-"}
                                             </span>
                                         </div>
                                         <div>
-                                            <span className="text-[11px] text-stone-400 block font-medium">Tanggal Mulai</span>
+                                            <span className="text-xs text-stone-400 block font-medium">Tanggal Mulai</span>
                                             <span className="text-[13px] font-bold text-stone-800 block mt-0.5">
                                                 {detailedProjectInfo?.tanggalMulai ? new Date(detailedProjectInfo.tanggalMulai).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
                                             </span>
                                         </div>
                                         <div>
-                                            <span className="text-[11px] text-stone-400 block font-medium">Tanggal Selesai</span>
+                                            <span className="text-xs text-stone-400 block font-medium">Tanggal Selesai</span>
                                             <span className="text-[13px] font-bold text-stone-800 block mt-0.5">
                                                 {detailedProjectInfo?.tanggalSelesai ? new Date(detailedProjectInfo.tanggalSelesai).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
                                             </span>
@@ -439,24 +480,24 @@ export default function ProjectDetailSidebar({
                                     )}
 
                                     {/* Reimbursement */}
-                                    <div className="space-y-2 text-left">
-                                        <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1.5">
-                                            <Receipt size={14} className="text-stone-400" /> Reimbursement
+                                    <div className="space-y-2.5 text-left">
+                                        <h4 className="text-[13px] font-bold text-stone-800">
+                                            Reimbursement
                                         </h4>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 flex flex-col justify-between">
-                                                <span className="text-[11px] font-bold text-emerald-700 block">
+                                        <div className="grid grid-cols-2 gap-3.5">
+                                            <div className="bg-[#e8f5f0] border border-[#caead9] rounded-2xl p-4 flex flex-col justify-between">
+                                                <span className="text-[12px] font-bold text-[#186f52] block">
                                                     Sudah Reimburse ({sudahReimburseCount ?? detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0})
                                                 </span>
-                                                <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
+                                                <span className="font-mono text-xl font-black text-stone-900 mt-2 block tracking-tight">
                                                     <CompactNominal value={sudahReimburseNominal} compactThreshold={100_000_000} />
                                                 </span>
                                             </div>
-                                            <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex flex-col justify-between">
-                                                <span className="text-[11px] font-bold text-amber-700 block">
+                                            <div className="bg-[#fef4ea] border border-[#f8dec4] rounded-2xl p-4 flex flex-col justify-between">
+                                                <span className="text-[12px] font-bold text-[#995514] block">
                                                     Belum Reimburse ({belumReimburseCount ?? detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0)})
                                                 </span>
-                                                <span className="font-mono text-lg font-black text-stone-900 mt-2 block">
+                                                <span className="font-mono text-xl font-black text-stone-900 mt-2 block tracking-tight">
                                                     <CompactNominal value={belumReimburseNominal} compactThreshold={100_000_000} />
                                                 </span>
                                             </div>
@@ -470,7 +511,7 @@ export default function ProjectDetailSidebar({
                             )}
 
                             {activeTab === "pengeluaran" && (
-                                <div id="pengeluaran-sec" className="px-6 py-4 space-y-5 flex-shrink-0">
+                                <div id="pengeluaran-sec" className="px-8 py-5 space-y-6 flex-shrink-0">
                                     <div className="pb-2">
                                         <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider">
                                             Rincian Pos Pengeluaran
@@ -616,7 +657,7 @@ export default function ProjectDetailSidebar({
                             )}
 
                             {activeTab === "tim" && (
-                                <div id="tim-sec" className="min-h-full w-full px-6 pb-48 pt-4 text-left flex-shrink-0 space-y-3">
+                                <div id="tim-sec" className="min-h-full w-full px-8 pb-48 pt-4 text-left flex-shrink-0 space-y-3">
                                     <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
                                     <div className="space-y-3">
                                         {teamRows.map((row, idx) => (
@@ -714,7 +755,7 @@ export default function ProjectDetailSidebar({
                             {/* TAB PEMASUKAN */}
                             {activeTab === "pemasukan" && (
                                 <>
-                                    <div id="pemasukan-sec" className="px-6 py-4 space-y-6 flex-shrink-0">
+                                    <div id="pemasukan-sec" className="px-8 py-5 space-y-6 flex-shrink-0">
 
                                         <div className="flex flex-col gap-3">
                                             <div className="flex gap-2 w-full">
@@ -949,7 +990,7 @@ export default function ProjectDetailSidebar({
                         </div>
 
                         {/* Footer Modal */}
-                        <div className="p-4 border-t border-stone-100 bg-white flex gap-3 flex-shrink-0">
+                        <div className="px-8 py-5 border-t border-stone-100 bg-white flex gap-3 flex-shrink-0">
                             <button type="button"
                                 onClick={() => { setIsDirectEdit(false); setEditMode(true); }}
                                 className="flex-1 py-2.5 border border-stone-200 hover:bg-stone-50 rounded-xl text-[13px] font-semibold text-stone-700 transition flex items-center justify-center gap-1.5">
