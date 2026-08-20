@@ -246,12 +246,43 @@ export async function GET(req: NextRequest) {
               },
             },
           },
+          transaksiPemasukan: {
+            include: {
+              user: { select: { nama: true } },
+              proyek: { select: { nama: true } },
+              subCoa: { select: { nama: true } },
+            },
+          },
         },
         orderBy: { id: 'desc' },
         take: 5,
       });
 
       const recentJournals = recentJournalsRaw.map((j) => {
+        if (j.transaksiPemasukan) {
+          const tx = j.transaksiPemasukan;
+          const tanggal = tx.tanggalTransaksi
+            ? new Date(tx.tanggalTransaksi).toISOString().split('T')[0]
+            : null;
+
+          let kategoriLabel = tx.kategori;
+          if (tx.kategori === 'DISKON_PENJUALAN') kategoriLabel = 'Diskon Penjualan';
+          else if (tx.kategori === 'RETUR_PENJUALAN') kategoriLabel = 'Retur Penjualan';
+          else if (tx.kategori === 'BIAYA_PENJUALAN_LAINNYA') kategoriLabel = 'Biaya Penjualan';
+          else if (tx.kategori === 'PENERIMAAN_PENJUALAN') kategoriLabel = 'Penerimaan Penjualan';
+
+          return {
+            jeId: `JE-${String(j.id).padStart(4, '0')}`,
+            tanggal,
+            keterangan: j.keterangan || tx.keterangan || `Transaksi ${kategoriLabel} - ${tx.proyek?.nama || ''}`,
+            debitKode: j.noAkunDebit,
+            debitNama: j.noAkunDebit,
+            kreditKode: j.noAkunKredit,
+            kreditNama: j.noAkunKredit,
+            nominal: Number(j.nominal),
+          };
+        }
+
         const tanggal = j.reimbursement?.tanggalStruk || null;
         const tipePengajuan = j.reimbursement?.tipe || 'Pengajuan';
         const kategori = j.reimbursement?.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain

@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { 
   X, LayoutDashboard, Plus, History, FileCheck, Wallet, 
   BookOpen, BarChart3, Settings, Users, FileText, 
-  FolderKanban, Layers, Monitor
+  FolderKanban, Layers, Monitor, TrendingUp
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 

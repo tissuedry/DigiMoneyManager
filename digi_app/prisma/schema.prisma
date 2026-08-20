@@ -18,23 +18,25 @@ model User {
   pengajuanAnggaran PengajuanAnggaran[]
   reimbursements    Reimbursement[]
   proyek            UserProyek[]
+  transaksiPemasukan TransaksiPemasukan[]
 
   @@index([role])
   @@map("users")
 }
 
 model Proyek {
-  id                Int                 @id @default(autoincrement())
-  nama              String
-  deskripsi         String?
-  status            String
-  tanggalMulai      DateTime            @map("tanggal_mulai")
-  tanggalSelesai    DateTime?           @map("tanggal_selesai")
-  budget            Budget?
-  pengajuanAnggaran PengajuanAnggaran[]
-  reimbursements    Reimbursement[]
-  terminPembayaran  TerminPembayaran[]
-  users             UserProyek[]
+  id                 Int                  @id @default(autoincrement())
+  nama               String
+  deskripsi          String?
+  status             String
+  tanggalMulai       DateTime             @map("tanggal_mulai")
+  tanggalSelesai     DateTime?            @map("tanggal_selesai")
+  budget             Budget?
+  pengajuanAnggaran  PengajuanAnggaran[]
+  reimbursements     Reimbursement[]
+  terminPembayaran   TerminPembayaran[]
+  users              UserProyek[]
+  transaksiPemasukan TransaksiPemasukan[]
 
   @@index([status])
   @@index([tanggalMulai])
@@ -163,16 +165,45 @@ model Approval {
   @@map("approval")
 }
 
+model TransaksiPemasukan {
+  id               Int               @id @default(autoincrement())
+  proyekId         Int               @map("proyek_id")
+  userId           Int?              @map("user_id")
+  subCoaId         Int?              @map("sub_coa_id")
+  kategori         String            @map("kategori") // 'PENJUALAN_JASA', 'PENJUALAN_BARANG', 'DISKON_PENJUALAN', 'RETUR_PENJUALAN', 'BIAYA_PENJUALAN_LAINNYA'
+  nominal          Decimal           @db.Decimal(15, 2)
+  tanggalTransaksi DateTime          @default(now()) @map("tanggal_transaksi")
+  keterangan       String?
+  buktiUrl         String?           @map("bukti_url")
+  status           String            @default("TERCATAT") @map("status") // 'BELUM_CAIR', 'CAIR', 'TERCATAT'
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  proyek           Proyek            @relation(fields: [proyekId], references: [id], onDelete: Cascade)
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  subCoa           MasterSub?        @relation(fields: [subCoaId], references: [id], onDelete: SetNull)
+  jurnalAkuntansi  JurnalAkuntansi[]
+
+  @@index([proyekId])
+  @@index([subCoaId])
+  @@index([kategori])
+  @@index([status])
+  @@map("transaksi_pemasukan")
+}
+
 model JurnalAkuntansi {
-  id              Int           @id @default(autoincrement())
-  reimbursementId Int           @map("reimbursement_id")
-  noAkunKredit    String        @map("no_akun_kredit")
-  noAkunDebit     String        @map("no_akun_debit")
-  nominal         Decimal       @db.Decimal(15, 2)
-  keterangan      String?
-  reimbursement   Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
+  id                   Int                 @id @default(autoincrement())
+  reimbursementId      Int?                @map("reimbursement_id")
+  transaksiPemasukanId Int?                @map("transaksi_pemasukan_id")
+  noAkunKredit         String              @map("no_akun_kredit")
+  noAkunDebit          String              @map("no_akun_debit")
+  nominal              Decimal             @db.Decimal(15, 2)
+  keterangan           String?
+  reimbursement        Reimbursement?      @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
+  transaksiPemasukan   TransaksiPemasukan? @relation(fields: [transaksiPemasukanId], references: [id], onDelete: Cascade)
 
   @@index([reimbursementId])
+  @@index([transaksiPemasukanId])
   @@index([noAkunDebit])
   @@index([noAkunKredit])
   @@map("jurnal_akuntansi")
@@ -238,11 +269,12 @@ model MasterMain {
 }
 
 model MasterSub {
-  id          Int        @id @default(autoincrement())
-  mainId      Int        @map("main_id")
-  nama        String
-  tipe        String     @default("pengeluaran") @map("tipe")
-  master_main MasterMain @relation(fields: [mainId], references: [id], onDelete: Cascade)
+  id                 Int                  @id @default(autoincrement())
+  mainId             Int                  @map("main_id")
+  nama               String
+  tipe               String               @default("pengeluaran") @map("tipe")
+  master_main        MasterMain           @relation(fields: [mainId], references: [id], onDelete: Cascade)
+  transaksiPemasukan TransaksiPemasukan[]
 
   @@index([mainId])
   @@index([tipe])

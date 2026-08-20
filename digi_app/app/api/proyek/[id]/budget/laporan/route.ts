@@ -5,7 +5,7 @@ import ExcelJS from "exceljs";
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const resolvedParams = await params;
-    const proyekId = parseInt(resolvedParams.id);
+    const proyekId = parseInt(resolvedParams.id, 10);
 
     if (isNaN(proyekId)) {
       return NextResponse.json(
@@ -17,7 +17,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const proyek = await prisma.proyek.findUnique({
       where: { id: proyekId },
       include: {
-        terminPembayaran: true,
+        terminPembayaran: {
+          orderBy: { urutan: 'asc' },
+        },
+        transaksiPemasukan: {
+          orderBy: { tanggalTransaksi: 'asc' },
+        },
         budget: {
           include: {
             mainAnggaran: {
@@ -61,6 +66,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const reimbFont = { italic: true, color: { argb: "FF5A5A5A" } };
     const proyekNameFont = { bold: true, size: 14, color: { argb: "FF000000" } };
 
+    const isProyekDone = proyek.status?.toUpperCase() === "DONE" || proyek.status?.toUpperCase() === "SELESAI";
+    const transaksiList = proyek.transaksiPemasukan || [];
+
+    // Nilai Kontrak / Nilai Total Proyek yang sebenarnya
+    const nilaiProyekTotal = Number(proyek.budget.nilaiKontrak || proyek.budget.rabTotal || 0);
+
     // ==========================================
     // SHEET 1: PEMASUKAN
     // ==========================================
@@ -92,76 +103,97 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     let hasTermin = false;
     if (proyek.terminPembayaran && proyek.terminPembayaran.length > 0) {
       hasTermin = true;
-      proyek.terminPembayaran.forEach(t => {
+      proyek.terminPembayaran.forEach((t) => {
         totalTermin += Number(t.nominal) || 0;
       });
     }
 
     // Ambil data Pos Pemasukan
-    let pemasukanMains = proyek.budget.mainAnggaran.filter(m => m.tipe === "pemasukan");
+    let pemasukanMains = proyek.budget.mainAnggaran.filter((m) => m.tipe === "pemasukan");
     
-    // Jika tidak ada pos pemasukan dari budget sama sekali TAPI ada termin,
-    // kita "paksa" buat objek Penjualan Jasa dummy agar termin bisa masuk
-    if (pemasukanMains.length === 0 && hasTermin) {
-       pemasukanMains = [
-         {
-           id: 99999, // dummy ID
-           budgetId: proyek.budget.id,
-           namaMain: "Penjualan Jasa",
-           nominalAlokasi: totalTermin,
-           tipe: "pemasukan",
-           nominalTerpakai: 0,
-           subAnggaran: [
-             {
-               id: 99999, // dummy ID
-               mainAnggaranId: 99999,
-               namaSub: "Penjualan Jasa",
-               nominalAlokasi: totalTermin,
-               nominalTerpakai: 0,
-               keterangan: []
-             }
-           ]
-         } as any 
-       ];
+    if (pemasukanMains.length === 0) {
+      pemasukanMains = [
+        {
+          id: 99999,
+          budgetId: proyek.budget.id,
+          namaMain: "Penjualan Barang / Jasa",
+          nominalAlokasi: nilaiProyekTotal,
+          tipe: "pemasukan",
+          nominalTerpakai: 0,
+          subAnggaran: [
+            {
+              id: 99999,
+              mainAnggaranId: 99999,
+              namaSub: "Penjualan Barang / Jasa",
+              nominalAlokasi: nilaiProyekTotal,
+              nominalTerpakai: 0,
+              keterangan: [],
+            },
+          ],
+        } as any,
+      ];
     }
 
     const pemasukanData = pemasukanMains.map((main) => {
       let totalMain = 0;
-      const isPenjualanJasa = main.namaMain.trim().toUpperCase() === "PENJUALAN JASA";
+      const isPenjualanMain =
+        (main.namaMain || "").trim().toUpperCase().startsWith("PENJUALAN") ||
+        (main.namaMain || "").trim().toUpperCase().includes("PENDAPATAN");
 
       const subs = main.subAnggaran.map((sub) => {
-        let totalSub = 0;
-        const isSubPenjualanJasa = sub.namaSub.trim().toUpperCase() === "PENJUALAN JASA";
+        const sName = (sub.namaSub || "").trim().toLowerCase();
+        const isPenjualanSub =
+          (sName.startsWith("penjualan") || sName.startsWith("pendapatan") || sName === (main.namaMain || "").trim().toLowerCase()) &&
+          !sName.includes("diskon") &&
+          !sName.includes("retur") &&
+          !sName.includes("biaya") &&
+          !sName.includes("potongan");
 
-        if (sub.keterangan && sub.keterangan.length > 0) {
-          sub.keterangan.forEach((ket) => {
-            totalSub += Number(ket.nominalRealisasi) || 0; 
-          });
-        } else {
-          totalSub += Number(sub.nominalAlokasi) || 0;
-        }
-        
-        // --- INJEKSI TERMIN ---
-        // Jika ini adalah Sub Anggaran "PENJUALAN JASA", tambahkan totalTermin ke totalSub-nya
-        // Catatan: Jika ingin Termin di-render sebagai baris "keterangan" di bawah Sub Anggaran,
-        // kita akan buat formatnya nanti saat rendering baris Excel. 
-        if (isPenjualanJasa && isSubPenjualanJasa && hasTermin) {
-           // Jika sebelumnya totalSub didapat dari alokasi, kita override pakai Termin
-           // Atau jika ditambahkan sebagai realisasi tambahan
-           totalSub = totalTermin; 
+        const relatedTransaksis = transaksiList.filter(
+          (t: any) =>
+            t.subCoaId === sub.id ||
+            (t.kategori || "").toLowerCase() === (sub.namaSub || "").toLowerCase() ||
+            (isPenjualanSub && ["penerimaan_penjualan", "penjualan", "keuntungan_proyek"].includes((t.kategori || "").toLowerCase())) ||
+            (isPenjualanSub && (t.keterangan || "").toLowerCase().includes("selesai"))
+        );
+
+        const transaksiTotal = relatedTransaksis.reduce(
+          (acc: number, t: any) => acc + (Number(t.nominal) || 0),
+          0
+        );
+
+        const subNominal = Number(sub.nominalAlokasi || 0);
+
+        let totalSub = isPenjualanSub
+          ? (transaksiTotal > 0
+              ? transaksiTotal
+              : isProyekDone
+              ? Math.max(subNominal, Number(sub.nominalTerpakai || 0))
+              : Math.max(Number(sub.nominalTerpakai || 0), transaksiTotal))
+          : transaksiTotal;
+
+        if (totalSub === 0 && isProyekDone && isPenjualanSub) {
+          totalSub = nilaiProyekTotal;
         }
 
         totalMain += totalSub;
-        return { ...sub, totalSub, isSubPenjualanJasa };
+        return {
+          ...sub,
+          totalSub,
+          isPenjualanSub,
+          relatedTransaksis,
+        };
       });
+
+      if (totalMain === 0 && isProyekDone) {
+        totalMain = Number(main.nominalAlokasi) > 0 ? Number(main.nominalAlokasi) : nilaiProyekTotal;
+      }
       
       grandTotalPemasukan += totalMain;
-      return { ...main, totalMain, subs, isPenjualanJasa };
+      return { ...main, totalMain, subs, isPenjualanMain };
     });
 
-    const finalTotalPendapatan = grandTotalPemasukan > 0 
-      ? grandTotalPemasukan 
-      : (Number(proyek.budget.totalPemasukan) || 0);
+    const finalTotalPendapatan = nilaiProyekTotal > 0 ? nilaiProyekTotal : grandTotalPemasukan;
 
     const row3Pem = sheetPemasukan.addRow({
       nama: "    NILAI PROYEK",
@@ -188,27 +220,36 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           });
           subRow.font = blackFont;
 
-          // Render keterangan reimbursement asli (jika ada)
-          if (sub.keterangan && sub.keterangan.length > 0) {
-            sub.keterangan.forEach((ket) => {
+          // Render transaksi realisasi pemasukan jika ada
+          if (sub.relatedTransaksis && sub.relatedTransaksis.length > 0) {
+            sub.relatedTransaksis.forEach((tr: any) => {
+              const isComp = (tr.keterangan || "").toLowerCase().includes("selesai");
+              const label = isComp ? "Keuntungan Proyek" : (tr.keterangan || tr.namaRealisasi || "Realisasi Pemasukan");
               const ketRow = sheetPemasukan.addRow({
-                nama: `                ${ket.keterangan}`,
-                pendapatan: Number(ket.nominalRealisasi) || 0,
+                nama: `                [Real] ${label} [Dicairkan]`,
+                pendapatan: Number(tr.nominal) || 0,
+              });
+              ketRow.font = reimbFont;
+            });
+          } else if (sub.isPenjualanSub) {
+            const labelStatus = isProyekDone ? "[Dicairkan]" : "[Menunggu Proyek Selesai]";
+            const nominalVal = isProyekDone ? sub.totalSub : 0;
+            const ketRow = sheetPemasukan.addRow({
+              nama: `                [Real] Keuntungan Proyek ${labelStatus}`,
+              pendapatan: nominalVal,
+            });
+            ketRow.font = reimbFont;
+          }
+
+          // --- RENDER TERMIN (JIKA ADA) ---
+          if (main.isPenjualanMain && sub.isPenjualanSub && hasTermin) {
+            proyek.terminPembayaran.forEach((termin) => {
+              const ketRow = sheetPemasukan.addRow({
+                nama: `                [Termin] ${termin.namaTermin} (${termin.status})`,
+                pendapatan: Number(termin.nominal) || 0,
               });
               ketRow.font = normalFont;
             });
-          }
-
-          // --- RENDER TERMIN ---
-          // Jika ini adalah Pos Penjualan Jasa, render Termin sebagai rincian (seperti keterangan)
-          if (main.isPenjualanJasa && sub.isSubPenjualanJasa && hasTermin) {
-             proyek.terminPembayaran.forEach((termin) => {
-               const ketRow = sheetPemasukan.addRow({
-                 nama: `                [Termin] ${termin.namaTermin}`,
-                 pendapatan: Number(termin.nominal) || 0,
-               });
-               ketRow.font = normalFont;
-             });
           }
         });
         sheetPemasukan.addRow({}); 
@@ -248,7 +289,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     let grandTotalAlokasiPengeluaran = 0;
     let grandTotalRealisasiPengeluaran = 0;
     
-    const pengeluaranMains = proyek.budget.mainAnggaran.filter(m => m.tipe === "pengeluaran" || !m.tipe);
+    const pengeluaranMains = proyek.budget.mainAnggaran.filter((m) => m.tipe === "pengeluaran" || !m.tipe);
 
     const pengeluaranDataCalculated = pengeluaranMains.map((main) => {
       let totalRealisasiMain = 0;
@@ -258,8 +299,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
         if (sub.keterangan && sub.keterangan.length > 0) {
           sub.keterangan.forEach((ket) => {
-            totalRealisasiSub += Number(ket.nominalRealisasi) || 0;
+            const ketReimbs = (ket.reimbursements || []).reduce(
+              (acc: number, r: any) => acc + (Number(r.nominal) || 0),
+              0
+            );
+            totalRealisasiSub += Math.max(Number(ket.nominalRealisasi) || 0, ketReimbs);
           });
+        } else {
+          totalRealisasiSub += Number(sub.nominalTerpakai) || 0;
         }
 
         totalRealisasiMain += totalRealisasiSub;
@@ -267,7 +314,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       });
 
       grandTotalAlokasiPengeluaran += Number(main.nominalAlokasi) || 0;
-      grandTotalRealisasiPengeluaran += totalRealisasiMain;
+      grandTotalRealisasiPengeluaran += Math.max(Number(main.nominalTerpakai) || 0, totalRealisasiMain);
 
       return { ...main, totalRealisasiMain, subAnggaranCalculated };
     });
@@ -350,7 +397,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return new NextResponse(buffer, {
       status: 200,
       headers: {
-        "Content-Disposition": `attachment; filename="Laporan_Keuangan_${proyek.nama.replace(/\s+/g,"_")}.xlsx"`,
+        "Content-Disposition": `attachment; filename="Laporan_Budget_${proyek.nama.replace(/\s+/g,"_")}.xlsx"`,
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       },
     });

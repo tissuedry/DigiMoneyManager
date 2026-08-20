@@ -857,6 +857,7 @@ export default function ProjectDetailSidebar({
                                         onClose={() => setIsAlokasiOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        proyekStatus={detailedProjectInfo?.status ?? showProjectDetail?.status ?? 'AKTIF'}
                                         totalPemasukan={detailedProjectInfo?.budget?.totalPemasukan ?? 0}
                                         dataPemasukan={dataAlokasiModal}
                                         onRefresh={() => {

@@ -307,9 +307,153 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         status,
       },
       include: {
-        budget: true,
+        budget: {
+          include: {
+            mainAnggaran: {
+              where: { tipe: 'pemasukan' },
+              include: { subAnggaran: true },
+            },
+          },
+        },
       },
     });
+
+    // Otomasi Realisasi Pemasukan saat Proyek SELESAI / DONE
+    if (status === 'DONE' || status === 'SELESAI') {
+      const budget = await prisma.budget.findUnique({
+        where: { proyekId },
+        include: {
+          mainAnggaran: {
+            where: { tipe: 'pemasukan' },
+            include: { subAnggaran: true },
+          },
+        },
+      });
+
+      if (budget) {
+        const totalPengeluaran = Number(budget.totalPengeluaran || 0);
+        const nilaiKontrakVal = Number(budget.nilaiKontrak || budget.rabTotal || 0);
+        const realisasiPemasukan = Math.max(0, nilaiKontrakVal - totalPengeluaran);
+
+        await prisma.budget.update({
+          where: { id: budget.id },
+          data: {
+            totalPemasukan: realisasiPemasukan,
+          },
+        });
+
+        for (const mainPemasukan of budget.mainAnggaran) {
+          await prisma.mainAnggaran.update({
+            where: { id: mainPemasukan.id },
+            data: { nominalTerpakai: realisasiPemasukan },
+          });
+
+          // Cari sub penjualan utama (bukan diskon, retur, atau biaya lainnya)
+          const primarySub = mainPemasukan.subAnggaran.find((s) => {
+            const sName = (s.namaSub || '').trim().toLowerCase();
+            return (
+              sName === mainPemasukan.namaMain.trim().toLowerCase() ||
+              (sName.startsWith('penjualan') &&
+                !sName.includes('diskon') &&
+                !sName.includes('retur') &&
+                !sName.includes('biaya') &&
+                !sName.includes('potongan'))
+            );
+          }) || mainPemasukan.subAnggaran[0];
+
+          for (const sub of mainPemasukan.subAnggaran) {
+            const isTargetSub = primarySub && sub.id === primarySub.id;
+            if (isTargetSub) {
+              await prisma.subAnggaran.update({
+                where: { id: sub.id },
+                data: { nominalTerpakai: realisasiPemasukan },
+              });
+            } else {
+              // Reset sub non-penjualan yang tidak memiliki transaksi riil
+              const realTx = await prisma.transaksiPemasukan.findMany({
+                where: {
+                  proyekId,
+                  OR: [
+                    { subCoaId: sub.id },
+                    { kategori: sub.namaSub },
+                  ],
+                },
+              });
+              const totalReal = realTx.reduce((sum, t) => sum + Number(t.nominal || 0), 0);
+              await prisma.subAnggaran.update({
+                where: { id: sub.id },
+                data: { nominalTerpakai: totalReal },
+              });
+            }
+          }
+        }
+
+        const existingTx = await prisma.transaksiPemasukan.findFirst({
+          where: {
+            proyekId,
+            kategori: { in: ['PENERIMAAN_PENJUALAN', 'PENJUALAN_JASA', 'PENJUALAN_BARANG', 'KEUNTUNGAN_PROYEK'] },
+          },
+        });
+
+        if (existingTx) {
+          await prisma.transaksiPemasukan.update({
+            where: { id: existingTx.id },
+            data: {
+              nominal: realisasiPemasukan,
+              status: 'CAIR',
+              keterangan: `Realisasi Pendapatan Penjualan Proyek Selesai: ${nama}`,
+            },
+          });
+
+          await prisma.jurnalAkuntansi.deleteMany({
+            where: { transaksiPemasukanId: existingTx.id },
+          });
+
+          await prisma.jurnalAkuntansi.create({
+            data: {
+              transaksiPemasukanId: existingTx.id,
+              noAkunDebit: '1.1 - Kas & Bank',
+              noAkunKredit: '4.0 - Pendapatan Penjualan',
+              nominal: realisasiPemasukan,
+              keterangan: `Pencatatan Realisasi Pendapatan Penjualan Proyek: ${nama}`,
+            },
+          });
+        } else {
+          const primarySubAll = budget.mainAnggaran.flatMap((m) => m.subAnggaran).find((s) => {
+            const sName = (s.namaSub || '').trim().toLowerCase();
+            return (
+              sName.startsWith('penjualan') &&
+              !sName.includes('diskon') &&
+              !sName.includes('retur') &&
+              !sName.includes('biaya') &&
+              !sName.includes('potongan')
+            );
+          }) || budget.mainAnggaran[0]?.subAnggaran[0];
+
+          const newTx = await prisma.transaksiPemasukan.create({
+            data: {
+              proyekId,
+              userId: userId ? parseInt(userId, 10) : null,
+              subCoaId: primarySubAll?.id || null,
+              kategori: 'PENERIMAAN_PENJUALAN',
+              nominal: realisasiPemasukan,
+              status: 'CAIR',
+              keterangan: `Realisasi Pendapatan Penjualan Proyek Selesai: ${nama}`,
+            },
+          });
+
+          await prisma.jurnalAkuntansi.create({
+            data: {
+              transaksiPemasukanId: newTx.id,
+              noAkunDebit: '1.1 - Kas & Bank',
+              noAkunKredit: '4.0 - Pendapatan Penjualan',
+              nominal: realisasiPemasukan,
+              keterangan: `Pencatatan Realisasi Pendapatan Penjualan Proyek: ${nama}`,
+            },
+          });
+        }
+      }
+    }
 
     if (userId) {
       let actor = 'Project Manager';
@@ -333,6 +477,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     clearCache('proyek:');
     clearCache('dashboard:');
+    clearCache('coa');
     return NextResponse.json({ message: 'Proyek berhasil diperbarui', project: updatedProject });
 
   } catch (error: any) {

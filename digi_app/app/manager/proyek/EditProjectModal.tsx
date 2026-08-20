@@ -124,6 +124,23 @@ export default function EditProjectModal({
             </div>
           </div>
 
+          {editForm.status === "DONE" && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-950 px-3.5 py-3 rounded-xl text-[12px] font-medium flex items-start gap-2.5 animate-in fade-in duration-150">
+              <div className="w-5 h-5 rounded-full bg-emerald-200 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold">
+                ✓
+              </div>
+              <div className="text-left leading-relaxed">
+                <span className="font-bold text-emerald-900 block mb-0.5">Informasi Penyelesaian Proyek (Done)</span>
+                Pemasukan bersih proyek akan otomatis direalisasikan dan statusnya berubah menjadi <strong>Cair</strong>:
+                <div className="mt-1 flex flex-col gap-0.5 text-[11px] text-emerald-800 font-mono">
+                  <span>• Total Nilai Proyek: Rp {(inputNilai || totalAlokasi).toLocaleString("id-ID")}</span>
+                  <span>• Realisasi Pengeluaran: Rp {Number(projectDetail?.budget?.totalPengeluaran || 0).toLocaleString("id-ID")}</span>
+                  <span>• Realisasi Pemasukan Bersih: <strong>Rp {Math.max(0, (inputNilai || totalAlokasi) - Number(projectDetail?.budget?.totalPengeluaran || 0)).toLocaleString("id-ID")}</strong></span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {formError && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2">
               <X size={14} />

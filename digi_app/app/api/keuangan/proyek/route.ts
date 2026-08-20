@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
         terminPembayaran: {
           orderBy: { urutan: 'asc' },
         },
+        transaksiPemasukan: true,
         users: {
           include: {
             user: { select: { id: true, nama: true, email: true, role: true } },
@@ -92,6 +93,12 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      const projectTransaksis = (p as any).transaksiPemasukan || [];
+      const totalTransaksiPemasukan = projectTransaksis.reduce(
+        (sum: number, t: any) => sum + Number(t.nominal || 0),
+        0
+      );
+
       // Pos Pemasukan from mainAnggaran
       const rawPosPemasukan = budget?.mainAnggaran || [];
       let posAnggaran: any[] = [];
@@ -99,11 +106,23 @@ export async function GET(req: NextRequest) {
       if (rawPosPemasukan.length > 0) {
         posAnggaran = rawPosPemasukan.map((m, idx) => {
           const calculatedTerpakai = m.subAnggaran.reduce((sum: number, sub: any) => {
-            const subTerpakai = sub.keterangan.reduce(
-              (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0),
-              0
+            const sName = (sub.namaSub || '').trim().toLowerCase();
+            const isPenjSub =
+              (sName.startsWith('penjualan') || sName.startsWith('pendapatan') || sName === (m.namaMain || '').trim().toLowerCase()) &&
+              !sName.includes('diskon') &&
+              !sName.includes('retur') &&
+              !sName.includes('biaya') &&
+              !sName.includes('potongan');
+
+            const related = projectTransaksis.filter(
+              (t: any) =>
+                t.subCoaId === sub.id ||
+                (t.kategori || '').toLowerCase() === (sub.namaSub || '').toLowerCase() ||
+                (isPenjSub && ['penerimaan_penjualan', 'penjualan', 'keuntungan_proyek'].includes((t.kategori || '').toLowerCase())) ||
+                (isPenjSub && (t.keterangan || '').toLowerCase().includes('selesai'))
             );
-            return sum + Math.max(Number(sub.nominalTerpakai || 0), subTerpakai);
+            const tSum = related.reduce((a: number, t: any) => a + Number(t.nominal || 0), 0);
+            return sum + (isPenjSub ? (tSum > 0 ? tSum : Number(sub.nominalTerpakai || 0)) : tSum);
           }, 0);
 
           const terpakai = Math.max(Number(m.nominalTerpakai || 0), calculatedTerpakai);
@@ -114,18 +133,37 @@ export async function GET(req: NextRequest) {
             alokasi: Number(m.nominalAlokasi),
             terpakai,
             warna: warnaPalette[idx % warnaPalette.length],
-            subAnggaran: m.subAnggaran.map((s) => ({
-              id: s.id,
-              nama: s.namaSub,
-              alokasi: Number(s.nominalAlokasi),
-              terpakai: Number(s.nominalTerpakai || 0),
-              keterangan: s.keterangan.map((k) => ({
-                id: k.id,
-                nama: k.keterangan,
-                alokasi: Number(k.nominalAlokasi),
-                realisasi: Number(k.nominalRealisasi || 0),
-              })),
-            })),
+            subAnggaran: m.subAnggaran.map((s) => {
+              const sName = (s.namaSub || '').trim().toLowerCase();
+              const isPenjSub =
+                (sName.startsWith('penjualan') || sName.startsWith('pendapatan') || sName === (m.namaMain || '').trim().toLowerCase()) &&
+                !sName.includes('diskon') &&
+                !sName.includes('retur') &&
+                !sName.includes('biaya') &&
+                !sName.includes('potongan');
+
+              const related = projectTransaksis.filter(
+                (t: any) =>
+                  t.subCoaId === s.id ||
+                  (t.kategori || '').toLowerCase() === (s.namaSub || '').toLowerCase() ||
+                  (isPenjSub && ['penerimaan_penjualan', 'penjualan', 'keuntungan_proyek'].includes((t.kategori || '').toLowerCase())) ||
+                  (isPenjSub && (t.keterangan || '').toLowerCase().includes('selesai'))
+              );
+              const tSum = related.reduce((a: number, t: any) => a + Number(t.nominal || 0), 0);
+
+              return {
+                id: s.id,
+                nama: s.namaSub,
+                alokasi: Number(s.nominalAlokasi),
+                terpakai: isPenjSub ? (tSum > 0 ? tSum : Number(s.nominalTerpakai || 0)) : tSum,
+                keterangan: s.keterangan.map((k: any) => ({
+                  id: k.id,
+                  nama: k.keterangan,
+                  alokasi: Number(k.nominalAlokasi),
+                  realisasi: Number(k.nominalRealisasi || 0),
+                })),
+              };
+            }),
           };
         });
       } else if (termins.length > 0) {
@@ -150,7 +188,7 @@ export async function GET(req: NextRequest) {
 
       const totalRAB = budget ? Number(budget.rabTotal) : (totalTerminNominal > 0 ? totalTerminNominal : 0);
       const totalPosTerpakai = posAnggaran.reduce((s, pos) => s + pos.terpakai, 0);
-      const realisasiPemasukan = Math.max(terminDiterimaNominal, totalPosTerpakai);
+      const realisasiPemasukan = Math.max(terminDiterimaNominal, totalPosTerpakai, totalTransaksiPemasukan);
 
       return {
         id: p.id,

@@ -217,16 +217,45 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 ? parseFloat(matchedIncoming.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
                 : Number(matchedIncoming.nominalAlokasi) || 0;
 
+              const incNama = (matchedIncoming.deskripsi || matchedIncoming.namaPos || matchedIncoming.namaMain || ext.namaMain).trim();
+
               await tx.mainAnggaran.update({
                 where: { id: ext.id },
                 data: {
                   nominalAlokasi: rawNom,
-                  namaMain: (matchedIncoming.deskripsi || matchedIncoming.namaPos || matchedIncoming.namaMain || ext.namaMain).trim(),
+                  namaMain: incNama,
                   tipe: 'pemasukan',
                 },
               });
+
+              const existingSub = await tx.subAnggaran.findFirst({
+                where: { mainAnggaranId: ext.id, tipe: 'pemasukan' },
+              });
+
+              if (existingSub) {
+                await tx.subAnggaran.update({
+                  where: { id: existingSub.id },
+                  data: {
+                    namaSub: incNama,
+                    nominalAlokasi: rawNom,
+                  },
+                });
+              } else {
+                await tx.subAnggaran.create({
+                  data: {
+                    mainAnggaranId: ext.id,
+                    namaSub: incNama,
+                    nominalAlokasi: rawNom,
+                    nominalTerpakai: 0,
+                    tipe: 'pemasukan',
+                  },
+                });
+              }
             } else {
               // Jika dihapus dari list alokasi pemasukan
+              await tx.subAnggaran.deleteMany({
+                where: { mainAnggaranId: ext.id },
+              });
               await tx.mainAnggaran.delete({
                 where: { id: ext.id },
               });
@@ -251,6 +280,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                   nominalAlokasi: rawNom,
                   nominalTerpakai: 0,
                   tipe: 'pemasukan',
+                  subAnggaran: {
+                    create: [
+                      {
+                        namaSub: incNama,
+                        nominalAlokasi: rawNom,
+                        nominalTerpakai: 0,
+                        tipe: 'pemasukan',
+                      },
+                    ],
+                  },
                 },
               });
             }
@@ -304,17 +343,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             tipe: 'pengeluaran',
           }));
 
-        if (rawPosPemasukan.length > 0) {
+        if (rawPosPemasukan && rawPosPemasukan.length > 0) {
           for (const inc of rawPosPemasukan) {
             const incNama = (inc.deskripsi || inc.namaPos || inc.namaMain || inc.nama || '').trim();
             if (incNama) {
+              const nom = typeof inc.nominalAlokasi === 'string'
+                ? parseFloat(inc.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+                : Number(inc.nominalAlokasi) || 0;
+
               createMainData.push({
                 namaMain: incNama,
-                nominalAlokasi: typeof inc.nominalAlokasi === 'string'
-                  ? parseFloat(inc.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
-                  : Number(inc.nominalAlokasi) || 0,
+                nominalAlokasi: nom,
                 nominalTerpakai: 0,
                 tipe: 'pemasukan',
+                subAnggaran: {
+                  create: [
+                    {
+                      namaSub: incNama,
+                      nominalAlokasi: nom,
+                      nominalTerpakai: 0,
+                      tipe: 'pemasukan',
+                    },
+                  ],
+                },
               });
             }
           }
