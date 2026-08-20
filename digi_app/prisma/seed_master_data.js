@@ -57,28 +57,31 @@ async function main() {
     ]
   });
 
-  // --- 1.1 KAS & BANK (PEMASUKAN / ASET) ---
-  console.log('Menambahkan data Master Pemasukan (Kas & Bank)...');
-  const mainKas = await prisma.masterMain.create({
-    data: { nama: 'Kas & Bank', tipe: 'pemasukan' }
+  // --- 1.1 PENJUALAN JASA (PEMASUKAN) ---
+  console.log('Menambahkan data Master Pemasukan (Penjualan Jasa)...');
+  const mainJasa = await prisma.masterMain.create({
+    data: { nama: 'Penjualan Jasa', tipe: 'pemasukan' }
   });
   await prisma.masterSub.createMany({
     data: [
-      { mainId: mainKas.id, nama: 'BCA', tipe: 'pemasukan' },
-      { mainId: mainKas.id, nama: 'Mandiri', tipe: 'pemasukan' },
-      { mainId: mainKas.id, nama: 'BRI', tipe: 'pemasukan' },
-      { mainId: mainKas.id, nama: 'Kas Kecil', tipe: 'pemasukan' },
+      { mainId: mainJasa.id, nama: 'Penjualan Jasa', tipe: 'pemasukan' },
+      { mainId: mainJasa.id, nama: 'Diskon Penjualan Jasa', tipe: 'pemasukan' },
+      { mainId: mainJasa.id, nama: 'Retur Penjualan Jasa', tipe: 'pemasukan' },
+      { mainId: mainJasa.id, nama: 'Biaya Penjualan Jasa Lainnya', tipe: 'pemasukan' },
     ]
   });
 
-  // --- 1.2 PENDAPATAN PROYEK (PEMASUKAN) ---
-  const mainPendapatan = await prisma.masterMain.create({
-    data: { nama: 'Pendapatan Proyek', tipe: 'pemasukan' }
+  // --- 1.2 PENJUALAN BARANG (PEMASUKAN) ---
+  console.log('Menambahkan data Master Pemasukan (Penjualan Barang)...');
+  const mainBarang = await prisma.masterMain.create({
+    data: { nama: 'Penjualan Barang', tipe: 'pemasukan' }
   });
   await prisma.masterSub.createMany({
     data: [
-      { mainId: mainPendapatan.id, nama: 'Termin 1 (DP)', tipe: 'pemasukan' },
-      { mainId: mainPendapatan.id, nama: 'Termin Pelunasan', tipe: 'pemasukan' },
+      { mainId: mainBarang.id, nama: 'Penjualan Barang', tipe: 'pemasukan' },
+      { mainId: mainBarang.id, nama: 'Diskon Penjualan Barang', tipe: 'pemasukan' },
+      { mainId: mainBarang.id, nama: 'Retur Penjualan Barang', tipe: 'pemasukan' },
+      { mainId: mainBarang.id, nama: 'Biaya Penjualan Barang Lainnya', tipe: 'pemasukan' },
     ]
   });
 

@@ -198,10 +198,13 @@ export async function POST(req: NextRequest) {
         ...(parsedRab && parsedRab > 0 ? {
           budget: {
             create: {
+              nilaiKontrak: parsedRab,
               rabTotal: parsedRab,
               sisaBudget: parsedRab,
+              targetPemasukan: 0,
               totalPengeluaran: 0,
               totalReimbursement: 0,
+              totalPemasukan: 0,
             }
           }
         } : {})

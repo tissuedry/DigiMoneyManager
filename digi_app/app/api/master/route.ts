@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clearCache } from '@/lib/route-cache';
 
 function isSuperAdmin(role: string | null) {
   return role === 'Superadmin' || role === 'superadmin';
@@ -117,6 +118,9 @@ export async function POST(req: NextRequest) {
         },
       });
     }
+
+    clearCache('reimb:');
+    clearCache('coa');
 
     return NextResponse.json({ message: 'Data master berhasil ditambahkan', data: newData }, { status: 201 });
     

@@ -7,7 +7,9 @@ export type Project = {
   tanggalSelesai: string | null;
   budget?: {
     id: number;
+    nilaiKontrak?: string | number;
     rabTotal: string;
+    targetPemasukan?: string | number;
     totalPengeluaran: string;
     totalReimbursement: string;
     sisaBudget: string;

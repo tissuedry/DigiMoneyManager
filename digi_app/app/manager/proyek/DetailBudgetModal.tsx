@@ -133,7 +133,7 @@ export default function DetailBudgetModal({
           <div className="px-7 pt-[22px] pb-[18px] border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
             <div className="flex flex-col">
               <h3 className="text-[19px] font-bold text-[#14130F] leading-[28.5px] font-sans">
-                Detail Anggaran
+                Detail Pengeluaran
               </h3>
               <p className="text-[13px] text-[#6A6660] leading-[19.5px] mt-0.5 font-sans">
                 {projectName}
@@ -148,35 +148,40 @@ export default function DetailBudgetModal({
             </button>
           </div>
 
-          {/* Column headers */}
-          <div className="px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
-            <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              MAIN · SUB · KETERANGAN
+          <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
+            {/* Sticky Table Header */}
+            <div className="sticky top-0 z-10 px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
+              <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                MAIN · SUB · KETERANGAN
+              </div>
+              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                REALISASI
+              </div>
+              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                ALOKASI
+              </div>
+              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                SISA
+              </div>
             </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              REALISASI
-            </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              ALOKASI
-            </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              SISA
-            </div>
-          </div>
 
-          {/* Scrollable rows */}
-          <div className="flex-1 overflow-y-auto px-7 py-3 flex flex-col gap-2">
-            {posAnggaran.length > 0 ? (
-              posAnggaran.map((pos: any, idxPos: number) => {
+            {/* Scrollable rows content */}
+            <div className="px-7 py-3 flex flex-col gap-2">
+              {posAnggaran.length > 0 ? (
+                posAnggaran.map((pos: any, idxPos: number) => {
                 const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
                 const isMainOpen = expandedMain[idxPos] ?? true;
 
                 const alokasiPos = parseFloat(pos.nominalAlokasi) || parseFloat(pos.alokasi) || 0;
                 const terpakaiPos = calculatePosRealisasi(pos);
                 const sisaPos = alokasiPos - terpakaiPos;
+                const isLast = idxPos === posAnggaran.length - 1;
 
                 return (
-                  <div key={pos.id || idxPos} className="flex flex-col pb-1 border-b border-[#E6E1D4]">
+                  <div
+                    key={pos.id || idxPos}
+                    className={`flex flex-col ${!isLast ? "pb-1 border-b border-[#E6E1D4]" : ""}`}
+                  >
                     {/* MAIN row */}
                     <div
                       onClick={() =>
@@ -273,7 +278,7 @@ export default function DetailBudgetModal({
                                   </div>
 
                                   {/* Column 3: ALOKASI */}
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#005836]">
+                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
                                     {formatFullCurrency(alokasiSub)}
                                   </div>
 
@@ -489,6 +494,7 @@ export default function DetailBudgetModal({
                 </div>
               </div>
             )}
+            </div>
           </div>
 
           {/* Footer */}

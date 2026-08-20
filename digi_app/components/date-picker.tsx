@@ -264,9 +264,14 @@ export default function DatePicker({
   };
 
   const goToday = () => {
+    const todayDateStr = toDateString(today.getFullYear(), today.getMonth(), today.getDate());
     setViewYear(today.getFullYear());
     setViewMonth(today.getMonth());
     setView("days");
+    if (!isDisabledDate(todayDateStr)) {
+      onChange(todayDateStr);
+      setOpen(false);
+    }
   };
 
   const handleHeaderClick = () => {

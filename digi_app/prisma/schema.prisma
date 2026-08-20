@@ -59,7 +59,9 @@ model UserProyek {
 model Budget {
   id                         Int            @id @default(autoincrement())
   proyekId                   Int            @unique @map("proyek_id")
+  nilaiKontrak               Decimal        @default(0) @map("nilai_kontrak") @db.Decimal(15, 2)
   rabTotal                   Decimal        @map("rab_total") @db.Decimal(15, 2)
+  targetPemasukan            Decimal        @default(0) @map("target_pemasukan") @db.Decimal(15, 2)
   totalPengeluaran           Decimal        @default(0) @map("total_pengeluaran") @db.Decimal(15, 2)
   totalReimbursement         Decimal        @default(0) @map("total_reimbursement") @db.Decimal(15, 2)
   sisaBudget                 Decimal        @map("sisa_budget") @db.Decimal(15, 2)
@@ -83,6 +85,7 @@ model MainAnggaran {
   subAnggaran        SubAnggaran[]
 
   @@index([budgetId])
+  @@index([budgetId, tipe])
   @@map("main_anggaran")
 }
 
@@ -97,6 +100,7 @@ model SubAnggaran {
   mainAnggaran    MainAnggaran         @relation(fields: [mainAnggaranId], references: [id], onDelete: Cascade)
 
   @@index([mainAnggaranId])
+  @@index([mainAnggaranId, tipe])
   @@map("sub_anggaran")
 }
 
@@ -229,6 +233,7 @@ model MasterMain {
   tipe      String      @default("pengeluaran") @map("tipe")
   MasterSub MasterSub[]
 
+  @@index([tipe])
   @@map("master_main")
 }
 
@@ -239,6 +244,8 @@ model MasterSub {
   tipe        String     @default("pengeluaran") @map("tipe")
   master_main MasterMain @relation(fields: [mainId], references: [id], onDelete: Cascade)
 
+  @@index([mainId])
+  @@index([tipe])
   @@map("master_sub")
 }
 

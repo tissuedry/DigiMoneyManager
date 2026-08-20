@@ -98,48 +98,53 @@ export default function AlokasiPemasukanModal({
           </button>
         </div>
 
-        {/* Column headers */}
-        <div className="px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
-          <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-            MAIN · SUB
+        <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
+          {/* Sticky Table Header */}
+          <div className="sticky top-0 z-10 px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
+            <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              MAIN · SUB
+            </div>
+            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              REALISASI
+            </div>
+            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              ALOKASI
+            </div>
+            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              SISA
+            </div>
           </div>
-          <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-            REALISASI
-          </div>
-          <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-            ALOKASI
-          </div>
-          <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-            SISA
-          </div>
-        </div>
 
-        {/* Scrollable rows */}
-        <div className="flex-1 overflow-y-auto px-7 py-3 flex flex-col gap-2">
-          {isMasterLoading ? (
-            <div className="p-12 text-center text-[#9A948B] text-xs font-sans">
-              Memuat data master...
-            </div>
-          ) : selectedMasterData.length === 0 ? (
-            <div className="p-12 text-center border border-stone-200 rounded-xl my-4">
-              <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
-                Data Pemasukan Kosong
+          {/* Scrollable rows content */}
+          <div className="px-7 py-3 flex flex-col gap-2">
+            {isMasterLoading ? (
+              <div className="p-12 text-center text-[#9A948B] text-xs font-sans">
+                Memuat data master...
               </div>
-              <div className="font-sans text-xs text-stone-400">
-                Belum ada data nilai proyek atau pos alokasi pemasukan yang diinisialisasi.
+            ) : selectedMasterData.length === 0 ? (
+              <div className="p-12 text-center border border-stone-200 rounded-xl my-4">
+                <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
+                  Data Pemasukan Kosong
+                </div>
+                <div className="font-sans text-xs text-stone-400">
+                  Belum ada data nilai proyek atau pos alokasi pemasukan yang diinisialisasi.
+                </div>
               </div>
-            </div>
-          ) : (
-            selectedMasterData.map((main: any) => {
+            ) : (
+              selectedMasterData.map((main: any, idxMain: number) => {
               const isMainOpen = expandedMain[main.id] ?? true;
 
               const alokasiMainObj = cariAlokasiMain(main.nama);
               const mainAlokasi = Number(alokasiMainObj?.nominalAlokasi) || 0;
               const mainTerpakai = Number(alokasiMainObj?.nominalTerpakai) || 0;
               const sisaMain = mainAlokasi - mainTerpakai;
+              const isLast = idxMain === selectedMasterData.length - 1;
 
               return (
-                <div key={main.id} className="flex flex-col pb-1 border-b border-[#E6E1D4]">
+                <div
+                  key={main.id}
+                  className={`flex flex-col ${!isLast ? "pb-1 border-b border-[#E6E1D4]" : ""}`}
+                >
                   {/* MAIN row */}
                   <div
                     onClick={() => toggleMain(main.id)}
@@ -216,7 +221,7 @@ export default function AlokasiPemasukanModal({
                               </div>
 
                               {/* Column 3: ALOKASI */}
-                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#005836]">
+                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
                                 {formatFullCurrency(subAlokasi)}
                               </div>
 
@@ -238,6 +243,7 @@ export default function AlokasiPemasukanModal({
               );
             })
           )}
+          </div>
         </div>
 
         {/* Footer */}

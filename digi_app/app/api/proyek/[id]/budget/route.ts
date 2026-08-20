@@ -28,105 +28,232 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     
     const body = await req.json();
-    const { rabTotal, posAnggaran } = body; 
+    const { 
+      nilaiKontrak, 
+      rabTotal, 
+      targetPemasukan, 
+      posAnggaran, 
+      posPengeluaran, 
+      posPemasukan 
+    } = body;
 
-    if (!rabTotal || !posAnggaran || !Array.isArray(posAnggaran)) {
-      return NextResponse.json({ message: 'rabTotal and posAnggaran (array) are required' }, { status: 400 });
+    // Normalisasi input pos
+    const rawPosPengeluaran = posPengeluaran !== undefined ? posPengeluaran : (posAnggaran !== undefined ? posAnggaran : null);
+    const rawPosPemasukan = posPemasukan !== undefined ? posPemasukan : null;
+
+    if (!rawPosPengeluaran && !rawPosPemasukan && rabTotal === undefined && targetPemasukan === undefined && nilaiKontrak === undefined) {
+      return NextResponse.json({ message: 'Tidak ada data anggaran yang dikirim untuk diupdate' }, { status: 400 });
     }
 
     // Verify project exists
     const project = await prisma.proyek.findUnique({
       where: { id: parseInt(proyekId, 10) },
+      include: {
+        budget: {
+          include: {
+            mainAnggaran: true,
+          },
+        },
+      },
     });
 
     if (!project) {
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Verify sum of posAnggaran does not exceed rabTotal
-    const sumAllocations = posAnggaran.reduce((sum: number, pos: any) => sum + parseFloat(pos.nominalAlokasi), 0);
-    if (sumAllocations > parseFloat(rabTotal)) {
+    const existingBudget = project.budget;
+    const existingPengeluaran = existingBudget ? existingBudget.mainAnggaran.filter((m) => m.tipe !== 'pemasukan') : [];
+    const existingPemasukan = existingBudget ? existingBudget.mainAnggaran.filter((m) => m.tipe === 'pemasukan') : [];
+
+    // Hitung total pengeluaran
+    let sumPengeluaran = 0;
+    if (rawPosPengeluaran && Array.isArray(rawPosPengeluaran)) {
+      sumPengeluaran = rawPosPengeluaran.reduce((sum: number, pos: any) => {
+        const nom = typeof pos.nominalAlokasi === 'string'
+          ? parseFloat(pos.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+          : Number(pos.nominalAlokasi) || 0;
+        return sum + nom;
+      }, 0);
+    } else if (existingPengeluaran.length > 0) {
+      sumPengeluaran = existingPengeluaran.reduce((sum, p) => sum + Number(p.nominalAlokasi), 0);
+    }
+
+    // Hitung total pemasukan
+    let sumPemasukan = 0;
+    if (rawPosPemasukan && Array.isArray(rawPosPemasukan)) {
+      sumPemasukan = rawPosPemasukan.reduce((sum: number, pos: any) => {
+        const nom = typeof pos.nominalAlokasi === 'string'
+          ? parseFloat(pos.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+          : Number(pos.nominalAlokasi) || 0;
+        return sum + nom;
+      }, 0);
+    } else if (existingPemasukan.length > 0) {
+      sumPemasukan = existingPemasukan.reduce((sum, p) => sum + Number(p.nominalAlokasi), 0);
+    }
+
+    const parsedRabTotal = rabTotal !== undefined && rabTotal !== null
+      ? (typeof rabTotal === 'number' ? rabTotal : parseFloat(String(rabTotal).replace(/[^0-9.-]+/g, '')) || 0)
+      : (rawPosPengeluaran ? sumPengeluaran : (existingBudget ? Number(existingBudget.rabTotal) : sumPengeluaran));
+
+    const parsedTargetPemasukan = targetPemasukan !== undefined && targetPemasukan !== null
+      ? (typeof targetPemasukan === 'number' ? targetPemasukan : parseFloat(String(targetPemasukan).replace(/[^0-9.-]+/g, '')) || 0)
+      : (rawPosPemasukan ? sumPemasukan : (existingBudget ? Number(existingBudget.targetPemasukan) : sumPemasukan));
+
+    const parsedNilaiKontrak = nilaiKontrak !== undefined && nilaiKontrak !== null
+      ? (typeof nilaiKontrak === 'number' ? nilaiKontrak : parseFloat(String(nilaiKontrak).replace(/[^0-9.-]+/g, '')) || 0)
+      : (existingBudget ? Number(existingBudget.nilaiKontrak) : (parsedRabTotal + parsedTargetPemasukan));
+
+    // Validasi alokasi tidak melebihi alokasi pengeluaran
+    if (rawPosPengeluaran && sumPengeluaran > parsedRabTotal && parsedRabTotal > 0) {
       return NextResponse.json({
-        message: `Jumlah alokasi item (Rp ${sumAllocations.toLocaleString('id-ID')}) tidak boleh melebihi total Nilai Proyek (Rp ${parseFloat(rabTotal).toLocaleString('id-ID')})`
+        message: `Total alokasi pengeluaran (Rp ${sumPengeluaran.toLocaleString('id-ID')}) tidak boleh melebihi budget RAB Pengeluaran (Rp ${parsedRabTotal.toLocaleString('id-ID')})`
       }, { status: 400 });
     }
 
-    // Perform a differential update of the budget if it exists, or create a new one
+    // Validasi total pengeluaran + pemasukan tidak melebihi nilai kontrak
+    if ((parsedRabTotal + parsedTargetPemasukan) > parsedNilaiKontrak && parsedNilaiKontrak > 0) {
+      return NextResponse.json({
+        message: `Total Pengeluaran (Rp ${parsedRabTotal.toLocaleString('id-ID')}) + Pemasukan (Rp ${parsedTargetPemasukan.toLocaleString('id-ID')}) melebihi Nilai Perjanjian Proyek (Rp ${parsedNilaiKontrak.toLocaleString('id-ID')})`
+      }, { status: 400 });
+    }
+
+    // Eksekusi transaksi penyimpanan budget & pos anggaran
     const result = await prisma.$transaction(async (tx) => {
-      const existingBudget = await tx.budget.findUnique({
-        where: { proyekId: parseInt(proyekId, 10) },
-        include: {
-          mainAnggaran: true,
-        },
-      });
+      let budgetId: number;
 
       if (existingBudget) {
-        const existingMain = existingBudget.mainAnggaran;
-
-        for (const ext of existingMain) {
-          const matchedIncoming = posAnggaran.find(
-            (pos: any) => pos.deskripsi.trim().toLowerCase() === ext.namaMain.trim().toLowerCase()
-          );
+        budgetId = existingBudget.id;
+        
+        // 1. Sinkronisasi Pos Pengeluaran HANYA jika rawPosPengeluaran dikirim
+        if (rawPosPengeluaran && Array.isArray(rawPosPengeluaran)) {
+          for (const ext of existingPengeluaran) {
+            const matchedIncoming = rawPosPengeluaran.find(
+              (pos: any) => (pos.deskripsi || pos.namaPos || pos.namaMain || '').trim().toLowerCase() === ext.namaMain.trim().toLowerCase()
+            );
 
             if (matchedIncoming) {
-              const newAlokasi = parseFloat(matchedIncoming.nominalAlokasi);
+              const rawNom = typeof matchedIncoming.nominalAlokasi === 'string'
+                ? parseFloat(matchedIncoming.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+                : Number(matchedIncoming.nominalAlokasi) || 0;
 
               await tx.mainAnggaran.update({
-              where: { id: ext.id },
-              data: {
-                nominalAlokasi: newAlokasi,
-                namaMain: matchedIncoming.deskripsi,
-              },
-            });
-
-          } else {
-            const subs = await tx.subAnggaran.findMany({
-              where: { mainAnggaranId: ext.id },
-              select: { id: true },
-            });
-            const subIds = subs.map((s) => s.id);
-
-            if (subIds.length > 0) {
-              const kets = await tx.keteranganAnggaran.findMany({
-                where: { subAnggaranId: { in: subIds } },
+                where: { id: ext.id },
+                data: {
+                  nominalAlokasi: rawNom,
+                  namaMain: (matchedIncoming.deskripsi || matchedIncoming.namaPos || matchedIncoming.namaMain || ext.namaMain).trim(),
+                  tipe: 'pengeluaran',
+                },
+              });
+            } else {
+              const subs = await tx.subAnggaran.findMany({
+                where: { mainAnggaranId: ext.id },
                 select: { id: true },
               });
-              const ketIds = kets.map((k) => k.id);
+              const subIds = subs.map((s) => s.id);
 
-              if (ketIds.length > 0) {
-                await tx.reimbursement.deleteMany({
-                  where: { keteranganAnggaranId: { in: ketIds } },
+              if (subIds.length > 0) {
+                const kets = await tx.keteranganAnggaran.findMany({
+                  where: { subAnggaranId: { in: subIds } },
+                  select: { id: true },
                 });
-                await tx.keteranganAnggaran.deleteMany({
-                  where: { id: { in: ketIds } },
+                const ketIds = kets.map((k) => k.id);
+
+                if (ketIds.length > 0) {
+                  await tx.reimbursement.deleteMany({
+                    where: { keteranganAnggaranId: { in: ketIds } },
+                  });
+                  await tx.keteranganAnggaran.deleteMany({
+                    where: { id: { in: ketIds } },
+                  });
+                }
+
+                await tx.subAnggaran.deleteMany({
+                  where: { mainAnggaranId: ext.id },
                 });
               }
 
-              await tx.subAnggaran.deleteMany({
-                where: { mainAnggaranId: ext.id },
+              await tx.mainAnggaran.delete({
+                where: { id: ext.id },
               });
             }
+          }
 
-            await tx.mainAnggaran.delete({
-              where: { id: ext.id },
-            });
+          for (const incoming of rawPosPengeluaran) {
+            const incNama = (incoming.deskripsi || incoming.namaPos || incoming.namaMain || '').trim();
+            if (!incNama) continue;
+
+            const exists = existingPengeluaran.some(
+              (ext) => ext.namaMain.trim().toLowerCase() === incNama.toLowerCase()
+            );
+
+            if (!exists) {
+              const rawNom = typeof incoming.nominalAlokasi === 'string'
+                ? parseFloat(incoming.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+                : Number(incoming.nominalAlokasi) || 0;
+
+              await tx.mainAnggaran.create({
+                data: {
+                  budgetId: existingBudget.id,
+                  namaMain: incNama,
+                  nominalAlokasi: rawNom,
+                  nominalTerpakai: 0,
+                  tipe: 'pengeluaran',
+                },
+              });
+            }
           }
         }
 
-        for (const incoming of posAnggaran) {
-          const exists = existingMain.some(
-            (ext) => ext.namaMain.trim().toLowerCase() === incoming.deskripsi.trim().toLowerCase()
-          );
+        // 2. Sinkronisasi Pos Pemasukan HANYA jika rawPosPemasukan dikirim
+        if (rawPosPemasukan && Array.isArray(rawPosPemasukan)) {
+          // Hapus atau perbarui yang ada
+          for (const ext of existingPemasukan) {
+            const matchedIncoming = rawPosPemasukan.find(
+              (pos: any) => (pos.deskripsi || pos.namaPos || pos.namaMain || pos.nama || '').trim().toLowerCase() === ext.namaMain.trim().toLowerCase()
+            );
 
-          if (!exists) {
-            await tx.mainAnggaran.create({
-              data: {
-                budgetId: existingBudget.id,
-                namaMain: incoming.deskripsi,
-                nominalAlokasi: parseFloat(incoming.nominalAlokasi),
-                nominalTerpakai: 0,
-              },
-            });
+            if (matchedIncoming) {
+              const rawNom = typeof matchedIncoming.nominalAlokasi === 'string'
+                ? parseFloat(matchedIncoming.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+                : Number(matchedIncoming.nominalAlokasi) || 0;
+
+              await tx.mainAnggaran.update({
+                where: { id: ext.id },
+                data: {
+                  nominalAlokasi: rawNom,
+                  namaMain: (matchedIncoming.deskripsi || matchedIncoming.namaPos || matchedIncoming.namaMain || ext.namaMain).trim(),
+                  tipe: 'pemasukan',
+                },
+              });
+            } else {
+              // Jika dihapus dari list alokasi pemasukan
+              await tx.mainAnggaran.delete({
+                where: { id: ext.id },
+              });
+            }
+          }
+
+          for (const inc of rawPosPemasukan) {
+            const incNama = (inc.deskripsi || inc.namaPos || inc.namaMain || inc.nama || '').trim();
+            if (!incNama) continue;
+
+            const rawNom = typeof inc.nominalAlokasi === 'string'
+              ? parseFloat(inc.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+              : Number(inc.nominalAlokasi) || 0;
+
+            const extMatch = existingPemasukan.find((e) => e.namaMain.trim().toLowerCase() === incNama.toLowerCase());
+
+            if (!extMatch) {
+              await tx.mainAnggaran.create({
+                data: {
+                  budgetId: existingBudget.id,
+                  namaMain: incNama,
+                  nominalAlokasi: rawNom,
+                  nominalTerpakai: 0,
+                  tipe: 'pemasukan',
+                },
+              });
+            }
           }
         }
 
@@ -146,35 +273,76 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const updatedBudget = await tx.budget.update({
           where: { id: existingBudget.id },
           data: {
-            rabTotal,
+            nilaiKontrak: parsedNilaiKontrak,
+            rabTotal: parsedRabTotal,
+            targetPemasukan: parsedTargetPemasukan,
             totalPengeluaran,
-            sisaBudget: Number(rabTotal) - totalPengeluaran,
+            sisaBudget: Number(parsedRabTotal) - totalPengeluaran,
           },
           include: {
-            mainAnggaran: true,
+            mainAnggaran: {
+              include: {
+                subAnggaran: {
+                  include: { keterangan: true }
+                }
+              }
+            },
           },
         });
 
         return updatedBudget;
 
       } else {
+        const createMainData: any[] = rawPosPengeluaran
+          .filter((pos: any) => (pos.deskripsi || pos.namaPos || pos.namaMain || '').trim() !== '')
+          .map((pos: any) => ({
+            namaMain: (pos.deskripsi || pos.namaPos || pos.namaMain).trim(),
+            nominalAlokasi: typeof pos.nominalAlokasi === 'string'
+              ? parseFloat(pos.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+              : Number(pos.nominalAlokasi) || 0,
+            nominalTerpakai: 0,
+            tipe: 'pengeluaran',
+          }));
+
+        if (rawPosPemasukan.length > 0) {
+          for (const inc of rawPosPemasukan) {
+            const incNama = (inc.deskripsi || inc.namaPos || inc.namaMain || inc.nama || '').trim();
+            if (incNama) {
+              createMainData.push({
+                namaMain: incNama,
+                nominalAlokasi: typeof inc.nominalAlokasi === 'string'
+                  ? parseFloat(inc.nominalAlokasi.replace(/\./g, '').replace(',', '.')) || 0
+                  : Number(inc.nominalAlokasi) || 0,
+                nominalTerpakai: 0,
+                tipe: 'pemasukan',
+              });
+            }
+          }
+        }
+
         const newBudget = await tx.budget.create({
           data: {
             proyekId: parseInt(proyekId, 10),
-            rabTotal,
-            sisaBudget: rabTotal,
+            nilaiKontrak: parsedNilaiKontrak,
+            rabTotal: parsedRabTotal,
+            targetPemasukan: parsedTargetPemasukan,
+            sisaBudget: parsedRabTotal,
             totalPengeluaran: 0,
             totalReimbursement: 0,
+            totalPemasukan: 0,
+            pemasukanBelumDialokasikan: 0,
             mainAnggaran: {
-              create: posAnggaran.map((pos: any) => ({
-                namaMain: pos.deskripsi,
-                nominalAlokasi: pos.nominalAlokasi,
-                nominalTerpakai: 0,
-              })),
+              create: createMainData,
             },
           },
           include: {
-            mainAnggaran: true,
+            mainAnggaran: {
+              include: {
+                subAnggaran: {
+                  include: { keterangan: true }
+                }
+              }
+            },
           },
         });
 

@@ -2,21 +2,20 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
-// GET: List all pemasukan master accounts as COA
+// GET: List all aset master accounts as COA
 export async function GET(req: NextRequest) {
   try {
     const cached = getCached('coa');
     if (cached) return NextResponse.json(cached);
 
-    const masterPemasukan = await prisma.masterMain.findMany({
-      where: { tipe: 'pemasukan' },
-      include: { MasterSub: true },
+    const masterAset = await prisma.masterMain.findMany({
+      where: { tipe: 'aset' },
+      include: { MasterSub: { where: { tipe: 'aset' }, orderBy: { id: 'asc' } } },
       orderBy: { id: 'asc' },
     });
 
     const coa: any[] = [];
-    const counter = 1;
-    for (const main of masterPemasukan) {
+    for (const main of masterAset) {
       for (const sub of main.MasterSub) {
         coa.push({
           id: `COA-${sub.id}`,

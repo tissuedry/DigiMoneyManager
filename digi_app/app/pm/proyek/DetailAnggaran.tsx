@@ -157,14 +157,14 @@ export default function DetailAnggaranModal({
   const toggleKet = (id: number) =>
     setExpandedKet((p) => ({ ...p, [id]: !p[id] }));
 
-  const sortedPosAnggaran = [...(posAnggaran || [])].sort(
-    (a, b) => (Number(a.id) || 0) - (Number(b.id) || 0)
-  );
+  const sortedPosAnggaran = [...(posAnggaran || [])]
+    .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === "pengeluaran")
+    .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
 
   const mapped: MainPosItem[] = sortedPosAnggaran.map((main) => {
-    const sortedSubAnggaran = [...(main.subAnggaran || [])].sort(
-      (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
-    );
+    const sortedSubAnggaran = [...(main.subAnggaran || [])]
+      .filter((s: any) => !s.tipe || s.tipe.toLowerCase() === "pengeluaran")
+      .sort((a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0));
 
     const subPos = sortedSubAnggaran.map((sub: any) => {
       const sortedKeterangan = [...(sub.keterangan || [])].sort(
@@ -273,41 +273,47 @@ export default function DetailAnggaranModal({
             </button>
           </div>
 
-          <div className="px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
-            <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              MAIN · SUB · KETERANGAN
-            </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              REALISASI
-            </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              ALOKASI
-            </div>
-            <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              SISA
-            </div>
-            <div className="w-[125px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
-              AKSI
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-7 py-3 flex flex-col gap-2">
-            {mapped.length === 0 ? (
-              <div className="p-12 text-center border border-stone-200 rounded-xl my-4">
-                <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
-                  Data Pos Anggaran Kosong
-                </div>
-                <div className="font-sans text-xs text-stone-400">
-                  Belum ada pos anggaran yang diinisialisasi untuk proyek ini.
-                </div>
+          <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
+            {/* Sticky Table Header */}
+            <div className="sticky top-0 z-10 px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
+              <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                MAIN · SUB · KETERANGAN
               </div>
-            ) : (
-              mapped.map((main) => {
+              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                REALISASI
+              </div>
+              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                ALOKASI
+              </div>
+              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                SISA
+              </div>
+              <div className="w-[125px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+                AKSI
+              </div>
+            </div>
+
+            <div className="px-7 py-3 flex flex-col gap-2">
+              {mapped.length === 0 ? (
+                <div className="p-12 text-center border border-stone-200 rounded-xl my-4">
+                  <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
+                    Data Pos Anggaran Kosong
+                  </div>
+                  <div className="font-sans text-xs text-stone-400">
+                    Belum ada pos anggaran yang diinisialisasi untuk proyek ini.
+                  </div>
+                </div>
+              ) : (
+                mapped.map((main, idxMain) => {
                 const isMainOpen = expandedMain[main.id] ?? true;
                 const mainSisa = main.alokasi - main.realisasi;
+                const isLast = idxMain === mapped.length - 1;
 
                 return (
-                  <div key={main.id} className="flex flex-col pb-1 border-b border-[#E6E1D4]">
+                  <div
+                    key={main.id}
+                    className={`flex flex-col ${!isLast ? "pb-1 border-b border-[#E6E1D4]" : ""}`}
+                  >
                     <div
                       onClick={() => toggleMain(main.id)}
                       className="py-1.5 flex items-center hover:bg-stone-50/80 rounded-lg cursor-pointer select-none transition"
@@ -399,7 +405,7 @@ export default function DetailAnggaranModal({
                                     {formatFullCurrency(sub.realisasi)}
                                   </div>
 
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#005836]">
+                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
                                     {formatFullCurrency(sub.alokasi)}
                                   </div>
 
@@ -635,6 +641,7 @@ export default function DetailAnggaranModal({
                 );
               })
             )}
+            </div>
           </div>
 
           <div className="px-7 py-3.5 border-t border-[#E6E1D4] flex justify-end shrink-0 bg-white">

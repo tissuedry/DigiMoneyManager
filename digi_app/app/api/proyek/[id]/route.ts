@@ -242,44 +242,56 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const body = await req.json();
-    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal } = body;
+    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal, nilaiKontrak } = body;
 
     if (!nama || !tanggalMulai || !status || !tanggalSelesai) {
       return NextResponse.json({ message: 'Nama, tanggal mulai, tanggal selesai, dan status wajib diisi' }, { status: 400 });
     }
 
-    const parsedRab = rabTotal !== undefined && rabTotal !== null && rabTotal !== ''
-      ? (typeof rabTotal === 'number' ? rabTotal : parseFloat(String(rabTotal).replace(/[^0-9.-]+/g, '')))
+    const rawNilai = nilaiKontrak !== undefined && nilaiKontrak !== null && nilaiKontrak !== ''
+      ? nilaiKontrak
+      : rabTotal;
+
+    const parsedNilai = rawNilai !== undefined && rawNilai !== null && rawNilai !== ''
+      ? (typeof rawNilai === 'number' ? rawNilai : parseFloat(String(rawNilai).replace(/[^0-9.-]+/g, '')))
       : null;
 
-    if (parsedRab !== null && parsedRab > 0) {
+    if (parsedNilai !== null && parsedNilai > 0) {
       const existingBudget = await prisma.budget.findUnique({
         where: { proyekId },
         include: { mainAnggaran: true },
       });
 
       if (existingBudget) {
-        const sumPos = existingBudget.mainAnggaran.reduce((sum, m) => sum + Number(m.nominalAlokasi), 0);
-        if (sumPos > parsedRab) {
+        const currentRabTotal = Number(existingBudget.rabTotal) || 0;
+        const currentTargetPemasukan = Number(existingBudget.targetPemasukan) || 0;
+        const totalPos = currentRabTotal + currentTargetPemasukan;
+
+        if (totalPos > parsedNilai && totalPos > 0) {
           return NextResponse.json({
-            message: `Total Nilai Proyek (Rp ${parsedRab.toLocaleString('id-ID')}) tidak boleh lebih kecil dari total alokasi pos anggaran yang sudah ada (Rp ${sumPos.toLocaleString('id-ID')})`
+            message: `Total Nilai Proyek (Rp ${parsedNilai.toLocaleString('id-ID')}) tidak boleh lebih kecil dari total alokasi pengeluaran & pemasukan yang sudah ada (Rp ${totalPos.toLocaleString('id-ID')})`
           }, { status: 400 });
         }
+
         await prisma.budget.update({
           where: { id: existingBudget.id },
           data: {
-            rabTotal: parsedRab,
-            sisaBudget: parsedRab - Number(existingBudget.totalPengeluaran),
+            nilaiKontrak: parsedNilai,
+            rabTotal: currentRabTotal > 0 ? currentRabTotal : parsedNilai,
+            sisaBudget: (currentRabTotal > 0 ? currentRabTotal : parsedNilai) - Number(existingBudget.totalPengeluaran),
           },
         });
       } else {
         await prisma.budget.create({
           data: {
             proyekId,
-            rabTotal: parsedRab,
-            sisaBudget: parsedRab,
+            nilaiKontrak: parsedNilai,
+            rabTotal: parsedNilai,
+            targetPemasukan: 0,
+            sisaBudget: parsedNilai,
             totalPengeluaran: 0,
             totalReimbursement: 0,
+            totalPemasukan: 0,
           },
         });
       }
@@ -312,8 +324,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         data: {
           userId: parseInt(userId, 10),
           aksi: 'update_project',
-          detail: parsedRab !== null && parsedRab > 0
-            ? `${actor} memperbarui proyek: ${nama} (Status: ${status}, Nilai: Rp ${parsedRab.toLocaleString('id-ID')})`
+          detail: parsedNilai !== null && parsedNilai > 0
+            ? `${actor} memperbarui proyek: ${nama} (Status: ${status}, Nilai: Rp ${parsedNilai.toLocaleString('id-ID')})`
             : `${actor} memperbarui proyek: ${nama} (Status: ${status})`,
         },
       });

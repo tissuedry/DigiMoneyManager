@@ -388,7 +388,7 @@ export default function ReimbursementDetailPanel({
 
             <div>
               <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Bukti Struk</p>
-              {raw.strukUrl ? (
+              {raw.strukUrl && raw.strukUrl.trim() !== '' && raw.strukUrl !== '/uploads/placeholder.png' && raw.strukUrl !== '/bukti_struk.png' ? (
                 raw.strukUrl.toLowerCase().split('?')[0].endsWith('.pdf') ? (
                   <div className="border border-stone-200 rounded-xl p-3 bg-[#fdfaf5] flex items-center justify-between gap-3 w-full max-w-xs sm:max-w-sm">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -417,7 +417,6 @@ export default function ReimbursementDetailPanel({
                       loading="lazy"
                       className="w-full h-full object-cover cursor-pointer group-hover:opacity-90 transition"
                       onClick={() => onOpenImage(raw.strukUrl)}
-                      onError={(e) => { (e.target as HTMLImageElement).src = "/bukti_struk.png"; }}
                     />
                     <div className="pointer-events-none absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
                       <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
@@ -427,13 +426,8 @@ export default function ReimbursementDetailPanel({
                   </div>
                 )
               ) : (
-                <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] max-w-xs flex items-center justify-center">
-                  <img
-                    src="/bukti_struk.png"
-                    alt="Bukti Struk"
-                    loading="lazy"
-                    className="w-full h-full object-cover"
-                  />
+                <div className="bg-[#f5f4ef] border border-stone-200/80 rounded-xl px-4 py-3 text-[13px] text-stone-400 italic">
+                  Tidak ada bukti struk yang dilampirkan.
                 </div>
               )}
             </div>

@@ -28,6 +28,7 @@ type AlokasiSub = {
 type AlokasiMain = {
   id: number;
   nama: string;
+  tipe?: string;
   alokasi: number;
   subPos: AlokasiSub[];
 };
@@ -111,20 +112,27 @@ export default function AlokasiPosModal({
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    const mapped: AlokasiMain[] = posAnggaran.map((main) => ({
+    const filteredMains = (posAnggaran || []).filter(
+      (main: any) => !main.tipe || main.tipe.toLowerCase() === "pengeluaran"
+    );
+
+    const mapped: AlokasiMain[] = filteredMains.map((main) => ({
       id: main.id,
-      nama: main.nama,
-      alokasi: main.alokasi,
-      subPos: (main.subAnggaran || []).map((sub: any) => ({
-        id: sub.id,
-        nama: sub.nama,
-        alokasi: sub.alokasi,
-        keterangan: (sub.keterangan || []).map((ket: any) => ({
-          id: ket.id,
-          nama: ket.nama,
-          alokasi: ket.alokasi,
+      nama: main.nama || main.namaMain || "",
+      tipe: main.tipe || "pengeluaran",
+      alokasi: Number(main.alokasi || main.nominalAlokasi || 0),
+      subPos: (main.subAnggaran || [])
+        .filter((sub: any) => !sub.tipe || sub.tipe.toLowerCase() === "pengeluaran")
+        .map((sub: any) => ({
+          id: sub.id,
+          nama: sub.nama || sub.namaSub || "",
+          alokasi: Number(sub.alokasi || sub.nominalAlokasi || 0),
+          keterangan: (sub.keterangan || []).map((ket: any) => ({
+            id: ket.id,
+            nama: ket.nama || ket.keterangan || "",
+            alokasi: Number(ket.alokasi || ket.nominalAlokasi || 0),
+          })),
         })),
-      })),
     }));
 
     // Restore unsubmitted local drafts from localStorage
@@ -628,42 +636,49 @@ export default function AlokasiPosModal({
 
                             {/* Keterangan List */}
                             {isSubOpen && (
-                              <div className="pl-[88px] pr-4 py-1 space-y-1 bg-white">
-                                {sub.keterangan.map((ket) => (
-                                  <div key={ket.id} className="flex items-center justify-between py-1 text-[12px] text-[#6a6660]">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">KET</span>
-                                      {ket.isLocalDraft ? (
-                                        <span className="text-[12.5px] font-normal text-[#6a6660]">
-                                          Ket Baru: <span className="text-[#005d8d] font-semibold">{ket.nama}</span>
-                                        </span>
-                                      ) : (
-                                        <span className="text-[12.5px] font-normal text-[#6a6660]">{ket.nama}</span>
-                                      )}
-                                    </div>
+                              <div className="bg-white">
+                                {sub.keterangan.length > 0 && (
+                                  <div className="pl-16 pr-4 py-1 space-y-1 bg-white">
+                                    {sub.keterangan.map((ket, idxKet) => (
+                                      <div key={ket.id} className="flex items-center justify-between py-1 text-[12px] text-[#6a6660]">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="w-3.5 text-center text-[10.5px] font-bold text-[#9a948b] shrink-0 font-mono select-none">
+                                            {idxKet + 1}
+                                          </span>
+                                          <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">KET</span>
+                                          {ket.isLocalDraft ? (
+                                            <span className="text-[12.5px] font-normal text-[#6a6660]">
+                                              Ket Baru: <span className="text-[#005d8d] font-semibold">{ket.nama}</span>
+                                            </span>
+                                          ) : (
+                                            <span className="text-[12.5px] font-normal text-[#6a6660]">{ket.nama}</span>
+                                          )}
+                                        </div>
 
-                                    <div className="flex items-center gap-3 ml-auto">
-                                      {ket.isLocalDraft && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveKetDraft(sub.id, ket.id)}
-                                          className="group/btn text-[9px] font-bold px-2 py-0.5 rounded bg-[#e0f2fe] text-[#005d8d] border border-[#bae6fd] hover:bg-[#fdf3f2] hover:text-[#902f33] hover:border-[#f3d1ce] tracking-wider cursor-pointer transition-all duration-150"
-                                          title="Klik untuk membatalkan draft"
-                                        >
-                                          <span className="group-hover/btn:hidden">DRAFT</span>
-                                          <span className="hidden group-hover/btn:inline">Batal</span>
-                                        </button>
-                                      )}
+                                        <div className="flex items-center gap-3 ml-auto">
+                                          {ket.isLocalDraft && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveKetDraft(sub.id, ket.id)}
+                                              className="group/btn text-[9px] font-bold px-2 py-0.5 rounded bg-[#e0f2fe] text-[#005d8d] border border-[#bae6fd] hover:bg-[#fdf3f2] hover:text-[#902f33] hover:border-[#f3d1ce] tracking-wider cursor-pointer transition-all duration-150"
+                                              title="Klik untuk membatalkan draft"
+                                            >
+                                              <span className="group-hover/btn:hidden">DRAFT</span>
+                                              <span className="hidden group-hover/btn:inline">Batal</span>
+                                            </button>
+                                          )}
 
-                                      <span className="text-[#9a948b] font-mono text-[11px] text-right min-w-[90px]">{formatShort(ket.alokasi)}</span>
-                                    </div>
+                                          <span className="text-[#9a948b] font-mono text-[11px] text-right min-w-[90px]">{formatShort(ket.alokasi)}</span>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
+                                )}
 
                                 {/* Add Keterangan inline under Sub */}
-                                <div className="py-1 -ml-6">
+                                <div className="pl-16 pr-4 py-1">
                                   {addingKetSubId === sub.id ? (
-                                    <div className="space-y-3 my-2 bg-white ml-6">
+                                    <div className="space-y-3 my-2 bg-white">
                                       {/* Budget summary for this Sub */}
                                       {(() => {
                                         const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
@@ -741,7 +756,7 @@ export default function AlokasiPosModal({
                                         setNewKetName("");
                                         setNewKetAlokasi("");
                                       }}
-                                      className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#005d8d] hover:underline cursor-pointer ml-6"
+                                      className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#005d8d] hover:underline cursor-pointer"
                                     >
                                       <Plus size={12} /> Tambah Keterangan
                                     </button>
