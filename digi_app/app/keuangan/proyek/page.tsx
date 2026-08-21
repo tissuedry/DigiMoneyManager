@@ -108,7 +108,7 @@ function ProjectSelector({
   const activeProjects = projects.filter(
     (p) => p.status?.toUpperCase() === "AKTIF" || p.status?.toUpperCase() === "ACTIVE"
   );
-  
+
   const displayProjects = activeProjects.length > 0 ? activeProjects : projects;
   const selectedProject = displayProjects.find((p) => p.id === selectedProjectId) || displayProjects[0];
 
@@ -143,11 +143,10 @@ function ProjectSelector({
                 onSelect(p.id);
                 setOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-[12px] transition ${
-                p.id === selectedProject?.id
-                  ? "bg-emerald-50 text-[#008f5d] font-semibold"
-                  : "text-stone-700 hover:bg-stone-50 font-medium"
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-[12px] transition ${p.id === selectedProject?.id
+                ? "bg-emerald-50 text-[#008f5d] font-semibold"
+                : "text-stone-700 hover:bg-stone-50 font-medium"
+                }`}
             >
               <span className="truncate">{p.nama}</span>
             </button>
@@ -261,7 +260,7 @@ function KeuanganKelolaProyekContent() {
               <div>
                 <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
                 <p className="text-sm text-stone-500 mt-1">
-                  Pantau realisasi pemasukan, alokasikan pos pemasukan baru, dan kelola termin proyek.
+                  Pantau realisasi pendapatan, alokasikan pos pendapatan baru, dan kelola termin proyek.
                 </p>
               </div>
 
@@ -341,11 +340,10 @@ function KeuanganKelolaProyekContent() {
                         return (
                           <div
                             key={t.id || idx}
-                            className={`p-3.5 rounded-xl border transition ${
-                              isDiterima
+                            className={`p-3.5 rounded-xl border transition ${isDiterima
                                 ? "bg-emerald-50/30 border-emerald-100/90"
                                 : "bg-stone-50/50 border-stone-200/60"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div>
@@ -363,11 +361,10 @@ function KeuanganKelolaProyekContent() {
                                 </p>
                                 <div className="mt-1">
                                   <span
-                                    className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                                      isDiterima
+                                    className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md ${isDiterima
                                         ? "bg-emerald-100/80 text-emerald-800"
                                         : "bg-amber-100/80 text-amber-800"
-                                    }`}
+                                      }`}
                                   >
                                     {isDiterima ? "Diterima" : "Belum Diterima"}
                                   </span>
@@ -448,7 +445,7 @@ function KeuanganKelolaProyekContent() {
         />
       )}
 
-      {/* Realisasi Pemasukan Modal */}
+      {/* Realisasi Pendapatan Modal */}
       {isRealisasiOpen && proyek && (
         <RealisasiPemasukanModal
           proyekId={proyek.id}
@@ -457,7 +454,7 @@ function KeuanganKelolaProyekContent() {
           onRefresh={() => {
             invalidate("/api/keuangan/proyek");
             refetch();
-            setRealisasiSuccessToast("Realisasi pemasukan berhasil dicatat.");
+            setRealisasiSuccessToast("Realisasi pendapatan berhasil dicatat.");
           }}
         />
       )}

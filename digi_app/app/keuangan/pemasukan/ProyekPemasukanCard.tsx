@@ -74,7 +74,7 @@ export default function ProyekPemasukanCard({
   const pct = targetPemasukan > 0 ? Math.min((realisasiPemasukan / targetPemasukan) * 100, 100) : 0;
 
   // Ambil sub pemasukan dari budget
-  const posPemasukan = (budget?.mainAnggaran?.filter((m) => m.tipe === "pemasukan") ?? []).flatMap(
+  const posPemasukan = (budget?.mainAnggaran?.filter((m) => m.tipe === "pendapatan") ?? []).flatMap(
     (m) =>
       (m.subAnggaran || []).map((s) => ({
         id: s.id,
@@ -124,7 +124,7 @@ export default function ProyekPemasukanCard({
                   className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#008f5d] hover:bg-[#00754c] text-white transition cursor-pointer flex items-center gap-1.5 shadow-sm"
                 >
                   <Plus size={13} strokeWidth={2.5} />
-                  Realisasi Pemasukan
+                  Realisasi Pendapatan
                 </button>
               </div>
             </div>
@@ -135,7 +135,7 @@ export default function ProyekPemasukanCard({
                 {/* Total Target Pemasukan */}
                 <div className="flex items-center justify-between">
                   <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wider">
-                    Total Target Pemasukan
+                    Total Target Pendapatan
                   </p>
                   <p className="text-[15px] font-extrabold text-stone-900 whitespace-nowrap">
                     <CompactNominal
@@ -199,7 +199,7 @@ export default function ProyekPemasukanCard({
                     className="flex items-center gap-1 text-[11px] font-semibold text-stone-400 hover:text-stone-700 transition cursor-pointer"
                   >
                     {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                    {expanded ? "Sembunyikan" : "Lihat"} pos pemasukan ({posPemasukan.length})
+                    {expanded ? "Sembunyikan" : "Lihat"} Pos Pendapatan ({posPemasukan.length})
                   </button>
                 )}
               </div>

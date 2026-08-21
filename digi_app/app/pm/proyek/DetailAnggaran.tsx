@@ -546,7 +546,7 @@ export default function DetailAnggaranModal({
                                                       reimb.keterangan ||
                                                       reimb.nama ||
                                                       reimbName ||
-                                                      "Pengeluaran";
+                                                      "Biaya";
                                                     const dateStr = formatReimbursementDate(reimb);
                                                     const displayStatus = statusLabel(reimb.status);
 

@@ -207,7 +207,6 @@ export async function GET(req: NextRequest) {
       // ── Jurnal Count This Month ──────────────────────────────────
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // Get IDs of reimbursements approved this month by Keuangan
       const monthApprovals = await prisma.approval.findMany({
         where: {
           level: 'KEUANGAN',
@@ -232,7 +231,7 @@ export async function GET(req: NextRequest) {
       const totalDebit = totalDebitKredit;
       const totalKredit = totalDebitKredit;
 
-      // ── Recent Journals (8 terbaru, formatted for frontend) ──────
+      // ── Recent Journals (formatted for frontend) ──────
       const recentJournalsRaw = await prisma.jurnalAkuntansi.findMany({
         include: {
           reimbursement: {
@@ -327,7 +326,7 @@ export async function GET(req: NextRequest) {
           id: r.id,
           nominal: Number(r.nominal),
           status: r.status,
-          tipe: r.tipe, // PERUBAHAN: Mengirimkan tipe ke frontend agar Tim Keuangan tahu jenisnya
+          tipe: r.tipe,
           user: {
             nama: r.user.nama,
             divisi: assignment?.divisi || null,
@@ -336,14 +335,80 @@ export async function GET(req: NextRequest) {
         };
       });
 
+      // ── Total Biaya (Disbursed Reimbursements) ─────────────────
+      const approvedReimbursementsResult = await prisma.reimbursement.aggregate({
+        where: { status: 'APPROVED' },
+        _sum: { nominal: true },
+        _count: { id: true },
+      });
+      const totalPengeluaranNominal = Number(approvedReimbursementsResult._sum.nominal || 0);
+      const totalPencairanCount = approvedReimbursementsResult._count.id || 0;
+
+      // ── Total Pendapatan & Belum Diterima (Termin Pembayaran) ────
+      const terminDiterimaResult = await prisma.terminPembayaran.aggregate({
+        where: { status: 'DITERIMA' },
+        _sum: { nominal: true },
+        _count: { id: true },
+      });
+      const totalPemasukanNominal = Number(terminDiterimaResult._sum.nominal || 0);
+      const totalTerminDiterimaCount = terminDiterimaResult._count.id || 0;
+
+      const terminBelumDiterimaResult = await prisma.terminPembayaran.aggregate({
+        where: { status: 'BELUM_DITERIMA' },
+        _sum: { nominal: true },
+        _count: { id: true },
+      });
+      const totalBelumDiterimaNominal = Number(terminBelumDiterimaResult._sum.nominal || 0);
+      const totalTerminBelumDiterimaCount = terminBelumDiterimaResult._count.id || 0;
+
+      // ── Termin Lists from Database ──────────────────────────────
+      const pendingTerminRaw = await prisma.terminPembayaran.findMany({
+        where: { status: 'BELUM_DITERIMA' },
+        include: { proyek: { select: { nama: true } } },
+        orderBy: { urutan: 'asc' },
+        take: 5,
+      });
+
+      const pendingTerminList = pendingTerminRaw.map((t) => ({
+        id: t.id,
+        namaTermin: t.namaTermin,
+        persentaseProgress: Number(t.persentaseProgress),
+        nominal: Number(t.nominal),
+        status: t.status,
+        proyek: { nama: t.proyek.nama },
+      }));
+
+      const riwayatTerminRaw = await prisma.terminPembayaran.findMany({
+        where: { status: 'DITERIMA' },
+        include: { proyek: { select: { nama: true } } },
+        orderBy: { tanggalPencairan: 'desc' },
+        take: 5,
+      });
+
+      const riwayatTerminList = riwayatTerminRaw.map((t) => ({
+        id: t.id,
+        namaTermin: t.namaTermin,
+        persentaseProgress: Number(t.persentaseProgress),
+        nominal: Number(t.nominal),
+        tanggalPencairan: t.tanggalPencairan ? t.tanggalPencairan.toISOString().split('T')[0] : null,
+        status: t.status,
+        proyek: { nama: t.proyek.nama },
+      }));
+
       dashboardData.metrics = {
         activeProjectsCount,
         totalRABAllocated,
         totalCashDisbursed,
         totalReimbursementsDisbursed,
         remainingBudgets,
+        totalPengeluaranNominal,
+        totalPencairanCount,
         pendingDisbursementCount,
         pendingDisbursementsNominal,
+        totalPemasukanNominal,
+        totalTerminDiterimaCount,
+        totalBelumDiterimaNominal,
+        totalTerminBelumDiterimaCount,
         disbursedTodayCount,
         disbursedTodayNominal,
         jurnalCountThisMonth,
@@ -354,6 +419,8 @@ export async function GET(req: NextRequest) {
       dashboardData.recentActivities = recentActivities;
       dashboardData.recentJournals = recentJournals;
       dashboardData.pendingDisbursements = pendingDisbursements;
+      dashboardData.pendingTerminList = pendingTerminList;
+      dashboardData.riwayatTerminList = riwayatTerminList;
 
     } else if (role === 'Direktur / Manajemen') {
       // 4. Executive Dashboard data — full analytics for director

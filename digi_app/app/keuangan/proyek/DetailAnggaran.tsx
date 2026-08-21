@@ -137,7 +137,7 @@ export default function DetailAnggaranModal({
 
     return {
       id: mainId,
-      nama: m.nama || m.namaMain || m.deskripsi || "Pemasukan",
+      nama: m.nama || m.namaMain || m.deskripsi || "Pendapatan",
       alokasi: mainNominal,
       realisasi: mainRealisasi,
       subPos,
@@ -297,7 +297,7 @@ export default function DetailAnggaranModal({
                                         const isCompletionTx = (tr.keterangan || "").toLowerCase().includes("selesai");
                                         const labelText = isCompletionTx
                                           ? "Keuntungan Proyek"
-                                          : (tr.keterangan || tr.namaRealisasi || "Realisasi Pemasukan");
+                                          : (tr.keterangan || tr.namaRealisasi || "Realisasi Pendapatan");
 
                                         return (
                                           <div

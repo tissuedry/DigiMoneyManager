@@ -7,18 +7,18 @@ datasource db {
 }
 
 model User {
-  id                Int                 @id @default(autoincrement())
-  nama              String
-  email             String              @unique
-  passwordHash      String              @map("password_hash")
-  role              String              @map("role")
-  approvals         Approval[]
-  auditTrails       AuditTrail[]
-  notifications     Notification[]
-  pengajuanAnggaran PengajuanAnggaran[]
-  reimbursements    Reimbursement[]
-  proyek            UserProyek[]
+  id                 Int                  @id @default(autoincrement())
+  nama               String
+  email              String               @unique
+  passwordHash       String               @map("password_hash")
+  role               String               @map("role")
+  approvals          Approval[]
+  auditTrails        AuditTrail[]
+  notifications      Notification[]
+  pengajuanAnggaran  PengajuanAnggaran[]
+  reimbursements     Reimbursement[]
   transaksiPemasukan TransaksiPemasukan[]
+  proyek             UserProyek[]
 
   @@index([role])
   @@map("users")
@@ -35,8 +35,8 @@ model Proyek {
   pengajuanAnggaran  PengajuanAnggaran[]
   reimbursements     Reimbursement[]
   terminPembayaran   TerminPembayaran[]
-  users              UserProyek[]
   transaksiPemasukan TransaksiPemasukan[]
+  users              UserProyek[]
 
   @@index([status])
   @@index([tanggalMulai])
@@ -61,14 +61,14 @@ model UserProyek {
 model Budget {
   id                         Int            @id @default(autoincrement())
   proyekId                   Int            @unique @map("proyek_id")
-  nilaiKontrak               Decimal        @default(0) @map("nilai_kontrak") @db.Decimal(15, 2)
   rabTotal                   Decimal        @map("rab_total") @db.Decimal(15, 2)
-  targetPemasukan            Decimal        @default(0) @map("target_pemasukan") @db.Decimal(15, 2)
   totalPengeluaran           Decimal        @default(0) @map("total_pengeluaran") @db.Decimal(15, 2)
   totalReimbursement         Decimal        @default(0) @map("total_reimbursement") @db.Decimal(15, 2)
   sisaBudget                 Decimal        @map("sisa_budget") @db.Decimal(15, 2)
   pemasukanBelumDialokasikan Decimal        @default(0) @map("pemasukan_belum_dialokasikan") @db.Decimal(15, 2)
   totalPemasukan             Decimal        @default(0) @map("total_pemasukan") @db.Decimal(15, 2)
+  nilaiKontrak               Decimal        @default(0) @map("nilai_kontrak") @db.Decimal(15, 2)
+  targetPemasukan            Decimal        @default(0) @map("target_pemasukan") @db.Decimal(15, 2)
   proyek                     Proyek         @relation(fields: [proyekId], references: [id], onDelete: Cascade)
   mainAnggaran               MainAnggaran[]
 
@@ -170,19 +170,18 @@ model TransaksiPemasukan {
   proyekId         Int               @map("proyek_id")
   userId           Int?              @map("user_id")
   subCoaId         Int?              @map("sub_coa_id")
-  kategori         String            @map("kategori") // 'PENJUALAN_JASA', 'PENJUALAN_BARANG', 'DISKON_PENJUALAN', 'RETUR_PENJUALAN', 'BIAYA_PENJUALAN_LAINNYA'
+  kategori         String            @map("kategori")
   nominal          Decimal           @db.Decimal(15, 2)
   tanggalTransaksi DateTime          @default(now()) @map("tanggal_transaksi")
   keterangan       String?
   buktiUrl         String?           @map("bukti_url")
-  status           String            @default("TERCATAT") @map("status") // 'BELUM_CAIR', 'CAIR', 'TERCATAT'
+  status           String            @default("TERCATAT") @map("status")
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
-
-  proyek           Proyek            @relation(fields: [proyekId], references: [id], onDelete: Cascade)
-  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  subCoa           MasterSub?        @relation(fields: [subCoaId], references: [id], onDelete: SetNull)
   jurnalAkuntansi  JurnalAkuntansi[]
+  proyek           Proyek            @relation(fields: [proyekId], references: [id], onDelete: Cascade)
+  subCoa           MasterSub?        @relation(fields: [subCoaId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id])
 
   @@index([proyekId])
   @@index([subCoaId])
@@ -194,11 +193,11 @@ model TransaksiPemasukan {
 model JurnalAkuntansi {
   id                   Int                 @id @default(autoincrement())
   reimbursementId      Int?                @map("reimbursement_id")
-  transaksiPemasukanId Int?                @map("transaksi_pemasukan_id")
   noAkunKredit         String              @map("no_akun_kredit")
   noAkunDebit          String              @map("no_akun_debit")
   nominal              Decimal             @db.Decimal(15, 2)
   keterangan           String?
+  transaksiPemasukanId Int?                @map("transaksi_pemasukan_id")
   reimbursement        Reimbursement?      @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
   transaksiPemasukan   TransaksiPemasukan? @relation(fields: [transaksiPemasukanId], references: [id], onDelete: Cascade)
 

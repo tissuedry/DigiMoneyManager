@@ -58,10 +58,10 @@ export default function RealisasiPemasukanModal({
 
     if (posData?.posAnggaran && Array.isArray(posData.posAnggaran)) {
       posData.posAnggaran
-        .filter((m: any) => m.tipe === "pemasukan" || !m.tipe)
+        .filter((m: any) => m.tipe === "pendapatan" || !m.tipe)
         .forEach((m: any) => {
           (m.subAnggaran || [])
-            .filter((s: any) => s.tipe === "pemasukan" || !s.tipe || m.tipe === "pemasukan")
+            .filter((s: any) => s.tipe === "pendapatan" || !s.tipe || m.tipe === "pendapatan")
             .forEach((s: any) => {
               const key = `${m.namaMain}-${s.namaSub}`;
               if (!seenKeys.has(key)) {
@@ -72,7 +72,7 @@ export default function RealisasiPemasukanModal({
                   nama: s.namaSub,
                   mainNama: m.namaMain,
                   subNama: s.namaSub,
-                  tipe: "pemasukan",
+                  tipe: "pendapatan",
                 });
               }
             });
@@ -84,11 +84,11 @@ export default function RealisasiPemasukanModal({
 
   const filteredOptions = searchQuery.trim()
     ? flatOptions.filter(
-        (opt) =>
-          opt.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          opt.mainNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          opt.subNama.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      (opt) =>
+        opt.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        opt.mainNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        opt.subNama.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : flatOptions;
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export default function RealisasiPemasukanModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPos) return alert("Sub / Kategori pemasukan wajib dipilih!");
+    if (!selectedPos) return alert("Sub / Kategori pendapatan wajib dipilih!");
     if (!namaRealisasi.trim()) return alert("Nama realisasi wajib diisi!");
 
     const cleanNominal = nominal.replace(/\./g, "");
@@ -154,7 +154,7 @@ export default function RealisasiPemasukanModal({
         setShowSuccess(true);
       } else {
         const err = await res.json();
-        setErrorMessage(err.message || "Gagal mencatat realisasi pemasukan");
+        setErrorMessage(err.message || "Gagal mencatat realisasi pendapatan");
         setShowConfirm(false);
       }
     } catch (error) {
@@ -174,7 +174,7 @@ export default function RealisasiPemasukanModal({
         {/* Header Modal */}
         <div className="px-6 pt-5 pb-4 flex items-start justify-between shrink-0">
           <div>
-            <h2 className="text-[18px] font-bold text-stone-900 leading-tight">Realisasi Pemasukan</h2>
+            <h2 className="text-[18px] font-bold text-stone-900 leading-tight">Realisasi Pendapatan</h2>
             <p className="text-[13px] text-stone-500 mt-0.5">{proyekNama}</p>
           </div>
           <button
@@ -190,7 +190,7 @@ export default function RealisasiPemasukanModal({
           {/* Pencarian Keterangan / Sub Pemasukan */}
           <div className="space-y-1.5 relative" ref={dropdownRef}>
             <label className="text-[11px] font-bold text-stone-700">
-              Keterangan / Sub Pemasukan <span className="text-red-500">*</span>
+              Keterangan / Sub Pendapatan <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
@@ -204,7 +204,7 @@ export default function RealisasiPemasukanModal({
                   setSearchQuery("");
                   setIsDropdownOpen(true);
                 }}
-                placeholder={isLoading ? "Memuat opsi pemasukan..." : "Cari keterangan..."}
+                placeholder={isLoading ? "Memuat opsi pendapatan..." : "Cari keterangan..."}
                 disabled={isLoading}
                 className="w-full bg-white border border-stone-200 rounded-xl pl-3 pr-10 py-2.5 text-[13px] font-medium text-stone-800 focus:outline-none focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition"
               />
@@ -300,11 +300,10 @@ export default function RealisasiPemasukanModal({
             onDragOver={(e) => e.preventDefault()}
             onDragLeave={() => setIsDragActive(false)}
             onDrop={handleDrop}
-            className={`group relative border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${
-              isDragActive
+            className={`group relative border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${isDragActive
                 ? "border-emerald-500 bg-emerald-50/50"
                 : "border-stone-200 bg-stone-50/50 hover:border-emerald-500 hover:bg-emerald-50/50"
-            }`}
+              }`}
           >
             <input
               type="file"
@@ -367,10 +366,10 @@ export default function RealisasiPemasukanModal({
 
       <ConfirmDialog
         open={showConfirm}
-        title="Realisasi Pemasukan"
+        title="Realisasi Pendapatan"
         description={
           <>
-            Apakah Anda yakin ingin merealisasikan pemasukan{" "}
+            Apakah Anda yakin ingin merealisasikan Pendapatan{" "}
             <span className="font-semibold text-stone-900">{namaRealisasi}</span> senilai{" "}
             <span className="font-semibold text-stone-900">Rp {nominal || "0"}</span> untuk kategori{" "}
             <span className="font-semibold text-stone-900">{selectedPos?.nama}</span>?
@@ -384,7 +383,7 @@ export default function RealisasiPemasukanModal({
 
       <Toast
         open={showSuccess}
-        message={`Realisasi pemasukan ${namaRealisasi} berhasil dicatat.`}
+        message={`Realisasi Pendapatan ${namaRealisasi} berhasil dicatat.`}
         onClose={() => {
           setShowSuccess(false);
           onClose();
