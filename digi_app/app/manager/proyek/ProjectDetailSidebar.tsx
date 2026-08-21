@@ -429,7 +429,7 @@ export default function ProjectDetailSidebar({
                                     {detailedProjectInfo?.budget ? (
                                         <div className="border border-stone-100 rounded-3xl p-5 bg-white space-y-4 text-left shadow-[0_4px_20px_rgba(0,0,0,0.01)]">
                                             <div className="flex justify-between items-center text-[13px] font-extrabold text-stone-900 tracking-wide">
-                                                <span>Realisasi Pengeluaran</span>
+                                                <span>Realisasi Biaya</span>
                                                 <span className="font-mono text-sm font-black">{calculatedPercentUsed}%</span>
                                             </div>
 
@@ -538,7 +538,7 @@ export default function ProjectDetailSidebar({
                                                 className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                             >
                                                 <Settings size={14} className="text-stone-500 shrink-0" />
-                                                <span>Alokasi Pengeluaran</span>
+                                                <span>Alokasi Biaya</span>
                                             </button>
                                         </div>
 
@@ -548,7 +548,7 @@ export default function ProjectDetailSidebar({
                                             className="w-full flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all cursor-pointer"
                                         >
                                             <Eye size={14} className="text-stone-500 shrink-0" />
-                                            <span>Lihat Detail Pengeluaran</span>
+                                            <span>Lihat Detail Biaya</span>
                                         </button>
                                     </div>
 

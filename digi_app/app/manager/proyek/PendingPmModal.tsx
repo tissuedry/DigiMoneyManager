@@ -89,7 +89,7 @@ export default function PendingPmModal({
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b-[0.8px] border-[#E6E1D4] px-6 py-5">
           <div className="flex flex-col gap-0.5">
-            <div className="font-sans text-[17px] font-bold leading-[25.5px] text-[#14130F]">Pengajuan Perubahan Alokasi Pengeluaran</div>
+            <div className="font-sans text-[17px] font-bold leading-[25.5px] text-[#14130F]">Pengajuan Perubahan Alokasi Biaya</div>
             <div className="font-sans text-[12.5px] font-normal leading-[18.75px] text-[#6A6660]">{detailedProjectInfo?.nama || 'Nama Proyek'}</div>
           </div>
           <button
@@ -108,7 +108,7 @@ export default function PendingPmModal({
 
               <div className="bg-white border border-[#e6e1d4] rounded-[16px] p-4 space-y-2.5 shadow-[0px_0px_0px_1px_rgba(20,18,14,0.04),0px_1px_2px_0px_rgba(20,18,14,0.05)]">
                 <div className="flex items-center justify-between text-[13px]">
-                  <span className="font-semibold text-[#14130f]">Overview Alokasi Pengeluaran</span>
+                  <span className="font-semibold text-[#14130f]">Overview Alokasi Biaya</span>
                   <span className={`font-bold font-mono ${isOver ? 'text-[#d36c66]' : 'text-[#14130f]'}`}>{progressPct.toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-[#f3f0e9] h-2 rounded-full overflow-hidden">
