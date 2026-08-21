@@ -140,9 +140,23 @@ function PencairanContent() {
   const invalidate = useInvalidate();
 
   const { data: rData, isLoading } = useApi<any>("/api/reimbursements");
-  const { data: cData } = useApi<any>("/api/coa");
+  const { data: masterAsetRes } = useApi<any>("/api/master?type=all&tipe=aset");
   const reimbursements = rData?.reimbursements ?? [];
-  const coaList = cData?.coa ?? [];
+  const masterAsetList = masterAsetRes?.data || (Array.isArray(masterAsetRes) ? masterAsetRes : []);
+
+  const masterCreditOptions = React.useMemo(() => {
+    const opts: Array<{ displayVal: string; mainNama: string; subNama: string }> = [];
+    masterAsetList.forEach((main: any) => {
+      (main.MasterSub || []).forEach((sub: any) => {
+        opts.push({
+          mainNama: main.nama,
+          subNama: sub.nama,
+          displayVal: `MAIN · ${main.nama} > SUB · ${sub.nama}`,
+        });
+      });
+    });
+    return opts;
+  }, [masterAsetList]);
 
   // Mengambil daftar proyek unik dari seluruh data reimbursement untuk ditampilkan di dropdown filter
   const uniqueProjects = Array.from(
@@ -225,12 +239,7 @@ function PencairanContent() {
 
   useEffect(() => {
     if (selectedItem && selectedItem.status === 'APPROVED_BY_PM') {
-      const opts = selectedItem.creditOptions || [];
-      if (opts.length > 0) {
-        setCreditAccount(opts[0].displayVal);
-      } else {
-        setCreditAccount("");
-      }
+      setCreditAccount("");
       setCatatan("");
     }
   }, [selectedId, selectedItem]);
@@ -239,6 +248,10 @@ function PencairanContent() {
     if (!selectedItem) return;
 
     if (action === 'APPROVE') {
+      if (!creditAccount) {
+        setErrorMessage("Silakan pilih Akun Kredit terlebih dahulu.");
+        return;
+      }
       setShowApproveConfirm(true);
       return;
     }
@@ -631,54 +644,73 @@ function PencairanContent() {
                     </div>
                   </div>
 
-                  {selectedItem.strukUrl && (
-                    <div className="space-y-1">
-                      <label className="text-[13px] text-stone-500">
-                        {selectedItem.tipe === 'Realisasi Anggaran' ? 'Bukti Gambar' : 'Bukti Struk'}
-                      </label>
-                      {selectedItem.strukUrl.toLowerCase().split('?')[0].endsWith('.pdf') ? (
-                        <div className="border border-stone-200 rounded-xl p-3 bg-[#fdfaf5] flex items-center justify-between gap-3 max-w-xs">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center shrink-0 border border-red-200">
-                              PDF
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-stone-800 truncate">Dokumen Bukti (PDF)</p>
-                              <p className="text-[10px] text-stone-400 truncate">Klik untuk membuka file</p>
-                            </div>
+                  {(() => {
+                    const hasStruk = Boolean(
+                      selectedItem.strukUrl &&
+                      selectedItem.strukUrl.trim() !== '' &&
+                      selectedItem.strukUrl !== '/uploads/placeholder.png' &&
+                      selectedItem.strukUrl !== '/bukti_struk.png'
+                    );
+
+                    if (!hasStruk) {
+                      return (
+                        <div className="space-y-1">
+                          <label className="text-[13px] text-stone-500">
+                            {selectedItem.tipe === 'Realisasi Anggaran' ? 'Bukti Gambar' : 'Bukti Struk / Dokumen'}
+                          </label>
+                          <div className="bg-[#f5f4ef] border border-stone-200/80 rounded-xl px-4 py-3 text-[13px] text-stone-400 italic">
+                            Tidak ada bukti {selectedItem.tipe === 'Realisasi Anggaran' ? 'gambar' : 'struk'} yang dilampirkan.
                           </div>
-                          <a
-                            href={selectedItem.strukUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs font-semibold shrink-0 hover:bg-stone-800 transition"
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-1">
+                        <label className="text-[13px] text-stone-500">
+                          {selectedItem.tipe === 'Realisasi Anggaran' ? 'Bukti Gambar' : 'Bukti Struk'}
+                        </label>
+                        {selectedItem.strukUrl.toLowerCase().split('?')[0].endsWith('.pdf') ? (
+                          <div className="border border-stone-200 rounded-xl p-3 bg-[#fdfaf5] flex items-center justify-between gap-3 max-w-xs">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center shrink-0 border border-red-200">
+                                PDF
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-stone-800 truncate">Dokumen Bukti (PDF)</p>
+                                <p className="text-[10px] text-stone-400 truncate">Klik untuk membuka file</p>
+                              </div>
+                            </div>
+                            <a
+                              href={selectedItem.strukUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs font-semibold shrink-0 hover:bg-stone-800 transition"
+                            >
+                              Buka PDF
+                            </a>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => handleOpenZoom(selectedItem.strukUrl)}
+                            className="border border-stone-200 rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
                           >
-                            Buka PDF
-                          </a>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => handleOpenZoom(selectedItem.strukUrl)}
-                          className="border border-stone-200 rounded-xl overflow-hidden max-w-xs bg-stone-50 p-2 flex items-center justify-center cursor-pointer hover:border-stone-400 transition group relative"
-                        >
-                          <img
-                            src={selectedItem.strukUrl}
-                            alt="Bukti Struk"
-                            loading="lazy"
-                            className="w-full h-auto object-contain max-h-48 rounded-lg group-hover:opacity-90 transition"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/bukti_struk.png';
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
-                            <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
-                              <ZoomIn size={14} /> Klik untuk Memperbesar
-                            </span>
+                            <img
+                              src={selectedItem.strukUrl}
+                              alt="Bukti Struk"
+                              loading="lazy"
+                              className="w-full h-auto object-contain max-h-48 rounded-lg group-hover:opacity-90 transition"
+                            />
+                            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                              <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                                <ZoomIn size={14} /> Klik untuk Memperbesar
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="space-y-1.5">
                     <div className="text-[13px] font-bold text-stone-800 mb-1.5">Preview Jurnal Akuntansi (Auto-generated)</div>
@@ -743,8 +775,8 @@ function PencairanContent() {
                               onChange={(e) => setCreditAccount(e.target.value)}
                               className="flex-1 text-[12px] font-mono bg-white border border-stone-200 rounded-lg p-1.5 outline-none focus:ring-1 focus:ring-emerald-500 text-stone-800"
                             >
-                              <option value="">Pilih Akun Kredit (Main & Sub)</option>
-                              {(selectedItem.creditOptions || []).map((opt: any, idx: number) => (
+                              <option value="">Pilih Akun Kredit</option>
+                              {(masterCreditOptions && masterCreditOptions.length > 0 ? masterCreditOptions : (selectedItem.creditOptions || [])).map((opt: any, idx: number) => (
                                 <option key={idx} value={opt.displayVal}>
                                   MAIN · {opt.mainNama} &gt; SUB · {opt.subNama}
                                 </option>
@@ -923,7 +955,7 @@ function PencairanContent() {
                 </div>
 
                 <div className="flex items-center justify-between px-6 py-4 border-t border-stone-100 bg-white shrink-0">
-                  {selectedItem.strukUrl ? (
+                  {selectedItem.strukUrl && selectedItem.strukUrl.trim() !== '' && selectedItem.strukUrl !== '/uploads/placeholder.png' && selectedItem.strukUrl !== '/bukti_struk.png' ? (
                     <a
                       href={selectedItem.strukUrl}
                       download={`bukti-${selectedItem.id}.png`}
@@ -935,9 +967,9 @@ function PencairanContent() {
                       <span>Download bukti</span>
                     </a>
                   ) : (
-                    <button className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-600 hover:bg-stone-50 transition opacity-50 cursor-not-allowed" disabled>
+                    <button className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-400 bg-stone-50 transition opacity-60 cursor-not-allowed" disabled>
                       <Download size={14} />
-                      <span>Download bukti</span>
+                      <span>Tidak ada bukti</span>
                     </button>
                   )}
 

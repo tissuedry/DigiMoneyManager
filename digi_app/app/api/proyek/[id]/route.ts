@@ -242,44 +242,56 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const body = await req.json();
-    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal } = body;
+    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal, nilaiKontrak } = body;
 
     if (!nama || !tanggalMulai || !status || !tanggalSelesai) {
       return NextResponse.json({ message: 'Nama, tanggal mulai, tanggal selesai, dan status wajib diisi' }, { status: 400 });
     }
 
-    const parsedRab = rabTotal !== undefined && rabTotal !== null && rabTotal !== ''
-      ? (typeof rabTotal === 'number' ? rabTotal : parseFloat(String(rabTotal).replace(/[^0-9.-]+/g, '')))
+    const rawNilai = nilaiKontrak !== undefined && nilaiKontrak !== null && nilaiKontrak !== ''
+      ? nilaiKontrak
+      : rabTotal;
+
+    const parsedNilai = rawNilai !== undefined && rawNilai !== null && rawNilai !== ''
+      ? (typeof rawNilai === 'number' ? rawNilai : parseFloat(String(rawNilai).replace(/[^0-9.-]+/g, '')))
       : null;
 
-    if (parsedRab !== null && parsedRab > 0) {
+    if (parsedNilai !== null && parsedNilai > 0) {
       const existingBudget = await prisma.budget.findUnique({
         where: { proyekId },
         include: { mainAnggaran: true },
       });
 
       if (existingBudget) {
-        const sumPos = existingBudget.mainAnggaran.reduce((sum, m) => sum + Number(m.nominalAlokasi), 0);
-        if (sumPos > parsedRab) {
+        const currentRabTotal = Number(existingBudget.rabTotal) || 0;
+        const currentTargetPemasukan = Number(existingBudget.targetPemasukan) || 0;
+        const totalPos = currentRabTotal + currentTargetPemasukan;
+
+        if (totalPos > parsedNilai && totalPos > 0) {
           return NextResponse.json({
-            message: `Total Nilai Proyek (Rp ${parsedRab.toLocaleString('id-ID')}) tidak boleh lebih kecil dari total alokasi pos anggaran yang sudah ada (Rp ${sumPos.toLocaleString('id-ID')})`
+            message: `Total Nilai Proyek (Rp ${parsedNilai.toLocaleString('id-ID')}) tidak boleh lebih kecil dari total alokasi pengeluaran & pemasukan yang sudah ada (Rp ${totalPos.toLocaleString('id-ID')})`
           }, { status: 400 });
         }
+
         await prisma.budget.update({
           where: { id: existingBudget.id },
           data: {
-            rabTotal: parsedRab,
-            sisaBudget: parsedRab - Number(existingBudget.totalPengeluaran),
+            nilaiKontrak: parsedNilai,
+            rabTotal: currentRabTotal > 0 ? currentRabTotal : parsedNilai,
+            sisaBudget: (currentRabTotal > 0 ? currentRabTotal : parsedNilai) - Number(existingBudget.totalPengeluaran),
           },
         });
       } else {
         await prisma.budget.create({
           data: {
             proyekId,
-            rabTotal: parsedRab,
-            sisaBudget: parsedRab,
+            nilaiKontrak: parsedNilai,
+            rabTotal: parsedNilai,
+            targetPemasukan: 0,
+            sisaBudget: parsedNilai,
             totalPengeluaran: 0,
             totalReimbursement: 0,
+            totalPemasukan: 0,
           },
         });
       }
@@ -295,9 +307,153 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         status,
       },
       include: {
-        budget: true,
+        budget: {
+          include: {
+            mainAnggaran: {
+              where: { tipe: 'pemasukan' },
+              include: { subAnggaran: true },
+            },
+          },
+        },
       },
     });
+
+    // Otomasi Realisasi Pemasukan saat Proyek SELESAI / DONE
+    if (status === 'DONE' || status === 'SELESAI') {
+      const budget = await prisma.budget.findUnique({
+        where: { proyekId },
+        include: {
+          mainAnggaran: {
+            where: { tipe: 'pemasukan' },
+            include: { subAnggaran: true },
+          },
+        },
+      });
+
+      if (budget) {
+        const totalPengeluaran = Number(budget.totalPengeluaran || 0);
+        const nilaiKontrakVal = Number(budget.nilaiKontrak || budget.rabTotal || 0);
+        const realisasiPemasukan = Math.max(0, nilaiKontrakVal - totalPengeluaran);
+
+        await prisma.budget.update({
+          where: { id: budget.id },
+          data: {
+            totalPemasukan: realisasiPemasukan,
+          },
+        });
+
+        for (const mainPemasukan of budget.mainAnggaran) {
+          await prisma.mainAnggaran.update({
+            where: { id: mainPemasukan.id },
+            data: { nominalTerpakai: realisasiPemasukan },
+          });
+
+          // Cari sub penjualan utama (bukan diskon, retur, atau biaya lainnya)
+          const primarySub = mainPemasukan.subAnggaran.find((s) => {
+            const sName = (s.namaSub || '').trim().toLowerCase();
+            return (
+              sName === mainPemasukan.namaMain.trim().toLowerCase() ||
+              (sName.startsWith('penjualan') &&
+                !sName.includes('diskon') &&
+                !sName.includes('retur') &&
+                !sName.includes('biaya') &&
+                !sName.includes('potongan'))
+            );
+          }) || mainPemasukan.subAnggaran[0];
+
+          for (const sub of mainPemasukan.subAnggaran) {
+            const isTargetSub = primarySub && sub.id === primarySub.id;
+            if (isTargetSub) {
+              await prisma.subAnggaran.update({
+                where: { id: sub.id },
+                data: { nominalTerpakai: realisasiPemasukan },
+              });
+            } else {
+              // Reset sub non-penjualan yang tidak memiliki transaksi riil
+              const realTx = await prisma.transaksiPemasukan.findMany({
+                where: {
+                  proyekId,
+                  OR: [
+                    { subCoaId: sub.id },
+                    { kategori: sub.namaSub },
+                  ],
+                },
+              });
+              const totalReal = realTx.reduce((sum, t) => sum + Number(t.nominal || 0), 0);
+              await prisma.subAnggaran.update({
+                where: { id: sub.id },
+                data: { nominalTerpakai: totalReal },
+              });
+            }
+          }
+        }
+
+        const existingTx = await prisma.transaksiPemasukan.findFirst({
+          where: {
+            proyekId,
+            kategori: { in: ['PENERIMAAN_PENJUALAN', 'PENJUALAN_JASA', 'PENJUALAN_BARANG', 'KEUNTUNGAN_PROYEK'] },
+          },
+        });
+
+        if (existingTx) {
+          await prisma.transaksiPemasukan.update({
+            where: { id: existingTx.id },
+            data: {
+              nominal: realisasiPemasukan,
+              status: 'CAIR',
+              keterangan: `Realisasi Pendapatan Penjualan Proyek Selesai: ${nama}`,
+            },
+          });
+
+          await prisma.jurnalAkuntansi.deleteMany({
+            where: { transaksiPemasukanId: existingTx.id },
+          });
+
+          await prisma.jurnalAkuntansi.create({
+            data: {
+              transaksiPemasukanId: existingTx.id,
+              noAkunDebit: '1.1 - Kas & Bank',
+              noAkunKredit: '4.0 - Pendapatan Penjualan',
+              nominal: realisasiPemasukan,
+              keterangan: `Pencatatan Realisasi Pendapatan Penjualan Proyek: ${nama}`,
+            },
+          });
+        } else {
+          const primarySubAll = budget.mainAnggaran.flatMap((m) => m.subAnggaran).find((s) => {
+            const sName = (s.namaSub || '').trim().toLowerCase();
+            return (
+              sName.startsWith('penjualan') &&
+              !sName.includes('diskon') &&
+              !sName.includes('retur') &&
+              !sName.includes('biaya') &&
+              !sName.includes('potongan')
+            );
+          }) || budget.mainAnggaran[0]?.subAnggaran[0];
+
+          const newTx = await prisma.transaksiPemasukan.create({
+            data: {
+              proyekId,
+              userId: userId ? parseInt(userId, 10) : null,
+              subCoaId: primarySubAll?.id || null,
+              kategori: 'PENERIMAAN_PENJUALAN',
+              nominal: realisasiPemasukan,
+              status: 'CAIR',
+              keterangan: `Realisasi Pendapatan Penjualan Proyek Selesai: ${nama}`,
+            },
+          });
+
+          await prisma.jurnalAkuntansi.create({
+            data: {
+              transaksiPemasukanId: newTx.id,
+              noAkunDebit: '1.1 - Kas & Bank',
+              noAkunKredit: '4.0 - Pendapatan Penjualan',
+              nominal: realisasiPemasukan,
+              keterangan: `Pencatatan Realisasi Pendapatan Penjualan Proyek: ${nama}`,
+            },
+          });
+        }
+      }
+    }
 
     if (userId) {
       let actor = 'Project Manager';
@@ -312,8 +468,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         data: {
           userId: parseInt(userId, 10),
           aksi: 'update_project',
-          detail: parsedRab !== null && parsedRab > 0
-            ? `${actor} memperbarui proyek: ${nama} (Status: ${status}, Nilai: Rp ${parsedRab.toLocaleString('id-ID')})`
+          detail: parsedNilai !== null && parsedNilai > 0
+            ? `${actor} memperbarui proyek: ${nama} (Status: ${status}, Nilai: Rp ${parsedNilai.toLocaleString('id-ID')})`
             : `${actor} memperbarui proyek: ${nama} (Status: ${status})`,
         },
       });
@@ -321,6 +477,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     clearCache('proyek:');
     clearCache('dashboard:');
+    clearCache('coa');
     return NextResponse.json({ message: 'Proyek berhasil diperbarui', project: updatedProject });
 
   } catch (error: any) {

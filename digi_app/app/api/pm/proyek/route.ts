@@ -134,62 +134,67 @@ export async function GET(req: NextRequest) {
       const budget = p.budget;
       const pmUser = p.users.find((u) => u.role === 'Project Manager');
 
-      const posAnggaran = (budget?.mainAnggaran ?? []).map((m, idx) => {
-        const calculatedTerpakai = m.subAnggaran.reduce(
-          (sum: number, sub: any) =>
-            sum + sub.keterangan.reduce(
-              (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
-            ),
-          0
-        );
+      const posAnggaran = (budget?.mainAnggaran ?? [])
+        .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === 'pengeluaran')
+        .map((m, idx) => {
+          const calculatedTerpakai = (m.subAnggaran ?? []).reduce(
+            (sum: number, sub: any) =>
+              sum + (sub.keterangan ?? []).reduce(
+                (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
+              ),
+            0
+          );
 
-        const terpakai = Math.max(Number(m.nominalTerpakai || 0), calculatedTerpakai);
+          const terpakai = Math.max(Number(m.nominalTerpakai || 0), calculatedTerpakai);
 
-        return {
-          id: m.id,
-          nama: m.namaMain,
-          alokasi: Number(m.nominalAlokasi),
-          terpakai,
-          warna: warnaPalette[idx % warnaPalette.length],
-          subAnggaran: m.subAnggaran.map((s) => {
-            const subTerpakai = s.keterangan.reduce(
-              (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
-            );
+          return {
+            id: m.id,
+            nama: m.namaMain,
+            tipe: m.tipe || 'pengeluaran',
+            alokasi: Number(m.nominalAlokasi),
+            terpakai,
+            warna: warnaPalette[idx % warnaPalette.length],
+            subAnggaran: (m.subAnggaran ?? [])
+              .filter((s: any) => !s.tipe || s.tipe.toLowerCase() === 'pengeluaran')
+              .map((s) => {
+                const subTerpakai = (s.keterangan ?? []).reduce(
+                  (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
+                );
 
-            return {
-              id: s.id,
-              nama: s.namaSub,
-              alokasi: Number(s.nominalAlokasi),
-              terpakai: Math.max(Number(s.nominalTerpakai || 0), subTerpakai),
-              keterangan: s.keterangan.map((k) => ({
-                id: k.id,
-                nama: k.keterangan,
-                alokasi: Number(k.nominalAlokasi),
-                realisasi: Number(k.nominalRealisasi),
-                reimbursements: k.reimbursements.map((r) => ({
-                  id: r.id,
-                  nominal: Number(r.nominal),
-                  urlStruk: r.urlStruk,
-                  
-                  nama: r.nama,
-                  tipe: r.tipe,
-                  merchant: r.merchant,
-                  tanggalStruk: r.tanggalStruk,
-                  kategoriBukti: r.kategoriBukti,
-                  createdAt: r.createdAt,
-                  fraudFlag: r.fraudFlag,
-                  status: r.status,
-                  approvals: r.approvals.map((a) => ({
-                    id: a.id,
-                    level: a.level,
-                    status: a.status,
+                return {
+                  id: s.id,
+                  nama: s.namaSub,
+                  tipe: s.tipe || 'pengeluaran',
+                  alokasi: Number(s.nominalAlokasi),
+                  terpakai: Math.max(Number(s.nominalTerpakai || 0), subTerpakai),
+                  keterangan: (s.keterangan ?? []).map((k: any) => ({
+                    id: k.id,
+                    nama: k.keterangan,
+                    alokasi: Number(k.nominalAlokasi),
+                    realisasi: Number(k.nominalRealisasi),
+                    reimbursements: (k.reimbursements ?? []).map((r: any) => ({
+                      id: r.id,
+                      nominal: Number(r.nominal),
+                      urlStruk: r.urlStruk,
+                      nama: r.nama,
+                      tipe: r.tipe,
+                      merchant: r.merchant,
+                      tanggalStruk: r.tanggalStruk,
+                      kategoriBukti: r.kategoriBukti,
+                      createdAt: r.createdAt,
+                      fraudFlag: r.fraudFlag,
+                      status: r.status,
+                      approvals: (r.approvals ?? []).map((a: any) => ({
+                        id: a.id,
+                        level: a.level,
+                        status: a.status,
+                      })),
+                    })),
                   })),
-                })),
-              })),
-            };
-          }),
-        };
-      });
+                };
+              }),
+          };
+        });
 
       const tim = p.users.map((u) => {
         const nama = u.user.nama;

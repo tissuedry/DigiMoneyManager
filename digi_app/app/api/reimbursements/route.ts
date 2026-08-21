@@ -4,18 +4,17 @@ import { getCached, setCache, clearCache } from '@/lib/route-cache';
 import { uploadStrukToSupabase } from '@/lib/supabase-storage';
 
 // Helper to map DB fields to client fields
-const mapReimbursement = (r: any) => {
+const mapReimbursement = (r: any, masterAsetList: any[] = []) => {
   if (!r) return null;
 
-  const mainPemasukanList = r.proyek?.budget?.mainAnggaran?.filter((m: any) => m.tipe === 'pemasukan') || [];
   const creditOptions: Array<{ displayVal: string; mainNama: string; subNama: string }> = [];
-  for (const main of mainPemasukanList) {
-    const subPemasukanList = main.subAnggaran?.filter((s: any) => s.tipe === 'pemasukan') || [];
-    for (const sub of subPemasukanList) {
+  for (const main of masterAsetList) {
+    const subList = main.MasterSub || [];
+    for (const sub of subList) {
       creditOptions.push({
-        mainNama: main.namaMain,
-        subNama: sub.namaSub,
-        displayVal: `MAIN · ${main.namaMain} > SUB · ${sub.namaSub}`,
+        mainNama: main.nama,
+        subNama: sub.nama,
+        displayVal: `MAIN · ${main.nama} > SUB · ${sub.nama}`,
       });
     }
   }
@@ -78,44 +77,56 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const reimbursements = await prisma.reimbursement.findMany({
-      where: filter,
-      include: {
-        user: { select: { id: true, nama: true, email: true, role: true } },
-        proyek: {
-          include: {
-            budget: {
-              include: {
-                mainAnggaran: {
-                  include: {
-                    subAnggaran: true,
+    const [masterAset, reimbursements] = await Promise.all([
+      prisma.masterMain.findMany({
+        where: { tipe: 'aset' },
+        include: {
+          MasterSub: {
+            where: { tipe: 'aset' },
+            orderBy: { id: 'asc' },
+          },
+        },
+        orderBy: { id: 'asc' },
+      }),
+      prisma.reimbursement.findMany({
+        where: filter,
+        include: {
+          user: { select: { id: true, nama: true, email: true, role: true } },
+          proyek: {
+            include: {
+              budget: {
+                include: {
+                  mainAnggaran: {
+                    include: {
+                      subAnggaran: true,
+                    },
                   },
                 },
               },
             },
           },
-        },
-        keteranganAnggaran: {
-          include: { subAnggaran: { include: { mainAnggaran: true } } },
-        },
-        approvals: {
-          select: {
-            id: true,
-            level: true,
-            status: true,
-            catatan: true,
-            alasan: true, 
-            timestamp: true,
-            approver: { select: { nama: true, role: true } }
+          keteranganAnggaran: {
+            include: { subAnggaran: { include: { mainAnggaran: true } } },
           },
-          orderBy: { timestamp: 'desc' },
+          approvals: {
+            select: {
+              id: true,
+              level: true,
+              status: true,
+              catatan: true,
+              alasan: true, 
+              timestamp: true,
+              approver: { select: { nama: true, role: true } }
+            },
+            orderBy: { timestamp: 'desc' },
+          },
+          jurnalAkuntansi: true,
         },
-        jurnalAkuntansi: true,
-      },
-      orderBy: { id: 'desc' },
-    });
+        orderBy: { id: 'desc' },
+      }),
+    ]);
 
-    const mapped = reimbursements.map(mapReimbursement);
+    const mapped = reimbursements.map((r) => mapReimbursement(r, masterAset));
     setCache(cacheKey, { reimbursements: mapped });
     return NextResponse.json({ reimbursements: mapped });
 
@@ -186,7 +197,7 @@ export async function POST(req: NextRequest) {
 
       } else {
         const rawStrukUrl = (formData.get('strukUrl') as string) || '';
-        strukUrl = rawStrukUrl ? await uploadStrukToSupabase(rawStrukUrl) : '/uploads/placeholder.png';
+        strukUrl = rawStrukUrl ? await uploadStrukToSupabase(rawStrukUrl) : '';
       }
 
     } else {
@@ -210,7 +221,7 @@ export async function POST(req: NextRequest) {
       }
 
       const rawStrukUrl = body.strukUrl || '';
-      strukUrl = rawStrukUrl ? await uploadStrukToSupabase(rawStrukUrl) : '/uploads/placeholder.png';
+      strukUrl = rawStrukUrl ? await uploadStrukToSupabase(rawStrukUrl) : '';
       ocrData = body.ocrData || {};
     }
 

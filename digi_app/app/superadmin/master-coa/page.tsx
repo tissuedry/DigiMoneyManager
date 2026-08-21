@@ -9,7 +9,7 @@ import EditSubModal from "./EditSubModal";
 import TambahKategoriModal from "./TambahKategoriModal";
 import DeleteModal from "./DeleteModal";
 
-type TabType = "Semua" | "Aset" | "Beban";
+type TabType = "Semua" | "Aset" | "Pemasukan" | "Pengeluaran";
 type ModalType = "editMain" | "editSub" | "tambahMain" | "tambahSub" | "deleteMain" | "deleteSub" | null;
 
 export default function MasterCoAPage() {
@@ -50,22 +50,34 @@ export default function MasterCoAPage() {
   const openModal = (type: ModalType, data: any = null) => setModalConfig({ isOpen: true, type, data });
   const closeModal = () => setModalConfig({ isOpen: false, type: null, data: null });
 
-  // Filter master data berdasarkan tab aktif (Aset = pemasukan, Beban = pengeluaran, Semua = all)
-  // Di tab Semua, kelompokkan per tipe (Pengeluaran lalu Pemasukan) supaya Main baru
-  // masuk ke bagian tipenya sendiri, bukan tercampur/nyelip di bawah tipe lain.
+  // Urutan tipe: Aset -> Pemasukan -> Pengeluaran
+  const getTipeOrder = (tipe: string) => {
+    if (tipe === "aset") return 1;
+    if (tipe === "pemasukan") return 2;
+    if (tipe === "pengeluaran") return 3;
+    return 4;
+  };
+
+  // Filter master data berdasarkan tab aktif
   const filteredMasterData = masterData
     .filter((item) => {
       if (activeTab === "Aset") {
+        return item.tipe === "aset";
+      }
+      if (activeTab === "Pemasukan") {
         return item.tipe === "pemasukan";
       }
-      if (activeTab === "Beban") {
+      if (activeTab === "Pengeluaran") {
         return item.tipe === "pengeluaran";
       }
       return true;
     })
     .sort((a, b) => {
-      if (activeTab !== "Semua" || a.tipe === b.tipe) return 0;
-      return a.tipe === "pengeluaran" ? -1 : 1;
+      if (activeTab !== "Semua") return a.id - b.id;
+      const orderA = getTipeOrder(a.tipe);
+      const orderB = getTipeOrder(b.tipe);
+      if (orderA !== orderB) return orderA - orderB;
+      return a.id - b.id;
     });
 
   const getDeleteType = (type: ModalType) => {
@@ -74,18 +86,37 @@ export default function MasterCoAPage() {
     return null;
   };
 
+  const getTipeBadge = (tipe: string) => {
+    if (tipe === 'aset') {
+      return {
+        label: 'Aset',
+        className: 'bg-blue-100 text-blue-700',
+      };
+    }
+    if (tipe === 'pemasukan') {
+      return {
+        label: 'Pemasukan',
+        className: 'bg-emerald-100 text-emerald-700',
+      };
+    }
+    return {
+      label: 'Pengeluaran',
+      className: 'bg-red-100 text-red-700',
+    };
+  };
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto min-h-full flex flex-col bg-[#f9f8f4]">
       {/* Header Info */}
       <div className="mb-6">
         <h1 className="text-[28px] font-bold text-stone-900 leading-tight">Master Chart of Accounts</h1>
-        <p className="text-stone-500 mt-1 text-[15px]">Kelola chart of accounts dari pemasukan dan pengeluaran proyek dalam struktur Main dan Sub</p>
+        <p className="text-stone-500 mt-1 text-[15px]">Kelola chart of accounts dari aset, pemasukan, dan pengeluaran proyek dalam struktur Main dan Sub</p>
       </div>
 
       {/* Tabs & Actions Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex bg-stone-200/50 p-1 rounded-xl w-fit">
-          {(["Semua", "Aset", "Beban"] as TabType[]).map((tab) => (
+          {(["Semua", "Aset", "Pemasukan", "Pengeluaran"] as TabType[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -93,17 +124,17 @@ export default function MasterCoAPage() {
                 activeTab === tab ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
               }`}
             >
-              {tab === "Aset" ? "Pemasukan (Revenue)" : tab === "Beban" ? "Pengeluaran (Expense)" : tab}
+              {tab === "Aset" ? "Aset (Asset)" : tab === "Pemasukan" ? "Pemasukan (Revenue)" : tab === "Pengeluaran" ? "Pengeluaran (Expense)" : tab}
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => openModal('tambahMain', activeTab === 'Semua' ? {} : { tipe: activeTab === 'Aset' ? 'pemasukan' : 'pengeluaran' })}
+            onClick={() => openModal('tambahMain', activeTab === 'Semua' ? {} : { tipe: activeTab.toLowerCase() })}
             className="flex items-center gap-2 px-4 py-2 bg-[#008f5d] text-white rounded-xl text-sm font-bold shadow-sm hover:bg-[#007a4f] transition cursor-pointer"
           >
-            <Plus size={16} strokeWidth={3} /> Tambah Main {activeTab === 'Aset' ? 'Pemasukan' : activeTab === 'Beban' ? 'Pengeluaran' : ''}
+            <Plus size={16} strokeWidth={3} /> Tambah Main {activeTab === 'Aset' ? 'Aset' : activeTab === 'Pemasukan' ? 'Pemasukan' : activeTab === 'Pengeluaran' ? 'Pengeluaran' : ''}
           </button>
         </div>
       </div>
@@ -128,7 +159,7 @@ export default function MasterCoAPage() {
           ) : (
             filteredMasterData.map((mainItem) => {
               const isMainOpen = expandedMains.includes(String(mainItem.id));
-              const isPemasukan = mainItem.tipe === 'pemasukan';
+              const badge = getTipeBadge(mainItem.tipe);
 
               return (
                 <div key={mainItem.id} className="border border-stone-200 rounded-xl overflow-hidden bg-white">
@@ -143,10 +174,8 @@ export default function MasterCoAPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isPemasukan ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                      }`}>
-                        {isPemasukan ? "Pemasukan" : "Pengeluaran"}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.className}`}>
+                        {badge.label}
                       </span>
 
                       <div className="flex items-center gap-1.5">

@@ -368,7 +368,7 @@ export default function KelolaProyekPage() {
         setEditForm({
           nama: data.project.nama,
           deskripsi: data.project.deskripsi || "",
-          rabTotal: data.project.budget ? formatRibuan(String(Math.round(Number(data.project.budget.rabTotal)))) : "",
+          rabTotal: data.project.budget ? formatRibuan(String(Math.round(Number(data.project.budget.nilaiKontrak || data.project.budget.rabTotal)))) : "",
           tanggalMulai: data.project.tanggalMulai ? data.project.tanggalMulai.split('T')[0] : "",
           tanggalSelesai: data.project.tanggalSelesai ? data.project.tanggalSelesai.split('T')[0] : "",
           status: data.project.status,
@@ -410,7 +410,7 @@ export default function KelolaProyekPage() {
     setEditForm({
       nama: project.nama,
       deskripsi: project.deskripsi || "",
-      rabTotal: project.budget ? formatRibuan(String(Math.round(Number(project.budget.rabTotal)))) : "",
+      rabTotal: project.budget ? formatRibuan(String(Math.round(Number(project.budget.nilaiKontrak || project.budget.rabTotal)))) : "",
       tanggalMulai: project.tanggalMulai ? project.tanggalMulai.split('T')[0] : "",
       tanggalSelesai: project.tanggalSelesai ? project.tanggalSelesai.split('T')[0] : "",
       status: project.status,
@@ -443,6 +443,7 @@ export default function KelolaProyekPage() {
         body: JSON.stringify({
           nama: editForm.nama,
           deskripsi: editForm.deskripsi,
+          nilaiKontrak: ribuanToNumber(editForm.rabTotal) || 0,
           rabTotal: ribuanToNumber(editForm.rabTotal) || 0,
           tanggalMulai: editForm.tanggalMulai,
           tanggalSelesai: editForm.tanggalSelesai || null,
@@ -668,42 +669,42 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const handleInitBudget = (e: React.FormEvent) => {
-    e.preventDefault();
+  const [pendingBudgetPayload, setPendingBudgetPayload] = useState<any>(null);
+
+  const handleInitBudget = (payload: any) => {
     if (!showInitBudget) return;
     setFormError("");
 
-    const total = ribuanToNumber(rabTotal);
+    const total = payload?.nilaiKontrak || ribuanToNumber(rabTotal);
     if (total <= 0) {
       setFormError("Total Nilai Proyek harus berupa angka positif");
       return;
     }
 
-    const sum = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
-    if (sum > total) {
-      setFormError(`Jumlah alokasi item (Rp ${sum.toLocaleString("id-ID")}) tidak boleh melebihi total Nilai Proyek (Rp ${total.toLocaleString("id-ID")})`);
-      return;
-    }
-
+    setPendingBudgetPayload(payload);
     setShowInitBudgetConfirm(true);
   };
 
   const handleConfirmInitBudget = async () => {
     if (!showInitBudget) return;
-    const total = ribuanToNumber(rabTotal);
 
     setSubmitting(true);
     try {
+      const payloadToSend = pendingBudgetPayload || {
+        nilaiKontrak: ribuanToNumber(rabTotal),
+        rabTotal: posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0),
+        targetPemasukan: 0,
+        posPengeluaran: posAnggaranList.map((pos) => ({
+          deskripsi: pos.deskripsi,
+          nominalAlokasi: ribuanToNumber(pos.nominalAlokasi),
+        })),
+        posPemasukan: [],
+      };
+
       const res = await fetch(`/api/proyek/${showInitBudget.id}/budget`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rabTotal: total,
-          posAnggaran: posAnggaranList.map((pos) => ({
-            deskripsi: pos.deskripsi,
-            nominalAlokasi: ribuanToNumber(pos.nominalAlokasi),
-          })),
-        }),
+        body: JSON.stringify(payloadToSend),
       });
 
       const data = await res.json();
@@ -716,9 +717,13 @@ export default function KelolaProyekPage() {
       setInitBudgetProjectName(showInitBudget.nama);
       setShowInitBudget(null);
       setRabTotal("");
+      setPendingBudgetPayload(null);
       setShowInitBudgetConfirm(false);
       setShowInitBudgetSuccess(true);
       fetchData();
+      if (showProjectDetail?.id === showInitBudget.id) {
+        refreshDetailedProject(showInitBudget.id);
+      }
     } catch {
       setFormError("Terjadi kesalahan koneksi");
       setShowInitBudgetConfirm(false);
@@ -809,7 +814,7 @@ export default function KelolaProyekPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {projects.map((project) => {
             const hasBudget = !!project.budget;
-            const totalRAB = hasBudget ? parseFloat(project.budget!.rabTotal) : 0;
+            const totalRAB = hasBudget ? (Number(project.budget!.nilaiKontrak || project.budget!.rabTotal) || 0) : 0;
             const sisa = hasBudget ? parseFloat(project.budget!.sisaBudget) : 0;
 
             return (
@@ -1059,6 +1064,7 @@ export default function KelolaProyekPage() {
         setEditForm={setEditForm}
         formError={formError}
         submitting={submitting}
+        projectDetail={detailedProjectInfo || showProjectDetail}
       />
 
       <DetailBudgetModal

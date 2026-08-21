@@ -62,7 +62,10 @@ export async function GET(req: NextRequest) {
       const journalFilter: any = {};
 
       if (proyekId) {
-        journalFilter.reimbursement = { proyekId: parseInt(proyekId, 10) };
+        journalFilter.OR = [
+          { reimbursement: { proyekId: parseInt(proyekId, 10) } },
+          { transaksiPemasukan: { proyekId: parseInt(proyekId, 10) } },
+        ];
       }
 
       const entries = await prisma.jurnalAkuntansi.findMany({
@@ -88,11 +91,44 @@ export async function GET(req: NextRequest) {
               },
             },
           },
+          transaksiPemasukan: {
+            include: {
+              user: { select: { nama: true } },
+              proyek: { select: { nama: true } },
+              subCoa: { select: { nama: true, master_main: { select: { nama: true } } } },
+            },
+          },
         },
         orderBy: { id: 'desc' },
       });
 
       const reportData = entries.map((entry) => {
+        if (entry.transaksiPemasukan) {
+          const tx = entry.transaksiPemasukan;
+          const tanggal = tx.tanggalTransaksi
+            ? new Date(tx.tanggalTransaksi).toISOString().split('T')[0]
+            : 'N/A';
+
+          let kategoriLabel = tx.kategori;
+          if (tx.kategori === 'DISKON_PENJUALAN') kategoriLabel = 'Diskon Penjualan';
+          else if (tx.kategori === 'RETUR_PENJUALAN') kategoriLabel = 'Retur Penjualan';
+          else if (tx.kategori === 'BIAYA_PENJUALAN_LAINNYA') kategoriLabel = 'Biaya Penjualan';
+          else if (tx.kategori === 'PENERIMAAN_PENJUALAN') kategoriLabel = 'Penerimaan Penjualan';
+
+          return {
+            ID: entry.id,
+            Tanggal: tanggal,
+            TipePencairan: kategoriLabel,
+            Keterangan: entry.keterangan || tx.keterangan || `Transaksi ${kategoriLabel} ${tx.id}`,
+            Proyek: tx.proyek?.nama || '-',
+            Karyawan: tx.user?.nama || '-',
+            KategoriAnggaran: tx.subCoa?.nama || kategoriLabel,
+            'Akun Debit': entry.noAkunDebit,
+            'Akun Kredit': entry.noAkunKredit,
+            Nominal: Number(entry.nominal),
+          };
+        }
+
         const approval = entry.reimbursement?.approvals?.[0];
         const tanggal = approval?.timestamp
           ? new Date(approval.timestamp).toISOString().split('T')[0]
@@ -129,33 +165,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ report: reportData });
 
     } else if (type === 'neraca') {
-        const reportData = projects.map((p) => {
-        const rabTotal = p.budget ? Number(p.budget.rabTotal) : 0;
-        const totalPengeluaran = p.budget ? Number(p.budget.totalPengeluaran) : 0;
-        const sisaBudget = p.budget ? Number(p.budget.sisaBudget) : 0;
+      const reportData = await Promise.all(projects.map(async (p) => {
+        const rabTotal = p.budget ? Number(p.budget.nilaiKontrak || p.budget.rabTotal || 0) : 0;
+        const totalPengeluaran = p.budget ? Number(p.budget.totalPengeluaran || 0) : 0;
+        const sisaBudget = p.budget ? Number(p.budget.sisaBudget || 0) : 0;
 
-        // Assets = Cash / Bank remaining budget + Allocated Fixed Project Assets
-        const cashAsset = sisaBudget;
+        const txPemasukan = await prisma.transaksiPemasukan.findMany({
+          where: { proyekId: p.id },
+        });
+
+        const totalPemasukanCair = txPemasukan
+          .filter((t) => t.status === 'CAIR' || t.kategori === 'PENERIMAAN_PENJUALAN')
+          .reduce((sum, t) => sum + Number(t.nominal || 0), 0);
+
+        const cashAsset = sisaBudget + totalPemasukanCair;
         const projectAssets = totalPengeluaran;
         const totalAssets = cashAsset + projectAssets;
 
-        // Liabilities & Equity
-        const pendingAmount = p.budget ? 0 : 0; 
-        
-        // Equity = Initial RAB budget allocations
         const equity = rabTotal;
-        const totalLiabilitiesAndEquity = equity; 
+        const totalLiabilitiesAndEquity = equity;
 
         return {
           Proyek: p.nama,
           'Kas / Sisa Budget (Asset)': cashAsset,
           'Biaya Terpakai (Asset/Cost)': projectAssets,
           'Total Aset': totalAssets,
-          'Utang Reimbursement (Liabilitas)': pendingAmount,
+          'Utang Reimbursement (Liabilitas)': 0,
           'Modal RAB (Ekuitas)': equity,
           'Total Liabilitas & Ekuitas': totalLiabilitiesAndEquity,
         };
-      });
+      }));
 
       if (format === 'csv') {
         const csv = convertToCSV(reportData);
@@ -173,23 +212,47 @@ export async function GET(req: NextRequest) {
       const reportData: any[] = [];
 
       for (const p of projects) {
-        const rabTotal = p.budget ? Number(p.budget.rabTotal) : 0;
-        const totalPengeluaran = p.budget ? Number(p.budget.totalPengeluaran) : 0;
+        const grossRevenue = p.budget ? Number(p.budget.nilaiKontrak || p.budget.rabTotal || 0) : 0;
+        const totalPengeluaran = p.budget ? Number(p.budget.totalPengeluaran || 0) : 0;
+
+        const txPemasukan = await prisma.transaksiPemasukan.findMany({
+          where: { proyekId: p.id },
+        });
+
+        let totalDiskon = 0;
+        let totalRetur = 0;
+        let totalBiayaLainnya = 0;
+
+        txPemasukan.forEach((tx) => {
+          const nom = Number(tx.nominal || 0);
+          if (tx.kategori === 'DISKON_PENJUALAN') totalDiskon += nom;
+          else if (tx.kategori === 'RETUR_PENJUALAN') totalRetur += nom;
+          else if (tx.kategori === 'BIAYA_PENJUALAN_LAINNYA') totalBiayaLainnya += nom;
+        });
+
+        const netRevenue = grossRevenue - totalDiskon - totalRetur - totalBiayaLainnya;
+        const labaBersih = netRevenue - totalPengeluaran;
 
         // Break down expenses by PosAnggaran
         const expensesBreakdown: any = {};
         if (p.budget) {
-          p.budget.mainAnggaran.forEach((main: any) => {
-            expensesBreakdown[`Beban ${main.namaMain}`] = Number(main.nominalTerpakai);
-          });
+          p.budget.mainAnggaran
+            .filter((m: any) => m.tipe !== 'pemasukan')
+            .forEach((main: any) => {
+              expensesBreakdown[`Beban ${main.namaMain}`] = Number(main.nominalTerpakai);
+            });
         }
 
         reportData.push({
           Proyek: p.nama,
-          'Pendapatan / Alokasi RAB': rabTotal,
+          'Penjualan Kotor (Kontrak)': grossRevenue,
+          'Diskon Penjualan': totalDiskon,
+          'Retur Penjualan': totalRetur,
+          'Biaya Penjualan Lainnya': totalBiayaLainnya,
+          'Penjualan Bersih (Net Revenue)': netRevenue,
           ...expensesBreakdown,
           'Total Beban / Pengeluaran': totalPengeluaran,
-          'Laba (Rugi) Bersih': rabTotal - totalPengeluaran,
+          'Laba (Rugi) Bersih': labaBersih,
         });
       }
 

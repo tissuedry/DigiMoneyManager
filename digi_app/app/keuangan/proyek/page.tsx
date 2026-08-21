@@ -5,6 +5,7 @@ import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import DetailAnggaranModal from "./DetailAnggaran";
 import AlokasiPosModal from "./AlokasiPos";
+import RealisasiPemasukanModal from "../pemasukan/RealisasiPemasukanModal";
 import ProyekSkeleton from "./ProyekSkeleton";
 import Toast from "@/components/toast";
 import CompactNominal from "@/components/compact-nominal";
@@ -275,6 +276,7 @@ function KeuanganKelolaProyekContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
+  const [isRealisasiOpen, setIsRealisasiOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -286,6 +288,7 @@ function KeuanganKelolaProyekContent() {
     return null;
   });
   const [alokasiSuccessToast, setAlokasiSuccessToast] = useState("");
+  const [realisasiSuccessToast, setRealisasiSuccessToast] = useState("");
 
   const invalidate = useInvalidate();
 
@@ -460,7 +463,14 @@ function KeuanganKelolaProyekContent() {
                       className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-xs"
                     >
                       <Plus size={13} />
-                      Alokasi Pos
+                      Setting Pos
+                    </button>
+                    <button
+                      onClick={() => setIsRealisasiOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-xs"
+                    >
+                      <Plus size={13} />
+                      Realisasi Pemasukan
                     </button>
                   </div>
                 </div>
@@ -532,7 +542,7 @@ function KeuanganKelolaProyekContent() {
                             <div className="flex items-center justify-between gap-2">
                               <div className="min-w-0 flex-1">
                                 <p className="text-xs font-bold text-stone-900 truncate">
-                                  {t.namaTermin}
+                                   {t.namaTermin}
                                 </p>
                                 <p className="text-[10px] text-stone-400 mt-0.5">
                                   Progress: {t.persentaseProgress}% {t.tanggalPencairan ? `· Cair: ${t.tanggalPencairan}` : ""}
@@ -598,6 +608,7 @@ function KeuanganKelolaProyekContent() {
         <DetailAnggaranModal
           proyekId={proyek.id}
           proyekNama={proyek.nama}
+          proyekStatus={proyek.status}
           posAnggaran={proyek.posAnggaran}
           totalRAB={proyek.totalRAB}
           onClose={() => setIsDetailOpen(false)}
@@ -625,10 +636,30 @@ function KeuanganKelolaProyekContent() {
         />
       )}
 
+      {/* Realisasi Pemasukan Modal */}
+      {isRealisasiOpen && proyek && (
+        <RealisasiPemasukanModal
+          proyekId={proyek.id}
+          proyekNama={proyek.nama}
+          onClose={() => setIsRealisasiOpen(false)}
+          onRefresh={() => {
+            invalidate("/api/keuangan/proyek");
+            refetch();
+            setRealisasiSuccessToast("Realisasi pemasukan berhasil dicatat.");
+          }}
+        />
+      )}
+
       <Toast
         open={!!alokasiSuccessToast}
         message={alokasiSuccessToast}
         onClose={() => setAlokasiSuccessToast("")}
+      />
+
+      <Toast
+        open={!!realisasiSuccessToast}
+        message={realisasiSuccessToast}
+        onClose={() => setRealisasiSuccessToast("")}
       />
     </div>
   );

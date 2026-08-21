@@ -11,6 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const isDirektur = userRole === 'Direktur / Manajemen';
     const isSuperAdmin = userRole === 'Superadmin' || userRole === 'superadmin';
+    const isKeuangan = userRole === 'Tim Keuangan' || userRole === 'keuangan';
     
     const isMember = userId
       ? await prisma.userProyek.findFirst({
@@ -18,8 +19,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         })
       : null;
 
-    if (!isDirektur && !isSuperAdmin && !isMember) {
-      return NextResponse.json({ message: 'Forbidden: You must be a project member, Direktur, or Super Admin to access this data' }, { status: 403 });
+    if (!isDirektur && !isSuperAdmin && !isKeuangan && !isMember) {
+      return NextResponse.json({ message: 'Forbidden: You must be a project member, Direktur, Keuangan, or Super Admin to access this data' }, { status: 403 });
     }
 
     const mainAnggaran = await prisma.mainAnggaran.findMany({
@@ -27,11 +28,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       select: {
         id: true,
         namaMain: true,
+        tipe: true,
         subAnggaran: {
           orderBy: { id: 'asc' },
           select: {
             id: true,
             namaSub: true,
+            tipe: true,
+            nominalAlokasi: true,
+            nominalTerpakai: true,
             keterangan: {
               orderBy: { id: 'asc' },
               select: { id: true, keterangan: true },

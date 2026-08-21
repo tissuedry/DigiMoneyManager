@@ -106,16 +106,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: true, message: 'Termin berhasil diperbarui' }, { status: 200 });
     }
 
-    // Skenario B: Tambah single termin & main alokasi pemasukan (dari AddPenambaganTermin)
+    // Skenario B: Tambah single termin murni
     if (namaTermin && nominal) {
       const nominalNum = parseFloat(String(nominal));
       const progressNum = persentaseProgress ? parseFloat(String(persentaseProgress)) : 0;
 
-      await prisma.$transaction(async (tx) => {
+      const newTermin = await prisma.$transaction(async (tx) => {
         const countExisting = await tx.terminPembayaran.count({ where: { proyekId } });
 
-        // 1. Buat record TerminPembayaran
-        await tx.terminPembayaran.create({
+        return await tx.terminPembayaran.create({
           data: {
             proyekId,
             namaTermin,
@@ -126,60 +125,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             urutan: countExisting + 1,
           },
         });
-
-        // 2. Buat / Update MainAnggaran tipe='pemasukan' jika posAnggaranList dikirim
-        if (Array.isArray(posAnggaranList) && posAnggaranList.length > 0) {
-          let budget = await tx.budget.findUnique({ where: { proyekId } });
-          if (!budget) {
-            budget = await tx.budget.create({
-              data: {
-                proyekId,
-                rabTotal: 0,
-                sisaBudget: 0,
-                totalPemasukan: 0,
-                pemasukanBelumDialokasikan: 0,
-              },
-            });
-          }
-
-          for (const pos of posAnggaranList) {
-            const posNama = (pos.deskripsi || pos.namaPos || pos.nama || '').trim();
-            const rawNominal = typeof pos.nominalAlokasi === 'string'
-              ? parseFloat(pos.nominalAlokasi.replace(/\./g, '').replace(',', '.'))
-              : Number(pos.nominalAlokasi) || 0;
-
-            if (posNama && rawNominal > 0) {
-              const existingMain = await tx.mainAnggaran.findFirst({
-                where: {
-                  budgetId: budget.id,
-                  namaMain: posNama,
-                  tipe: 'pemasukan',
-                },
-              });
-
-              if (existingMain) {
-                await tx.mainAnggaran.update({
-                  where: { id: existingMain.id },
-                  data: { nominalAlokasi: rawNominal },
-                });
-              } else {
-                await tx.mainAnggaran.create({
-                  data: {
-                    budgetId: budget.id,
-                    namaMain: posNama,
-                    nominalAlokasi: rawNominal,
-                    tipe: 'pemasukan',
-                  },
-                });
-              }
-            }
-          }
-        }
       });
 
       clearCache('proyek:');
       clearCache('dashboard:');
-      return NextResponse.json({ success: true, message: 'Termin dan Main Alokasi Pemasukan berhasil ditambahkan' }, { status: 201 });
+      return NextResponse.json({ success: true, message: 'Termin pembayaran berhasil ditambahkan', data: newTermin }, { status: 201 });
     }
 
     return NextResponse.json({ message: 'Format data tidak valid' }, { status: 400 });
@@ -219,7 +169,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ message: 'Termin ini sudah berstatus DITERIMA' }, { status: 400 });
     }
 
-    // Transaksi atomik: update termin + update budget
+    // Transaksi atomik: update status termin + update akumulasi kas masuk (totalPemasukan) pada budget
     const result = await prisma.$transaction(async (tx) => {
       // 1. Update status termin
       const updatedTermin = await tx.terminPembayaran.update({
@@ -230,14 +180,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         },
       });
 
-      // 2. Update budget: tambahkan nominal ke totalPemasukan & pemasukanBelumDialokasikan
+      // 2. Update budget: tambahkan nominal kas masuk ke totalPemasukan
       const budget = await tx.budget.findUnique({ where: { proyekId } });
       if (budget) {
         await tx.budget.update({
           where: { proyekId },
           data: {
             totalPemasukan: { increment: Number(termin.nominal) },
-            pemasukanBelumDialokasikan: { increment: Number(termin.nominal) },
           },
         });
       }

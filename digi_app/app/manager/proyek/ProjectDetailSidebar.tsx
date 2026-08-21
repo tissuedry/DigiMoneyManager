@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check, Search, ChevronDown, History, ArrowUp, TrendingUp } from "lucide-react";
 import { Project, Member } from "./types";
 import PencairanTerminModal from "./PencairanTerminModal";
-import AddPenambaganTermin from "./AddPenambaganTermin";
+import AlokasiPemasukanFormModal from "./AlokasiPemasukanFormModal";
 import AlokasiPemasukanModal from "./EditAlokasi";
 import EditTerminModal from "./EditTerminModal";
 
@@ -263,7 +263,7 @@ export default function ProjectDetailSidebar({
 
     // Modal states untuk tab pemasukan
     const [isPencairanOpen, setIsPencairanOpen] = useState(false);
-    const [isAddTerminOpen, setIsAddTerminOpen] = useState(false);
+    const [isAlokasiPemasukanFormOpen, setIsAlokasiPemasukanFormOpen] = useState(false);
     const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
     const [isRiwayatOpen, setIsRiwayatOpen] = useState(false);
     const [isEditTerminOpen, setIsEditTerminOpen] = useState(false);
@@ -312,17 +312,6 @@ export default function ProjectDetailSidebar({
 
     // Derived data untuk pemasukan
     const terminList: any[] = detailedProjectInfo?.terminPembayaran ?? [];
-    const totalPemasukan = parseFloat(detailedProjectInfo?.budget?.totalPemasukan) || 0;
-    const pemasukanBelumDialokasikan = parseFloat(detailedProjectInfo?.budget?.pemasukanBelumDialokasikan) || 0;
-    const alokasiPemasukan: any[] = detailedProjectInfo?.budget?.alokasiPemasukan ?? [];
-    const terminBelumDiterima = terminList.filter((t: any) => t.status === 'BELUM_DITERIMA');
-
-    // Calculate percentages and nominals for allocation
-    const nominalPenjualanJasa = alokasiPemasukan.find((a: any) => a.jenisPemasukan)?.nominal ?? 0;
-    const nominalPenjualanBarang = alokasiPemasukan.find((a: any) => a.jenisPemasukan)?.nominal ?? 0;
-    const sisaBelumDialokasikan = Math.max(0, totalPemasukan - nominalPenjualanJasa - nominalPenjualanBarang);
-    const pJasa = totalPemasukan > 0 ? (nominalPenjualanJasa / totalPemasukan) * 100 : 0;
-    const pBarang = totalPemasukan > 0 ? (nominalPenjualanBarang / totalPemasukan) * 100 : 0;
 
 
     if (!showProjectDetail || editMode || isDirectEdit) return null;
@@ -360,44 +349,40 @@ export default function ProjectDetailSidebar({
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab("ringkasan")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
-                                        activeTab === "ringkasan"
-                                            ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
-                                            : "text-stone-500 hover:text-stone-900 border border-transparent"
-                                    }`}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeTab === "ringkasan"
+                                        ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
+                                        : "text-stone-500 hover:text-stone-900 border border-transparent"
+                                        }`}
                                 >
                                     Ringkasan
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setActiveTab("pemasukan")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
-                                        activeTab === "pemasukan"
-                                            ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
-                                            : "text-stone-500 hover:text-stone-900 border border-transparent"
-                                    }`}
-                                >
-                                    Pemasukan
-                                </button>
-                                <button
-                                    type="button"
                                     onClick={() => setActiveTab("pengeluaran")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
-                                        activeTab === "pengeluaran"
-                                            ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
-                                            : "text-stone-500 hover:text-stone-900 border border-transparent"
-                                    }`}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeTab === "pengeluaran"
+                                        ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
+                                        : "text-stone-500 hover:text-stone-900 border border-transparent"
+                                        }`}
                                 >
                                     Pengeluaran
                                 </button>
                                 <button
                                     type="button"
+                                    onClick={() => setActiveTab("pemasukan")}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${activeTab === "pemasukan"
+                                        ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
+                                        : "text-stone-500 hover:text-stone-900 border border-transparent"
+                                        }`}
+                                >
+                                    Pemasukan
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => setActiveTab("tim")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
-                                        activeTab === "tim"
-                                            ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
-                                            : "text-stone-500 hover:text-stone-900 border border-transparent"
-                                    }`}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeTab === "tim"
+                                        ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
+                                        : "text-stone-500 hover:text-stone-900 border border-transparent"
+                                        }`}
                                 >
                                     Tim
                                 </button>
@@ -444,35 +429,35 @@ export default function ProjectDetailSidebar({
                                     {detailedProjectInfo?.budget ? (
                                         <div className="border border-stone-100 rounded-3xl p-5 bg-white space-y-4 text-left shadow-[0_4px_20px_rgba(0,0,0,0.01)]">
                                             <div className="flex justify-between items-center text-[13px] font-extrabold text-stone-900 tracking-wide">
-                                                <span>Realisasi Anggaran</span>
+                                                <span>Realisasi Pengeluaran</span>
                                                 <span className="font-mono text-sm font-black">{calculatedPercentUsed}%</span>
                                             </div>
 
-                                            {(() => {
-                                                let macroBarColor = "bg-[#00966c]";
-                                                if (calculatedPercentUsed >= 90) {
-                                                    macroBarColor = "bg-[#d65f5f]";
-                                                } else if (calculatedPercentUsed >= 80) {
-                                                    macroBarColor = "bg-[#d4a373]";
-                                                }
+                                                {(() => {
+                                                    let macroBarColor = "bg-[#00966c]";
+                                                    if (calculatedPercentUsed >= 90) {
+                                                        macroBarColor = "bg-[#d65f5f]";
+                                                    } else if (calculatedPercentUsed >= 80) {
+                                                        macroBarColor = "bg-[#d4a373]";
+                                                    }
 
-                                                return (
-                                                    <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full transition-all duration-500 ease-out ${macroBarColor}`}
-                                                            style={{ width: `${calculatedPercentUsed}%` }}
-                                                        />
-                                                    </div>
-                                                );
-                                            })()}
+                                                    return (
+                                                        <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full transition-all duration-500 ease-out ${macroBarColor}`}
+                                                                style={{ width: `${calculatedPercentUsed}%` }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })()}
 
-                                            <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
-                                                <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000} /></b></span>
-                                                <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000} /></b></span>
-                                                <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000} /></b></span>
+                                                <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
+                                                    <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000} /></b></span>
+                                                    <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000} /></b></span>
+                                                    <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000} /></b></span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ) : (
+                                        ) : (
                                         <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-xl text-xs flex items-center justify-between text-left">
                                             <span>Nilai Proyek belum diinisialisasi.</span>
                                             <button type="button" onClick={() => { onClose(); setShowInitBudget(showProjectDetail); }} className="px-3 py-1.5 bg-amber-100 text-amber-900 font-bold rounded-lg text-[11px]">Set Nilai Proyek</button>
@@ -512,13 +497,7 @@ export default function ProjectDetailSidebar({
 
                             {activeTab === "pengeluaran" && (
                                 <div id="pengeluaran-sec" className="px-8 py-5 space-y-6 flex-shrink-0">
-                                    <div className="pb-2">
-                                        <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider">
-                                            Rincian Pos Pengeluaran
-                                        </h3>
-                                    </div>
-
-                                    <div className="flex flex-col gap-2 pb-2">
+                                    <div className="flex flex-col gap-3">
                                         <div className="flex gap-2 w-full">
                                             <button
                                                 type="button"
@@ -529,13 +508,11 @@ export default function ProjectDetailSidebar({
                                                         fetchPendingPengajuan(detailedProjectInfo.id);
                                                     }
                                                 }}
-                                                className="flex-1 flex items-center justify-between px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer gap-2"
+                                                className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                             >
-                                                <div className="flex items-center gap-1.5">
-                                                    <ClipboardList size={13.5} className="text-stone-500" />
-                                                    <span>Periksa Pengajuan</span>
-                                                </div>
-                                                <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-[9px] font-bold bg-[#005836] text-white rounded-full">
+                                                <ClipboardList size={14} className="text-stone-500 shrink-0" />
+                                                <span>Periksa Pengajuan</span>
+                                                <span className="flex items-center justify-center min-w-4 h-4 px-1 text-[9px] font-bold bg-[#005836] text-white rounded-full ml-0.5">
                                                     {detailedProjectInfo?.pendingPmCount || 0}
                                                 </span>
                                             </button>
@@ -558,114 +535,128 @@ export default function ProjectDetailSidebar({
                                                     }
                                                     setShowInitBudget(showProjectDetail);
                                                 }}
-                                                className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer"
+                                                className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                             >
-                                                <Settings size={13.5} className="text-stone-500" />
-                                                <span>Edit Pos Pengeluaran</span>
+                                                <Settings size={14} className="text-stone-500 shrink-0" />
+                                                <span>Alokasi Pengeluaran</span>
                                             </button>
                                         </div>
 
                                         <button
                                             type="button"
                                             onClick={() => setShowDetailBudgetModal(true)}
-                                            className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer"
+                                            className="w-full flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all cursor-pointer"
                                         >
-                                            <Eye size={13.5} className="text-stone-500" />
+                                            <Eye size={14} className="text-stone-500 shrink-0" />
                                             <span>Lihat Detail Pengeluaran</span>
                                         </button>
                                     </div>
 
-                                    {detailedProjectInfo?.budget?.posAnggaran ? (
-                                        <div className="space-y-6">
-                                            {detailedProjectInfo.budget.posAnggaran.map((pos: any, index: number) => {
-                                                const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
+                                    {/* Pos Main Pengeluaran */}
+                                    <div className="space-y-3 pt-4 text-left border-t border-stone-100">
 
-                                                const nominalAlokasi = parseFloat(pos.nominalAlokasi) || 0;
+                                        {detailedProjectInfo?.budget?.posAnggaran ? (
+                                            <div className="space-y-6">
+                                                {detailedProjectInfo.budget.posAnggaran.map((pos: any, index: number) => {
+                                                    const hasSub = pos.subAnggaran && pos.subAnggaran.length > 0;
 
-                                                const terpakaiVal = hasSub
-                                                    ? pos.subAnggaran.reduce((accSub: number, sub: any) => {
-                                                        const hasKet = sub.keterangan && sub.keterangan.length > 0;
-                                                        const subRealisasi = hasKet
-                                                            ? sub.keterangan.reduce((accKet: number, k: any) => {
-                                                                const reimbs = (k.reimbursements || []).filter((r: any) =>
-                                                                    ['APPROVED', 'PAID', 'DISBURSED'].includes(r.status)
-                                                                );
-                                                                const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
-                                                                return accKet + (sumReimbs || parseFloat(k.nominalRealisasi) || 0);
-                                                            }, 0)
-                                                            : parseFloat(sub.nominalTerpakai) || 0;
-                                                        return accSub + subRealisasi;
-                                                    }, 0)
-                                                    : parseFloat(pos.nominalTerpakai) || 0;
+                                                    const nominalAlokasi = parseFloat(pos.nominalAlokasi) || 0;
 
-                                                const sisaVal = Math.max(0, nominalAlokasi - terpakaiVal);
-                                                const percentUsed = nominalAlokasi > 0 ? Math.round((terpakaiVal / nominalAlokasi) * 100) : 0;
+                                                    const terpakaiVal = hasSub
+                                                        ? pos.subAnggaran.reduce((accSub: number, sub: any) => {
+                                                            const hasKet = sub.keterangan && sub.keterangan.length > 0;
+                                                            const subRealisasi = hasKet
+                                                                ? sub.keterangan.reduce((accKet: number, k: any) => {
+                                                                    const reimbs = (k.reimbursements || []).filter((r: any) =>
+                                                                        ['APPROVED', 'PAID', 'DISBURSED'].includes(r.status)
+                                                                    );
+                                                                    const sumReimbs = reimbs.reduce((accR: number, r: any) => accR + (parseFloat(r.nominal) || 0), 0);
+                                                                    return accKet + (sumReimbs || parseFloat(k.nominalRealisasi) || 0);
+                                                                }, 0)
+                                                                : parseFloat(sub.nominalTerpakai) || 0;
+                                                            return accSub + subRealisasi;
+                                                        }, 0)
+                                                        : parseFloat(pos.nominalTerpakai) || 0;
 
-                                                let barColor = "bg-[#00966c]";
-                                                if (percentUsed >= 90) {
-                                                    barColor = "bg-[#d65f5f]";
-                                                } else if (percentUsed >= 80) {
-                                                    barColor = "bg-[#d4a373]";
-                                                }
+                                                    const sisaVal = Math.max(0, nominalAlokasi - terpakaiVal);
+                                                    const percentUsed = nominalAlokasi > 0 ? Math.round((terpakaiVal / nominalAlokasi) * 100) : 0;
 
-                                                return (
-                                                    <div key={pos.id || index} className="space-y-2 text-left">
-                                                        <div className="flex justify-between items-start">
-                                                            <div>
-                                                                <h4 className="text-[14px] font-bold text-stone-800 leading-tight">
-                                                                    {pos.namaPos || pos.deskripsi}
-                                                                </h4>
-                                                                <span className="text-[10px] font-mono font-bold text-stone-400">
-                                                                    POS-{201 + index}
+                                                    let barColor = "bg-[#00966c]";
+                                                    if (percentUsed >= 90) {
+                                                        barColor = "bg-[#d65f5f]";
+                                                    } else if (percentUsed >= 80) {
+                                                        barColor = "bg-[#d4a373]";
+                                                    }
+
+                                                    return (
+                                                        <div key={pos.id || index} className="space-y-2 text-left">
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <h4 className="text-[14px] font-bold text-stone-800 leading-tight">
+                                                                        {pos.namaPos || pos.deskripsi}
+                                                                    </h4>
+                                                                    <span className="text-[10px] font-mono font-bold text-stone-400">
+                                                                        POS-{201 + index}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <span className="text-[14px] font-black text-stone-900 font-mono">
+                                                                        <CompactNominal value={terpakaiVal} compactThreshold={1_000_000} />
+                                                                    </span>
+                                                                    <span className="text-[10px] text-stone-400 block font-medium mt-0.5">
+                                                                        dari <CompactNominal value={nominalAlokasi} compactThreshold={1_000_000} />
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="w-full h-2 bg-stone-100/80 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all duration-500 ease-out ${barColor}`}
+                                                                    style={{ width: `${Math.min(percentUsed, 100)}%` }}
+                                                                />
+                                                            </div>
+
+                                                            <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium pt-0.5">
+                                                                <span className="font-semibold" style={{ color: percentUsed >= 90 ? '#d65f5f' : percentUsed >= 80 ? '#d4a373' : '#00966c' }}>
+                                                                    {percentUsed}% terpakai
+                                                                </span>
+                                                                <span>
+                                                                    Sisa <b className="text-stone-700 font-mono font-bold"><CompactNominal value={sisaVal} compactThreshold={1_000_000} /></b>
                                                                 </span>
                                                             </div>
-                                                            <div className="text-right">
-                                                                <span className="text-[14px] font-black text-stone-900 font-mono">
-                                                                    <CompactNominal value={terpakaiVal} compactThreshold={1_000_000} />
-                                                                </span>
-                                                                <span className="text-[10px] text-stone-400 block font-medium mt-0.5">
-                                                                    dari <CompactNominal value={nominalAlokasi} compactThreshold={1_000_000} />
-                                                                </span>
-                                                            </div>
                                                         </div>
-
-                                                        <div className="w-full h-2 bg-stone-100/80 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full transition-all duration-500 ease-out ${barColor}`}
-                                                                style={{ width: `${Math.min(percentUsed, 100)}%` }}
-                                                            />
-                                                        </div>
-
-                                                        <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium pt-0.5">
-                                                            <span className="font-semibold" style={{ color: percentUsed >= 90 ? '#d65f5f' : percentUsed >= 80 ? '#d4a373' : '#00966c' }}>
-                                                                {percentUsed}% terpakai
-                                                            </span>
-                                                            <span>
-                                                                Sisa <b className="text-stone-700 font-mono font-bold"><CompactNominal value={sisaVal} compactThreshold={1_000_000} /></b>
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8 text-xs font-medium text-stone-450 bg-stone-50 rounded-2xl border border-stone-100">
-                                            Nilai Proyek belum diinisialisasi untuk proyek ini.
-                                        </div>
-                                    )}
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-8 text-xs font-medium text-stone-450 bg-stone-50 rounded-2xl border border-stone-100">
+                                                Nilai Proyek belum diinisialisasi untuk proyek ini.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
                             {activeTab === "tim" && (
                                 <div id="tim-sec" className="min-h-full w-full px-8 pb-48 pt-4 text-left flex-shrink-0 space-y-3">
-                                    <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
+                                    {/* Header Kolom Role & Anggota */}
+                                    <div className="grid grid-cols-12 gap-2.5 px-1">
+                                        <div className="col-span-5 text-[11px] font-bold text-stone-400 uppercase tracking-wider">
+                                            ROLE
+                                        </div>
+                                        <div className="col-span-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">
+                                            ANGGOTA
+                                        </div>
+                                        <div className="col-span-1" />
+                                    </div>
+
                                     <div className="space-y-3">
                                         {teamRows.map((row, idx) => (
                                             <div key={row.id} className="grid grid-cols-12 gap-2.5 items-center">
                                                 <div className="col-span-5">
                                                     <input
                                                         type="text"
-                                                        placeholder={row.isLocked ? "Role Karyawan" : "Cth: DevOps"}
+                                                        placeholder={row.isLocked ? "Role Karyawan" : "Ketik role karyawan..."}
                                                         required
                                                         disabled={row.isLocked}
                                                         value={row.role}
@@ -674,10 +665,10 @@ export default function ProjectDetailSidebar({
                                                             updated[idx].role = e.target.value;
                                                             setTeamRows(updated);
                                                         }}
-                                                        className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
+                                                        className={`w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f] ${row.isLocked ? "bg-[#fcfbf9] text-stone-800 cursor-not-allowed" : ""}`}
                                                     />
                                                 </div>
-                                                <div className={row.isLocked ? "col-span-7" : "col-span-6"}>
+                                                <div className="col-span-6">
                                                     <SearchableMemberSelect
                                                         value={row.userId}
                                                         onChange={(selectedUserId) => {
@@ -691,11 +682,11 @@ export default function ProjectDetailSidebar({
                                                             const selectedPmUserId = pmRow ? pmRow.userId : "";
                                                             return String(member.id) !== String(selectedPmUserId);
                                                         })}
-                                                        placeholder="Pilih nama..."
+                                                        placeholder="Cari nama..."
                                                     />
                                                 </div>
-                                                {!row.isLocked && (
-                                                    <div className="col-span-1 flex justify-center">
+                                                <div className="col-span-1 flex justify-center">
+                                                    {!row.isLocked && (
                                                         <button
                                                             type="button"
                                                             onClick={() => handleRemoveTeamRow(row.id)}
@@ -704,8 +695,8 @@ export default function ProjectDetailSidebar({
                                                         >
                                                             <Trash2 size={14} />
                                                         </button>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -775,12 +766,12 @@ export default function ProjectDetailSidebar({
                                                     <Settings size={14} className="text-stone-500 shrink-0" /> Edit Termin
                                                 </button>
 
-                                                {/* 4. Tambah Termin (Menggantikan posisi Edit Termin di kanan) */}
+                                                {/* 3. Alokasi Pemasukan */}
                                                 <button
-                                                    onClick={() => setIsAddTerminOpen(true)}
+                                                    onClick={() => setIsAlokasiPemasukanFormOpen(true)}
                                                     className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                                 >
-                                                    <Plus size={14} className="text-stone-500 shrink-0" /> Edit Pemasukan
+                                                    <Settings size={14} className="text-stone-500 shrink-0" /> Alokasi Pemasukan
                                                 </button>
                                             </div>
 
@@ -789,102 +780,8 @@ export default function ProjectDetailSidebar({
                                                 onClick={() => setIsAlokasiOpen(true)}
                                                 className="w-full flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all cursor-pointer"
                                             >
-                                                <Settings size={14} className="text-stone-500 shrink-0" /> Lihat Detail Pemasukan
+                                                <Eye size={14} className="text-stone-500 shrink-0" /> Lihat Detail Pemasukan
                                             </button>
-                                        </div>
-
-                                        {/* 1. Alokasi Pemasukan (Di bagian atas, di bawah Lihat Detail Pemasukan) */}
-                                        <div className="space-y-3 pt-2 text-left">
-                                            <h3 className="text-[14px] font-extrabold text-stone-900">Alokasi Pemasukan</h3>
-
-                                            <div className="bg-white border border-stone-200/80 rounded-2xl p-4 shadow-2xs">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[12px] font-bold text-stone-600">Total Pemasukan Proyek</span>
-                                                    <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-700">
-                                                        <span className="text-sm font-bold">↑</span>
-                                                    </div>
-                                                </div>
-                                                <p className="text-[20px] font-bold text-stone-900 tracking-tight">
-                                                    <span className="text-stone-400 text-[14px] font-normal mr-1.5">Rp</span>
-                                                    {
-                                                        Number(
-                                                            detailedProjectInfo?.budget?.total_pemasukan ??
-                                                            detailedProjectInfo?.budget?.totalPemasukan ??
-                                                            0
-                                                        ).toLocaleString("id-ID")
-                                                    }
-                                                </p>
-                                            </div>
-
-                                            {/* Progress Bar Dinamis */}
-                                            <div className="space-y-2 bg-stone-50/50 border border-stone-200/70 rounded-2xl p-4">
-                                                <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden flex">
-                                                    <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${pJasa}%` }} />
-                                                    <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${pBarang}%` }} />
-                                                    <div className="h-full bg-stone-400 flex-1 transition-all duration-300" title="Belum dialokasikan" />
-                                                </div>
-                                                <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium pt-1">
-                                                    <span className="flex items-center gap-1.5 text-stone-700">
-                                                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
-                                                        Penjualan Jasa <b className="text-stone-900 ml-1">Rp {nominalPenjualanJasa.toLocaleString("id-ID")}</b>
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5 text-stone-700">
-                                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                                                        Penjualan Barang <b className="text-stone-900 ml-1">Rp {nominalPenjualanBarang.toLocaleString("id-ID")}</b>
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5 text-stone-700">
-                                                        <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
-                                                        Belum dialokasikan <b className="text-stone-900 ml-1">
-                                                            Rp {sisaBelumDialokasikan.toLocaleString("id-ID")}
-                                                        </b>
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-3 pt-1">
-                                                {((detailedProjectInfo?.budget?.alokasiPemasukan) || []).length === 0 ? (
-                                                    <div className="text-center py-3 text-xs text-stone-400 italic bg-[#f8f7f4] rounded-xl">
-                                                        Belum ada pos pemasukan
-                                                    </div>
-                                                ) : (
-                                                    (detailedProjectInfo.budget.alokasiPemasukan).map((item: any, idx: number) => {
-                                                        const namaPos = item.namaMain || item.nama || "Kategori Lain";
-                                                        const nominalAlokasi = parseFloat(item.nominalAlokasi || item.nominal || 0);
-                                                        const nominalTerpakai = parseFloat(item.nominalTerpakai || 0);
-
-                                                        // Hitung persentase progress (jika alokasi 0, persentase 0)
-                                                        const pct = nominalAlokasi > 0 ? (nominalTerpakai / nominalAlokasi) * 100 : 0;
-                                                        const displayPct = Math.min(Math.max(pct, 0), 100);
-
-                                                        // Kondisi warna: Merah jika sudah penuh/lebih (>= 100%), Hijau jika belum
-                                                        const isFull = pct >= 100;
-                                                        const barColor = isFull ? "bg-[#c95d5d]" : "bg-[#00966c]";
-
-                                                        return (
-                                                            <div key={item.id || idx} className="bg-[#f8f7f4] px-4 py-3.5 rounded-2xl flex flex-col gap-2">
-                                                                {/* Baris Atas: Nama Pos & Nominal */}
-                                                                <div className="flex justify-between items-center">
-                                                                    <span className="text-[13px] font-extrabold text-stone-900 tracking-wide uppercase">
-                                                                        {namaPos}
-                                                                    </span>
-                                                                    <span className="text-[12px] font-mono text-stone-600 font-bold">
-                                                                        <span className="text-stone-400 text-[10px] mr-1">Rp</span>
-                                                                        {nominalAlokasi.toLocaleString("id-ID")}
-                                                                    </span>
-                                                                </div>
-
-                                                                {/* Baris Bawah: Progress Bar */}
-                                                                <div className="w-full bg-[#f0efe9] h-2.5 rounded-full overflow-hidden">
-                                                                    <div
-                                                                        className={`h-full rounded-full transition-all duration-300 ${barColor}`}
-                                                                        style={{ width: `${displayPct}%` }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })
-                                                )}
-                                            </div>
                                         </div>
 
                                         {/* 2. Pencairan Termin (Di bagian bawah) */}
@@ -960,6 +857,7 @@ export default function ProjectDetailSidebar({
                                         onClose={() => setIsAlokasiOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        proyekStatus={detailedProjectInfo?.status ?? showProjectDetail?.status ?? 'AKTIF'}
                                         totalPemasukan={detailedProjectInfo?.budget?.totalPemasukan ?? 0}
                                         dataPemasukan={dataAlokasiModal}
                                         onRefresh={() => {
@@ -972,14 +870,19 @@ export default function ProjectDetailSidebar({
                                         onClose={() => setIsEditTerminOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
+                                        rabTotal={detailedProjectInfo?.budget?.nilaiKontrak || detailedProjectInfo?.budget?.rabTotal || showProjectDetail?.budget?.nilaiKontrak || showProjectDetail?.budget?.rabTotal || detailTotalRAB || 0}
                                         terminList={terminList}
+                                        onSuccess={() => {
+                                            if (onTerminChanged) onTerminChanged();
+                                        }}
                                     />
-                                    <AddPenambaganTermin
-                                        isOpen={isAddTerminOpen}
-                                        onClose={() => setIsAddTerminOpen(false)}
+                                    <AlokasiPemasukanFormModal
+                                        isOpen={isAlokasiPemasukanFormOpen}
+                                        onClose={() => setIsAlokasiPemasukanFormOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
-                                        totalRAB={(detailedProjectInfo as any)?.budget?.rabTotal ?? (showProjectDetail as any)?.nilaiProyek ?? 0}
+                                        nilaiKontrak={detailedProjectInfo?.budget?.nilaiKontrak || 0}
+                                        detailedProjectInfo={detailedProjectInfo}
                                         onSuccess={() => {
                                             fetchAlokasiModalData();
                                             if (onTerminChanged) onTerminChanged();

@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ChevronRight, TrendingUp, TrendingDown, Check } from "lucide-react";
+import { ChevronRight, TrendingUp, TrendingDown, Landmark, Check } from "lucide-react";
 import ModalWrapper from "./ModalWrapper";
 import Toast from "@/components/toast";
 
 export default function TambahKategoriModal({ isOpen, onClose, type, data, onRefresh }: any) {
   const [namaKategori, setNamaKategori] = useState("");
-  const [selectedTipe, setSelectedTipe] = useState<"pemasukan" | "pengeluaran">("pengeluaran");
+  const [selectedTipe, setSelectedTipe] = useState<"aset" | "pemasukan" | "pengeluaran">("aset");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
@@ -17,7 +17,7 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
   useEffect(() => {
     if (isOpen) {
       setNamaKategori("");
-      setSelectedTipe(data?.tipe || "pengeluaran");
+      setSelectedTipe(data?.tipe || "aset");
     }
   }, [isOpen, data]);
 
@@ -97,11 +97,23 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
       {showTipeSelector && (
         <div className="space-y-1.5">
           <label className="text-[13px] font-bold text-stone-800">Kategori</label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedTipe("aset")}
+              className={`relative flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border text-[13px] font-bold transition cursor-pointer active:scale-[0.98] ${
+                selectedTipe === "aset"
+                  ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500"
+                  : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-700"
+              }`}
+            >
+              <Landmark size={15} className={selectedTipe === "aset" ? "text-blue-600 shrink-0" : "text-stone-400 shrink-0"} />
+              <span className="truncate">Aset</span>
+            </button>
             <button
               type="button"
               onClick={() => setSelectedTipe("pemasukan")}
-              className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-[13px] font-bold transition cursor-pointer active:scale-[0.98] ${
+              className={`relative flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border text-[13px] font-bold transition cursor-pointer active:scale-[0.98] ${
                 selectedTipe === "pemasukan"
                   ? "border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500"
                   : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-700"
@@ -109,14 +121,11 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
             >
               <TrendingUp size={15} className={selectedTipe === "pemasukan" ? "text-emerald-600 shrink-0" : "text-stone-400 shrink-0"} />
               <span className="truncate">Pemasukan</span>
-              {selectedTipe === "pemasukan" && (
-                <Check size={13} strokeWidth={3} className="text-emerald-600 ml-auto shrink-0" />
-              )}
             </button>
             <button
               type="button"
               onClick={() => setSelectedTipe("pengeluaran")}
-              className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-[13px] font-bold transition cursor-pointer active:scale-[0.98] ${
+              className={`relative flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border text-[13px] font-bold transition cursor-pointer active:scale-[0.98] ${
                 selectedTipe === "pengeluaran"
                   ? "border-red-500 bg-red-50 text-red-700 ring-1 ring-red-500"
                   : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-700"
@@ -124,9 +133,6 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
             >
               <TrendingDown size={15} className={selectedTipe === "pengeluaran" ? "text-red-600 shrink-0" : "text-stone-400 shrink-0"} />
               <span className="truncate">Pengeluaran</span>
-              {selectedTipe === "pengeluaran" && (
-                <Check size={13} strokeWidth={3} className="text-red-600 ml-auto shrink-0" />
-              )}
             </button>
           </div>
         </div>

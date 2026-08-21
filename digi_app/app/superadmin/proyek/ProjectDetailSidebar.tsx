@@ -6,7 +6,7 @@ import {
     getStatusStyles,
     formatRibuan,
     calculateTotalTerpakai,
-    calculateBudgetProgress, 
+    calculateBudgetProgress,
     formatStatusLabel
 } from "./utils";
 import CompactNominal from "@/components/compact-nominal";
@@ -129,11 +129,10 @@ function SearchableMemberSelect({
                                                 setIsOpen(false);
                                                 setSearch("");
                                             }}
-                                            className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center gap-2.5 text-[12.5px] transition cursor-pointer ${
-                                                isSelected
+                                            className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center gap-2.5 text-[12.5px] transition cursor-pointer ${isSelected
                                                     ? "bg-emerald-50 text-emerald-950 font-bold"
                                                     : "hover:bg-stone-50 text-stone-800 font-medium"
-                                            }`}
+                                                }`}
                                         >
                                             {/* Avatar Initials Badge */}
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 ${AVATAR_COLORS[idx % AVATAR_COLORS.length]}`}>
@@ -296,33 +295,30 @@ export default function ProjectDetailSidebar({
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab("ringkasan")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
-                                        activeTab === "ringkasan"
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeTab === "ringkasan"
                                             ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
                                             : "text-stone-500 hover:text-stone-900 border border-transparent"
-                                    }`}
+                                        }`}
                                 >
                                     Ringkasan
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab("anggaran")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
-                                        activeTab === "anggaran"
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeTab === "anggaran"
                                             ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
                                             : "text-stone-500 hover:text-stone-900 border border-transparent"
-                                    }`}
+                                        }`}
                                 >
                                     Anggaran
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab("tim")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
-                                        activeTab === "tim"
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeTab === "tim"
                                             ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
                                             : "text-stone-500 hover:text-stone-900 border border-transparent"
-                                    }`}
+                                        }`}
                                 >
                                     Tim
                                 </button>
@@ -369,36 +365,35 @@ export default function ProjectDetailSidebar({
                                     {detailedProjectInfo?.budget ? (
                                         <div className="border border-stone-100 rounded-3xl p-5 bg-white space-y-4 text-left shadow-[0_4px_20px_rgba(0,0,0,0.01)]">
                                             <div className="flex justify-between items-center text-[13px] font-extrabold text-stone-900 tracking-wide">
-                                                <span>Realisasi Anggaran</span>
-                                                {/* Ganti detailPercentUsed -> calculatedPercentUsed */}
+                                                <span>Realisasi Pengeluaran</span>
                                                 <span className="font-mono text-sm font-black">{calculatedPercentUsed}%</span>
                                             </div>
 
-                                            {(() => {
-                                                let macroBarColor = "bg-[#00966c]";
-                                                if (calculatedPercentUsed >= 90) {
-                                                    macroBarColor = "bg-[#d65f5f]";
-                                                } else if (calculatedPercentUsed >= 80) {
-                                                    macroBarColor = "bg-[#d4a373]";
-                                                }
+                                                {(() => {
+                                                    let macroBarColor = "bg-[#00966c]";
+                                                    if (calculatedPercentUsed >= 90) {
+                                                        macroBarColor = "bg-[#d65f5f]";
+                                                    } else if (calculatedPercentUsed >= 80) {
+                                                        macroBarColor = "bg-[#d4a373]";
+                                                    }
 
-                                                return (
-                                                    <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full transition-all duration-500 ease-out ${macroBarColor}`}
-                                                            style={{ width: `${calculatedPercentUsed}%` }}
-                                                        />
-                                                    </div>
-                                                );
-                                            })()}
+                                                    return (
+                                                        <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full transition-all duration-500 ease-out ${macroBarColor}`}
+                                                                style={{ width: `${calculatedPercentUsed}%` }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })()}
 
-                                            <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
-                                                <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000} /></b></span>
-                                                <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000} /></b></span>
-                                                <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000} /></b></span>
+                                                <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
+                                                    <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000} /></b></span>
+                                                    <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000} /></b></span>
+                                                    <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000} /></b></span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ) : (
+                                        ) : (
                                         <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-xl text-xs flex items-center justify-between text-left">
                                             <span>Nilai Proyek belum diinisialisasi.</span>
                                             <button type="button" onClick={() => { setIsDirectEdit(false); setEditMode(true); }} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-lg text-[11px] transition cursor-pointer">Set Nilai Proyek</button>
@@ -489,7 +484,7 @@ export default function ProjectDetailSidebar({
                                                 className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 text-[11px] font-semibold rounded-xl shadow-sm hover:shadow transition duration-200 cursor-pointer"
                                             >
                                                 <Settings size={13.5} className="text-stone-500" />
-                                                <span>Edit Nilai Proyek</span>
+                                                <span>Alokasi Pengeluaran</span>
                                             </button>
                                         </div>
 
@@ -589,14 +584,24 @@ export default function ProjectDetailSidebar({
 
                             {activeTab === "tim" && (
                                 <div id="tim-sec" className="min-h-full w-full px-8 pb-48 pt-4 text-left flex-shrink-0 space-y-3">
-                                    <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Anggota Tim Proyek</h3>
+                                    {/* Header Kolom Role & Anggota */}
+                                    <div className="grid grid-cols-12 gap-2.5 px-1">
+                                        <div className="col-span-5 text-[11px] font-bold text-stone-400 uppercase tracking-wider">
+                                            ROLE
+                                        </div>
+                                        <div className="col-span-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">
+                                            ANGGOTA
+                                        </div>
+                                        <div className="col-span-1" />
+                                    </div>
+
                                     <div className="space-y-3">
                                         {teamRows.map((row, idx) => (
                                             <div key={row.id} className="grid grid-cols-12 gap-2.5 items-center">
                                                 <div className="col-span-5">
                                                     <input
                                                         type="text"
-                                                        placeholder={row.isLocked ? "Role Karyawan" : "Cth: DevOps"}
+                                                        placeholder={row.isLocked ? "Role Karyawan" : "Ketik role karyawan..."}
                                                         required
                                                         disabled={row.isLocked}
                                                         value={row.role}
@@ -605,10 +610,10 @@ export default function ProjectDetailSidebar({
                                                             updated[idx].role = e.target.value;
                                                             setTeamRows(updated);
                                                         }}
-                                                        className="w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f]"
+                                                        className={`w-full border border-stone-200 rounded-xl px-3 py-2 text-[12px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2d6a4f] ${row.isLocked ? "bg-[#fcfbf9] text-stone-800 cursor-not-allowed" : ""}`}
                                                     />
                                                 </div>
-                                                <div className={row.isLocked ? "col-span-7" : "col-span-6"}>
+                                                <div className="col-span-6">
                                                     <SearchableMemberSelect
                                                         value={row.userId}
                                                         onChange={(selectedUserId) => {
@@ -622,11 +627,11 @@ export default function ProjectDetailSidebar({
                                                             const selectedPmUserId = pmRow ? pmRow.userId : "";
                                                             return String(member.id) !== String(selectedPmUserId);
                                                         })}
-                                                        placeholder="Pilih nama..."
+                                                        placeholder="Cari nama..."
                                                     />
                                                 </div>
-                                                {!row.isLocked && (
-                                                    <div className="col-span-1 flex justify-center">
+                                                <div className="col-span-1 flex justify-center">
+                                                    {!row.isLocked && (
                                                         <button
                                                             type="button"
                                                             onClick={() => handleRemoveTeamRow(row.id)}
@@ -635,8 +640,8 @@ export default function ProjectDetailSidebar({
                                                         >
                                                             <Trash2 size={14} />
                                                         </button>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -654,11 +659,10 @@ export default function ProjectDetailSidebar({
                                                 type="button"
                                                 onClick={handleSaveTeamRows}
                                                 disabled={submitting || !isDirty}
-                                                className={`inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-bold rounded-xl shadow-sm transition cursor-pointer text-white ${
-                                                    submitting || !isDirty
+                                                className={`inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-bold rounded-xl shadow-sm transition cursor-pointer text-white ${submitting || !isDirty
                                                         ? "bg-stone-300 cursor-not-allowed text-stone-500"
                                                         : "bg-[#008f5d] hover:bg-[#00754c]"
-                                                }`}
+                                                    }`}
                                             >
                                                 {submitting ? (
                                                     <Loader2 size={12} className="animate-spin" />

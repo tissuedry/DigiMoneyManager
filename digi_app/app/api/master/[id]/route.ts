@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clearCache } from '@/lib/route-cache';
 
 function isSuperAdmin(role: string | null) {
   return role === 'Super Admin' || role === 'Superadmin' || role === 'superadmin';
@@ -59,6 +60,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
+    clearCache('reimb:');
+    clearCache('coa');
+
     return NextResponse.json({ message: 'Data master berhasil diperbarui', data: updatedData }, { status: 200 });
 
   } catch (error: any) {
@@ -114,6 +118,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         },
       });
     }
+
+    clearCache('reimb:');
+    clearCache('coa');
 
     return NextResponse.json({ message: 'Data master berhasil dihapus' }, { status: 200 });
 
