@@ -133,7 +133,7 @@ export default function DetailBudgetModal({
           <div className="px-7 pt-[22px] pb-[18px] border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
             <div className="flex flex-col">
               <h3 className="text-[19px] font-bold text-[#14130F] leading-[28.5px] font-sans">
-                Detail Pengeluaran
+                Detail Biaya
               </h3>
               <p className="text-[13px] text-[#6A6660] leading-[19.5px] mt-0.5 font-sans">
                 {projectName}
@@ -388,7 +388,7 @@ export default function DetailBudgetModal({
                                                       reimb.keterangan ||
                                                       reimb.nama ||
                                                       reimbName ||
-                                                      "Pengeluaran";
+                                                      "biaya";
                                                     const dateStr = formatReimbursementDate(reimb);
                                                     const displayStatus = statusLabel(reimb.status);
 
