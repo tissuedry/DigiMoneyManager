@@ -96,6 +96,7 @@ export async function GET(req: NextRequest) {
         skip: skip,
         take: limit,
         include: {
+          transaksiPemasukan: true,
           budget: {
             include: {
               mainAnggaran: {
@@ -120,26 +121,101 @@ export async function GET(req: NextRequest) {
 
     const mappedProjects = projects.map((p) => {
       if (!p.budget) return p;
+
+      const isProyekDone = p.status?.toUpperCase() === 'DONE' || p.status?.toUpperCase() === 'SELESAI';
+      const pTransaksis = (p as any).transaksiPemasukan || [];
+
+      let totalMainPemasukanRealisasi = 0;
+
+      const mappedPosAnggaran = p.budget.mainAnggaran.map((m: any) => {
+        const isMainPemasukan =
+          m.tipe === 'pemasukan' ||
+          (m.namaMain || '').toLowerCase().startsWith('penjualan') ||
+          (m.namaMain || '').toLowerCase().startsWith('pendapatan');
+
+        if (isMainPemasukan) {
+          const calculatedSubPos = (m.subAnggaran || []).map((sub: any) => {
+            const subNominal = Number(sub.nominalAlokasi || 0);
+            const sName = (sub.namaSub || '').trim().toLowerCase();
+            const isPenjSub =
+              (sName.startsWith('penjualan') || sName.startsWith('pendapatan') || sName === (m.namaMain || '').trim().toLowerCase()) &&
+              !sName.includes('diskon') &&
+              !sName.includes('retur') &&
+              !sName.includes('biaya') &&
+              !sName.includes('potongan');
+
+            const relatedTransaksis = pTransaksis.filter(
+              (t: any) =>
+                t.subCoaId === sub.id ||
+                (t.kategori || '').toLowerCase() === (sub.namaSub || '').toLowerCase() ||
+                (isPenjSub && ['penerimaan_penjualan', 'penjualan', 'keuntungan_proyek'].includes((t.kategori || '').toLowerCase())) ||
+                (isPenjSub && (t.keterangan || '').toLowerCase().includes('selesai'))
+            );
+            const transaksiTotal = relatedTransaksis.reduce(
+              (acc: number, t: any) => acc + (Number(t.nominal) || 0),
+              0
+            );
+
+            const subRealisasi = isPenjSub
+              ? (transaksiTotal > 0
+                  ? transaksiTotal
+                  : isProyekDone
+                  ? Math.max(subNominal, Number(sub.nominalTerpakai || 0))
+                  : Math.max(Number(sub.nominalTerpakai || 0), transaksiTotal))
+              : transaksiTotal;
+
+            return {
+              ...sub,
+              nominalTerpakai: String(subRealisasi),
+              subRealisasi,
+            };
+          });
+
+          const calculatedMainRealisasi = calculatedSubPos.reduce(
+            (acc: number, s: any) => acc + (s.subRealisasi || 0),
+            0
+          );
+          const mainRealisasi = calculatedMainRealisasi > 0
+            ? calculatedMainRealisasi
+            : isProyekDone
+            ? Math.max(Number(m.nominalAlokasi || 0), calculatedMainRealisasi)
+            : calculatedMainRealisasi;
+
+          totalMainPemasukanRealisasi += mainRealisasi;
+
+          return {
+            ...m,
+            deskripsi: m.namaMain,
+            namaPos: m.namaMain,
+            nominalTerpakai: String(mainRealisasi),
+            subAnggaran: calculatedSubPos,
+          };
+        }
+
+        return {
+          ...m,
+          deskripsi: m.namaMain,
+          namaPos: m.namaMain,
+          nominalTerpakai: String(
+            m.subAnggaran.reduce(
+              (sum: number, sub: any) =>
+                sum +
+                sub.keterangan.reduce(
+                  (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0),
+                  0
+                ),
+              0
+            )
+          ),
+        };
+      });
+
       return {
         ...p,
         budget: {
           ...p.budget,
-          posAnggaran: p.budget.mainAnggaran.map((m: any) => ({
-            ...m,
-            deskripsi: m.namaMain,
-            namaPos: m.namaMain,
-            nominalTerpakai: String(
-              m.subAnggaran.reduce(
-                (sum: number, sub: any) =>
-                  sum +
-                  sub.keterangan.reduce(
-                    (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0),
-                    0
-                  ),
-                0
-              )
-            ),
-          })),
+          totalMainPemasukan: totalMainPemasukanRealisasi,
+          posAnggaran: mappedPosAnggaran,
         },
       };
     });

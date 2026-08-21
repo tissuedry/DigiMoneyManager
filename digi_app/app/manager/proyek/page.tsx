@@ -133,7 +133,7 @@ export default function KelolaProyekPage() {
     { deskripsi: "", nominalAlokasi: "" },
   ]);
 
-  const [activeTab, setActiveTab] = useState<"ringkasan" | "pengeluaran" | "tim" | "pemasukan">("ringkasan");
+  const [activeTab, setActiveTab] = useState<"ringkasan" | "biaya" | "tim" | "pendapatan">("ringkasan");
   const [teamRows, setTeamRows] = useState<{ id: string; role: string; userId: string; isLocked: boolean }[]>([
     { id: "row-pm", role: "Project Manager", userId: "", isLocked: true }
   ]);
@@ -815,7 +815,26 @@ export default function KelolaProyekPage() {
           {projects.map((project) => {
             const hasBudget = !!project.budget;
             const totalRAB = hasBudget ? (Number(project.budget!.nilaiKontrak || project.budget!.rabTotal) || 0) : 0;
-            const sisa = hasBudget ? parseFloat(project.budget!.sisaBudget) : 0;
+            const mainPemasukanList = (project.budget?.posAnggaran || (project.budget as any)?.mainAnggaran || []).filter(
+              (m: any) =>
+                m.tipe === "pemasukan" ||
+                (m.namaMain || m.namaPos || m.deskripsi || "").toLowerCase().startsWith("penjualan") ||
+                (m.namaMain || m.namaPos || m.deskripsi || "").toLowerCase().startsWith("pendapatan")
+            );
+            const totalMainPemasukanRealisasi = mainPemasukanList.reduce(
+              (sum: number, m: any) => sum + (Number(m.nominalTerpakai || m.terpakai) || 0),
+              0
+            );
+            const totalMainPemasukanAlokasi = mainPemasukanList.reduce(
+              (sum: number, m: any) => sum + (Number(m.nominalAlokasi || m.alokasi || m.nominal) || 0),
+              0
+            );
+            const pendapatan = hasBudget
+              ? (totalMainPemasukanRealisasi > 0
+                  ? totalMainPemasukanRealisasi
+                  : Number(project.budget?.totalMainPemasukan) ||
+                    (totalMainPemasukanAlokasi > 0 ? totalMainPemasukanAlokasi : (Number(project.budget?.targetPemasukan) || Number((project.budget as any)?.totalPemasukan) || 0)))
+              : 0;
 
             return (
               <div
@@ -863,12 +882,12 @@ export default function KelolaProyekPage() {
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">SISA BUDGET</span>
+                        <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">PENDAPATAN</span>
                         <span
-                          title={formatRupiah(sisa)}
+                          title={formatRupiah(pendapatan)}
                           className="font-mono font-black text-[#1b4332] text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
                         >
-                          {formatSummaryRupiah(sisa)}
+                          {formatSummaryRupiah(pendapatan)}
                         </span>
                       </div>
                     </div>
