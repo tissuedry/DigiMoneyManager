@@ -20,6 +20,7 @@ import {
   FileText
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
+import { compressReceiptFile } from '@/lib/image-compression';
 
 function formatRupiah(value: string): string {
   const digitsOnly = value.replace(/\D/g, '');
@@ -352,10 +353,21 @@ function AjukanReimbursementContent() {
     setFilePreview(previewUrl);
     setCurrentState('ocr');
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
+      const readyFile = await compressReceiptFile(file);
+      const formData = new FormData();
+      formData.append('file', readyFile);
+      formData.append(
+        'filesMeta',
+        JSON.stringify([
+          {
+            fileName: readyFile.name,
+            originalSize: file.size,
+            compressedSize: readyFile.size,
+          },
+        ])
+      );
+
       const res = await fetch('/api/ocr', {
         method: 'POST',
         body: formData,
@@ -416,7 +428,8 @@ function AjukanReimbursementContent() {
     
     if (keterangan) formData.append('deskripsi', keterangan); 
     if (selectedFile) {
-      formData.append('file', selectedFile);
+      const readyFile = await compressReceiptFile(selectedFile);
+      formData.append('file', readyFile);
     } else if (resubmitStrukUrl) {
       formData.append('strukUrl', resubmitStrukUrl);
     }

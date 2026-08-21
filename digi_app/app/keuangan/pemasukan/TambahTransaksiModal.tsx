@@ -120,6 +120,23 @@ export default function TambahTransaksiModal({
     };
   }, [isOpen]);
 
+  // Update default journal entries whenever category changes
+  const setDefaultJournalDefaults = (kat: string) => {
+    if (kat === "DISKON_PENJUALAN") {
+      setNoAkunDebit("4.1 - Diskon Penjualan");
+      setNoAkunKredit("1.2 - Piutang Usaha / Kas");
+    } else if (kat === "RETUR_PENJUALAN") {
+      setNoAkunDebit("4.2 - Retur Penjualan");
+      setNoAkunKredit("1.2 - Piutang Usaha / Kas");
+    } else if (kat === "BIAYA_PENJUALAN_LAINNYA") {
+      setNoAkunDebit("4.3 - Biaya Penjualan Lainnya");
+      setNoAkunKredit("1.1 - Kas & Bank");
+    } else {
+      setNoAkunDebit("1.1 - Kas & Bank");
+      setNoAkunKredit("4.0 - Pendapatan Penjualan");
+    }
+  };
+
   // Set initial data if editing
   useEffect(() => {
     if (!isOpen) return;
@@ -152,23 +169,6 @@ export default function TambahTransaksiModal({
     }
     setErrorMsg("");
   }, [isOpen, initialData]);
-
-  // Update default journal entries whenever category changes
-  const setDefaultJournalDefaults = (kat: string) => {
-    if (kat === "DISKON_PENJUALAN") {
-      setNoAkunDebit("4.1 - Diskon Penjualan");
-      setNoAkunKredit("1.2 - Piutang Usaha / Kas");
-    } else if (kat === "RETUR_PENJUALAN") {
-      setNoAkunDebit("4.2 - Retur Penjualan");
-      setNoAkunKredit("1.2 - Piutang Usaha / Kas");
-    } else if (kat === "BIAYA_PENJUALAN_LAINNYA") {
-      setNoAkunDebit("4.3 - Biaya Penjualan Lainnya");
-      setNoAkunKredit("1.1 - Kas & Bank");
-    } else {
-      setNoAkunDebit("1.1 - Kas & Bank");
-      setNoAkunKredit("4.0 - Pendapatan Penjualan");
-    }
-  };
 
   const handleKategoriChange = (newKat: string) => {
     setKategori(newKat);
