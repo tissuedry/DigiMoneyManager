@@ -373,12 +373,29 @@ export async function GET(req: NextRequest) {
         },
       });
 
-      const activeProyek = proyekList.filter(p => p.status === 'AKTIF');
+      // Status proyek di DB: 'Active', 'Planning', 'Done', 'Canceled' (bukan 'AKTIF')
+      const ACTIVE_STATUSES = ['Active', 'AKTIF', 'ACTIVE', 'active', 'aktif'];
+      const activeProyek = proyekList.filter(p => ACTIVE_STATUSES.includes(p.status));
+      // Proyek yang tampil di tabel = semua kecuali Done/Canceled
+      const displayProyek = proyekList.filter(p => !['Done', 'Canceled', 'DONE', 'CANCELED'].includes(p.status));
 
       const totalRABAktif = activeProyek.reduce((sum, p) => sum + Number(p.budget?.rabTotal || 0), 0);
       const totalRABAllocated = proyekList.reduce((sum, p) => sum + Number(p.budget?.rabTotal || 0), 0);
       const totalDisbursed = proyekList.reduce((sum, p) => sum + Number(p.budget?.totalPengeluaran || 0), 0);
       const remainingBudgets = proyekList.reduce((sum, p) => sum + Number(p.budget?.sisaBudget || 0), 0);
+
+      // ── Total Pemasukan from TransaksiPemasukan ───────────────────
+      const pemasukanResult = await prisma.transaksiPemasukan.aggregate({
+        where: { kategori: { not: 'DISKON_PENJUALAN' } },
+        _sum: { nominal: true },
+      }).catch(() => ({ _sum: { nominal: null } }));
+      const totalPemasukan = Number(pemasukanResult._sum.nominal || 0);
+
+      // ── Total Pengeluaran (total realisasi/disbursed) ─────────────
+      const totalPengeluaran = totalDisbursed; // from budgets.totalPengeluaran
+
+      // ── Selisih Bersih ───────────────────────────────────────────
+      const selisihBersih = totalPemasukan - totalPengeluaran;
 
       // ── YTD Realization ──────────────────────────────────────────
       const ytdApprovals = await prisma.approval.findMany({
@@ -398,6 +415,13 @@ export async function GET(req: NextRequest) {
         orderBy: { timestamp: 'asc' },
       });
 
+      // Also get monthly pemasukan from TransaksiPemasukan
+      const monthlyPemasukan = await prisma.transaksiPemasukan.findMany({
+        where: { kategori: { not: 'DISKON_PENJUALAN' } },
+        select: { nominal: true, tanggalTransaksi: true },
+        orderBy: { tanggalTransaksi: 'asc' },
+      }).catch(() => []);
+
       // Build 12-month cash flow array
       const cashFlowMonths: { bulan: string; inflow: number; outflow: number }[] = [];
       for (let i = 11; i >= 0; i--) {
@@ -412,8 +436,17 @@ export async function GET(req: NextRequest) {
           })
           .reduce((sum, a) => sum + Number(a.reimbursement.nominal), 0);
 
-        // Inflow is estimated as portion of RAB allocated to that month (simplified)
-        const monthInflow = monthOutflow * 1.2; // simulated: inflow slightly higher than outflow
+        // Inflow from actual pemasukan records
+        const monthInflowActual = (monthlyPemasukan as Array<{nominal: any; tanggalTransaksi: Date | null}>)
+          .filter(tx => {
+            if (!tx.tanggalTransaksi) return false;
+            const t = new Date(tx.tanggalTransaksi);
+            return t >= monthDate && t <= monthEnd;
+          })
+          .reduce((sum, tx) => sum + Number(tx.nominal), 0);
+
+        // Fallback: if no actual pemasukan data, simulate
+        const monthInflow = monthInflowActual > 0 ? monthInflowActual : Math.round(monthOutflow * 1.2);
         cashFlowMonths.push({ bulan: monthLabel, inflow: Math.round(monthInflow), outflow: Math.round(monthOutflow) });
       }
 
@@ -462,8 +495,55 @@ export async function GET(req: NextRequest) {
         },
       };
 
+      // ── Pengajuan Summary (Ringkasan Pengajuan) ─────────────────
+      const [menungguPersetujuanData, disetujuiData] = await Promise.all([
+        prisma.reimbursement.aggregate({
+          where: { status: { in: ['SUBMITTED', 'APPROVED_BY_PM'] } },
+          _sum: { nominal: true },
+          _count: true,
+        }),
+        prisma.reimbursement.aggregate({
+          where: { status: 'APPROVED' },
+          _sum: { nominal: true },
+          _count: true,
+        }),
+      ]);
+
+      const pengajuanSummary = {
+        menunggu: {
+          count: menungguPersetujuanData._count,
+          nominal: Number(menungguPersetujuanData._sum.nominal || 0),
+        },
+        disetujui: {
+          count: disetujuiData._count,
+          nominal: Number(disetujuiData._sum.nominal || 0),
+        },
+      };
+
+      // ── Termin Summary (Ringkasan Termin) ────────────────────────
+      const terminAll = await prisma.terminPembayaran.findMany({
+        select: { id: true, nominal: true, status: true },
+      }).catch(() => []);
+
+      // Status TerminPembayaran: BELUM_DITERIMA, DITERIMA (belum dicairkan = BELUM_DITERIMA)
+      const terminBelumDicairkan = (terminAll as Array<{id: number; nominal: any; status: string}>)
+        .filter(t => t.status === 'BELUM_DITERIMA');
+      const terminDicairkan = (terminAll as Array<{id: number; nominal: any; status: string}>)
+        .filter(t => t.status !== 'BELUM_DITERIMA');
+
+      const terminSummary = {
+        belumDicairkan: {
+          count: terminBelumDicairkan.length,
+          nominal: terminBelumDicairkan.reduce((s, t) => s + Number(t.nominal || 0), 0),
+        },
+        dicairkan: {
+          count: terminDicairkan.length,
+          nominal: terminDicairkan.reduce((s, t) => s + Number(t.nominal || 0), 0),
+        },
+      };
+
       // ── Project Profitability ────────────────────────────────────
-      const projectProfitability = proyekList.filter(p => p.status === 'AKTIF').map((p) => {
+      const projectProfitability = displayProyek.map((p) => {
         const rab = Number(p.budget?.rabTotal || 0);
         const expense = Number(p.budget?.totalPengeluaran || 0);
         const sisa = Number(p.budget?.sisaBudget || 0);
@@ -504,10 +584,18 @@ export async function GET(req: NextRequest) {
         avgMargin: parseFloat(avgMargin.toFixed(1)),
         projectCount: proyekList.length,
         activeProjectCount: activeProyek.length,
+        // New fields for Figma design
+        totalPemasukan,
+        totalPengeluaran,
+        selisihBersih,
+        pctPemasukan: totalRABAllocated > 0 ? Math.round((totalPemasukan / totalRABAllocated) * 100) : 0,
+        pctPengeluaran: totalRABAllocated > 0 ? Math.round((totalPengeluaran / totalRABAllocated) * 100) : 0,
       };
       dashboardData.cashFlow = cashFlowMonths;
       dashboardData.reimbursementPipeline = reimbursementPipeline;
       dashboardData.projectList = projectProfitability;
+      dashboardData.pengajuanSummary = pengajuanSummary;
+      dashboardData.terminSummary = terminSummary;
 
     } else if (role === 'Superadmin' || role === 'superadmin') {
       

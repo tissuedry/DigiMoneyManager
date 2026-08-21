@@ -1,20 +1,12 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Loader2, ArrowRight } from "lucide-react";
+import { ArrowRight, TrendingUp, TrendingDown, Wallet, BarChart2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
-import CompactNominal from "@/components/compact-nominal";
-import { formatFullRupiah } from "@/lib/format-nominal";
 
-// ── Type Definitions ──────────────────────────────────────────────────────────
+// ── Type Definitions ───────────────────────────────────────────────────────────
 type CashFlowMonth = { bulan: string; inflow: number; outflow: number };
-type ReimbursementPipeline = {
-  diajukan: { count: number; pct: number };
-  disetujuiPM: { count: number; pct: number };
-  diprosesKeuangan: { count: number; pct: number };
-  dicairkan: { count: number; pct: number };
-};
 type ProjectItem = {
   id: number;
   kode: string;
@@ -32,6 +24,11 @@ type ProjectItem = {
 type DashboardMetrics = {
   totalRABAllocated: number;
   totalRABActiveProyek: number;
+  totalPemasukan: number;
+  totalPengeluaran: number;
+  selisihBersih: number;
+  pctPemasukan: number;
+  pctPengeluaran: number;
   realisasiYTD: number;
   pendapatanBulanIni: number;
   marginBersih: number;
@@ -39,40 +36,81 @@ type DashboardMetrics = {
   projectCount: number;
   activeProjectCount: number;
 };
+type PengajuanSummary = {
+  menunggu: { count: number; nominal: number };
+  disetujui: { count: number; nominal: number };
+};
+type TerminSummary = {
+  belumDicairkan: { count: number; nominal: number };
+  dicairkan: { count: number; nominal: number };
+};
 type DashboardData = {
   metrics: DashboardMetrics;
   cashFlow: CashFlowMonth[];
-  reimbursementPipeline: ReimbursementPipeline;
   projectList: ProjectItem[];
+  pengajuanSummary?: PengajuanSummary;
+  terminSummary?: TerminSummary;
 };
 type DashboardResponse = {
   dashboard: DashboardData;
 };
 
-// ── Formatting Helpers ─────────────────────────────────────────────────────────
-const fmtShort = (n: number) => {
-  return formatFullRupiah(n);
-};
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function formatRupiah(n: number): string {
+  return new Intl.NumberFormat("id-ID").format(n);
+}
 
-// ── Bar Chart Component ────────────────────────────────────────────────────────
+function formatShort(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) {
+    const v = abs / 1_000_000_000;
+    return `${sign}Rp ${Math.round(v * 10) / 10} M`;
+  }
+  if (abs >= 1_000_000) {
+    const v = abs / 1_000_000;
+    return `${sign}Rp ${Math.round(v * 10) / 10} jt`;
+  }
+  return `${sign}Rp ${abs.toLocaleString("id-ID")}`;
+}
+
+function formatTanggal(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
+
+// ── Bar Chart (Arus Kas Real-Time) ─────────────────────────────────────────────
 function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
   const [activeFilter, setActiveFilter] = useState<"4M" | "12M" | "YTD">("12M");
-  const [tooltip, setTooltip] = useState<{ i: number; x: number; y: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ i: number; x: number } | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const displayed = activeFilter === "4M" ? data.slice(-4) : activeFilter === "YTD" ? data : data;
+  const displayed =
+    activeFilter === "4M" ? data.slice(-4) : data;
   const maxVal = Math.max(...displayed.flatMap((d) => [d.inflow, d.outflow]), 1);
 
+  const totalInflow = displayed.reduce((s, d) => s + d.inflow, 0);
+  const totalOutflow = displayed.reduce((s, d) => s + d.outflow, 0);
+  const totalNet = totalInflow - totalOutflow;
+
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="font-bold text-[15px] text-stone-900">Arus Kas Real-Time</h3>
-        <div className="flex gap-1 bg-stone-100 rounded-lg p-0.5">
+    <div className="bg-white rounded-2xl border border-[#e6e1d4] p-5 flex flex-col gap-3 flex-1 min-w-0">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[15px] font-bold text-[#14130f] tracking-tight">Arus Kas Real-Time</p>
+          <p className="text-[12px] text-[#9a948b]">12 Bulan Terakhir</p>
+        </div>
+        <div className="flex gap-0.5 bg-[#f3f0e9] rounded-xl p-[3px]">
           {(["4M", "12M", "YTD"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
-              className={`px-3 py-1 text-[11px] font-bold rounded-md transition ${activeFilter === f ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
+              className={`px-3 py-[6px] text-[12.5px] font-medium rounded-lg transition-all ${
+                activeFilter === f
+                  ? "bg-white text-[#14130f] font-semibold shadow-sm"
+                  : "text-[#6a6660] hover:text-[#14130f]"
+              }`}
             >
               {f}
             </button>
@@ -80,104 +118,179 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
         </div>
       </div>
 
-      <div className="relative" ref={chartRef}>
-        <div className="flex items-end gap-1.5 h-40">
+      {/* Chart bars area — explicit pixel height so bars render correctly */}
+      <div className="relative" ref={chartRef} style={{ height: 200 }}>
+        {/* Base container with fixed height */}
+        <div
+          className="absolute inset-0 flex items-end gap-1 pb-0"
+        >
           {displayed.map((d, i) => {
-            const inH = Math.max((d.inflow / maxVal) * 100, 2);
-            const outH = Math.max((d.outflow / maxVal) * 100, 2);
+            const CHART_H = 200;
+            const inPx = Math.max(Math.round((d.inflow / maxVal) * CHART_H), 3);
+            const outPx = Math.max(Math.round((d.outflow / maxVal) * CHART_H), 3);
             return (
               <div
                 key={i}
-                className="flex-1 flex items-end gap-0.5 cursor-pointer group h-full"
+                className="flex-1 flex items-end gap-[2px] cursor-pointer group"
+                style={{ height: CHART_H }}
                 onMouseEnter={(e) => {
                   const rect = chartRef.current?.getBoundingClientRect();
                   if (rect) {
-                    const width = chartRef.current?.offsetWidth ?? 300;
-                    setTooltip({ i, x: Math.min(e.clientX - rect.left, width - 130), y: 0 });
+                    const cw = chartRef.current?.offsetWidth ?? 400;
+                    setTooltip({ i, x: Math.min(e.clientX - rect.left, cw - 160) });
                   }
                 }}
                 onMouseLeave={() => setTooltip(null)}
               >
+                {/* Inflow bar – hijau */}
                 <div
-                  className="flex-1 rounded-t-sm transition-all duration-200 group-hover:opacity-80"
-                  style={{ height: `${inH}%`, background: "#2d6a4f" }}
+                  className="flex-1 rounded-t-[3px] transition-all duration-500 group-hover:opacity-75"
+                  style={{ height: inPx, background: "#009162" }}
                 />
+                {/* Outflow bar – merah */}
                 <div
-                  className="flex-1 rounded-t-sm transition-all duration-200 group-hover:opacity-80"
-                  style={{ height: `${outH}%`, background: "#c9a227" }}
+                  className="flex-1 rounded-t-[3px] transition-all duration-500 group-hover:opacity-75"
+                  style={{ height: outPx, background: "#902f33" }}
                 />
               </div>
             );
           })}
         </div>
 
-        {/* X-Axis labels */}
-        <div className="flex gap-1.5 mt-1.5">
-          {displayed.map((d, i) => (
-            <div key={i} className="flex-1 text-center text-[9px] text-stone-400 font-medium">
-              {d.bulan}
-            </div>
-          ))}
-        </div>
-
         {/* Tooltip */}
         {tooltip !== null && displayed[tooltip.i] && (
           <div
-            className="absolute bottom-12 pointer-events-none bg-stone-900 text-white text-[11px] rounded-lg px-3 py-2 shadow-xl z-10 whitespace-nowrap"
+            className="absolute bottom-12 pointer-events-none bg-[#1c1917] text-white text-[11px] rounded-xl px-3 py-2 shadow-xl z-10 whitespace-nowrap"
             style={{ left: tooltip.x }}
           >
-            <div className="font-bold mb-1">{displayed[tooltip.i].bulan}</div>
+            <div className="font-bold mb-1 text-[12px]">{displayed[tooltip.i].bulan}</div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#2d6a4f] inline-block" />
-              Inflow: {fmtShort(displayed[tooltip.i].inflow)}
+              <span className="w-2 h-2 rounded-sm bg-[#009162] inline-block" />
+              Pemasukan: {formatShort(displayed[tooltip.i].inflow)}
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#c9a227] inline-block" />
-              Outflow: {fmtShort(displayed[tooltip.i].outflow)}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-2 h-2 rounded-sm bg-[#902f33] inline-block" />
+              Pengeluaran: {formatShort(displayed[tooltip.i].outflow)}
             </div>
           </div>
         )}
       </div>
 
+      {/* X-axis labels */}
+      <div className="flex gap-1">
+        {displayed.map((d, i) => (
+          <div key={i} className="flex-1 text-center text-[9px] text-[#9a948b] font-medium">
+            {d.bulan}
+          </div>
+        ))}
+      </div>
+
       {/* Legend */}
-      <div className="flex items-center justify-between mt-4 text-[11px]">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-[#2d6a4f] inline-block" />
-            <span className="text-stone-500">Inflow {fmtShort(displayed.reduce((s, d) => s + d.inflow, 0))}</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-[#c9a227] inline-block" />
-            <span className="text-stone-500">Outflow {fmtShort(displayed.reduce((s, d) => s + d.outflow, 0))}</span>
+      <div className="flex items-center gap-5 pt-1 border-t border-[#f3f0e9]">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-[2px] bg-[#009162] inline-block" />
+          <span className="text-[12px] text-[#6a6660]">Pemasukan</span>
+          <span className="text-[12px] font-semibold text-[#14130f] ml-1 font-mono">{formatShort(totalInflow)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-[2px] bg-[#902f33] inline-block" />
+          <span className="text-[12px] text-[#6a6660]">Pengeluaran</span>
+          <span className="text-[12px] font-semibold text-[#14130f] ml-1 font-mono">{formatShort(totalOutflow)}</span>
+        </div>
+        <div className="ml-auto">
+          <span className="text-[12px] text-[#6a6660]">Selisih Bersih </span>
+          <span className={`text-[12px] font-bold font-mono ${totalNet >= 0 ? "text-[#005836]" : "text-[#902f33]"}`}>
+            {totalNet < 0 ? "-" : ""}{formatShort(Math.abs(totalNet))}
           </span>
         </div>
-        <span className="font-bold text-emerald-700">
-          Net cash +{fmtShort(displayed.reduce((s, d) => s + d.inflow - d.outflow, 0))}
-        </span>
       </div>
     </div>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Summary Card (Pengajuan / Termin) ──────────────────────────────────────────
+function SummaryCard({
+  title,
+  subtitle,
+  items,
+}: {
+  title: string;
+  subtitle: string;
+  items: Array<{
+    label: string;
+    count: string;
+    nominal: number;
+    color: "amber" | "green";
+  }>;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-[#e6e1d4] p-5 flex flex-col gap-3 w-[411px] shrink-0"
+      style={{ boxShadow: "0px 0px 0px 1px rgba(20,18,14,0.04), 0px 1px 2px 0px rgba(20,18,14,0.05)" }}>
+      <div>
+        <p className="text-[15px] font-bold text-[#14130f] tracking-tight">{title}</p>
+        <p className="text-[12px] text-[#9a948b] mt-0.5">{subtitle}</p>
+      </div>
+      <div className="flex flex-col gap-3">
+        {items.map((item, i) => {
+          const isAmber = item.color === "amber";
+          const bg = isAmber ? "rgba(216,149,61,0.10)" : "rgba(0,145,98,0.10)";
+          const nominalColor = isAmber ? "#894c06" : "#005836";
+          return (
+            <div
+              key={i}
+              className="rounded-[10px] px-[14px] py-3 flex items-center justify-between"
+              style={{ background: bg }}
+            >
+              <div>
+                <p className="text-[12.5px] font-semibold text-[#14130f] leading-[18.75px]">{item.label}</p>
+                <p className="text-[11px] text-[#9a948b] leading-[16.5px]">{item.count}</p>
+              </div>
+              <p
+                className="text-[15px] font-bold leading-[22.5px] font-mono"
+                style={{ color: nominalColor }}
+              >
+                Rp {formatRupiah(item.nominal)}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Skeleton ───────────────────────────────────────────────────────────────────
+function Skeleton() {
+  return (
+    <main className="flex-1 p-8 overflow-y-auto space-y-6 animate-pulse">
+      <div className="h-8 w-56 bg-stone-200 rounded-lg" />
+      <div className="grid grid-cols-4 gap-6">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="bg-white border border-stone-200 rounded-2xl p-6 h-36" />
+        ))}
+      </div>
+      <div className="flex gap-4">
+        <div className="flex-1 bg-white border border-stone-200 rounded-2xl h-96" />
+        <div className="w-[411px] bg-white border border-stone-200 rounded-2xl h-96" />
+      </div>
+    </main>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 export default function ManagerDashboardPage() {
   const { data, isLoading, error } = useApi<DashboardResponse>("/api/dashboard");
 
   const d = data?.dashboard ?? null;
 
   const now = new Date();
-  const dateLabel = now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  const dateLabel = now.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-  if (isLoading) {
-    return (
-      <main className="flex-1 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="animate-spin text-[#008f5d]" size={32} />
-          <p className="text-stone-500 text-sm">Memuat Executive Dashboard...</p>
-        </div>
-      </main>
-    );
-  }
+  if (isLoading) return <Skeleton />;
 
   if (error || !d) {
     return (
@@ -189,195 +302,324 @@ export default function ManagerDashboardPage() {
     );
   }
 
-  const { metrics, cashFlow, reimbursementPipeline, projectList } = d;
+  const { metrics, cashFlow, projectList, pengajuanSummary, terminSummary } = d;
 
+  // Total Nilai Proyek = totalRABAllocated (nilai proyek = RAB)
+  const totalNilaiProyek = metrics.totalRABAllocated;
+  const totalPemasukan = metrics.totalPemasukan ?? metrics.realisasiYTD;
+  const totalPengeluaran = metrics.totalPengeluaran ?? metrics.realisasiYTD;
+  const selisihBersih = metrics.selisihBersih ?? (totalPemasukan - totalPengeluaran);
+  const pctPemasukan = metrics.pctPemasukan ?? (totalNilaiProyek > 0 ? Math.round((totalPemasukan / totalNilaiProyek) * 100) : 0);
+  const pctPengeluaran = metrics.pctPengeluaran ?? (totalNilaiProyek > 0 ? Math.round((totalPengeluaran / totalNilaiProyek) * 100) : 0);
+
+  // Stat cards sesuai desain Figma
   const statCards = [
     {
-      label: "Total RAB Aktif",
-      rawNominal: metrics.totalRABActiveProyek ?? metrics.totalRABAllocated,
-      sub: `${metrics.activeProjectCount ?? metrics.projectCount} proyek aktif`,
-      icon: "📋",
-      trend: null,
-      trendColor: "",
+      id: "total-nilai-proyek",
+      label: "Total Nilai Proyek",
+      nominal: totalNilaiProyek,
+      sub: `${metrics.activeProjectCount ?? metrics.projectCount} Proyek`,
+      subColor: "#9a948b",
+      iconBg: "#f0f7fb",
+      icon: (
+        <svg width="19" height="20" viewBox="0 0 19 20" fill="none">
+          <path d="M2.375 17.5H16.625M3.958 14.167V9.375M7.125 14.167V9.375M11.875 14.167V9.375M15.042 14.167V9.375M9.5 2.083L16.625 6.25H2.375L9.5 2.083Z" stroke="#005d8d" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ),
+      badge: null,
     },
     {
-      label: "Realisasi YTD",
-      rawNominal: metrics.realisasiYTD,
-      sub: metrics.totalRABAllocated > 0
-        ? `${((metrics.realisasiYTD / metrics.totalRABAllocated) * 100).toFixed(1)}% dari RAB`
-        : "—",
-      icon: "📈",
-      trend: "↑ 8.2%",
-      trendColor: "text-emerald-600",
+      id: "total-pemasukan",
+      label: "Total Pemasukan",
+      nominal: totalPemasukan,
+      sub: null,
+      subColor: "#005836",
+      iconBg: "#eef6f2",
+      icon: <TrendingUp size={16} color="#009162" />,
+      badge: { value: `${pctPemasukan}%`, bg: "#eef6f2", color: "#005836" },
+      badgeLabel: "dari Total Nilai Proyek",
     },
     {
-      label: "Pendapatan Bulan Ini",
-      rawNominal: metrics.pendapatanBulanIni,
-      sub: "",
-      icon: "⬆",
-      trend: "↑ 14.9%",
-      trendColor: "text-emerald-600",
+      id: "total-pengeluaran",
+      label: "Total Pengeluaran",
+      nominal: totalPengeluaran,
+      sub: null,
+      subColor: "#902f33",
+      iconBg: "#fdf3f2",
+      icon: <TrendingDown size={16} color="#902f33" />,
+      badge: { value: `${pctPengeluaran}%`, bg: "#fdf3f2", color: "#902f33" },
+      badgeLabel: "dari Total Nilai Proyek",
     },
     {
-      label: "Margin Bersih",
-      stringValue: `${metrics.marginBersih}%`,
-      sub: "",
-      icon: "✓",
-      trend: `↑ 2.1% vs bulan lalu`,
-      trendColor: "text-emerald-600",
+      id: "selisih-bersih",
+      label: "Selisih Bersih",
+      nominal: selisihBersih,
+      sub: null,
+      subColor: "#005836",
+      iconBg: "#fcf7f0",
+      icon: <BarChart2 size={16} color="#894c06" />,
+      badge: { value: selisihBersih >= 0 ? "Surplus" : "Defisit", bg: "#eef6f2", color: "#005836" },
+      badgeLabel: null,
+      isSelisih: true,
     },
-  ];
-
-  const pipeline = [
-    { label: "Diajukan", count: reimbursementPipeline.diajukan.count, pct: 100, color: "#1c1c1a" },
-    { label: "Disetujui PM", count: reimbursementPipeline.disetujuiPM.count, pct: reimbursementPipeline.disetujuiPM.pct, color: "#2b7eb5" },
-    { label: "Diproses Keuangan", count: reimbursementPipeline.diprosesKeuangan.count, pct: reimbursementPipeline.diprosesKeuangan.pct, color: "#c9a227" },
-    { label: "Dicairkan", count: reimbursementPipeline.dicairkan.count, pct: reimbursementPipeline.dicairkan.pct, color: "#2d6a4f" },
   ];
 
   return (
-    <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-stone-900 leading-tight">Executive Dashboard</h1>
-        <p className="text-sm text-stone-500 mt-1">
-          Ringkasan real-time arus kas, proyek aktif, dan performa tim per {dateLabel}.
-        </p>
-      </div>
+    <main className="flex-1 overflow-y-auto bg-[#f6f4ef]">
+      <div className="p-8 flex flex-col gap-6">
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((card, i) => (
-          <div key={i} className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm flex flex-col gap-3 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-semibold text-stone-500">{card.label}</span>
-              <span className="text-base">{card.icon}</span>
-            </div>
-            <div>
-              <div className="text-[22px] font-bold text-stone-900 leading-tight">
-                {card.stringValue ? (
-                  card.stringValue
-                ) : (
-                  <CompactNominal value={card.rawNominal ?? 0} compactThreshold={100_000_000_000} />
+        {/* ── Page Header ── */}
+        <div>
+          <h1 className="text-[24px] font-bold text-[#1c1917] leading-[30px]">
+            Executive Dashboard
+          </h1>
+          <p className="text-[14px] text-[#79716b] mt-1">
+            Ringkasan real-time arus kas dan nilai proyek per {dateLabel}.
+          </p>
+        </div>
+
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {statCards.map((card) => (
+            <div
+              key={card.id}
+              id={card.id}
+              className="bg-white rounded-2xl border border-[#e4e0d9] p-6 flex flex-col gap-[18px] hover:shadow-md transition-shadow"
+            >
+              {/* Head */}
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] text-[#14130f] font-normal">{card.label}</span>
+                <div
+                  className="w-6 h-6 rounded-lg flex items-center justify-center"
+                  style={{ background: card.iconBg }}
+                >
+                  {card.icon}
+                </div>
+              </div>
+
+              {/* Nominal */}
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="text-[14px] font-semibold font-mono"
+                  style={{ color: card.isSelisih && selisihBersih >= 0 ? "#005836" : card.isSelisih ? "#902f33" : "#6a6660" }}
+                >
+                  Rp
+                </span>
+                <span
+                  className="text-[18px] font-bold font-mono"
+                  style={{
+                    color: card.isSelisih
+                      ? selisihBersih >= 0
+                        ? "#005836"
+                        : "#902f33"
+                      : "#000000",
+                  }}
+                >
+                  {formatRupiah(Math.abs(card.nominal))}
+                </span>
+              </div>
+
+              {/* Badge / Sub */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {card.badge && (
+                  <span
+                    className="text-[10px] font-semibold px-1.5 py-[3px] rounded-lg"
+                    style={{ background: card.badge.bg, color: card.badge.color }}
+                  >
+                    {card.badge.value}
+                  </span>
+                )}
+                {card.badgeLabel && (
+                  <span className="text-[12px] text-[#9a948b]">{card.badgeLabel}</span>
+                )}
+                {card.sub && !card.badge && (
+                  <span className="text-[12px]" style={{ color: card.subColor }}>
+                    {card.sub}
+                  </span>
                 )}
               </div>
-              {card.trend && (
-                <p className={`text-[11px] font-semibold mt-1 ${card.trendColor}`}>{card.trend}</p>
-              )}
-              {card.sub && !card.trend && (
-                <p className="text-[11px] text-stone-400 mt-1">{card.sub}</p>
-              )}
-              {card.sub && card.trend && (
-                <p className="text-[10px] text-stone-400">{card.sub}</p>
-              )}
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* Cash Flow + Reimbursement Pipeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Cash Flow Chart */}
-        <div className="lg:col-span-7">
+        {/* ── Row: Chart + Side Cards ── */}
+        <div className="flex gap-4 items-start">
+          {/* Arus Kas Chart */}
           <CashFlowChart data={cashFlow} />
+
+          {/* Right side: Ringkasan Pengajuan + Termin */}
+          <div className="flex flex-col gap-4 shrink-0">
+            <SummaryCard
+              title="Ringkasan Pengajuan"
+              subtitle="Pengajuan reimbursement & realisasi dari semua proyek"
+              items={[
+                {
+                  label: "Menunggu Persetujuan",
+                  count: `${pengajuanSummary?.menunggu.count ?? 0} pengajuan`,
+                  nominal: pengajuanSummary?.menunggu.nominal ?? 0,
+                  color: "amber",
+                },
+                {
+                  label: "Disetujui",
+                  count: `${pengajuanSummary?.disetujui.count ?? 0} pengajuan`,
+                  nominal: pengajuanSummary?.disetujui.nominal ?? 0,
+                  color: "green",
+                },
+              ]}
+            />
+            <SummaryCard
+              title="Ringkasan Termin"
+              subtitle="Progres pencairan termin dari semua proyek"
+              items={[
+                {
+                  label: "Belum Dicairkan",
+                  count: `${terminSummary?.belumDicairkan.count ?? 0} termin`,
+                  nominal: terminSummary?.belumDicairkan.nominal ?? 0,
+                  color: "amber",
+                },
+                {
+                  label: "Dicairkan",
+                  count: `${terminSummary?.dicairkan.count ?? 0} termin`,
+                  nominal: terminSummary?.dicairkan.nominal ?? 0,
+                  color: "green",
+                },
+              ]}
+            />
+          </div>
         </div>
 
-        {/* Status Reimbursement Pipeline */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="font-bold text-[15px] text-stone-900">Status Reimbursement</h3>
-            <span className="text-[11px] text-stone-400 font-medium">
-              {reimbursementPipeline.diajukan.count} pengajuan bulan ini
-            </span>
+        {/* ── Proyek Aktif Table ── */}
+        <div
+          className="bg-white rounded-2xl border-[0.8px] border-[#e7e5e4]"
+          style={{ boxShadow: "0px 1px 2px -1px rgba(0,0,0,0.10), 0px 1px 3px 0px rgba(0,0,0,0.10)" }}
+        >
+          {/* Table Header */}
+          <div className="flex items-center justify-between px-6 py-6 border-b border-[#f5f5f4]">
+            <h2 className="text-[15px] font-bold text-[#1c1917] leading-[22.5px]">
+              Proyek Aktif
+            </h2>
+            <Link
+              href="/manager/proyek"
+              className="flex items-center gap-1 text-[12px] font-bold text-[#57534d] hover:text-[#1c1917] transition"
+            >
+              Lihat semua <ArrowRight size={14} />
+            </Link>
           </div>
 
-          <div className="space-y-4">
-            {pipeline.map((item, i) => (
-              <div key={i} className="space-y-1.5">
-                <div className="flex items-center justify-between text-[12px]">
-                  <span className="font-semibold text-stone-700">{item.label}</span>
-                  <span className="text-stone-400 font-medium">
-                    {item.count} ({item.pct}%)
-                  </span>
-                </div>
-                <div className="h-5 bg-stone-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${item.pct}%`, backgroundColor: item.color }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Profitabilitas Proyek */}
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm">
-        <div className="p-6 border-b border-stone-100 flex items-center justify-between">
-          <h3 className="font-bold text-[15px] text-stone-900">Proyek Aktif</h3>
-          <Link
-            href="/manager/proyek"
-            className="flex items-center gap-1 text-[12px] font-bold text-stone-600 hover:text-stone-900 transition"
-          >
-            Lihat semua <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-[11px] text-stone-400 font-semibold uppercase tracking-wide border-b border-stone-100">
-                <th className="text-left px-6 py-3">Proyek</th>
-                <th className="text-left px-4 py-3">Klien</th>
-                <th className="text-right px-4 py-3">Nilai Proyek</th>
-                <th className="text-right px-4 py-3">Realisasi</th>
-                <th className="text-right px-4 py-3">Sisa</th>
-                <th className="text-left px-4 py-3 w-32">Utilisasi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-50">
-              {projectList.slice(0, 5).map((p) => {
-                const barColor =
-                  p.margin >= 20 ? "#2d6a4f" :
-                  p.margin >= 12 ? "#c9a227" :
-                  "#c0392b";
-                return (
-                  <tr key={p.id} className="hover:bg-stone-50/70 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="text-[13px] font-bold text-stone-900 leading-tight">{p.proyekNama}</p>
-                      <p className="text-[11px] text-stone-400 font-medium mt-0.5">
-                        {p.kode} · {new Date(p.tanggalMulai).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                        {p.tanggalSelesai && ` – ${new Date(p.tanggalSelesai).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`}
-                      </p>
-                    </td>
-                    <td className="px-4 py-4 text-[12px] text-stone-500 font-medium">{p.klien}</td>
-                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono"><CompactNominal value={p.rabTotal} compactThreshold={100_000_000_000} /></td>
-                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono"><CompactNominal value={p.realisasi} compactThreshold={100_000_000_000} /></td>
-                    <td className="px-4 py-4 text-right text-[12px] font-semibold text-stone-700 font-mono"><CompactNominal value={p.sisaBudget} compactThreshold={100_000_000_000} /></td>
-                    <td className="px-4 py-4 w-32">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${p.realisasiPct}%`, backgroundColor: barColor }}
-                          />
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#f5f5f4]">
+                  {["PROYEK", "KLIEN", "STATUS", "NILAI PROYEK", "REALISASI", "SISA", "UTILISASI"].map(
+                    (col, i) => (
+                      <th
+                        key={col}
+                        className="text-[11px] font-bold text-[#a6a09b] uppercase tracking-[0.28px] py-[10px]"
+                        style={{
+                          textAlign: i < 2 ? "left" : i === 2 ? "left" : i === 6 ? "left" : "right",
+                          paddingLeft: i === 0 ? 24 : 16,
+                          paddingRight: i === 6 ? 24 : 16,
+                        }}
+                      >
+                        {col}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {projectList.slice(0, 6).map((p) => {
+                  const barColor =
+                    p.realisasiPct <= 30
+                      ? "#2d6a4f"
+                      : p.realisasiPct <= 70
+                      ? "#c9a227"
+                      : "#c0392b";
+                  const statusUpper = p.status?.toUpperCase();
+                  const statusBadge =
+                    statusUpper === "ACTIVE" || statusUpper === "AKTIF"
+                      ? { label: "Active", bg: "#d8f3dc", color: "#1b4332" }
+                      : statusUpper === "PLANNING"
+                      ? { label: "Planning", bg: "#f5ebd7", color: "#935a16" }
+                      : statusUpper === "DONE"
+                      ? { label: "Done", bg: "#e0f2fe", color: "#0369a1" }
+                      : { label: p.status, bg: "#f5f5f4", color: "#79716b" };
+                  return (
+                    <tr
+                      key={p.id}
+                      className="hover:bg-[#f9f8f5] transition-colors border-b border-[#f5f5f4] last:border-0"
+                    >
+                      {/* Proyek */}
+                      <td className="pl-6 pr-4 py-4">
+                        <p className="text-[13px] font-bold text-[#1c1917] leading-[16.25px]">
+                          {p.proyekNama}
+                        </p>
+                        <p className="text-[11px] text-[#a6a09b] font-medium mt-0.5">
+                          {p.kode} · {formatTanggal(p.tanggalMulai)}
+                          {p.tanggalSelesai && ` – ${formatTanggal(p.tanggalSelesai)}`}
+                        </p>
+                      </td>
+                      {/* Klien */}
+                      <td className="px-4 py-4 text-[12px] text-[#79716b] font-medium">
+                        {p.klien}
+                      </td>
+                      {/* Status */}
+                      <td className="px-4 py-4">
+                        <span
+                          className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                          style={{ background: statusBadge.bg, color: statusBadge.color }}
+                        >
+                          {statusBadge.label}
+                        </span>
+                      </td>
+                      {/* Nilai Proyek */}
+                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] font-mono">
+                        Rp {formatRupiah(p.rabTotal)}
+                      </td>
+                      {/* Realisasi */}
+                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] font-mono">
+                        Rp {formatRupiah(p.realisasi)}
+                      </td>
+                      {/* Sisa */}
+                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] font-mono">
+                        Rp {formatRupiah(p.sisaBudget)}
+                      </td>
+                      {/* Utilisasi */}
+                      <td className="pl-4 pr-6 py-4 w-36">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-[6px] bg-[#f5f5f4] rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${Math.min(p.realisasiPct, 100)}%`,
+                                backgroundColor: barColor,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[11px] text-[#79716b] font-mono w-8 text-right shrink-0">
+                            {p.realisasiPct}%
+                          </span>
                         </div>
-                        <span className="text-[11px] text-stone-500 font-mono w-8 text-right">{p.realisasiPct}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
-          {projectList.length === 0 && (
-            <div className="py-12 text-center text-stone-400 text-sm">
-              Belum ada data proyek.
-            </div>
-          )}
+            {projectList.length === 0 && (
+              <div className="py-16 text-center">
+                <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto mb-3">
+                  <Wallet size={20} className="text-stone-400" />
+                </div>
+                <p className="text-sm font-semibold text-stone-500">Belum ada proyek aktif</p>
+                <p className="text-xs text-stone-400 mt-1">Proyek akan muncul di sini setelah dibuat.</p>
+              </div>
+            )}
+          </div>
         </div>
+
       </div>
     </main>
   );
