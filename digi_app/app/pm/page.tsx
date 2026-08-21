@@ -118,7 +118,7 @@ export default function PMDashboardPage() {
                 <div>
                   <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
                   <p className="text-sm text-stone-500 mt-1">
-                    Kelola budget proyek, pantau pengeluaran lapangan, dan setujui reimbursement karyawan.
+                    Kelola budget proyek, pantau biaya lapangan, dan setujui reimbursement karyawan.
                   </p>
                 </div>
               </div>
@@ -133,7 +133,7 @@ export default function PMDashboardPage() {
                 <div>
                   <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
                   <p className="text-sm text-stone-500 mt-1">
-                    Kelola budget proyek, pantau pengeluaran lapangan, dan setujui reimbursement karyawan.
+                    Kelola budget proyek, pantau biaya lapangan, dan setujui reimbursement karyawan.
                   </p>
                 </div>
               </div>

@@ -180,10 +180,10 @@ export default function TambahTransaksiModal({
         newKat === "DISKON_PENJUALAN"
           ? "diskon"
           : newKat === "RETUR_PENJUALAN"
-          ? "retur"
-          : newKat === "BIAYA_PENJUALAN_LAINNYA"
-          ? "biaya"
-          : "penjualan"
+            ? "retur"
+            : newKat === "BIAYA_PENJUALAN_LAINNYA"
+              ? "biaya"
+              : "penjualan"
       )
     );
     if (matched) {
@@ -231,7 +231,7 @@ export default function TambahTransaksiModal({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || "Gagal menyimpan transaksi pemasukan");
+        throw new Error(data.message || "Gagal menyimpan transaksi Pendapatan");
       }
 
       onSuccess();
@@ -258,7 +258,7 @@ export default function TambahTransaksiModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-stone-900 leading-tight">
-                {initialData ? "Edit Transaksi Pemasukan" : "Catat Transaksi Pemasukan"}
+                {initialData ? "Edit Transaksi Pendapatan" : "Catat Transaksi Pendapatan"}
               </h2>
               <p className="text-xs text-stone-500 mt-0.5">
                 Input nominal langsung untuk Diskon, Retur, Biaya Lainnya, atau Penjualan
@@ -322,11 +322,10 @@ export default function TambahTransaksiModal({
                     key={item.key}
                     type="button"
                     onClick={() => handleKategoriChange(item.key)}
-                    className={`px-3 py-2 text-[11px] font-bold rounded-xl border transition-all text-center cursor-pointer ${
-                      kategori === item.key
+                    className={`px-3 py-2 text-[11px] font-bold rounded-xl border transition-all text-center cursor-pointer ${kategori === item.key
                         ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-1 ring-emerald-600"
                         : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50"
-                    }`}
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -337,7 +336,7 @@ export default function TambahTransaksiModal({
             {/* Sub COA Akun */}
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                Sub COA Pemasukan
+                Sub COA Pendapatan
               </label>
               <select
                 value={subCoaId}

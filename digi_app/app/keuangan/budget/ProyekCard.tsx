@@ -33,7 +33,7 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
   const terpakai = budget ? Number(budget.totalPengeluaran) : 0;
   const sisa = budget ? Number(budget.sisaBudget) : 0;
   const pct = rab > 0 ? Math.min((terpakai / rab) * 100, 100) : 0;
-  const posPengeluaran = budget?.posAnggaran.filter((p) => p.tipe !== "pemasukan") ?? [];
+  const posPengeluaran = budget?.posAnggaran.filter((p) => p.tipe !== "pendapatan") ?? [];
 
   const handleExport = async (e: React.MouseEvent) => {
     e.stopPropagation();

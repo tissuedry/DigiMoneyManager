@@ -144,7 +144,7 @@ export default function SettingPosModal({
           setMasterMainList(dataList);
         }
       } catch (err) {
-        console.error("Failed to fetch master pemasukan:", err);
+        console.error("Failed to fetch master pendapatan:", err);
       }
     };
     fetchMasterMain();
@@ -284,7 +284,7 @@ export default function SettingPosModal({
         setShowSubmitConfirm(false);
         return;
       }
-      const msg = `Setting ${pendingSubmitItems.length} pos pemasukan baru berhasil disimpan.`;
+      const msg = `Setting ${pendingSubmitItems.length} pos pendapatan baru berhasil disimpan.`;
       localStorage.removeItem(DRAFT_STORAGE_KEY(proyekId));
       setShowSubmitConfirm(false);
       if (onSuccess) onSuccess(msg);
@@ -322,7 +322,7 @@ export default function SettingPosModal({
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-[#e6e1d4] flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-[17px] font-bold text-[#14130f] leading-[25.5px]">Setting Pos Pemasukan</h2>
+            <h2 className="text-[17px] font-bold text-[#14130f] leading-[25.5px]">Setting Pos pendapatan</h2>
             <p className="text-[12.5px] text-[#6a6660] leading-[18.75px] mt-0.5">{proyekNama}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-[#f3f0e9] rounded-xl transition text-[#14130f] hover:text-black cursor-pointer">
@@ -431,7 +431,7 @@ export default function SettingPosModal({
                                       onChange={(e) => setNewSubName(e.target.value)}
                                       className="w-full text-[12px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005836] text-[#14130f] h-[37px]"
                                     >
-                                      <option value="">Pilih Sub Pos Pemasukan</option>
+                                      <option value="">Pilih Sub Pos pendapatan</option>
                                       {(subOptions[main.id] || masterMain?.MasterSub || [])
                                         .filter((ms: any) => !main.subPos.some((s) => s.nama.toUpperCase().trim() === ms.nama.toUpperCase().trim()))
                                         .map((ms: any) => (
@@ -534,7 +534,7 @@ export default function SettingPosModal({
 
       <Toast
         open={showSubmitSuccess}
-        message={`Setting ${pendingSubmitItems.length} pos pemasukan berhasil disimpan.`}
+        message={`Setting ${pendingSubmitItems.length} pos pendapatan berhasil disimpan.`}
         onClose={() => {
           setShowSubmitSuccess(false);
           onClose();
