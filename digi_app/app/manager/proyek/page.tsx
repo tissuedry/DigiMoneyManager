@@ -133,7 +133,7 @@ export default function KelolaProyekPage() {
     { deskripsi: "", nominalAlokasi: "" },
   ]);
 
-  const [activeTab, setActiveTab] = useState<"ringkasan" | "pengeluaran" | "tim" | "pemasukan">("ringkasan");
+  const [activeTab, setActiveTab] = useState<"ringkasan" | "biaya" | "tim" | "pendapatan">("ringkasan");
   const [teamRows, setTeamRows] = useState<{ id: string; role: string; userId: string; isLocked: boolean }[]>([
     { id: "row-pm", role: "Project Manager", userId: "", isLocked: true }
   ]);
