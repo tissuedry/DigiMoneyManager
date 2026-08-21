@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { ArrowRight, TrendingUp, TrendingDown, Wallet, BarChart2, Loader2 } from "lucide-react";
+import { ArrowRight, TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
 

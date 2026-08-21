@@ -460,20 +460,7 @@ export async function GET(req: NextRequest) {
         : 0;
 
       // ── Reimbursement pipeline status ────────────────────────────
-      const [
-        countDiajukan,
-        countDisetujuiPM,
-        countDiprosesKeuangan,
-        countDicairkan,
-      ] = await Promise.all([
-        prisma.reimbursement.count(),
-        prisma.reimbursement.count({ where: { status: { in: ['APPROVED_BY_PM'] } } }),
-        prisma.reimbursement.count({ where: { status: 'APPROVED_BY_PM' } }),
-        prisma.reimbursement.count({ where: { status: 'APPROVED' } }),
-      ]);
-
       // Accurate counts
-      const countSubmitted = await prisma.reimbursement.count({ where: { status: 'SUBMITTED' } });
       const totalDiajukan = await prisma.reimbursement.count();
       const totalDisetujuiPM = await prisma.reimbursement.count({ where: { status: { in: ['APPROVED_BY_PM', 'APPROVED'] } } });
       const totalDiprosesKeuangan = await prisma.reimbursement.count({ where: { status: { in: ['APPROVED_BY_PM', 'APPROVED'] } } });
