@@ -74,7 +74,7 @@ async function scanSingleDocument(
   ];
 
   const arrayBuffer = await file.arrayBuffer();
-  let buffer = Buffer.from(arrayBuffer);
+  let buffer: Buffer = Buffer.from(arrayBuffer);
   const receivedSizeKB = arrayBuffer.byteLength / 1024;
   const origSizeKB = clientOrigSizeKB && clientOrigSizeKB > 0 ? clientOrigSizeKB : receivedSizeKB;
   let isCompressed = (origSizeKB - receivedSizeKB) > 5; // Terkompresi di client jika ada penghematan > 5KB
