@@ -174,8 +174,8 @@ type Props = {
     onClose: () => void;
     loadingDetail: boolean;
     detailedProjectInfo: any;
-    activeTab: "ringkasan" | "pengeluaran" | "tim" | "pemasukan";
-    setActiveTab: React.Dispatch<React.SetStateAction<"ringkasan" | "pengeluaran" | "tim" | "pemasukan">>;
+    activeTab: "ringkasan" | "biaya" | "tim" | "pendapatan";
+    setActiveTab: React.Dispatch<React.SetStateAction<"ringkasan" | "biaya" | "tim" | "pendapatan">>;
     timeFilter: "4M" | "12M" | "YTD";
     setTimeFilter: React.Dispatch<React.SetStateAction<"4M" | "12M" | "YTD">>;
     activeCashFlow: any[];
@@ -358,23 +358,23 @@ export default function ProjectDetailSidebar({
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setActiveTab("pengeluaran")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeTab === "pengeluaran"
+                                    onClick={() => setActiveTab("biaya")}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeTab === "biaya"
                                         ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
                                         : "text-stone-500 hover:text-stone-900 border border-transparent"
                                         }`}
                                 >
-                                    Pengeluaran
+                                    Biaya
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setActiveTab("pemasukan")}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${activeTab === "pemasukan"
+                                    onClick={() => setActiveTab("pendapatan")}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${activeTab === "pendapatan"
                                         ? "border border-stone-300 bg-white text-stone-900 shadow-xs"
                                         : "text-stone-500 hover:text-stone-900 border border-transparent"
                                         }`}
                                 >
-                                    Pemasukan
+                                    Pendapatan
                                 </button>
                                 <button
                                     type="button"
@@ -495,8 +495,8 @@ export default function ProjectDetailSidebar({
                                 </div>
                             )}
 
-                            {activeTab === "pengeluaran" && (
-                                <div id="pengeluaran-sec" className="px-8 py-5 space-y-6 flex-shrink-0">
+                            {activeTab === "biaya" && (
+                                <div id="biaya-sec" className="px-8 py-5 space-y-6 flex-shrink-0">
                                     <div className="flex flex-col gap-3">
                                         <div className="flex gap-2 w-full">
                                             <button
@@ -744,7 +744,7 @@ export default function ProjectDetailSidebar({
                             )}
 
                             {/* TAB PEMASUKAN */}
-                            {activeTab === "pemasukan" && (
+                            {activeTab === "pendapatan" && (
                                 <>
                                     <div id="pemasukan-sec" className="px-8 py-5 space-y-6 flex-shrink-0">
 

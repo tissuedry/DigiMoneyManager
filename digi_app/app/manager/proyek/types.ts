@@ -13,7 +13,10 @@ export type Project = {
     totalPengeluaran: string;
     totalReimbursement: string;
     sisaBudget: string;
-    posAnggaran: { id: number; namaPos: string; nominalAlokasi: string; deskripsi?: string }[];
+    totalPemasukan?: string | number;
+    totalMainPemasukan?: string | number;
+    mainAnggaran?: any[];
+    posAnggaran: { id: number; namaPos: string; nominalAlokasi: string; deskripsi?: string; nominalTerpakai?: string }[];
   } | null;
 };
 
