@@ -175,7 +175,7 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
-              className="hidden lg:flex p-1 hover:bg-stone-200/50 rounded-lg text-stone-500 hover:text-stone-800 transition cursor-pointer"
+              className="hidden lg:flex p-1 pl-4 hover:bg-stone-200/50 rounded-lg text-stone-500 hover:text-stone-800 transition cursor-pointer"
               aria-label="Collapse sidebar"
               title="Tutup sidebar"
             >

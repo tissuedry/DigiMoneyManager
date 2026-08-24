@@ -2,6 +2,129 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
+// PATCH: Update alokasi for a single budget position
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const role = req.headers.get('x-user-role');
+    const rolesHeader = req.headers.get('x-user-roles') || role || '';
+    const roles = rolesHeader.split(',').map((r) => r.trim());
+    const userId = req.headers.get('x-user-id');
+    const { id: proyekId } = await params;
+
+    const isPM = await prisma.userProyek.findFirst({
+      where: {
+        userId: parseInt(userId || '0', 10),
+        proyekId: parseInt(proyekId, 10),
+        role: 'Project Manager',
+      },
+    });
+
+    const isSuperAdmin = roles.includes('Superadmin') || roles.includes('superadmin') || role === 'Superadmin' || role === 'superadmin';
+    const isAllowed = isPM || roles.includes('Tim Keuangan') || roles.includes('Direktur / Manajemen') || isSuperAdmin;
+
+    if (!isAllowed) {
+      return NextResponse.json(
+        { message: 'Forbidden: You must be the assigned Project Manager, Tim Keuangan, Direktur / Manajemen, or Superadmin to modify this project budget' },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json();
+    const { type, id, nominalAlokasi } = body;
+
+    if (!type || !id || nominalAlokasi === undefined) {
+      return NextResponse.json(
+        { message: 'type, id, dan nominalAlokasi wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    const newAlokasi = Number(nominalAlokasi);
+    if (isNaN(newAlokasi) || newAlokasi < 0) {
+      return NextResponse.json({ message: 'Nominal Alokasi tidak Valid' }, { status: 400 });
+    }
+
+    const project = await prisma.proyek.findUnique({
+      where: { id: parseInt(proyekId, 10) },
+    });
+    if (!project) {
+      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    }
+
+    const numericId = parseInt(String(id), 10);
+    let updated;
+
+    if (type === 'main') {
+      const main = await prisma.mainAnggaran.findUnique({ where: { id: numericId } });
+      if (!main) {
+        return NextResponse.json({ message: 'Pos main tidak ditemukan' }, { status: 404 });
+      }
+      const terpakai = Number(main.nominalTerpakai);
+      if (newAlokasi < terpakai) {
+        return NextResponse.json(
+          { message: `Alokasi untuk pos "${main.namaMain}" tidak boleh kurang dari nominal yang sudah terpakai (Rp ${terpakai.toLocaleString('id-ID')})` },
+          { status: 400 }
+        );
+      }
+      updated = await prisma.mainAnggaran.update({
+        where: { id: numericId },
+        data: { nominalAlokasi: newAlokasi },
+      });
+    } else if (type === 'sub') {
+      const sub = await prisma.subAnggaran.findUnique({ where: { id: numericId } });
+      if (!sub) {
+        return NextResponse.json({ message: 'Pos sub tidak ditemukan' }, { status: 404 });
+      }
+      const terpakai = Number(sub.nominalTerpakai);
+      if (newAlokasi < terpakai) {
+        return NextResponse.json(
+          { message: `Alokasi untuk pos "${sub.namaSub}" tidak boleh kurang dari nominal yang sudah terpakai (Rp ${terpakai.toLocaleString('id-ID')})` },
+          { status: 400 }
+        );
+      }
+      updated = await prisma.subAnggaran.update({
+        where: { id: numericId },
+        data: { nominalAlokasi: newAlokasi },
+      });
+    } else if (type === 'ket') {
+      const ket = await prisma.keteranganAnggaran.findUnique({ where: { id: numericId } });
+      if (!ket) {
+        return NextResponse.json({ message: 'Pos keterangan tidak ditemukan' }, { status: 404 });
+      }
+      const realisasi = Number(ket.nominalRealisasi);
+      if (newAlokasi < realisasi) {
+        return NextResponse.json(
+          { message: `Alokasi untuk pos "${ket.keterangan}" tidak boleh kurang dari nominal yang sudah terealisasi (Rp ${realisasi.toLocaleString('id-ID')})` },
+          { status: 400 }
+        );
+      }
+      updated = await prisma.keteranganAnggaran.update({
+        where: { id: numericId },
+        data: { nominalAlokasi: newAlokasi },
+      });
+    } else {
+      return NextResponse.json({ message: 'type harus main, sub, atau ket' }, { status: 400 });
+    }
+
+    if (userId) {
+      await prisma.auditTrail.create({
+        data: {
+          userId: parseInt(userId, 10),
+          aksi: 'ubah_alokasi',
+          detail: `Mengubah alokasi pos (${type} #${numericId}) proyek ${project.nama} menjadi Rp ${newAlokasi.toLocaleString('id-ID')}`,
+        },
+      });
+    }
+
+    clearCache('dashboard:');
+    clearCache('proyek:');
+    return NextResponse.json({ message: 'Alokasi berhasil diperbarui', data: updated });
+  } catch (error: any) {
+    console.error('Update alokasi error:', error);
+    return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+  }
+}
+
 // POST: Input/Set RAB budget for a project (PM, Tim Keuangan, Direktur / Manajemen, or Superadmin)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

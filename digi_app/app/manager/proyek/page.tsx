@@ -169,7 +169,7 @@ export default function KelolaProyekPage() {
     const delayDebounceFn = setTimeout(() => {
       fetchData();
     }, 300);
-
+  
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, activeStatus, currentPage, limit]); // <-- tambahkan limit di sini
 

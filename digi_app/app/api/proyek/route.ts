@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '4', 10);
 
-    // Perbaikan Cache Key agar tidak bug saat search/filter berubah
     const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}:budgetStatus=${budgetStatus}:page=${page}:limit=${limit}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
