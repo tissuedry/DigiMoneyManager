@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Plus, ArrowRight, FileText, Loader2 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
@@ -8,7 +8,6 @@ import Link from "next/link";
 import { useApi } from "@/lib/use-api";
 import CompactNominal from "@/components/compact-nominal";
 
-// Tipe Data untuk State Frontend
 type DashboardData = {
   summary: {
     totalSubmissions: number;
@@ -44,26 +43,6 @@ const getStatusBadge = (status: string): StatusBadge => {
     default:
       return { text: status, className: "bg-stone-100 text-stone-600" };
   }
-};
-
-// Helper untuk format ringkasan nominal besar (contoh: 700000 -> 700 rb)
-const formatShortAmount = (amount: number) => {
-  if (amount >= 1000000) {
-    return { value: (amount / 1000000).toFixed(1), unit: "jt" };
-  }
-  if (amount >= 1000) {
-    return { value: (amount / 1000).toFixed(0), unit: "rb" };
-  }
-  return { value: amount.toString(), unit: "" };
-};
-
-// Helper format uang Rupiah standar
-const formatRupiah = (amount: number) => {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(amount);
 };
 
 type DashboardResponse = {
@@ -189,7 +168,7 @@ export default function BerandaKaryawanPage() {
                           key={item.id}
                           className="flex items-center gap-4 px-6 py-4 hover:bg-stone-50 transition-colors"
                         >
-                          <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-[#f5f4ef] border border-stone-200">
+                          <div className="w-9 h-9 flex shrink-0 items-center justify-center rounded-xl bg-[#f5f4ef] border border-stone-200">
                             <FileText size={16} className="text-stone-500" />
                           </div>
 
@@ -200,8 +179,10 @@ export default function BerandaKaryawanPage() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            <p className="text-[14px] font-bold text-stone-800">{formatRupiah(Number(item.nominal))}</p>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <p className="text-[14px] font-bold text-stone-800">
+                              <CompactNominal value={item.nominal} compactThreshold={1_000_000_000_000} />
+                            </p>
                             <span
                               className={`px-3 py-1 rounded-full text-[11px] font-bold ${badge.className}`}
                             >

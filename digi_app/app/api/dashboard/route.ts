@@ -24,41 +24,43 @@ export async function GET(req: NextRequest) {
     const dashboardData: any = { role };
 
     if (role === 'Karyawan') {
-      // 1. Employee Dashboard data (scoped to the currently selected project)
       const karyawanWhere: any = { userId: parseInt(userId, 10) };
       if (userProyekId) {
         karyawanWhere.proyekId = parseInt(userProyekId, 10);
       }
 
-      const userReimbursements = await prisma.reimbursement.findMany({
-        where: karyawanWhere,
-        select: {
-          nominal: true,
-          status: true,
-        },
-      });
-
-      const totalNominal = userReimbursements.reduce((sum, r) => sum + Number(r.nominal), 0);
-      const totalPending = userReimbursements.filter(r => r.status === 'SUBMITTED' || r.status === 'APPROVED_BY_PM').length;
-      const totalApproved = userReimbursements.filter(r => r.status === 'APPROVED').length;
-      const totalRejected = userReimbursements.filter(r => r.status === 'REJECTED').length;
-
-      const recentSubmissions = await prisma.reimbursement.findMany({
-        where: karyawanWhere,
-        include: {
-          proyek: { select: { nama: true } },
-          keteranganAnggaran: {
-            select: {
-              keterangan: true,
-              subAnggaran: { select: { namaSub: true, mainAnggaran: { select: { namaMain: true } } } },
+      const [reimbSummary, recentReimb] = await Promise.all([
+        prisma.reimbursement.groupBy({
+          by: ['status'],
+          where: karyawanWhere,
+          _sum: { nominal: true },
+          _count: { _all: true },
+        }),
+        prisma.reimbursement.findMany({
+          where: karyawanWhere,
+          include: {
+            proyek: { select: { nama: true } },
+            keteranganAnggaran: {
+              select: {
+                keterangan: true,
+              },
             },
           },
-        },
-        orderBy: { id: 'desc' },
-        take: 5,
-      });
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        })
+      ]);
 
-      const mappedRecent = recentSubmissions.map((r: any) => ({
+      const countFor = (status: string) =>
+        reimbSummary.find(r => r.status === status)?._count._all ?? 0;
+
+      const totalSubmissions = reimbSummary.reduce((sum, r) => sum + r._count._all, 0);
+      const totalNominal = reimbSummary.reduce((sum, r) => sum + Number(r._sum.nominal ?? 0), 0);
+      const totalPending = countFor('SUBMITTED') + countFor('APPROVED_BY_PM');
+      const totalApproved = countFor('APPROVED');
+      const totalRejected = countFor('REJECTED');
+
+      const mappedRecent = recentReimb.map((r: any) => ({
         ...r,
         strukUrl: r.urlStruk,
         posAnggaran: r.keteranganAnggaran ? {
@@ -68,7 +70,7 @@ export async function GET(req: NextRequest) {
       }));
 
       dashboardData.summary = {
-        totalSubmissions: userReimbursements.length,
+        totalSubmissions: totalSubmissions,
         totalNominalSubmitted: totalNominal,
         pendingCount: totalPending,
         approvedCount: totalApproved,
@@ -77,7 +79,6 @@ export async function GET(req: NextRequest) {
       dashboardData.recentSubmissions = mappedRecent;
 
     } else if (role === 'Project Manager') {
-      // 2. Project Manager Dashboard data
       const { searchParams } = new URL(req.url);
       const projectIdParam = searchParams.get('projectId');
       const targetProjectId = projectIdParam || userProyekId;
