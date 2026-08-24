@@ -10,7 +10,9 @@ function makePrisma() {
   
   return new PrismaClient({ 
     adapter, 
-    log: ['query', 'error', 'warn'] 
+    log: process.env.NODE_ENV === 'production' 
+    ? ['error'] 
+    : ['query', 'error', 'warn'] 
   });
 }
 

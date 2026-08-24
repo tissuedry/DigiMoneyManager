@@ -1,254 +1,46 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import {
-  Loader2,
-  Plus,
-  ChevronDown,
-  ChevronUp,
   Check,
   AlertCircle,
-  Wallet,
   FolderOpen,
-  FileSpreadsheet, 
+  FileSpreadsheet,
 } from "lucide-react";
-import Toast from "@/components/toast";
 import Pagination from "@/components/pagination";
-import BudgetFormModal from "./BudgetFormModal";
+import ProyekCard from "./ProyekCard";
+import BudgetSkeleton from "./BudgetSkeleton";
+import type { Proyek } from "./types";
 
-import { formatFullRupiah } from "@/lib/format-nominal";
+const LaporanTahunanModal = dynamic(() => import("./LaporanTahunanModal"), {
+  ssr: false,
+});
 
-function fmtRupiah(n: number) {
-  return formatFullRupiah(n);
-}
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-type PosAnggaranDB = {
-  id: number;
-  namaPos: string;
-  nominalAlokasi: string;
-  nominalTerpakai: string;
-};
-
-type BudgetDB = {
-  id: number;
-  rabTotal: string;
-  totalPengeluaran: string;
-  sisaBudget: string;
-  posAnggaran: PosAnggaranDB[];
-};
-
-type Proyek = {
-  id: number;
-  nama: string;
-  status: string;
-  tanggalMulai: string;
-  tanggalSelesai: string | null;
-  budget: BudgetDB | null;
-};
-
-// ─── Project Card Component ───────────────────────────────────────────────────
-function ProyekCard({
-  proyek,
-  onManageBudget,
-}: {
-  proyek: Proyek;
-  onManageBudget: (p: Proyek) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [toastError, setToastError] = useState<string | null>(null);
-
-  const budget = proyek.budget;
-  const rab = budget ? Number(budget.rabTotal) : 0;
-  const terpakai = budget ? Number(budget.totalPengeluaran) : 0;
-  const sisa = budget ? Number(budget.sisaBudget) : 0;
-  const pct = rab > 0 ? Math.round((terpakai / rab) * 100) : 0;
-
-  // Handler Export Excel
-  const handleExport = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsExporting(true);
-    try {
-      const res = await fetch(`/api/proyek/${proyek.id}/budget/laporan`);
-      if (!res.ok) throw new Error("Gagal export excel");
-      
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Laporan_Budget_${proyek.nama.replace(/\s+/g, "_")}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error("Export error", error);
-      setToastError("Gagal mengunduh Excel. Pastikan data budget valid.");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  return (
-    <>
-    <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-      {/* Card Header */}
-      <div className="p-5 flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-          <Wallet size={18} className="text-emerald-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[14px] font-bold text-stone-900 leading-tight truncate">{proyek.nama}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    proyek.status === "AKTIF"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-stone-100 text-stone-500"
-                  }`}
-                >
-                  {proyek.status}
-                </span>
-                <span className="text-[11px] text-stone-400">
-                  {new Date(proyek.tanggalMulai).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-            </div>
-
-            {/* Tombol Aksi */}
-            {budget ? (
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={handleExport}
-                  disabled={isExporting}
-                  className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {isExporting ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
-                  Export
-                </button>
-                <button
-                  onClick={() => onManageBudget(proyek)}
-                  className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition cursor-pointer flex items-center gap-1.5"
-                >
-                  Edit Budget
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => onManageBudget(proyek)}
-                className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white hover:bg-[#1e5038] transition cursor-pointer flex items-center gap-1.5"
-              >
-                <Plus size={12} />
-                Buat Budget
-              </button>
-            )}
-          </div>
-
-          {/* Budget Summary */}
-          {budget ? (
-            <div className="mt-3 space-y-2">
-              <div className="flex justify-between text-[12px]">
-                <span className="text-stone-500">RAB Total</span>
-                <span className="font-bold text-stone-800">{fmtRupiah(rab)}</span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-500" : "bg-emerald-500"
-                  }`}
-                  style={{ width: `${Math.min(pct, 100)}%` }}
-                />
-              </div>
-
-              <div className="flex justify-between text-[11px] text-stone-400">
-                <span>Terpakai: {fmtRupiah(terpakai)} ({pct}%)</span>
-                <span>Sisa: {fmtRupiah(sisa)}</span>
-              </div>
-
-              {/* Expand toggle */}
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="flex items-center gap-1 text-[11px] font-semibold text-stone-400 hover:text-stone-700 transition cursor-pointer mt-1"
-              >
-                {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                {expanded ? "Sembunyikan" : "Lihat"} pos anggaran ({budget.posAnggaran.length})
-              </button>
-            </div>
-          ) : (
-            <p className="text-[11px] text-stone-400 mt-2 flex items-center gap-1">
-              <AlertCircle size={12} className="text-amber-500" />
-              Budget belum diinisialisasi
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Expanded Pos Anggaran */}
-      {expanded && budget && budget.posAnggaran.length > 0 && (
-        <div className="border-t border-stone-100 divide-y divide-stone-50">
-          {budget.posAnggaran.map((pos) => {
-            const aloc = Number(pos.nominalAlokasi);
-            const pakai = Number(pos.nominalTerpakai);
-            const posPct = aloc > 0 ? Math.round((pakai / aloc) * 100) : 0;
-            return (
-              <div key={pos.id} className="px-5 py-3 flex items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-stone-800">{pos.namaPos}</p>
-                  <div className="h-1.5 bg-stone-100 rounded-full mt-1.5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        posPct >= 90 ? "bg-red-400" : posPct >= 70 ? "bg-amber-400" : "bg-emerald-400"
-                      }`}
-                      style={{ width: `${Math.min(posPct, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[12px] font-bold text-stone-800">{fmtRupiah(aloc)}</p>
-                  <p className="text-[10px] text-stone-400">
-                    {fmtRupiah(pakai)} terpakai · {posPct}%
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-
-    <Toast
-      open={!!toastError}
-      variant="error"
-      message={toastError || ''}
-      onClose={() => setToastError(null)}
-    />
-    </>
-  );
-}
-
-// ─── Main Page ─────────────────────────────────────────────────────────────────
 const LIMIT = 4;
+const PROYEK_STATUSES = ["Semua", "Planning", "Active", "Done", "Canceled"];
+const STATUS_MAP: Record<string, string[]> = {
+  Semua: [],
+  Planning: ["PLANNING"],
+  Active: ["AKTIF"],
+  Done: ["DONE"],
+  Canceled: ["CANCELED"],
+};
 
 export default function KeuanganBudgetPage() {
   const [noBudgetList, setNoBudgetList] = useState<Proyek[]>([]);
   const [hasBudgetList, setHasBudgetList] = useState<Proyek[]>([]);
+  const [noBudgetAll, setNoBudgetAll] = useState<Proyek[]>([]);
+  const [hasBudgetAll, setHasBudgetAll] = useState<Proyek[]>([]);
   const [noBudgetTotal, setNoBudgetTotal] = useState(0);
   const [hasBudgetTotal, setHasBudgetTotal] = useState(0);
   const [pageNoBudget, setPageNoBudget] = useState(1);
   const [pageHasBudget, setPageHasBudget] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedProyek, setSelectedProyek] = useState<Proyek | null>(null);
-  const [successMsg, setSuccessMsg] = useState("");
+  const [isLaporanModalOpen, setIsLaporanModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"none" | "has">("has");
+  const [activeStatus, setActiveStatus] = useState("Semua");
 
   const fetchSection = useCallback(async (status: "has" | "none", page: number) => {
     setError("");
@@ -268,153 +60,208 @@ export default function KeuanganBudgetPage() {
     }
   }, []);
 
+  const fetchAll = useCallback(async () => {
+    const [hasRes, noneRes] = await Promise.all([
+      fetch(`/api/proyek?limit=1000&budgetStatus=has`),
+      fetch(`/api/proyek?limit=1000&budgetStatus=none`),
+    ]);
+    if (hasRes.ok) {
+      const d = await hasRes.json();
+      setHasBudgetAll(d.projects ?? []);
+    }
+    if (noneRes.ok) {
+      const d = await noneRes.json();
+      setNoBudgetAll(d.projects ?? []);
+    }
+  }, []);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([
       fetchSection("has", pageHasBudget),
       fetchSection("none", pageNoBudget),
+      fetchAll(),
     ]);
     setLoading(false);
-  }, [fetchSection, pageHasBudget, pageNoBudget]);
+  }, [fetchSection, pageHasBudget, pageNoBudget, fetchAll]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  const handleSuccess = () => {
-    setSelectedProyek(null);
-    setSuccessMsg("Pembaruan Budget berhasil disimpan!");
-    loadAll();
-    setTimeout(() => setSuccessMsg(""), 4000);
+  useEffect(() => {
+    setPageNoBudget(1);
+    setPageHasBudget(1);
+    if (activeStatus !== "Semua") fetchAll();
+  }, [activeStatus, fetchAll]);
+
+  const switchTab = (tab: "none" | "has") => {
+    setActiveTab(tab);
+    if (tab === "none" && pageNoBudget !== 1) {
+      setPageNoBudget(1);
+      fetchSection("none", 1);
+    } else if (tab === "has" && pageHasBudget !== 1) {
+      setPageHasBudget(1);
+      fetchSection("has", 1);
+    }
   };
 
   const totalProjects = noBudgetTotal + hasBudgetTotal;
-  const noBudgetPages = Math.ceil(noBudgetTotal / LIMIT);
-  const hasBudgetPages = Math.ceil(hasBudgetTotal / LIMIT);
+
+  const isFiltering = activeStatus !== "Semua";
+  const activeTabAll = activeTab === "has" ? hasBudgetAll : noBudgetAll;
+  const activeTabList = activeTab === "has" ? hasBudgetList : noBudgetList;
+  const activeTabTotal = activeTab === "has" ? hasBudgetTotal : noBudgetTotal;
+
+  let activeTotal: number;
+  let activeList: Proyek[];
+  if (isFiltering) {
+    const filtered = activeTabAll.filter(
+      (p) => STATUS_MAP[activeStatus].includes(p.status)
+    );
+    activeTotal = filtered.length;
+    activeList = filtered.slice(
+      ((activeTab === "has" ? pageHasBudget : pageNoBudget) - 1) * LIMIT,
+      (activeTab === "has" ? pageHasBudget : pageNoBudget) * LIMIT
+    );
+  } else {
+    activeTotal = activeTabTotal;
+    activeList = activeTabList;
+  }
+  const activePages = Math.ceil(activeTotal / LIMIT);
+  const setActivePage = activeTab === "has" ? setPageHasBudget : setPageNoBudget;
 
   return (
-    <div className="min-h-screen w-full bg-[#f6f4f0] text-stone-800 flex flex-col">
-      <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
-        {/* Page Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-stone-900">Laporan Anggaran Proyek</h1>
-          <p className="text-sm text-stone-500 mt-1">
-            Pantau status anggaran (RAB) setiap proyek dan unduh laporan anggaran dalam format Excel.
-          </p>
-        </div>
+    <div className="flex h-screen w-full bg-[#f9f8f4] text-stone-800 overflow-hidden">
 
-        {/* Success Banner */}
-        {successMsg && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
-            <Check size={16} />
-            {successMsg}
-          </div>
-        )}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-        {/* Error Banner */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <AlertCircle size={16} />
-              {error}
-            </span>
+        <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 w-full mx-auto space-y-6">
+          {/* Page Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-stone-900">Laporan Anggaran Proyek</h1>
+              <p className="text-sm text-stone-500 mt-1">
+                Pantau realisasi anggaran per proyek dan pos anggaran, lalu unduh laporannya dalam format Excel.
+              </p>
+            </div>
+
             <button
-              onClick={loadAll}
-              className="shrink-0 text-[12px] font-bold px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-100 transition cursor-pointer"
+              onClick={() => setIsLaporanModalOpen(true)}
+              className="shrink-0 flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-stone-200 hover:border-[#2d6a4f] hover:text-[#2d6a4f] text-stone-700 text-[13px] font-bold rounded-xl shadow-sm transition cursor-pointer"
             >
-              Coba Lagi
+              <FileSpreadsheet size={16} />
+              Buat Laporan Tahunan
             </button>
           </div>
-        )}
 
-        {/* Summary Cards */}
-        {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { label: "Total Proyek Aktif", value: totalProjects, color: "text-stone-800" },
-              {
-                label: "Budget Belum Diinisialisasi",
-                value: noBudgetTotal,
-                color: noBudgetTotal > 0 ? "text-amber-600" : "text-emerald-600",
-              },
-              { label: "Budget Aktif", value: hasBudgetTotal, color: "text-emerald-700" },
-            ].map((c) => (
-              <div key={c.label} className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
-                <p className="text-[12px] text-stone-500 font-medium">{c.label}</p>
-                <p className={`text-[26px] font-bold mt-1 ${c.color}`}>{c.value}</p>
+          {/* Error Banner */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <AlertCircle size={16} />
+                {error}
+              </span>
+              <button
+                onClick={loadAll}
+                className="shrink-0 text-[12px] font-bold px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-100 transition cursor-pointer"
+              >
+                Coba Lagi
+              </button>
+            </div>
+          )}
+
+          {/* Filters */}
+          {!loading && (
+            <div className="flex flex-wrap justify-between items-center gap-3">
+              {/* Budget Filter */}
+              <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 w-fit">
+                <button
+                  onClick={() => switchTab("has")}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 cursor-pointer ${
+                    activeTab === "has"
+                      ? "bg-white text-stone-900 font-semibold shadow-sm"
+                      : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                  }`}
+                >
+                  <Check size={14} className={activeTab === "has" ? "text-emerald-600" : "text-stone-400"} />
+                  Budget Aktif ({hasBudgetTotal})
+                </button>
+                <button
+                  onClick={() => switchTab("none")}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 cursor-pointer ${
+                    activeTab === "none"
+                      ? "bg-white text-stone-900 font-semibold shadow-sm"
+                      : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                  }`}
+                >
+                  <AlertCircle size={14} className={activeTab === "none" ? "text-amber-600" : "text-stone-400"} />
+                  Perlu Diinisialisasi ({noBudgetTotal})
+                </button>
               </div>
-            ))}
-          </div>
-        )}
 
-        {/* Projects Without Budget — Priority */}
-        {!loading && noBudgetTotal > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <AlertCircle size={15} className="text-amber-500" />
-              <h2 className="text-[13px] font-bold text-stone-700">Perlu Diinisialisasi ({noBudgetTotal})</h2>
+              {/* Filter Status Proyek */}
+              <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 w-fit">
+                {PROYEK_STATUSES.map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setActiveStatus(status)}
+                    className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 cursor-pointer ${
+                      activeStatus === status
+                        ? "bg-white text-stone-900 font-semibold shadow-sm"
+                        : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {noBudgetList.map((p) => (
-                <ProyekCard key={p.id} proyek={p} onManageBudget={setSelectedProyek} />
-              ))}
+          )}
+
+          {/* Active List */}
+          {!loading && activeList.length > 0 && (
+            <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {activeList.map((p) => (
+                  <ProyekCard key={p.id} proyek={p} />
+                ))}
+              </div>
+              <Pagination
+                page={activeTab === "has" ? pageHasBudget : pageNoBudget}
+                totalPages={activePages}
+                onChange={(p) => {
+                  setActivePage(p);
+                  if (!isFiltering) fetchSection(activeTab, p);
+                }}
+              />
             </div>
-            <Pagination
-              page={pageNoBudget}
-              totalPages={noBudgetPages}
-              onChange={(p) => {
-                setPageNoBudget(p);
-                fetchSection("none", p);
-              }}
-            />
-          </div>
-        )}
+          )}
 
-        {/* Projects With Budget */}
-        {!loading && hasBudgetTotal > 0 && (
-          <div>
-            <h2 className="text-[13px] font-bold text-stone-700 mb-3 flex items-center gap-2">
-              <Check size={15} className="text-emerald-600" />
-              Budget Aktif ({hasBudgetTotal})
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {hasBudgetList.map((p) => (
-                <ProyekCard key={p.id} proyek={p} onManageBudget={setSelectedProyek} />
-              ))}
+          {/* Empty — no projects at all */}
+          {!loading && totalProjects === 0 && activeStatus === "Semua" && (
+            <div className="text-center py-20 text-stone-400">
+              <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
+              <p className="text-sm font-medium">Belum ada proyek di sistem.</p>
             </div>
-            <Pagination
-              page={pageHasBudget}
-              totalPages={hasBudgetPages}
-              onChange={(p) => {
-                setPageHasBudget(p);
-                fetchSection("has", p);
-              }}
-            />
-          </div>
-        )}
+          )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center py-20 gap-3 text-stone-400">
-            <Loader2 size={22} className="animate-spin" />
-            <span className="text-sm">Memuat data proyek...</span>
-          </div>
-        )}
+          {/* Empty — no projects match the current filter */}
+          {!loading && activeList.length === 0 && !(totalProjects === 0 && activeStatus === "Semua") && (
+            <div className="text-center py-20 text-stone-400">
+              <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
+              <p className="text-sm font-medium">
+                Tidak ada proyek dengan status &quot;{activeStatus}&quot; pada halaman ini.
+              </p>
+            </div>
+          )}
 
-        {/* Empty */}
-        {!loading && totalProjects === 0 && (
-          <div className="text-center py-20 text-stone-400">
-            <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-medium">Belum ada proyek di sistem.</p>
-          </div>
-        )}
-      </main>
+          {/* Loading */}
+          {loading && <BudgetSkeleton />}
+        </main>
+      </div>
 
-      {/* Budget Modal */}
-      {selectedProyek && (
-        <BudgetFormModal
-          proyek={selectedProyek}
-          onClose={() => setSelectedProyek(null)}
-          onSuccess={handleSuccess}
-        />
+      {/* Laporan Tahunan Modal */}
+      {isLaporanModalOpen && (
+        <LaporanTahunanModal onClose={() => setIsLaporanModalOpen(false)} />
       )}
     </div>
   );
