@@ -21,13 +21,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
 import { compressReceiptFile } from '@/lib/image-compression';
-
-function formatRupiah(value: string): string {
-  const digitsOnly = value.replace(/\D/g, '');
-  if (!digitsOnly) return '';
-
-  return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-}
+import { formatRupiah } from '@/lib/formatters';
 
 interface FlatKeteranganOption {
   id: string;

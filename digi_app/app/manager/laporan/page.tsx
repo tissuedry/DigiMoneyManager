@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, ReactNode } from "react";
 import { FileText, TrendingUp, BarChart3, Star, Download, Loader2, CheckCircle2 } from "lucide-react";
 import { useApi } from '@/lib/use-api';
 import Toast from '@/components/toast';
@@ -9,7 +9,7 @@ type ReportCard = {
   id: string;
   title: string;
   desc: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   iconBg: string;
 };
 
@@ -49,7 +49,6 @@ export default function LaporanPage() {
   const [generated, setGenerated] = useState<Set<string>>(new Set());
   const [toastError, setToastError] = useState<string | null>(null);
 
-  // ponytail: two useApi calls replace Promise.all + useEffect + useState
   const { data: dashData, isLoading } = useApi<any>("/api/dashboard");
   const { data: reimbData } = useApi<any>("/api/reimbursements");
   const dashboardData = dashData?.dashboard ?? null;
@@ -58,14 +57,11 @@ export default function LaporanPage() {
   const handleGenerate = async (id: string) => {
     if (generating) return;
     setGenerating(id);
-
-    // Simulate generation delay
     await new Promise((r) => setTimeout(r, 1500));
 
     setGenerating(null);
     setGenerated((prev) => new Set([...prev, id]));
 
-    // Build simple report content for text download
     const now = new Date().toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long",
@@ -752,7 +748,6 @@ export default function LaporanPage() {
 
   return (
     <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-stone-900 leading-tight">Laporan</h1>
         <p className="text-sm text-stone-500 mt-1">
@@ -761,12 +756,24 @@ export default function LaporanPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3">
-          <Loader2 className="animate-spin text-[#2d6a4f]" size={32} />
-          <p className="text-stone-500 text-[14px]">Memuat data laporan...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 animate-pulse">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm flex flex-col gap-5">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 bg-stone-200 rounded-xl shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-stone-200 rounded-md w-3/4" />
+                  <div className="h-3 bg-stone-100 rounded-md w-full" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <div className="h-9 bg-stone-200 rounded-xl w-32" />
+                <div className="h-9 bg-stone-100 rounded-xl w-32" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
-        /* Report Cards Grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {REPORTS.map((report) => {
             const isGenerating = generating === report.id;
@@ -777,7 +784,6 @@ export default function LaporanPage() {
                 key={report.id}
                 className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm flex flex-col gap-5 hover:shadow-md transition-shadow"
               >
-                {/* Card Header */}
                 <div className="flex items-start gap-4">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${report.iconBg}`}>
                     {report.icon}
@@ -791,9 +797,7 @@ export default function LaporanPage() {
                   )}
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-2">
-                  {/* Download PDF */}
                   <button
                     onClick={() => handleDownloadPDF(report.id)}
                     className="flex items-center gap-1.5 px-3 py-2 border border-stone-200 rounded-lg text-[12px] font-semibold text-stone-600 hover:bg-stone-50 transition cursor-pointer"
@@ -802,7 +806,6 @@ export default function LaporanPage() {
                     PDF
                   </button>
 
-                  {/* Download Excel */}
                   <button
                     onClick={() => handleDownloadExcel(report.id)}
                     className="flex items-center gap-1.5 px-3 py-2 border border-stone-200 rounded-lg text-[12px] font-semibold text-stone-600 hover:bg-stone-50 transition cursor-pointer"
@@ -811,7 +814,6 @@ export default function LaporanPage() {
                     Excel
                   </button>
 
-                  {/* Generate Button */}
                   <button
                     onClick={() => handleGenerate(report.id)}
                     disabled={!!generating}
@@ -838,7 +840,6 @@ export default function LaporanPage() {
         </div>
       )}
 
-      {/* Info Note */}
       <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 text-[13px] text-stone-500">
         <p className="font-semibold text-stone-700 mb-1">Catatan</p>
         <p>

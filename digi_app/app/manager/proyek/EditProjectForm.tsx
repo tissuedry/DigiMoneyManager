@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, SubmitEvent } from "react";
 import { X, Loader2, AlertTriangle } from "lucide-react";
 import DatePicker from "@/components/date-picker";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import { useMutate } from "@/lib/use-api";
-import { formatRibuan, ribuanToNumber } from "./utils";
+import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 import { Project } from "./types";
 
 const emptyForm = {
@@ -23,7 +23,7 @@ type Props = {
   onSaved: () => void;
 };
 
-export default function EditProjectModal({ editMode, project, onClose, onSaved }: Props) {
+export default function EditProjectForm({ editMode, project, onClose, onSaved }: Props) {
   const [editForm, setEditForm] = useState(emptyForm);
   const [showConfirm, setShowConfirm] = useState(false);
   const [formError, setFormError] = useState("");
@@ -45,7 +45,6 @@ export default function EditProjectModal({ editMode, project, onClose, onSaved }
     });
     setFormError("");
     setShowConfirm(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editMode, project?.id]);
 
   if (!editMode && !savedName) return null;
@@ -60,7 +59,7 @@ export default function EditProjectModal({ editMode, project, onClose, onSaved }
   const inputNilai = ribuanToNumber(editForm.rabTotal) || 0;
   const isUnderAlokasi = totalAlokasi > 0 && inputNilai < totalAlokasi;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault();
     setFormError("");
     setShowConfirm(true);
@@ -114,27 +113,27 @@ export default function EditProjectModal({ editMode, project, onClose, onSaved }
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Total Nilai Proyek (Rupiah)</label>
               <div className="relative flex items-center w-full">
-                <span className="absolute left-3.5 text-stone-500 font-mono text-[13px] font-semibold select-none">
+                <span className="absolute left-3.5 text-stone-500  text-[13px] font-semibold select-none">
                   Rp
                 </span>
                 <input
                   type="text"
                   value={editForm.rabTotal || ""}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      rabTotal: formatRibuan(e.target.value),
-                    })
-                  }
+                  onChange={(e) => {
+                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                    setEditForm({ ...editForm, rabTotal: formatted });
+                    requestAnimationFrame(() => {
+                      e.target.setSelectionRange(caret, caret);
+                    });
+                  }}
                   placeholder="0"
-                  className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-[13px] font-mono focus:outline-none focus:ring-2 bg-white ${
+                  className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-[13px]  focus:outline-none focus:ring-2 bg-white ${
                     isUnderAlokasi ? "border-amber-400 focus:ring-amber-400/30 text-amber-900" : "border-stone-200 focus:ring-[#2d6a4f]/30"
                   }`}
                 />
               </div>
             </div>
 
-            {/* Warning Jika Nilai Proyek Lebih Kecil dari Total Alokasi */}
             {isUnderAlokasi && (
               <div className="bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-2.5 rounded-xl text-[12px] font-medium flex items-start gap-2.5 animate-in fade-in duration-150">
                 <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
@@ -192,7 +191,7 @@ export default function EditProjectModal({ editMode, project, onClose, onSaved }
                 <div className="text-left leading-relaxed">
                   <span className="font-bold text-emerald-900 block mb-0.5">Informasi Penyelesaian Proyek (Done)</span>
                   Pemasukan bersih proyek akan otomatis direalisasikan dan statusnya berubah menjadi <strong>Cair</strong>:
-                  <div className="mt-1 flex flex-col gap-0.5 text-[11px] text-emerald-800 font-mono">
+                  <div className="mt-1 flex flex-col gap-0.5 text-[11px] text-emerald-800 ">
                     <span>• Total Nilai Proyek: Rp {(inputNilai || totalAlokasi).toLocaleString("id-ID")}</span>
                     <span>• Realisasi Pengeluaran: Rp {Number(project?.budget?.totalPengeluaran || 0).toLocaleString("id-ID")}</span>
                     <span>• Realisasi Pemasukan Bersih: <strong>Rp {Math.max(0, (inputNilai || totalAlokasi) - Number(project?.budget?.totalPengeluaran || 0)).toLocaleString("id-ID")}</strong></span>

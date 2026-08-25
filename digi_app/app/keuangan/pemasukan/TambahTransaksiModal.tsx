@@ -366,7 +366,21 @@ export default function TambahTransaksiModal({
                     type="text"
                     required
                     value={nominal}
-                    onChange={(e) => setNominal(formatRibuan(e.target.value))}
+                    onChange={(e) => {
+                    const formatted = formatRibuan(e.target.value);
+                    const caretPos = e.target.selectionStart ?? 0;
+                    const digitsBefore = e.target.value.slice(0, caretPos).replace(/[^0-9]/g, "").length;
+                    let caret = 0;
+                    let digits = 0;
+                    for (let i = 0; i < formatted.length && digits < digitsBefore; i++) {
+                      caret++;
+                      if (/[0-9]/.test(formatted[i])) digits++;
+                    }
+                    setNominal(formatted);
+                    requestAnimationFrame(() => {
+                      e.target.setSelectionRange(caret, caret);
+                    });
+                  }}
                     placeholder="0"
                     className="w-full bg-white border border-stone-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-mono font-bold text-stone-900 focus:outline-none focus:border-stone-400"
                   />

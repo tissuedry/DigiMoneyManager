@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
-import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check, Search, ChevronDown, History, ArrowUp, TrendingUp } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, Dispatch, SetStateAction, UIEvent } from "react";
+import { X, Loader2, ClipboardList, Settings, Eye, Plus, Trash2, Check } from "lucide-react";
 import { Project, Member } from "./types";
 import PencairanTerminModal from "./PencairanTerminModal";
 import AlokasiPemasukanForm from "./AlokasiPemasukanForm";
-import AlokasiPemasukanModal from "./EditAlokasi";
-import EditTerminModal from "./EditTerminModal";
+import DetailPemasukanModal from "./DetailPemasukanModal";
+import EditTerminForm from "./EditTerminForm";
 
 import {
     getStatusStyles,
     calculateTotalTerpakai,
     calculateBudgetProgress,
     formatStatusLabel
-} from "./utils";
+} from "@/lib/proyek-utils";
 import CompactNominal from "@/components/compact-nominal";
 import GrafikProgressTermin from "@/components/GrafikProgressTermin";
 
@@ -21,7 +21,6 @@ function formatTerminDate(dateRaw?: any): string {
     if (isNaN(d.getTime())) return "-";
     return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
-
 
 function getMemberInitials(name: string) {
     const parts = name.trim().split(" ").filter(Boolean);
@@ -85,7 +84,7 @@ function SearchableMemberSelect({
     const visibleMembers = filteredMembers.slice(0, visibleLimit);
     const hasMoreInDropdown = visibleLimit < filteredMembers.length;
 
-    const handleDropdownScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const handleDropdownScroll = (e: UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
         if (scrollTop + clientHeight >= scrollHeight - 15) {
             if (hasMoreInDropdown) {
@@ -173,12 +172,12 @@ type Props = {
     loadingDetail: boolean;
     detailedProjectInfo: any;
     activeTab: "ringkasan" | "biaya" | "tim" | "pendapatan";
-    setActiveTab: React.Dispatch<React.SetStateAction<"ringkasan" | "biaya" | "tim" | "pendapatan">>;
+    setActiveTab: Dispatch<SetStateAction<"ringkasan" | "biaya" | "tim" | "pendapatan">>;
     setShowPendingPmModal: (v: boolean) => void;
-    setShowInitBudget: (v: any) => void;
-    setShowDetailBudgetModal: (v: boolean) => void;
+    setShowAlokasiPengeluaran: (v: any) => void;
+    setShowDetailPengeluaran: (v: boolean) => void;
     teamRows: any[];
-    setTeamRows: React.Dispatch<React.SetStateAction<any[]>>;
+    setTeamRows: Dispatch<SetStateAction<any[]>>;
     members: Member[];
     handleAddTeamRow: () => void;
     handleRemoveTeamRow: (id: string) => void;
@@ -204,8 +203,8 @@ export default function ProjectDetailSidebar({
     activeTab,
     setActiveTab,
     setShowPendingPmModal,
-    setShowInitBudget,
-    setShowDetailBudgetModal,
+    setShowAlokasiPengeluaran,
+    setShowDetailPengeluaran,
     teamRows,
     setTeamRows,
     members,
@@ -223,11 +222,9 @@ export default function ProjectDetailSidebar({
 }: Props) {
     const [initialTeamRowsStr, setInitialTeamRowsStr] = useState<string>("");
 
-    // Modal states untuk tab pemasukan
     const [isPencairanOpen, setIsPencairanOpen] = useState(false);
     const [isAlokasiPemasukanFormOpen, setIsAlokasiPemasukanFormOpen] = useState(false);
-    const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
-    const [isRiwayatOpen, setIsRiwayatOpen] = useState(false);
+    const [isDetailPemasukanOpen, setisDetailPemasukanOpen] = useState(false);
     const [isEditTerminOpen, setIsEditTerminOpen] = useState(false);
 
     const [dataAlokasiModal, setDataAlokasiModal] = useState([]);
@@ -240,10 +237,9 @@ export default function ProjectDetailSidebar({
 
     const projectId = showProjectDetail?.id;
 
-    const fetchAlokasiModalData = React.useCallback(async () => {
+    const fetchAlokasiModalData = useCallback(async () => {
         if (projectId) {
             try {
-                // Tambahkan ?t=timestamp agar browser tidak berani memakai cache lama
                 const timestamp = new Date().getTime();
                 const res = await fetch(`/api/proyek/${projectId}/alokasi-pemasukan?t=${timestamp}`, {
                     cache: 'no-store',
@@ -265,23 +261,21 @@ export default function ProjectDetailSidebar({
     }, [projectId]);
 
     useEffect(() => {
-        if (isAlokasiOpen) {
+        if (isDetailPemasukanOpen) {
             fetchAlokasiModalData();
         }
-    }, [isAlokasiOpen, fetchAlokasiModalData]);
+    }, [isDetailPemasukanOpen, fetchAlokasiModalData]);
 
     const isDirty = JSON.stringify(teamRows) !== initialTeamRowsStr;
 
-    // Derived data untuk pemasukan
     const terminList: any[] = detailedProjectInfo?.terminPembayaran ?? [];
-
 
     if (!showProjectDetail || editMode || isDirectEdit) return null;
 
     const detailTotalRAB = parseFloat(detailedProjectInfo?.budget?.nilaiKontrak) || 0;
     const fallbackTerpakai = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
     const calculatedTotalTerpakai = calculateTotalTerpakai(detailedProjectInfo, fallbackTerpakai);
-    const { percentUsed: calculatedPercentUsed, barWidth: calculatedBarWidth } = calculateBudgetProgress(calculatedTotalTerpakai, detailTotalRAB);
+    const { percentUsed: calculatedPercentUsed } = calculateBudgetProgress(calculatedTotalTerpakai, detailTotalRAB);
 
     const sudahReimburseNominal = detailedProjectInfo?.sudahReimburseNominal !== undefined
         ? Number(detailedProjectInfo.sudahReimburseNominal)
@@ -300,15 +294,45 @@ export default function ProjectDetailSidebar({
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-100" onClick={onClose}>
             <div className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-2xl bg-white border-l border-stone-200 shadow-2xl flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
                 {loadingDetail ? (
-                    <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3 text-stone-400">
-                        <Loader2 size={24} className="animate-spin" />
-                        <span className="text-sm">Memuat detail proyek...</span>
+                    <div className="flex-1 flex flex-col overflow-hidden animate-pulse">
+                        <div className="px-8 pt-8 pb-4 flex-shrink-0 text-left space-y-3">
+                            <div className="h-3 w-20 bg-stone-200 rounded-md" />
+                            <div className="h-8 w-2/3 bg-stone-200 rounded-lg" />
+                            <div className="h-4 w-1/2 bg-stone-100 rounded-md" />
+                            <div className="flex gap-2 pt-3">
+                                <div className="h-7 bg-stone-200 rounded-full w-24" />
+                                <div className="h-7 bg-stone-100 rounded-full w-20" />
+                                <div className="h-7 bg-stone-100 rounded-full w-16" />
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-hidden px-8 space-y-4">
+                            <div className="bg-stone-100 rounded-2xl p-5 space-y-3">
+                                <div className="h-4 w-1/3 bg-stone-200 rounded-md" />
+                                <div className="h-12 bg-stone-200 rounded-xl" />
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[...Array(3)].map((_, i) => (
+                                        <div key={i} className="space-y-2">
+                                            <div className="h-3 bg-stone-200 rounded w-full" />
+                                            <div className="h-3 bg-stone-100 rounded w-2/3" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-2.5">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="flex items-center justify-between">
+                                        <div className="h-3 bg-stone-100 rounded w-1/3" />
+                                        <div className="h-5 bg-stone-200 rounded-md w-1/4" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 ) : (
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="px-8 pt-8 pb-4 flex-shrink-0 text-left">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono font-semibold text-stone-400">PRJ-{String(showProjectDetail.id).padStart(3, "0")}</span>
+                                <span className="text-xs  font-semibold text-stone-400">PRJ-{String(showProjectDetail.id).padStart(3, "0")}</span>
                                 <button
                                     type="button"
                                     onClick={onClose}
@@ -402,12 +426,11 @@ export default function ProjectDetailSidebar({
                                         </div>
                                     </div>
 
-                                    {/* Progress Anggaran */}
                                     {detailedProjectInfo?.budget ? (
                                         <div className="border border-stone-100 rounded-3xl p-5 bg-white space-y-4 text-left shadow-[0_4px_20px_rgba(0,0,0,0.01)]">
                                             <div className="flex justify-between items-center text-[13px] font-extrabold text-stone-900 tracking-wide">
                                                 <span>Realisasi Biaya</span>
-                                                <span className="font-mono text-sm font-black">{calculatedPercentUsed}%</span>
+                                                <span className=" text-sm font-black">{calculatedPercentUsed}%</span>
                                             </div>
 
                                                 {(() => {
@@ -429,19 +452,18 @@ export default function ProjectDetailSidebar({
                                                 })()}
 
                                                 <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
-                                                    <span>Nilai Proyek <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000} /></b></span>
-                                                    <span>Realisasi <b className="text-stone-700 font-mono font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000} /></b></span>
-                                                    <span>Sisa <b className="text-stone-400 font-mono font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000} /></b></span>
+                                                    <span>Nilai Proyek <b className="text-stone-700  font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000_000_000} /></b></span>
+                                                    <span>Realisasi <b className="text-stone-700  font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000_000_000} /></b></span>
+                                                    <span>Sisa <b className="text-stone-400  font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000_000_000} /></b></span>
                                                 </div>
                                             </div>
                                         ) : (
                                         <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-xl text-xs flex items-center justify-between text-left">
                                             <span>Nilai Proyek belum diinisialisasi.</span>
-                                            <button type="button" onClick={() => { onClose(); setShowInitBudget(showProjectDetail); }} className="px-3 py-1.5 bg-amber-100 text-amber-900 font-bold rounded-lg text-[11px]">Set Nilai Proyek</button>
+                                            <button type="button" onClick={() => { onClose(); setShowAlokasiPengeluaran(showProjectDetail); }} className="px-3 py-1.5 bg-amber-100 text-amber-900 font-bold rounded-lg text-[11px]">Set Nilai Proyek</button>
                                         </div>
                                     )}
 
-                                    {/* Reimbursement */}
                                     <div className="space-y-2.5 text-left">
                                         <h4 className="text-[13px] font-bold text-stone-800">
                                             Reimbursement
@@ -451,16 +473,16 @@ export default function ProjectDetailSidebar({
                                                 <span className="text-[12px] font-bold text-[#186f52] block">
                                                     Sudah Reimburse ({sudahReimburseCount})
                                                 </span>
-                                                <span className="font-mono text-xl font-black text-stone-900 mt-2 block tracking-tight">
-                                                    <CompactNominal value={sudahReimburseNominal} compactThreshold={100_000_000} />
+                                                <span className=" text-xl font-black text-stone-900 mt-2 block tracking-tight">
+                                                    <CompactNominal value={sudahReimburseNominal} compactThreshold={1_000_000_000_000} />
                                                 </span>
                                             </div>
                                             <div className="bg-[#fef4ea] border border-[#f8dec4] rounded-2xl p-4 flex flex-col justify-between">
                                                 <span className="text-[12px] font-bold text-[#995514] block">
                                                     Belum Reimburse ({belumReimburseCount})
                                                 </span>
-                                                <span className="font-mono text-xl font-black text-stone-900 mt-2 block tracking-tight">
-                                                    <CompactNominal value={belumReimburseNominal} compactThreshold={100_000_000} />
+                                                <span className=" text-xl font-black text-stone-900 mt-2 block tracking-tight">
+                                                    <CompactNominal value={belumReimburseNominal} compactThreshold={1_000_000_000_000} />
                                                 </span>
                                             </div>
                                         </div>
@@ -492,7 +514,7 @@ export default function ProjectDetailSidebar({
 
                                             <button
                                                 type="button"
-                                                onClick={() => setShowInitBudget(showProjectDetail)}
+                                                onClick={() => setShowAlokasiPengeluaran(showProjectDetail)}
                                                 className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                             >
                                                 <Settings size={14} className="text-stone-500 shrink-0" />
@@ -502,7 +524,7 @@ export default function ProjectDetailSidebar({
 
                                         <button
                                             type="button"
-                                            onClick={() => setShowDetailBudgetModal(true)}
+                                            onClick={() => setShowDetailPengeluaran(true)}
                                             className="w-full flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all cursor-pointer"
                                         >
                                             <Eye size={14} className="text-stone-500 shrink-0" />
@@ -510,7 +532,6 @@ export default function ProjectDetailSidebar({
                                         </button>
                                     </div>
 
-                                    {/* Pos Main Pengeluaran */}
                                     <div className="space-y-3 pt-4 text-left border-t border-stone-100">
 
                                         {detailedProjectInfo?.budget?.posAnggaran ? (
@@ -553,16 +574,16 @@ export default function ProjectDetailSidebar({
                                                                     <h4 className="text-[14px] font-bold text-stone-800 leading-tight">
                                                                         {pos.namaPos || pos.deskripsi}
                                                                     </h4>
-                                                                    <span className="text-[10px] font-mono font-bold text-stone-400">
+                                                                    <span className="text-[10px]  font-bold text-stone-400">
                                                                         POS-{201 + index}
                                                                     </span>
                                                                 </div>
                                                                 <div className="text-right">
-                                                                    <span className="text-[14px] font-black text-stone-900 font-mono">
-                                                                        <CompactNominal value={terpakaiVal} compactThreshold={1_000_000} />
+                                                                    <span className="text-[14px] font-black text-stone-900 ">
+                                                                        <CompactNominal value={terpakaiVal} compactThreshold={1_000_000_000_000} />
                                                                     </span>
                                                                     <span className="text-[10px] text-stone-400 block font-medium mt-0.5">
-                                                                        dari <CompactNominal value={nominalAlokasi} compactThreshold={1_000_000} />
+                                                                        dari <CompactNominal value={nominalAlokasi} compactThreshold={1_000_000_000_000} />
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -579,7 +600,7 @@ export default function ProjectDetailSidebar({
                                                                     {percentUsed}% terpakai
                                                                 </span>
                                                                 <span>
-                                                                    Sisa <b className="text-stone-700 font-mono font-bold"><CompactNominal value={sisaVal} compactThreshold={1_000_000} /></b>
+                                                                    Sisa <b className="text-stone-700  font-bold"><CompactNominal value={sisaVal} compactThreshold={1_000_000_000_000} /></b>
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -597,7 +618,6 @@ export default function ProjectDetailSidebar({
 
                             {activeTab === "tim" && (
                                 <div id="tim-sec" className="min-h-full w-full px-8 pb-48 pt-4 text-left flex-shrink-0 space-y-3">
-                                    {/* Header Kolom Role & Anggota */}
                                     <div className="grid grid-cols-12 gap-2.5 px-1">
                                         <div className="col-span-5 text-[11px] font-bold text-stone-400 uppercase tracking-wider">
                                             ROLE
@@ -701,14 +721,12 @@ export default function ProjectDetailSidebar({
                                 </div>
                             )}
 
-                            {/* TAB PEMASUKAN */}
                             {activeTab === "pendapatan" && (
                                 <>
                                     <div id="pemasukan-sec" className="px-8 py-5 space-y-6 flex-shrink-0">
 
                                         <div className="flex flex-col gap-3">
                                             <div className="flex gap-2 w-full">
-                                                {/* 1. Pencairan Termin (Tetap di posisi kiri) */}
                                                 <button
                                                     onClick={() => setIsPencairanOpen(true)}
                                                     className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-[#00966c] border border-transparent hover:bg-[#007f5a] text-white text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
@@ -716,7 +734,6 @@ export default function ProjectDetailSidebar({
                                                     <Plus size={14} className="shrink-0" /> Pencairan Termin
                                                 </button>
 
-                                                {/* 3. Edit Termin (Dipindahkan ke posisi tengah) */}
                                                 <button
                                                     onClick={() => setIsEditTerminOpen(true)}
                                                     className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
@@ -724,7 +741,6 @@ export default function ProjectDetailSidebar({
                                                     <Settings size={14} className="text-stone-500 shrink-0" /> Edit Termin
                                                 </button>
 
-                                                {/* 3. Alokasi Pemasukan */}
                                                 <button
                                                     onClick={() => setIsAlokasiPemasukanFormOpen(true)}
                                                     className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
@@ -733,16 +749,14 @@ export default function ProjectDetailSidebar({
                                                 </button>
                                             </div>
 
-                                            {/* 2. Lihat Detail Pemasukan (Dipindahkan ke posisi tombol full-width di bawah) */}
                                             <button
-                                                onClick={() => setIsAlokasiOpen(true)}
+                                                onClick={() => setisDetailPemasukanOpen(true)}
                                                 className="w-full flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all cursor-pointer"
                                             >
                                                 <Eye size={14} className="text-stone-500 shrink-0" /> Lihat Detail Pemasukan
                                             </button>
                                         </div>
 
-                                        {/* 2. Pencairan Termin (Di bagian bawah) */}
                                         <div className="space-y-3 pt-4 text-left border-t border-stone-100">
                                             <div className="flex justify-between items-center mb-2">
                                                 <h3 className="text-[14px] font-extrabold text-stone-900">Pencairan Termin</h3>
@@ -766,7 +780,6 @@ export default function ProjectDetailSidebar({
                                                                     : "bg-[#f8f7f4]"
                                                                     }`}
                                                             >
-                                                                {/* Kiri: Nama Termin & Progress */}
                                                                 <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
                                                                     <span className="text-[13px] font-bold text-stone-800 truncate">
                                                                         {termin.namaTermin}
@@ -778,16 +791,14 @@ export default function ProjectDetailSidebar({
                                                                     )}
                                                                 </div>
 
-                                                                {/* Tengah: Tanggal (Hanya ada saat sudah DITERIMA) */}
                                                                 {isDiterima && (
                                                                     <div className="text-[12px] text-stone-500 font-medium text-center shrink-0">
                                                                         {formatTerminDate(termin.tanggalPencairan || termin.updatedAt)}
                                                                     </div>
                                                                 )}
 
-                                                                {/* Kanan: Nominal */}
                                                                 <div className="flex items-center gap-4 shrink-0 justify-end">
-                                                                    <span className="text-[12px] font-mono font-medium text-stone-500">
+                                                                    <span className="text-[12px]  font-medium text-stone-500">
                                                                         Rp &nbsp;{parseFloat(termin.nominal).toLocaleString('id-ID')}
                                                                     </span>
                                                                 </div>
@@ -797,11 +808,8 @@ export default function ProjectDetailSidebar({
                                                 </div>
                                             )}
                                         </div>
-
-                                        {/* Rincian Pos (Penjualan Jasa & Penjualan Barang) */}
                                     </div>
 
-                                    {/* Modal-modal Pendukung */}
                                     <PencairanTerminModal
                                         isOpen={isPencairanOpen}
                                         onClose={() => setIsPencairanOpen(false)}
@@ -810,9 +818,9 @@ export default function ProjectDetailSidebar({
                                         termin={terminList}
                                         onSuccess={() => { onTerminChanged?.(); }}
                                     />
-                                    <AlokasiPemasukanModal
-                                        isOpen={isAlokasiOpen}
-                                        onClose={() => setIsAlokasiOpen(false)}
+                                    <DetailPemasukanModal
+                                        isOpen={isDetailPemasukanOpen}
+                                        onClose={() => setisDetailPemasukanOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
                                         proyekStatus={detailedProjectInfo?.status ?? showProjectDetail?.status ?? 'AKTIF'}
@@ -823,12 +831,12 @@ export default function ProjectDetailSidebar({
                                             if (onTerminChanged) onTerminChanged();
                                         }}
                                     />
-                                    <EditTerminModal
+                                    <EditTerminForm
                                         isOpen={isEditTerminOpen}
                                         onClose={() => setIsEditTerminOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
-                                        rabTotal={detailedProjectInfo?.budget?.nilaiKontrak || showProjectDetail?.budget?.nilaiKontrak || detailTotalRAB || 0}
+                                        NilaiKontrak={detailedProjectInfo?.budget?.nilaiKontrak || showProjectDetail?.budget?.nilaiKontrak || detailTotalRAB || 0}
                                         terminList={terminList}
                                         onSuccess={() => {
                                             if (onTerminChanged) onTerminChanged();
@@ -850,7 +858,6 @@ export default function ProjectDetailSidebar({
                             )}
                         </div>
 
-                        {/* Footer Modal */}
                         <div className="px-8 py-5 border-t border-stone-100 bg-white flex gap-3 flex-shrink-0">
                             <button type="button"
                                 onClick={() => { setIsDirectEdit(false); setEditMode(true); }}

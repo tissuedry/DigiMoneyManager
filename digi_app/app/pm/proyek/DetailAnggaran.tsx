@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-rea
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
 import { formatFullRupiah } from "@/lib/format-nominal";
+import { formatReimbursementDate } from "@/lib/proyek-utils";
 
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
@@ -17,21 +18,6 @@ function formatSisaCurrency(num: number): string {
     return `-Rp ${Math.abs(Math.round(n)).toLocaleString("id-ID")}`;
   }
   return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
-}
-
-function formatReimbursementDate(r: any): string {
-  const ocrSubmitted = r.createdAt;
-  if (ocrSubmitted) {
-    const d = new Date(ocrSubmitted);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    }
-  }
-  return "-";
 }
 
 type KeteranganPos = {

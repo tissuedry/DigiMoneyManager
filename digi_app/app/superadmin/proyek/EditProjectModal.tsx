@@ -1,7 +1,7 @@
 import React from "react";
 import { X, Loader2, AlertTriangle } from "lucide-react";
 import DatePicker from "@/components/date-picker";
-import { formatRibuan, ribuanToNumber } from "./utils";
+import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 
 type Props = {
   editMode: boolean;
@@ -64,12 +64,13 @@ export default function EditProjectModal({
               <input
                 type="text"
                 value={editForm.rabTotal || ""}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    rabTotal: formatRibuan(e.target.value),
-                  })
-                }
+                onChange={(e) => {
+                  const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                  setEditForm({ ...editForm, rabTotal: formatted });
+                  requestAnimationFrame(() => {
+                    e.target.setSelectionRange(caret, caret);
+                  });
+                }}
                 placeholder="0"
                 className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-[13px] font-mono focus:outline-none focus:ring-2 bg-white ${
                   isUnderAlokasi ? "border-amber-400 focus:ring-amber-400/30 text-amber-900" : "border-stone-200 focus:ring-[#2d6a4f]/30"

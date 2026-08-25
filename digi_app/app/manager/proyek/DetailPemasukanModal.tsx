@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
 import { formatFullRupiah } from "@/lib/format-nominal";
 import { useApi } from "@/lib/use-api";
+import CompactNominal from "@/components/compact-nominal";
 
 interface AlokasiPemasukanProps {
   proyekId: string | number;
@@ -17,10 +18,10 @@ interface AlokasiPemasukanProps {
   onRefresh?: () => void;
 }
 
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return formatFullRupiah(n);
-}
+// function formatFullCurrency(num: number): string {
+//   const n = Number(num) || 0;
+//   return formatFullRupiah(n);
+// }
 
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) return "-";
@@ -33,7 +34,7 @@ function formatDate(dateStr?: string | null): string {
   });
 }
 
-export default function AlokasiPemasukanModal({
+export default function DetailPemasukanModal({
   proyekId,
   proyekNama,
   proyekStatus = "AKTIF",
@@ -44,7 +45,6 @@ export default function AlokasiPemasukanModal({
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<number | string, boolean>>({});
 
-  // Fetch riwayat transaksi pemasukan proyek
   const { data: transaksiData } = useApi<any>(
     isOpen && proyekId ? `/api/pemasukan?proyekId=${proyekId}` : ""
   );
@@ -78,7 +78,7 @@ export default function AlokasiPemasukanModal({
         <div className="px-7 pt-[22px] pb-[18px] border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
           <div className="flex flex-col">
             <h3 className="text-[19px] font-bold text-[#14130F] leading-[28.5px] font-sans">
-              Detail Anggaran
+              Detail Pemasukan
             </h3>
             <p className="text-[13px] text-[#6A6660] leading-[19.5px] mt-0.5 font-sans">
               {proyekNama}
@@ -94,7 +94,6 @@ export default function AlokasiPemasukanModal({
         </div>
 
         <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
-          {/* Sticky Table Header */}
           <div className="sticky top-0 z-10 px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
             <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
               MAIN · SUB
@@ -104,12 +103,11 @@ export default function AlokasiPemasukanModal({
             </div>
           </div>
 
-          {/* Scrollable rows content */}
           <div className="px-7 py-3 flex flex-col gap-2">
             {(dataPemasukan || []).length === 0 ? (
               <div className="p-12 text-center border border-stone-200 rounded-xl my-4">
                 <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
-                  Data Anggaran Kosong
+                  Data Pemasukan Kosong
                 </div>
                 <div className="font-sans text-xs text-stone-400">
                   Belum ada data nilai proyek atau pos alokasi pemasukan yang diinisialisasi.
@@ -121,7 +119,7 @@ export default function AlokasiPemasukanModal({
                 const mainNominal = Number(main.nominalAlokasi || main.alokasi || 0);
                 const subList = main.subAnggaran || [];
 
-                const calculatedSubPos = subList.map((sub: any, idxSub: number) => {
+                const calculatedSubPos = subList.map((sub: any) => {
                   const subNominal = Number(sub.nominalAlokasi || sub.alokasi || 0);
                   const sName = (sub.namaSub || sub.nama || "").trim().toLowerCase();
                   const isPenjualanSub =
@@ -182,7 +180,6 @@ export default function AlokasiPemasukanModal({
                       onClick={() => toggleMain(main.id ?? idxMain)}
                       className="py-1.5 flex items-center hover:bg-stone-50/80 rounded-lg cursor-pointer select-none transition"
                     >
-                      {/* Left: Main pos name */}
                       <div className="flex-1 min-w-[280px] flex items-center gap-2 pr-2">
                         <div className="p-0.5 shrink-0 text-[#6A6660]">
                           {isMainOpen ? (
@@ -199,9 +196,8 @@ export default function AlokasiPemasukanModal({
                         </span>
                       </div>
 
-                      {/* REALISASI */}
-                      <div className="w-[160px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(mainRealisasi)}
+                      <div className="w-[160px] shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
+                        <CompactNominal value={mainRealisasi} compactThreshold={1_000_000_000_000} />
                       </div>
                     </div>
 
@@ -227,7 +223,6 @@ export default function AlokasiPemasukanModal({
                                   onClick={() => toggleSub(subId)}
                                   className="py-1.5 flex items-center hover:bg-stone-50/70 rounded-lg cursor-pointer select-none transition"
                                 >
-                                  {/* Left: Sub pos name */}
                                   <div className="flex-1 min-w-[280px] pl-7 flex items-center gap-2 pr-2">
                                     <div className="p-0.5 shrink-0 text-stone-500">
                                       {isSubOpen ? (
@@ -244,9 +239,8 @@ export default function AlokasiPemasukanModal({
                                     </span>
                                   </div>
 
-                                  {/* REALISASI */}
-                                  <div className="w-[160px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(subRealisasi)}
+                                  <div className="w-[160px] shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
+                                    <CompactNominal value={subRealisasi} compactThreshold={1_000_000_000_000} />
                                   </div>
                                 </div>
 
@@ -280,8 +274,8 @@ export default function AlokasiPemasukanModal({
                                             </div>
 
                                             <div className="w-[160px] shrink-0 flex items-center justify-center gap-1.5">
-                                              <span className="text-[11px] font-mono font-normal text-[#6A6660]">
-                                                {formatFullCurrency(tr.nominal)}
+                                              <span className="text-[11px]  font-normal text-[#6A6660]">
+                                                <CompactNominal value={tr.nominal} compactThreshold={1_000_000_000_000} />
                                               </span>
                                               <Check
                                                 size={13}
@@ -313,8 +307,9 @@ export default function AlokasiPemasukanModal({
                                           </div>
 
                                           <div className="w-[160px] shrink-0 flex items-center justify-center gap-1.5">
-                                            <span className="text-[11px] font-mono font-normal text-[#6A6660]">
-                                              {formatFullCurrency(isProyekDone ? subRealisasi : 0)}
+                                            <span className="text-[11px]  font-normal text-[#6A6660]">
+                                              <CompactNominal value={isProyekDone ? subRealisasi : 0} compactThreshold={1_000_000_000_000} />
+                                              
                                             </span>
                                             {isProyekDone ? (
                                               <Check
@@ -343,7 +338,6 @@ export default function AlokasiPemasukanModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-7 py-3.5 border-t border-[#E6E1D4] flex justify-end shrink-0 bg-white">
           <button
             onClick={onClose}

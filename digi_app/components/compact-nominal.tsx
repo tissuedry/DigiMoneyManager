@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCompactRupiah, formatFullRupiah, parseNominalNumber } from '@/lib/format-nominal';
 
 interface CompactNominalProps {
   value: number | string;
   className?: string;
-  /** Ambang batas nominal (Rp) kapan penyingkatan (jt, M, T) diaktifkan untuk mencegah teks bocor/overflow dari container. Default: 100.000.000 (100 Juta) */
   compactThreshold?: number;
   showTooltip?: boolean;
 }
@@ -15,7 +14,7 @@ interface CompactNominalProps {
 export default function CompactNominal({
   value,
   className = '',
-  compactThreshold = 100_000_000,
+  compactThreshold = 1_000_000_000_000,
   showTooltip = true,
 }: CompactNominalProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -100,7 +99,6 @@ export default function CompactNominal({
         {displayText}
       </span>
 
-      {/* Floating Tooltip Card (Render via React Portal ke document.body + fixed positioning agar 100% terisolasi tanpa memicu horizontal scrollbar) */}
       {mounted && isHovered && createPortal(
         <div
           ref={tooltipRef}
@@ -111,7 +109,7 @@ export default function CompactNominal({
             transform: coords.transform,
             zIndex: 999999,
           }}
-          className="pointer-events-none w-max max-w-[360px] whitespace-nowrap rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[13px] font-bold text-stone-900 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          className="pointer-events-none w-max max-w-90 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[13px] font-bold text-stone-900 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
           {fullText}
         </div>,

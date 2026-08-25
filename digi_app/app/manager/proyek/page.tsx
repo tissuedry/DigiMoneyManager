@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
+import { FolderPlus, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
 import { Project, Member } from "./types";
-import { formatRupiah, formatSummaryRupiah, getStatusStyles, formatStatusLabel } from "./utils";
+import { formatRupiah, formatSummaryRupiah, getStatusStyles, formatStatusLabel } from "@/lib/proyek-utils";
 
-import AddProjectModal from "./AddProjectModal";
-import EditProjectModal from "./EditProjectModal";
-import InitBudgetModal from "./InitBudgetModal";
+import AddProjectForm from "./AddProjectForm";
+import EditProjectForm from "./EditProjectForm";
+import AlokasiPengeluaranForm from "./AlokasiPengeluaranForm";
 import ProjectDetailSidebar from "./ProjectDetailSidebar";
-import DetailBudgetModal from "./DetailBudgetModal";
+import DetailPengeluaranModal from "./DetailPengeluaranModal";
 import PendingPmModal from "./PendingPmModal";
 import SuccessDialog from "@/components/success-dialog";
 import ConfirmDialog from "@/components/confirm-dialog";
@@ -30,13 +30,13 @@ export default function KelolaProyekPage() {
   const [limit] = useState(6);
 
   const [showAddProject, setShowAddProject] = useState(false);
-  const [showInitBudget, setShowInitBudget] = useState<Project | null>(null);
+  const [showAlokasiPengeluaran, setShowAlokasiPengeluaran] = useState<Project | null>(null);
   const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [isDirectEdit, setIsDirectEdit] = useState(false);
   const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [showDetailBudgetModal, setShowDetailBudgetModal] = useState(false);
+  const [showDetailPengeluaran, setShowDetailPengeluaran] = useState(false);
   const [showPendingPmModal, setShowPendingPmModal] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
@@ -328,7 +328,6 @@ export default function KelolaProyekPage() {
 
   return (
     <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900 leading-tight">Kelola Proyek</h1>
@@ -345,7 +344,6 @@ export default function KelolaProyekPage() {
         </button>
       </div>
 
-      {/* Baris Pencarian dan Filter Status */}
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="w-full lg:max-w-2xl">
           <input
@@ -377,7 +375,6 @@ export default function KelolaProyekPage() {
         </div>
       </div>
 
-      {/* Success Banner */}
       {success && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
           <Check size={16} />
@@ -385,11 +382,27 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
-      {/* List of Projects Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-24 gap-3 text-stone-400">
-          <Loader2 size={24} className="animate-spin" />
-          <span className="text-sm">Memuat data proyek...</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white border border-stone-200 rounded-2xl p-5 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-stone-200 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-stone-200 rounded-md" />
+                  <div className="h-3 bg-stone-100 rounded-md w-2/3" />
+                </div>
+              </div>
+              <div className="space-y-2.5">
+                <div className="h-3 bg-stone-100 rounded w-4/5" />
+                <div className="h-3 bg-stone-100 rounded w-3/5" />
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <div className="h-5 w-16 bg-stone-200 rounded-full" />
+                <div className="h-4 w-20 bg-stone-100 rounded-md" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : projects.length === 0 ? (
         <div className="bg-white border border-stone-200 rounded-2xl p-12 text-center text-stone-400 space-y-3">
@@ -435,7 +448,7 @@ export default function KelolaProyekPage() {
               >
                 <div className="space-y-3 text-left">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold font-mono text-stone-400 bg-stone-100/80 px-2.5 py-1.5 rounded-xl tracking-wide">
+                    <span className="text-[11px] font-bold  text-stone-400 bg-stone-100/80 px-2.5 py-1.5 rounded-xl tracking-wide">
                       PRJ-{String(project.id).padStart(3, "0")}
                     </span>
                     <span className={`text-[12px] font-bold px-3 py-1.5 rounded-2xl ${getStatusStyles(project.status)}`}>
@@ -468,7 +481,7 @@ export default function KelolaProyekPage() {
                         <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">TOTAL NILAI PROYEK</span>
                         <span
                           title={formatRupiah(totalRAB)}
-                          className="font-mono font-black text-stone-900 text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
+                          className=" font-black text-stone-900 text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
                         >
                           {formatSummaryRupiah(totalRAB)}
                         </span>
@@ -477,7 +490,7 @@ export default function KelolaProyekPage() {
                         <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">PENDAPATAN</span>
                         <span
                           title={formatRupiah(pendapatan)}
-                          className="font-mono font-black text-[#1b4332] text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
+                          className=" font-black text-[#1b4332] text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
                         >
                           {formatSummaryRupiah(pendapatan)}
                         </span>
@@ -527,7 +540,6 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
-      {/* Pagination */}
       {!loading && projects.length > 0 && (
         <div className="mt-8 pt-6 flex justify-center w-full">
 
@@ -587,21 +599,20 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
-      {/* Modals & Dialogs */}
-      <AddProjectModal
+      <AddProjectForm
         show={showAddProject}
         onClose={() => setShowAddProject(false)}
         onSaved={fetchData}
       />
 
-      <InitBudgetModal
-        showInitBudget={showInitBudget}
+      <AlokasiPengeluaranForm
+        showInitBudget={showAlokasiPengeluaran}
         detailedProjectInfo={detailedProjectInfo}
-        onClose={() => setShowInitBudget(null)}
+        onClose={() => setShowAlokasiPengeluaran(null)}
         onSaved={() => {
           fetchData();
-          if (showProjectDetail && showInitBudget && showProjectDetail.id === showInitBudget.id) {
-            refreshDetailedProject(showInitBudget.id);
+          if (showProjectDetail && showAlokasiPengeluaran && showProjectDetail.id === showAlokasiPengeluaran.id) {
+            refreshDetailedProject(showAlokasiPengeluaran.id);
           }
         }}
       />
@@ -616,8 +627,8 @@ export default function KelolaProyekPage() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         setShowPendingPmModal={setShowPendingPmModal}
-        setShowInitBudget={setShowInitBudget}
-        setShowDetailBudgetModal={setShowDetailBudgetModal}
+        setShowAlokasiPengeluaran={setShowAlokasiPengeluaran}
+        setShowDetailPengeluaran={setShowDetailPengeluaran}
         teamRows={teamRows}
         setTeamRows={setTeamRows}
         members={members}
@@ -634,16 +645,16 @@ export default function KelolaProyekPage() {
         onTerminChanged={() => { if (showProjectDetail) refreshDetailedProject(showProjectDetail.id); }}
       />
 
-      <EditProjectModal
+      <EditProjectForm
         editMode={editMode}
         project={detailSource}
         onClose={handleCloseEdit}
         onSaved={handleProjectSaved}
       />
 
-      <DetailBudgetModal
-        showDetailBudgetModal={showDetailBudgetModal}
-        onClose={() => setShowDetailBudgetModal(false)}
+      <DetailPengeluaranModal
+        showDetailBudgetModal={showDetailPengeluaran}
+        onClose={() => setShowDetailPengeluaran(false)}
         detailedProjectInfo={detailedProjectInfo}
       />
 

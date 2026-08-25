@@ -1,3 +1,5 @@
+import { formatFullRupiah } from "./format-nominal";
+
 export function formatReimbursementDate(r: any): string {
   const ocrTanggal = r.tanggalStruk;
   if (ocrTanggal) {
@@ -34,8 +36,6 @@ export const formatRupiah = (valStr: string | number | undefined) => {
     maximumFractionDigits: 0,
   }).format(num);
 };
-
-import { formatFullRupiah } from "@/lib/format-nominal";
 
 export const formatSummaryRupiah = (num: number) => {
   return formatFullRupiah(num);
@@ -88,7 +88,7 @@ export function formatStatusLabel(status?: string): string {
   if (upper === 'PLANNING') return 'Planning';
   if (upper === 'DONE') return 'Done';
   if (upper === 'CANCELED' || upper === 'CANCELLED') return 'Canceled';
-  return status; 
+  return status;
 }
 
 export function calculateTotalTerpakai(detailedProjectInfo: any, fallbackValue: number = 0): number {

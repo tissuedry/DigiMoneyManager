@@ -1,29 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Loader2, AlertCircle, Coins } from 'lucide-react';
-import { formatRibuan, ribuanToNumber } from './utils';
-
-type TerminItem = {
-    id?: number;
-    progress: number | string;
-    nominal: string;
-};
+import { formatRibuan, ribuanToNumber } from '@/lib/proyek-utils';
+import { TerminItem } from './types';
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
     proyekId: number;
     proyekNama: string;
-    rabTotal?: number | string;
+    NilaiKontrak?: number | string;
     terminList: any[];
     onSuccess?: () => void;
 };
 
-export default function EditTerminModal({
+export default function EditTerminForm({
     isOpen,
     onClose,
     proyekId,
     proyekNama,
-    rabTotal = 0,
+    NilaiKontrak = 0,
     terminList,
     onSuccess,
 }: Props) {
@@ -75,12 +70,10 @@ export default function EditTerminModal({
 
     if (!isOpen) return null;
 
-    // Parse Total Nilai Proyek
-    const totalNilaiProyekVal = typeof rabTotal === 'number'
-        ? rabTotal
-        : (parseFloat(String(rabTotal || 0).replace(/[^0-9.-]+/g, '')) || 0);
+    const totalNilaiProyekVal = typeof NilaiKontrak === 'number'
+        ? NilaiKontrak
+        : (parseFloat(String(NilaiKontrak || 0).replace(/[^0-9.-]+/g, '')) || 0);
 
-    // Live calculation
     const nom0Val = ribuanToNumber(termin0.nominal);
     const nomRegulerVal = terminData.reduce((acc, t) => acc + ribuanToNumber(t.nominal), 0);
     const totalTeralokasi = nom0Val + nomRegulerVal;
@@ -158,7 +151,6 @@ export default function EditTerminModal({
         const nom0Clean = String(termin0.nominal).replace(/\./g, '');
         const hasT0 = nom0Clean !== '' && !isNaN(Number(nom0Clean)) && Number(nom0Clean) > 0;
 
-        // Validasi input progress & nominal untuk setiap termin reguler
         for (let i = 0; i < terminData.length; i++) {
             const t = terminData[i];
             if (t.progress === '' || t.progress === null || t.progress === undefined) {
@@ -178,7 +170,6 @@ export default function EditTerminModal({
             }
         }
 
-        // Validasi progress bertahap naik: Termin 1 < Termin 2 < Termin 3 ...
         for (let i = 0; i < terminData.length - 1; i++) {
             const currentProg = parseFloat(String(terminData[i].progress));
             const nextProg = parseFloat(String(terminData[i + 1].progress));
@@ -197,7 +188,6 @@ export default function EditTerminModal({
         try {
             const payload: any[] = [];
 
-            // Jika Termin 0 diisi nominalnya, masukkan ke payload pertama
             if (hasT0) {
                 payload.push({
                     id: termin0.id,
@@ -207,7 +197,6 @@ export default function EditTerminModal({
                 });
             }
 
-            // Masukkan termin reguler
             terminData.forEach((t, idx) => {
                 payload.push({
                     id: t.id,
@@ -250,7 +239,6 @@ export default function EditTerminModal({
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
 
-                {/* Header Modal */}
                 <div className="px-6 py-5 border-b border-stone-100 flex justify-between items-start shrink-0">
                     <div>
                         <div className="flex items-center gap-2">
@@ -270,7 +258,6 @@ export default function EditTerminModal({
                     </button>
                 </div>
 
-                {/* Konten Form */}
                 <div className="p-6 overflow-y-auto flex-1 space-y-4">
                     {errorMsg && (
                         <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-[12.5px] font-medium flex items-center gap-2 animate-in fade-in">
@@ -285,29 +272,26 @@ export default function EditTerminModal({
                         </div>
                     )}
 
-                    {/* Total Nilai Proyek (Rupiah) - Read-only Information */}
                     <div>
                         <label className="block text-[12px] font-bold text-stone-800 mb-1.5">
                             Total Nilai Proyek (Rupiah)
                         </label>
                         <div className="flex items-center w-full h-10 bg-[#F8F7F4] border border-[#e6e2d6] rounded-xl px-3.5 shadow-xs">
-                            <span className="text-[13.5px] font-mono font-medium text-[#78716C] mr-1.5">Rp</span>
-                            <span className="text-[14px] font-mono font-bold text-stone-900">
+                            <span className="text-[13.5px]  font-medium text-[#78716C] mr-1.5">Rp</span>
+                            <span className="text-[14px]  font-bold text-stone-900">
                                 {totalNilaiProyekVal > 0 ? formatRibuan(String(Math.round(totalNilaiProyekVal))) : "0"}
                             </span>
                         </div>
                     </div>
 
-                    {/* Real-time Summary Card: Live Info Teralokasi & Sisa Alokasi */}
                     <div className="p-4 bg-white rounded-2xl border border-[#e6e2d6] shadow-xs space-y-2.5">
                         <div className="flex justify-between items-center text-[12px] font-bold text-stone-700">
                             <span>Distribusi Alokasi Termin</span>
-                            <span className="font-mono text-[12.5px] font-extrabold text-stone-900">
+                            <span className=" text-[12.5px] font-extrabold text-stone-900">
                                 Rp {totalTeralokasi.toLocaleString("id-ID")} <span className="text-stone-400 font-normal">/ {totalNilaiProyekVal.toLocaleString("id-ID")}</span>
                             </span>
                         </div>
 
-                        {/* Progress Bar Live */}
                         <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden flex">
                             <div
                                 className={`h-full transition-all duration-300 ${
@@ -321,14 +305,13 @@ export default function EditTerminModal({
                             />
                         </div>
 
-                        {/* 3 Kolom Info Status Live */}
                         <div className="grid grid-cols-3 gap-2 pt-1">
                             <div className="flex flex-col">
                                 <span className="text-stone-400 text-[11px] font-medium flex items-center gap-1">
                                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
                                     Teralokasi
                                 </span>
-                                <span className="font-mono font-bold text-stone-800 text-[12.5px] mt-0.5">
+                                <span className=" font-bold text-stone-800 text-[12.5px] mt-0.5">
                                     Rp {totalTeralokasi.toLocaleString("id-ID")}
                                 </span>
                                 <span className="text-[10px] text-emerald-600 font-semibold mt-0.5">
@@ -341,7 +324,7 @@ export default function EditTerminModal({
                                     <span className={`w-2 h-2 rounded-full inline-block shrink-0 ${isOverallocated ? 'bg-rose-500' : 'bg-amber-500'}`} />
                                     {isOverallocated ? "Kelebihan" : "Sisa Alokasi"}
                                 </span>
-                                <span className={`font-mono font-bold text-[12.5px] mt-0.5 ${isOverallocated ? 'text-rose-600' : 'text-stone-800'}`}>
+                                <span className={` font-bold text-[12.5px] mt-0.5 ${isOverallocated ? 'text-rose-600' : 'text-stone-800'}`}>
                                     Rp {Math.abs(sisaAlokasi).toLocaleString("id-ID")}
                                 </span>
                                 <span className={`text-[10px] font-medium mt-0.5 ${isOverallocated ? 'text-rose-500 font-semibold' : 'text-stone-400'}`}>
@@ -370,7 +353,6 @@ export default function EditTerminModal({
                         </div>
                     </div>
 
-                    {/* Input Jumlah Termin */}
                     <div>
                         <label className="block text-[12px] font-bold text-stone-800 mb-1.5">
                             Jumlah Termin
@@ -390,7 +372,6 @@ export default function EditTerminModal({
                         />
                     </div>
 
-                    {/* Header Kolom Tabel */}
                     <div className="grid grid-cols-12 gap-3 px-3 pt-1">
                         <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider">
                             Termin
@@ -403,16 +384,13 @@ export default function EditTerminModal({
                         </div>
                     </div>
 
-                    {/* Baris Input Termin Dinamis */}
                     <div className="space-y-2.5 max-h-[38vh] overflow-y-auto pr-1">
 
-                        {/* Baris Khusus: Termin 0 (Down Payment) - Lock at 0% */}
                         <div className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
                             <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
                                 Termin 0 <span className="text-[11px] font-normal text-stone-500">(DP)</span>
                             </div>
 
-                            {/* Progress (%) Lock 0% */}
                             <div className="col-span-3 relative">
                                 <input
                                     type="text"
@@ -425,7 +403,6 @@ export default function EditTerminModal({
                                 </span>
                             </div>
 
-                            {/* Input Nominal DP */}
                             <div className="col-span-6 relative">
                                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
                                     Rp
@@ -435,12 +412,11 @@ export default function EditTerminModal({
                                     value={termin0.nominal}
                                     onChange={handleTermin0Change}
                                     placeholder="0"
-                                    className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-mono font-medium text-stone-800 outline-none focus:border-[#00966c]"
+                                    className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px]  font-medium text-stone-800 outline-none focus:border-[#00966c]"
                                 />
                             </div>
                         </div>
 
-                        {/* Baris Termin Reguler */}
                         {terminData.map((_, idx) => (
                             <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
 
@@ -448,7 +424,6 @@ export default function EditTerminModal({
                                     Termin {idx + 1}
                                 </div>
 
-                                {/* Input Progress (%) */}
                                 <div className="col-span-3 relative">
                                     <input
                                         type="text"
@@ -463,7 +438,6 @@ export default function EditTerminModal({
                                     </span>
                                 </div>
 
-                                {/* Input Nominal (Rp) */}
                                 <div className="col-span-6 relative">
                                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
                                         Rp
@@ -473,7 +447,7 @@ export default function EditTerminModal({
                                         value={terminData[idx]?.nominal ?? ''}
                                         onChange={(e) => handleInputChange(idx, 'nominal', e.target.value, e)}
                                         placeholder="0"
-                                        className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-mono font-medium text-stone-800 outline-none focus:border-[#00966c]"
+                                        className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px]  font-medium text-stone-800 outline-none focus:border-[#00966c]"
                                     />
                                 </div>
 
@@ -482,7 +456,6 @@ export default function EditTerminModal({
                     </div>
                 </div>
 
-                {/* Footer Modal */}
                 <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3 bg-stone-50/50 shrink-0">
                     <button
                         type="button"

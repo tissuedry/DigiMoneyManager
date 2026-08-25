@@ -35,3 +35,9 @@ export type Member = {
   role: string;
   divisi: string | null;
 };
+
+export type TerminItem = {
+    id?: number;
+    progress: number | string;
+    nominal: string;
+};
