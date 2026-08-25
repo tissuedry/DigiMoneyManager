@@ -237,20 +237,101 @@ function SummaryCard({
   );
 }
 
-function Skeleton() {
+function SkeletonContent() {
   return (
-    <main className="flex-1 p-8 overflow-y-auto space-y-6 animate-pulse">
-      <div className="h-8 w-56 bg-stone-200 rounded-lg" />
-      <div className="grid grid-cols-4 gap-6">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-white border border-stone-200 rounded-2xl p-6 h-36" />
-        ))}
-      </div>
-      <div className="flex gap-4">
-        <div className="flex-1 bg-white border border-stone-200 rounded-2xl h-96" />
-        <div className="w-[411px] bg-white border border-stone-200 rounded-2xl h-96" />
-      </div>
-    </main>
+    <div className="flex flex-col gap-6 animate-pulse">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-[#e4e0d9] p-6 flex flex-col gap-[18px]">
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-stone-200 rounded-md" />
+                <div className="h-6 w-6 bg-stone-200 rounded-lg" />
+              </div>
+              <div className="h-6 w-32 bg-stone-200 rounded-md" />
+              <div className="h-4 w-20 bg-stone-100 rounded-md" />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-4 items-stretch">
+          <div className="flex-1 bg-white rounded-2xl border border-[#e6e1d4] p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2 flex-1">
+                <div className="h-4 w-40 bg-stone-200 rounded-md" />
+                <div className="h-3 w-28 bg-stone-100 rounded-md" />
+              </div>
+              <div className="flex gap-1 bg-[#f3f0e9] rounded-xl p-[3px]">
+                <div className="h-7 w-10 bg-stone-200 rounded-lg" />
+                <div className="h-7 w-10 bg-stone-200 rounded-lg" />
+                <div className="h-7 w-10 bg-stone-200 rounded-lg" />
+              </div>
+            </div>
+            <div className="flex-1 flex items-end gap-2 min-h-[200px]">
+              {[...Array(12)].map((_, i) => (
+                <div key={i} className="flex-1 flex items-end gap-[2px] h-full">
+                  <div
+                    className="flex-1 bg-[#009162]/30 rounded-t-[3px]"
+                    style={{ height: `${30 + ((i * 23) % 60)}%` }}
+                  />
+                  <div
+                    className="flex-1 bg-[#902f33]/20 rounded-t-[3px]"
+                    style={{ height: `${20 + ((i * 17) % 50)}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-5 pt-1 border-t border-[#f3f0e9]">
+              <div className="h-3 w-24 bg-stone-200 rounded-md" />
+              <div className="h-3 w-24 bg-stone-200 rounded-md" />
+              <div className="h-3 w-24 bg-stone-200 rounded-md ml-auto" />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 shrink-0 w-[411px]">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-[#e6e1d4] p-5 flex flex-col gap-3">
+                <div className="space-y-2">
+                  <div className="h-4 w-40 bg-stone-200 rounded-md" />
+                  <div className="h-3 w-56 bg-stone-100 rounded-md" />
+                </div>
+                {[...Array(2)].map((_, j) => (
+                  <div key={j} className="rounded-[10px] px-[14px] py-3 bg-stone-100 flex items-center justify-between">
+                    <div className="space-y-1.5">
+                      <div className="h-3.5 w-24 bg-stone-200 rounded-md" />
+                      <div className="h-3 w-20 bg-stone-100 rounded-md" />
+                    </div>
+                    <div className="h-4 w-24 bg-stone-200 rounded-md" />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border-[0.8px] border-[#e7e5e4]">
+          <div className="flex items-center justify-between px-6 py-6 border-b border-[#f5f5f4]">
+            <div className="h-4 w-24 bg-stone-200 rounded-md" />
+            <div className="h-4 w-20 bg-stone-100 rounded-md" />
+          </div>
+          <div className="p-6 space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between gap-6">
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-3 w-1/4 bg-stone-200 rounded" />
+                  <div className="h-3 w-1/5 bg-stone-100 rounded" />
+                </div>
+                <div className="h-3 w-16 bg-stone-200 rounded" />
+                <div className="h-3 w-16 bg-stone-200 rounded" />
+                <div className="h-3 w-16 bg-stone-200 rounded" />
+                <div className="flex items-center gap-2">
+                  <div className="h-[6px] w-24 bg-stone-200 rounded-full" />
+                  <div className="h-3 w-6 bg-stone-100 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+    </div>
   );
 }
 
@@ -266,7 +347,23 @@ export default function ManagerDashboardPage() {
     year: "numeric",
   });
 
-  if (isLoading) return <Skeleton />;
+  if (isLoading) {
+    return (
+      <main className="flex-1 overflow-y-auto bg-[#f6f4ef]">
+        <div className="p-8 flex flex-col gap-6">
+          <div>
+            <h1 className="text-[24px] font-bold text-[#1c1917] leading-[30px]">
+              Beranda Eksekutif
+            </h1>
+            <p className="text-[14px] text-[#79716b] mt-1">
+              Ringkasan real-time arus kas dan nilai proyek per {dateLabel}.
+            </p>
+          </div>
+          <SkeletonContent />
+        </div>
+      </main>
+    );
+  }
 
   if (error || !d) {
     return (

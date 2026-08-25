@@ -1,4 +1,3 @@
-// app/layout.tsx
 import "./globals.css";
 import QueryProvider from "@/lib/query-provider";
 import SmartChatWidget from "@/components/smart-chat-widget";
@@ -27,14 +26,7 @@ export default function DashboardLayout({
     <html lang="en" className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}>
       <body className={plusJakartaSans.className}>
         <div className="flex min-h-screen w-full bg-background text-zinc-800 antialiased overflow-hidden">
-          {/* Sidebar Keuangan */}
-          {/* <Sidebar /> */}
-
-          {/* Sisi Kanan: Header + Konten Halaman Aktif */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* <Header /> */}
-
-            {/* Tempat Masuknya isi dari page.tsx */}
             <div className="flex-col flex overflow-hidden w-full mx-auto">
               <QueryProvider>
                 {children}
