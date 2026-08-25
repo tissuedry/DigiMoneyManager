@@ -2,14 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Loader2, Receipt, ClipboardList, Settings, Eye, Plus, Trash2, Check, Search, ChevronDown, History, ArrowUp, TrendingUp } from "lucide-react";
 import { Project, Member } from "./types";
 import PencairanTerminModal from "./PencairanTerminModal";
-import AlokasiPemasukanFormModal from "./AlokasiPemasukanFormModal";
+import AlokasiPemasukanForm from "./AlokasiPemasukanForm";
 import AlokasiPemasukanModal from "./EditAlokasi";
 import EditTerminModal from "./EditTerminModal";
 
 import {
-    formatRupiah,
     getStatusStyles,
-    formatRibuan,
     calculateTotalTerpakai,
     calculateBudgetProgress,
     formatStatusLabel
@@ -176,25 +174,7 @@ type Props = {
     detailedProjectInfo: any;
     activeTab: "ringkasan" | "biaya" | "tim" | "pendapatan";
     setActiveTab: React.Dispatch<React.SetStateAction<"ringkasan" | "biaya" | "tim" | "pendapatan">>;
-    timeFilter: "4M" | "12M" | "YTD";
-    setTimeFilter: React.Dispatch<React.SetStateAction<"4M" | "12M" | "YTD">>;
-    activeCashFlow: any[];
-    inflowNominal: number;
-    outflowNominal: number;
-    netCashNominal: number;
-    sudahReimburseNominal: number;
-    belumReimburseNominal: number;
-    sudahReimburseCount?: number;
-    belumReimburseCount?: number;
-    detailTotalRAB: number;
-    detailTotalTerpakai: number;
-    detailPercentUsed: number;
-    detailBarWidth: number;
-    setSelectedPendingIds: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
     setShowPendingPmModal: (v: boolean) => void;
-    fetchPendingPengajuan: (id: number) => void;
-    setRabTotal: (v: string) => void;
-    setPosAnggaranList: (v: any) => void;
     setShowInitBudget: (v: any) => void;
     setShowDetailBudgetModal: (v: boolean) => void;
     teamRows: any[];
@@ -223,25 +203,7 @@ export default function ProjectDetailSidebar({
     detailedProjectInfo,
     activeTab,
     setActiveTab,
-    timeFilter,
-    setTimeFilter,
-    activeCashFlow,
-    inflowNominal,
-    outflowNominal,
-    netCashNominal,
-    sudahReimburseNominal,
-    belumReimburseNominal,
-    sudahReimburseCount,
-    belumReimburseCount,
-    detailTotalRAB,
-    detailTotalTerpakai,
-    detailPercentUsed,
-    detailBarWidth,
-    setSelectedPendingIds,
     setShowPendingPmModal,
-    fetchPendingPengajuan,
-    setRabTotal,
-    setPosAnggaranList,
     setShowInitBudget,
     setShowDetailBudgetModal,
     teamRows,
@@ -316,8 +278,23 @@ export default function ProjectDetailSidebar({
 
     if (!showProjectDetail || editMode || isDirectEdit) return null;
 
-    const calculatedTotalTerpakai = calculateTotalTerpakai(detailedProjectInfo, detailTotalTerpakai);
+    const detailTotalRAB = parseFloat(detailedProjectInfo?.budget?.nilaiKontrak) || 0;
+    const fallbackTerpakai = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
+    const calculatedTotalTerpakai = calculateTotalTerpakai(detailedProjectInfo, fallbackTerpakai);
     const { percentUsed: calculatedPercentUsed, barWidth: calculatedBarWidth } = calculateBudgetProgress(calculatedTotalTerpakai, detailTotalRAB);
+
+    const sudahReimburseNominal = detailedProjectInfo?.sudahReimburseNominal !== undefined
+        ? Number(detailedProjectInfo.sudahReimburseNominal)
+        : (parseFloat(detailedProjectInfo?.budget?.totalReimbursement) || 0);
+
+    const belumReimburseNominal = detailedProjectInfo?.belumReimburseNominal !== undefined
+        ? Number(detailedProjectInfo.belumReimburseNominal)
+        : (detailedProjectInfo?.pendingReimbursements
+            ? detailedProjectInfo.pendingReimbursements.reduce((sum: number, r: any) => sum + Number(r.nominal || 0), 0)
+            : 0);
+
+    const sudahReimburseCount = detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0;
+    const belumReimburseCount = detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0);
 
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-100" onClick={onClose}>
@@ -472,7 +449,7 @@ export default function ProjectDetailSidebar({
                                         <div className="grid grid-cols-2 gap-3.5">
                                             <div className="bg-[#e8f5f0] border border-[#caead9] rounded-2xl p-4 flex flex-col justify-between">
                                                 <span className="text-[12px] font-bold text-[#186f52] block">
-                                                    Sudah Reimburse ({sudahReimburseCount ?? detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0})
+                                                    Sudah Reimburse ({sudahReimburseCount})
                                                 </span>
                                                 <span className="font-mono text-xl font-black text-stone-900 mt-2 block tracking-tight">
                                                     <CompactNominal value={sudahReimburseNominal} compactThreshold={100_000_000} />
@@ -480,7 +457,7 @@ export default function ProjectDetailSidebar({
                                             </div>
                                             <div className="bg-[#fef4ea] border border-[#f8dec4] rounded-2xl p-4 flex flex-col justify-between">
                                                 <span className="text-[12px] font-bold text-[#995514] block">
-                                                    Belum Reimburse ({belumReimburseCount ?? detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0)})
+                                                    Belum Reimburse ({belumReimburseCount})
                                                 </span>
                                                 <span className="font-mono text-xl font-black text-stone-900 mt-2 block tracking-tight">
                                                     <CompactNominal value={belumReimburseNominal} compactThreshold={100_000_000} />
@@ -502,11 +479,7 @@ export default function ProjectDetailSidebar({
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    setSelectedPendingIds({});
                                                     setShowPendingPmModal(true);
-                                                    if (detailedProjectInfo?.id) {
-                                                        fetchPendingPengajuan(detailedProjectInfo.id);
-                                                    }
                                                 }}
                                                 className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                             >
@@ -519,22 +492,7 @@ export default function ProjectDetailSidebar({
 
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    if (detailedProjectInfo?.budget) {
-                                                        const rawTotal = parseFloat(detailedProjectInfo.budget.rabTotal) || 0;
-                                                        setRabTotal(formatRibuan(String(Math.round(rawTotal))));
-
-                                                        const existingPos = detailedProjectInfo.budget.posAnggaran.map((pos: any) => {
-                                                            const rawAlokasi = parseFloat(pos.nominalAlokasi) || 0;
-                                                            return {
-                                                                deskripsi: pos.namaPos || pos.deskripsi,
-                                                                nominalAlokasi: formatRibuan(String(Math.round(rawAlokasi)))
-                                                            };
-                                                        });
-                                                        setPosAnggaranList(existingPos);
-                                                    }
-                                                    setShowInitBudget(showProjectDetail);
-                                                }}
+                                                onClick={() => setShowInitBudget(showProjectDetail)}
                                                 className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                             >
                                                 <Settings size={14} className="text-stone-500 shrink-0" />
@@ -870,13 +828,13 @@ export default function ProjectDetailSidebar({
                                         onClose={() => setIsEditTerminOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}
                                         proyekNama={detailedProjectInfo?.nama ?? showProjectDetail?.nama ?? ''}
-                                        rabTotal={detailedProjectInfo?.budget?.nilaiKontrak || detailedProjectInfo?.budget?.rabTotal || showProjectDetail?.budget?.nilaiKontrak || showProjectDetail?.budget?.rabTotal || detailTotalRAB || 0}
+                                        rabTotal={detailedProjectInfo?.budget?.nilaiKontrak || showProjectDetail?.budget?.nilaiKontrak || detailTotalRAB || 0}
                                         terminList={terminList}
                                         onSuccess={() => {
                                             if (onTerminChanged) onTerminChanged();
                                         }}
                                     />
-                                    <AlokasiPemasukanFormModal
+                                    <AlokasiPemasukanForm
                                         isOpen={isAlokasiPemasukanFormOpen}
                                         onClose={() => setIsAlokasiPemasukanFormOpen(false)}
                                         proyekId={showProjectDetail?.id ?? 0}

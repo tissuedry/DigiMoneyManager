@@ -168,7 +168,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           });
 
           if (budget) {
-            const rabTotal = Number(budget.rabTotal);
+            const nilaiKontrak = Number(budget.nilaiKontrak);
             const prevSisa = Number(budget.sisaBudget);
             
             const newSisa = prevSisa - nominal;
@@ -184,9 +184,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               },
             });
 
-            if (rabTotal > 0) {
-              const prevPercentage = (prevSisa / rabTotal) * 100;
-              const newPercentage = (newSisa / rabTotal) * 100;
+            if (nilaiKontrak > 0) {
+              const prevPercentage = (prevSisa / nilaiKontrak) * 100;
+              const newPercentage = (newSisa / nilaiKontrak) * 100;
               const thresholds = [50, 25, 10, 5, 0];
               
               for (const T of thresholds) {

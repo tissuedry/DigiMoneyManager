@@ -112,7 +112,7 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
       include: {
         budget: {
           select: {
-            rabTotal: true,
+            nilaiKontrak: true,
             totalPengeluaran: true,
             totalReimbursement: true,
             sisaBudget: true,
@@ -221,16 +221,16 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
   ]);
 
   const projectsContext = projects.map((p: any) => {
-    const rab = p.budget ? Number(p.budget.rabTotal) : 0;
+    const nilaiKontrak = p.budget ? Number(p.budget.nilaiKontrak) : 0;
     const sisa = p.budget ? Number(p.budget.sisaBudget) : 0;
-    const margin = rab > 0 ? parseFloat(((sisa / rab) * 100).toFixed(1)) : 0;
+    const margin = nilaiKontrak > 0 ? parseFloat(((sisa / nilaiKontrak) * 100).toFixed(1)) : 0;
 
     return {
       id: p.id,
       nama: p.nama,
       status: p.status,
       budget: p.budget ? {
-        rabTotal: rab,
+        nilaiKontrak: nilaiKontrak,
         totalPengeluaran: Number(p.budget.totalPengeluaran),
         totalReimbursement: Number(p.budget.totalReimbursement),
         sisaBudget: sisa,

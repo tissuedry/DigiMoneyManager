@@ -28,7 +28,7 @@ type PosAnggaran = {
 
 type ProjectBudget = {
   id: number;
-  rabTotal: string;
+  nilaiKontrak: string;
   totalPengeluaran: string;
   totalReimbursement: string;
   sisaBudget: string;
@@ -151,7 +151,7 @@ export default function PMDashboardPage() {
                   {(() => {
                     const project = data.project;
                     const budget = project.budget;
-                    const rab = budget ? Number(budget.rabTotal) : 0;
+                    const rab = budget ? Number(budget.nilaiKontrak) : 0;
                     const used = budget ? Number(budget.totalPengeluaran) : 0;
                     const rem = budget ? Number(budget.sisaBudget) : 0;
 

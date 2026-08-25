@@ -8,7 +8,6 @@ export type Project = {
   budget?: {
     id: number;
     nilaiKontrak?: string | number;
-    rabTotal: string;
     targetPemasukan?: string | number;
     totalPengeluaran: string;
     totalReimbursement: string;

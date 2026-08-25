@@ -155,9 +155,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json();
     const rawPosPengeluaran = body.posPengeluaran || body.posAnggaran;
     const rawPosPemasukan = body.posPemasukan;
-    const { rabTotal, nilaiKontrak, targetPemasukan } = body;
+    const { nilaiKontrak, targetPemasukan } = body;
 
-    if (!rawPosPengeluaran && !rawPosPemasukan && rabTotal === undefined && nilaiKontrak === undefined && targetPemasukan === undefined) {
+    if (!rawPosPengeluaran && !rawPosPemasukan && nilaiKontrak === undefined && targetPemasukan === undefined) {
       return NextResponse.json(
         { message: 'Pos pengeluaran / pemasukan atau nilai anggaran wajib diisi' },
         { status: 400 }
@@ -209,17 +209,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, 0);
     }
 
-    const parsedRabTotal = rabTotal !== undefined && rabTotal !== null
-      ? parseNumber(rabTotal)
-      : (rawPosPengeluaran ? sumPengeluaran : (existingBudget ? Number(existingBudget.rabTotal) : sumPengeluaran));
-
     const parsedTargetPemasukan = targetPemasukan !== undefined && targetPemasukan !== null
       ? parseNumber(targetPemasukan)
       : (rawPosPemasukan ? sumPemasukan : (existingBudget ? Number(existingBudget.targetPemasukan) : sumPemasukan));
 
     const parsedNilaiKontrak = nilaiKontrak !== undefined && nilaiKontrak !== null
       ? parseNumber(nilaiKontrak)
-      : (existingBudget && Number(existingBudget.nilaiKontrak) > 0 ? Number(existingBudget.nilaiKontrak) : (parsedRabTotal + parsedTargetPemasukan));
+      : (existingBudget && Number(existingBudget.nilaiKontrak) > 0 ? Number(existingBudget.nilaiKontrak) : (sumPengeluaran + sumPemasukan));
 
     const result = await prisma.$transaction(async (tx) => {
       if (existingBudget) {
@@ -346,9 +342,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           where: { id: existingBudget.id },
           data: {
             nilaiKontrak: parsedNilaiKontrak,
-            rabTotal: parsedRabTotal,
             targetPemasukan: parsedTargetPemasukan,
-            sisaBudget: parsedRabTotal - totalPengeluaran,
+            sisaBudget: parsedNilaiKontrak - totalPengeluaran,
           },
           include: {
             mainAnggaran: {
@@ -406,9 +401,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           data: {
             proyekId: parseInt(proyekId, 10),
             nilaiKontrak: parsedNilaiKontrak,
-            rabTotal: parsedRabTotal,
             targetPemasukan: parsedTargetPemasukan,
-            sisaBudget: parsedRabTotal,
+            sisaBudget: parsedNilaiKontrak,
             totalPengeluaran: 0,
             totalReimbursement: 0,
             totalPemasukan: 0,
@@ -435,7 +429,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         data: {
           userId: parseInt(userId, 10),
           aksi: 'input_rab',
-          detail: `Mengatur budget proyek ${project.nama}: Nilai Kontrak Rp ${parsedNilaiKontrak.toLocaleString('id-ID')}, RAB Pengeluaran Rp ${parsedRabTotal.toLocaleString('id-ID')}`,
+          detail: `Mengatur budget proyek ${project.nama}: Nilai Kontrak Rp ${parsedNilaiKontrak.toLocaleString('id-ID')}, Target Pemasukan Rp ${parsedTargetPemasukan.toLocaleString('id-ID')}`,
         },
       });
     }

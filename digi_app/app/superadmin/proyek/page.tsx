@@ -56,7 +56,7 @@ export default function KelolaProyekPage() {
   const [pendingPengajuan, setPendingPengajuan] = useState<any[]>([]);
   const [loadingPengajuan, setLoadingPengajuan] = useState(false);
 
-  const detailTotalRAB = parseFloat(detailedProjectInfo?.budget?.rabTotal) || 0;
+  const detailTotalRAB = parseFloat(detailedProjectInfo?.budget?.nilaiKontrak) || 0;
   const detailTotalTerpakai = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
   const detailPercentUsed = detailTotalRAB > 0 ? Math.round((detailTotalTerpakai / detailTotalRAB) * 100) : 0;
   const detailBarWidth = Math.min(detailPercentUsed, 100);
@@ -385,7 +385,7 @@ export default function KelolaProyekPage() {
         setEditForm({
           nama: data.project.nama,
           deskripsi: data.project.deskripsi || "",
-          rabTotal: data.project.budget ? formatRibuan(String(Math.round(Number(data.project.budget.nilaiKontrak || data.project.budget.rabTotal)))) : "",
+          rabTotal: data.project.budget ? formatRibuan(String(Math.round(Number(data.project.budget.nilaiKontrak)))) : "",
           tanggalMulai: data.project.tanggalMulai ? data.project.tanggalMulai.split('T')[0] : "",
           tanggalSelesai: data.project.tanggalSelesai ? data.project.tanggalSelesai.split('T')[0] : "",
           status: data.project.status,
@@ -413,7 +413,7 @@ export default function KelolaProyekPage() {
     setEditForm({
       nama: project.nama,
       deskripsi: project.deskripsi || "",
-      rabTotal: project.budget ? formatRibuan(String(Math.round(Number(project.budget.nilaiKontrak || project.budget.rabTotal)))) : "",
+      rabTotal: project.budget ? formatRibuan(String(Math.round(Number(project.budget.nilaiKontrak)))) : "",
       tanggalMulai: project.tanggalMulai ? project.tanggalMulai.split('T')[0] : "",
       tanggalSelesai: project.tanggalSelesai ? project.tanggalSelesai.split('T')[0] : "",
       status: project.status,
@@ -817,7 +817,7 @@ export default function KelolaProyekPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {projects.map((project) => {
             const hasBudget = !!project.budget;
-            const totalRAB = hasBudget ? (Number(project.budget!.nilaiKontrak || project.budget!.rabTotal) || 0) : 0;
+            const totalRAB = hasBudget ? (Number(project.budget!.nilaiKontrak) || 0) : 0;
             const sisa = hasBudget ? parseFloat(project.budget!.sisaBudget) : 0;
 
             return (

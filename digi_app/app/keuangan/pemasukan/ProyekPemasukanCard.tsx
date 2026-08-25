@@ -67,7 +67,7 @@ export default function ProyekPemasukanCard({
   const budget = proyek.budget;
   // Target pemasukan bisa dari targetPemasukan atau nilaiKontrak/rabTotal
   const targetPemasukan = budget
-    ? Number(budget.targetPemasukan || budget.nilaiKontrak || budget.rabTotal || 0)
+    ? Number(budget.targetPemasukan || budget.nilaiKontrak || 0)
     : 0;
   const realisasiPemasukan = budget ? Number(budget.totalPemasukan || 0) : 0;
   const sisaPemasukan = Math.max(0, targetPemasukan - realisasiPemasukan);

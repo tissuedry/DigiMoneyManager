@@ -138,7 +138,7 @@ export async function GET(
       proyek.status?.toUpperCase() === "SELESAI";
     const transaksiList = proyek.transaksiPemasukan || [];
     const nilaiProyekTotal = Number(
-      proyek.budget.nilaiKontrak || proyek.budget.rabTotal || 0
+      proyek.budget.nilaiKontrak || 0
     );
 
     // ==========================================

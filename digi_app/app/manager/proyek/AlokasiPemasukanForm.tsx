@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, SubmitEvent } from "react";
 import { X, Loader2, AlertCircle, TrendingUp } from "lucide-react";
 import { formatRibuan, ribuanToNumber } from "./utils";
 
@@ -18,7 +18,7 @@ type Props = {
   onSuccess: () => void;
 };
 
-export default function AlokasiPemasukanFormModal({
+export default function AlokasiPemasukanForm({
   isOpen,
   onClose,
   proyekId,
@@ -36,7 +36,6 @@ export default function AlokasiPemasukanFormModal({
     { deskripsi: "", nominalAlokasi: "" }
   ]);
 
-  // Fetch master data pemasukan
   useEffect(() => {
     if (!isOpen) return;
     let isMounted = true;
@@ -63,7 +62,6 @@ export default function AlokasiPemasukanFormModal({
     };
   }, [isOpen]);
 
-  // Inisialisasi list dari detailedProjectInfo (hanya 1 pos pemasukan)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -90,15 +88,14 @@ export default function AlokasiPemasukanFormModal({
   const totalNilaiProyekVal = Number(
     nilaiKontrak > 0
       ? nilaiKontrak
-      : (detailedProjectInfo?.budget?.nilaiKontrak || detailedProjectInfo?.budget?.rabTotal || 0)
+      : (detailedProjectInfo?.budget?.nilaiKontrak || 0)
   ) || 0;
 
-  // Pengeluaran yang sudah dialokasikan di RAB
-  const totalPengeluaranExisting = detailedProjectInfo?.budget?.rabTotal !== undefined
-    ? Number(detailedProjectInfo.budget.rabTotal)
-    : (detailedProjectInfo?.posAnggaran?.reduce((acc: number, p: any) => acc + (Number(p.alokasi || p.nominalAlokasi || p.nominal) || 0), 0) || 0);
+  const totalPengeluaranExisting = detailedProjectInfo?.budget?.posAnggaran?.reduce(
+    (acc: number, p: any) => acc + (Number(p.nominalAlokasi || p.alokasi || p.nominal) || 0),
+    0
+  ) || 0;
 
-  // Pemasukan yang dialokasikan di modal ini
   const totalPemasukanAllocated = posPemasukanList.reduce(
     (acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0),
     0
@@ -111,7 +108,7 @@ export default function AlokasiPemasukanFormModal({
   const pctPengeluaran = totalNilaiProyekVal > 0 ? (totalPengeluaranExisting / totalNilaiProyekVal) * 100 : 0;
   const pctPemasukan = totalNilaiProyekVal > 0 ? (totalPemasukanAllocated / totalNilaiProyekVal) * 100 : 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
     setError("");
 
@@ -123,7 +120,7 @@ export default function AlokasiPemasukanFormModal({
       }));
 
     if (validPemasukan.length === 0) {
-      setError("Pilih pos pemasukan dan isi nominal > 0");
+      setError("Pilih pos pemasukan dan isi nominal");
       return;
     }
 
@@ -154,114 +151,50 @@ export default function AlokasiPemasukanFormModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-100 flex items-center justify-center p-4">
       <div
-        style={{
-          width: 540,
-          background: "white",
-          boxShadow: "0px 24px 64px rgba(20, 18, 14, 0.28)",
-          overflow: "hidden",
-          borderRadius: 24,
-          display: "flex",
-          flexDirection: "column",
-          maxHeight: "92vh",
-          animation: "fadeIn 0.2s ease",
-        }}
+        className="w-135 bg-white shadow-[0_24px_64px_rgba(20,18,14,0.28)] overflow-hidden rounded-3xl flex flex-col max-h-[92vh] animate-[fadeIn_0.2s_ease]"
       >
-        {/* Header */}
-        <div
-          style={{
-            padding: "20px 24px",
-            borderBottom: "0.80px #E6E1D4 solid",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <div
-              style={{
-                fontFamily: "Plus Jakarta Sans",
-                fontWeight: 700,
-                fontSize: 17,
-                color: "#14130F",
-                lineHeight: "25.50px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
+        <div className="px-6 py-5 border-b border-[#E6E1D4] flex justify-between items-center shrink-0">
+          <div className="flex flex-col gap-0.5">
+            <div className="font-sans font-extrabold text-[17px] text-[#14130F] leading-[25.5px] flex items-center gap-2">
               <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
                 <TrendingUp size={13} className="text-emerald-700" strokeWidth={2.5} />
               </div>
               Alokasi Pemasukan
             </div>
-            <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 400, fontSize: 12, color: "#9A948B", lineHeight: "18px" }}>
+            <div className="font-sans font-normal text-xs text-[#9A948B] leading-4.5">
               {proyekNama}
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              padding: "6px 10px",
-              borderRadius: 12,
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            className="hover:bg-stone-100 transition cursor-pointer"
+            className="px-2.5 py-1.5 rounded-xl border-none bg-transparent cursor-pointer flex items-center justify-center hover:bg-stone-100 transition"
           >
             <X size={16} color="#2C2A24" />
           </button>
         </div>
 
-        {/* Body Form */}
-        <form onSubmit={handleSubmit} style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 px-6 py-5 overflow-y-auto flex flex-col gap-4">
 
-            {/* Total Nilai Proyek - Read Only Info */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ color: "#14130F", fontSize: 12.5, fontFamily: "Plus Jakarta Sans", fontWeight: "600" }}>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[#14130F] text-[12.5px] font-sans font-semibold">
                 Total Nilai Proyek
               </label>
               <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  width: "100%",
-                  height: 42,
-                  background: "#F8F7F4",
-                  borderRadius: 12,
-                  border: "1px solid #E6E1D4",
-                  paddingLeft: 12,
-                  paddingRight: 12,
-                }}
+                className="relative flex items-center w-full h-10.5 bg-[#F8F7F4] rounded-xl border border-[#E6E1D4] px-3"
               >
-                <span style={{ fontSize: 13.5, fontFamily: "IBM Plex Mono", fontWeight: "500", color: "#78716C", marginRight: 6 }}>Rp</span>
+                <span className="text-[13.5px] leading-none font-mono font-medium text-[#78716C] mr-1.5">Rp</span>
                 <span className="font-mono font-bold text-[14px] text-stone-900">
                   {formatRibuan(String(Math.round(totalNilaiProyekVal))) || "0"}
                 </span>
               </div>
             </div>
 
-            {/* Real-time Summary Card: Alokasi Dwi-Warna (Pengeluaran vs Pemasukan) */}
             <div
-              style={{
-                alignSelf: "stretch",
-                padding: "14px 16px",
-                background: "white",
-                borderRadius: 16,
-                border: "1.2px solid #E6E1D4",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
+              className="self-stretch px-4 py-3.5 bg-white rounded-2xl border-[1.2px] border-[#E6E1D4] flex flex-col gap-2.5"
             >
               <div className="flex justify-between items-center text-[12px] font-bold text-stone-700">
                 <span>Distribusi Nilai Proyek</span>
@@ -270,7 +203,6 @@ export default function AlokasiPemasukanFormModal({
                 </span>
               </div>
 
-              {/* Progress Bar Dwi-Warna */}
               <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden flex">
                 <div
                   className="h-full bg-rose-500 transition-all duration-300"
@@ -322,9 +254,8 @@ export default function AlokasiPemasukanFormModal({
               </div>
             </div>
 
-            {/* Pos Pemasukan (Single Selection) */}
             <div className="space-y-2">
-              <label className="block text-[12.5px] font-bold text-stone-900" style={{ fontFamily: "Plus Jakarta Sans" }}>
+              <label className="block text-[12.5px] font-bold text-stone-900 font-sans">
                 Pos Pemasukan
               </label>
 
@@ -384,56 +315,20 @@ export default function AlokasiPemasukanFormModal({
             )}
           </div>
 
-          {/* Footer */}
           <div
-            style={{
-              padding: "14px 24px",
-              borderTop: "0.80px #E6E1D4 solid",
-              display: "flex",
-              gap: 8,
-              background: "white",
-              flexShrink: 0,
-            }}
+            className="px-6 py-3.5 border-t border-[#E6E1D4] flex gap-2 bg-white shrink-0"
           >
             <button
               type="button"
               onClick={onClose}
-              style={{
-                flex: 1,
-                padding: "9px 14px",
-                background: "white",
-                border: "0.80px solid #E6E1D4",
-                borderRadius: 12,
-                fontFamily: "Plus Jakarta Sans",
-                fontWeight: "600",
-                fontSize: 13,
-                color: "#14130F",
-                cursor: "pointer",
-              }}
-              className="hover:bg-stone-50 transition"
+              className="flex-1 px-3.5 py-2.5 bg-white border-[0.8px] border-[#E6E1D4] rounded-xl font-sans font-semibold text-[13px] text-[#14130F] cursor-pointer hover:bg-stone-50 transition"
             >
               Batalkan
             </button>
             <button
               type="submit"
               disabled={submitting || isOverbudget}
-              style={{
-                flex: 1,
-                padding: "9px 14px",
-                background: isOverbudget ? "#A1A1AA" : "black",
-                border: "none",
-                borderRadius: 12,
-                fontFamily: "Plus Jakarta Sans",
-                fontWeight: "600",
-                fontSize: 13,
-                color: "white",
-                cursor: isOverbudget ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-              }}
-              className="hover:opacity-80 transition"
+              className={`flex-1 px-3.5 py-2.5 rounded-xl font-sans font-semibold text-[13px] text-white ${isOverbudget ? "bg-[#A1A1AA] cursor-not-allowed" : "bg-black cursor-pointer"} flex items-center justify-center gap-1.5 hover:opacity-80 transition`}
             >
               {submitting && <Loader2 size={13} className="animate-spin" />}
               Simpan Alokasi Pemasukan

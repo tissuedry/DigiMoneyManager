@@ -263,9 +263,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
 
       if (existingBudget) {
-        const currentRabTotal = Number(existingBudget.rabTotal) || 0;
         const currentTargetPemasukan = Number(existingBudget.targetPemasukan) || 0;
-        const totalPos = currentRabTotal + currentTargetPemasukan;
+        const pengeluaranAlokasi = (existingBudget.mainAnggaran || [])
+          .filter((m: any) => m.tipe !== 'pemasukan')
+          .reduce((sum: number, m: any) => sum + Number(m.nominalAlokasi), 0);
+        const totalPos = pengeluaranAlokasi + currentTargetPemasukan;
 
         if (totalPos > parsedNilai && totalPos > 0) {
           return NextResponse.json({
@@ -277,8 +279,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           where: { id: existingBudget.id },
           data: {
             nilaiKontrak: parsedNilai,
-            rabTotal: currentRabTotal > 0 ? currentRabTotal : parsedNilai,
-            sisaBudget: (currentRabTotal > 0 ? currentRabTotal : parsedNilai) - Number(existingBudget.totalPengeluaran),
+            sisaBudget: parsedNilai - Number(existingBudget.totalPengeluaran),
           },
         });
       } else {
@@ -286,7 +287,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           data: {
             proyekId,
             nilaiKontrak: parsedNilai,
-            rabTotal: parsedNilai,
             targetPemasukan: 0,
             sisaBudget: parsedNilai,
             totalPengeluaran: 0,
@@ -332,7 +332,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       if (budget) {
         const totalPengeluaran = Number(budget.totalPengeluaran || 0);
-        const nilaiKontrakVal = Number(budget.nilaiKontrak || budget.rabTotal || 0);
+        const nilaiKontrakVal = Number(budget.nilaiKontrak || 0);
         const realisasiPemasukan = Math.max(0, nilaiKontrakVal - totalPengeluaran);
 
         await prisma.budget.update({
