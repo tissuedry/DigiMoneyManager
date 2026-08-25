@@ -44,16 +44,11 @@ export async function GET(request: Request) {
 
     const workbook = new ExcelJS.Workbook();
 
-    // ==========================================================================
-    // STYLING — direplikasi persis dari file "Chart of Accounts (per tahun).xlsx"
-    // (warna diambil dari theme color Excel: theme1 tint 0.25 -> #404040,
-    //  theme0 tint -0.5 -> #808080, theme0 tint -0.25 -> #BFBFBF)
-    // ==========================================================================
     const FONT_FAMILY = "Trebuchet MS";
     const FONT_SIZE = 11;
 
-    const fillDark: ExcelJS.FillPattern = { type: "pattern", pattern: "solid", fgColor: { argb: "FF404040" } }; // Judul, header bulan, header kategori, baris Total
-    const fillMain: ExcelJS.FillPattern = { type: "pattern", pattern: "solid", fgColor: { argb: "FF808080" } }; // Baris Main (level 1)
+    const fillDark: ExcelJS.FillPattern = { type: "pattern", pattern: "solid", fgColor: { argb: "FF404040" } };
+    const fillMain: ExcelJS.FillPattern = { type: "pattern", pattern: "solid", fgColor: { argb: "FF808080" } };
     const fillSub: ExcelJS.FillPattern = { type: "pattern", pattern: "solid", fgColor: { argb: "FFBFBFBF" } }; // Baris Sub (level 2)
 
     const fontWhite = { name: FONT_FAMILY, size: FONT_SIZE, bold: true, color: { argb: "FFFFFFFF" } };
@@ -69,7 +64,6 @@ export async function GET(request: Request) {
     const RP_FORMAT = '_-"Rp"* #,##0_-;-"Rp"* #,##0_-;_-"Rp"* "-"_-;_-@_-';
     const TEXT_FORMAT = "@";
 
-    /** Mewarnai + memberi border + font pada seluruh sel dari kolom 1 s/d lastCol pada sebuah row */
     function styleFullRow(
       row: ExcelJS.Row,
       lastCol: number,
@@ -87,11 +81,6 @@ export async function GET(request: Request) {
       }
     }
 
-    // ==========================================
-    // SHEET 1: PEMASUKAN
-    // Layout kolom mengikuti sheet "Pendapatan" pada template:
-    // A=No | B=Kode Main | C=Nama Main / Kode Sub | D=Nama Sub | E..P=Bulan | Q=Total
-    // ==========================================
     const sheetPem = workbook.addWorksheet("Pemasukan");
     const LAST_COL_PEM = 17; // A..Q
 
@@ -107,12 +96,9 @@ export async function GET(request: Request) {
       { key: "total", width: 20.83203125 }, // Q
     ];
 
-    // Row 1: Judul
     const row1Pem = sheetPem.addRow({ kode: `Laporan Pemasukan Tahunan PT Metanouva Informatika Tahun ${tahun}` });
     styleFullRow(row1Pem, LAST_COL_PEM, fillDark, fontWhite);
     row1Pem.getCell(2).alignment = { horizontal: "left", vertical: "middle" };
-
-    // Row 2: Header Bulan
     const row2Pem = sheetPem.addRow({
       kode: "Bulan",
       m1: "JANUARI", m2: "FEBRUARI", m3: "MARET", m4: "APRIL", m5: "MEI", m6: "JUNI",
@@ -123,7 +109,6 @@ export async function GET(request: Request) {
     row2Pem.getCell(2).alignment = { horizontal: "left", vertical: "middle" };
     for (let c = 5; c <= LAST_COL_PEM; c++) row2Pem.getCell(c).alignment = { horizontal: "center", vertical: "middle" };
 
-    // Row 3: Header Kategori "4 PENDAPATAN PROYEK / OPERATING REVENUE" + "REALISASI"
     const row3Pem = sheetPem.addRow({ num: 4, kode: "PENDAPATAN PROYEK / OPERATING REVENUE", m1: "REALISASI" });
     styleFullRow(row3Pem, LAST_COL_PEM, fillDark, fontWhite);
     row3Pem.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
@@ -136,12 +121,9 @@ export async function GET(request: Request) {
 
     const mainPemMap = new Map();
 
-    // --- AGREGASI DATA PEMASUKAN ---
     proyekList.forEach((proyek) => {
       const pemasukanMains = proyek.budget?.mainAnggaran.filter(m => m.tipe === "pemasukan") || [];
       const hasPemasukan = pemasukanMains.length > 0;
-
-      // 1. Cek Pos Pemasukan (Realisasi dari Reimbursement Pemasukan)
       if (hasPemasukan) {
         pemasukanMains.forEach((main) => {
           const mainKey = main.namaMain.trim().toUpperCase();
@@ -194,7 +176,6 @@ export async function GET(request: Request) {
         });
       }
 
-      // 2. Cek Termin Pembayaran (Digabungkan langsung ke Penjualan Jasa)
       if (proyek.terminPembayaran && proyek.terminPembayaran.length > 0) {
         proyek.terminPembayaran.forEach((termin) => {
           const nominal = Number(termin.nominal) || 0;
@@ -203,7 +184,6 @@ export async function GET(request: Request) {
           if (d.getFullYear() === tahun) {
             const mIdx = d.getMonth();
 
-            // Paksa masuk ke map Penjualan Jasa
             const mainKey = "PENJUALAN JASA";
             if (!mainPemMap.has(mainKey)) {
               mainPemMap.set(mainKey, {
@@ -225,7 +205,6 @@ export async function GET(request: Request) {
             }
             const subData = mainData.subAnggaranMap.get(targetSubKey);
 
-            // Termin adalah Realisasi, tambahkan ke months & total
             subData.months[mIdx] += nominal;
             subData.total += nominal;
             mainData.months[mIdx] += nominal;
@@ -238,9 +217,8 @@ export async function GET(request: Request) {
       }
     });
 
-    // --- Baris Main & Sub (kode akun terpisah di kolom sendiri, sesuai template) ---
     let pemCounter = 1;
-    let currentRowPem = 4; // baris berikutnya setelah header (row 1-3)
+    let currentRowPem = 4; 
     const mainPemArray = Array.from(mainPemMap.values());
 
     mainPemArray.forEach((main: any) => {
@@ -275,12 +253,9 @@ export async function GET(request: Request) {
         currentRowPem++;
       });
 
-      // spacer row (tidak diberi style khusus, sama seperti versi sebelumnya)
       sheetPem.addRow({});
       currentRowPem++;
     });
-
-    // Baris Total (di paling bawah tabel, mengikuti posisi pada template)
     const rowTotalPem = sheetPem.addRow({
       kode: "Total",
       m1: grandTotalMonthsPem[0], m2: grandTotalMonthsPem[1], m3: grandTotalMonthsPem[2], m4: grandTotalMonthsPem[3],
@@ -292,11 +267,7 @@ export async function GET(request: Request) {
     rowTotalPem.getCell(2).alignment = { horizontal: "left", vertical: "middle" };
     for (let c = 5; c <= LAST_COL_PEM; c++) { rowTotalPem.getCell(c).alignment = { horizontal: "right", vertical: "middle" }; rowTotalPem.getCell(c).numFmt = RP_FORMAT; }
 
-    // ==========================================
-    // SHEET 2: PENGELUARAN
-    // Layout kolom mengikuti sheet "Biaya Proyek" pada template:
-    // A=No | B=Kode Main | C=Nama Main / Kode Sub | D=Nama Sub | E..P=Bulan | Q=Total
-    // ==========================================
+
     const sheetPeng = workbook.addWorksheet("Pengeluaran");
     const LAST_COL_PENG = 17; // A..Q
 
@@ -312,12 +283,10 @@ export async function GET(request: Request) {
       { key: "total", width: 20.83203125 }, // Q
     ];
 
-    // Row 1: Judul
     const row1Peng = sheetPeng.addRow({ kode: `Laporan Pengeluaran Tahunan PT Metanouva Informatika Tahun ${tahun}` });
     styleFullRow(row1Peng, LAST_COL_PENG, fillDark, fontWhite);
     row1Peng.getCell(2).alignment = { horizontal: "left", vertical: "middle" };
 
-    // Row 2: Header Bulan
     const row2Peng = sheetPeng.addRow({
       kode: "Bulan",
       m1: "JANUARI", m2: "FEBRUARI", m3: "MARET", m4: "APRIL", m5: "MEI", m6: "JUNI",
@@ -328,7 +297,6 @@ export async function GET(request: Request) {
     row2Peng.getCell(2).alignment = { horizontal: "left", vertical: "middle" };
     for (let c = 5; c <= LAST_COL_PENG; c++) row2Peng.getCell(c).alignment = { horizontal: "center", vertical: "middle" };
 
-    // Row 3: Header Kategori "5 BIAYA PROYEK / COST OF REVENUE" + "REALISASI"
     const row3Peng = sheetPeng.addRow({ num: 5, kode: "BIAYA PROYEK / COST OF REVENUE", m1: "REALISASI" });
     styleFullRow(row3Peng, LAST_COL_PENG, fillDark, fontWhite);
     row3Peng.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
@@ -392,7 +360,6 @@ export async function GET(request: Request) {
       });
     });
 
-    // --- Baris Main & Sub (kode akun di kolom sendiri, sesuai template) ---
     const mainPengArray = Array.from(mainPengMap.values());
 
     mainPengArray.forEach((main: any, mIdx: number) => {
@@ -426,7 +393,6 @@ export async function GET(request: Request) {
       sheetPeng.addRow({});
     });
 
-    // Baris Total (di paling bawah tabel, mengikuti posisi pada template)
     const rowTotalPeng = sheetPeng.addRow({
       kode: "Total",
       m1: grandTotalMonthsPeng[0], m2: grandTotalMonthsPeng[1], m3: grandTotalMonthsPeng[2], m4: grandTotalMonthsPeng[3],

@@ -11,7 +11,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized: No user session found' }, { status: 401 });
     }
 
-    // ponytail: cache per user — data rarely changes, called 2-5x per page load
     const cacheKey = `me:${userId}`;
     const cached = getCached(cacheKey);
     if (cached) {
@@ -66,7 +65,6 @@ export async function GET(req: NextRequest) {
     let primaryRole = user.role;
     const rolesSet = new Set<string>();
 
-    // 1. Normalisasi string role untuk pengecekan kebal huruf besar/kecil/spasi
     const roleLower = (user.role || '').toLowerCase().trim();
     const isSuperAdmin = roleLower === 'superadmin' || roleLower === 'super admin';
 
@@ -75,7 +73,6 @@ export async function GET(req: NextRequest) {
       roleLower === 'tim keuangan' || 
       isSuperAdmin
     ) {
-      // 2. Pembakuan mutlak penulisan role agar selalu dikenali sebagai "Superadmin"
       if (isSuperAdmin) {
         primaryRole = 'Superadmin';
       }
@@ -117,10 +114,8 @@ export async function GET(req: NextRequest) {
       assignments,
     };
 
-    // Cache the resolved user object (without password) for 60s
     setCache(cacheKey, responseUser);
 
-    // Re-sign JWT Token to keep session current with database updates
     const token = signToken({
       id: user.id,
       nama: user.nama,
@@ -132,13 +127,12 @@ export async function GET(req: NextRequest) {
 
     const response = NextResponse.json({ user: responseUser });
 
-    // Set token in Cookie (httpOnly, secure, lax, expires in 24h)
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24,
     });
 
     return response;

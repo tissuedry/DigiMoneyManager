@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
-// GET: Fetch all projects with budget information (filtered by user assignment for Karyawan and Project Manager)
 export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -21,7 +20,6 @@ export async function GET(req: NextRequest) {
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    // Filter berdasarkan Role & User ID
     let roleFilter: any = {};
     if (userId) {
       if (urlRole === 'Karyawan') {
@@ -45,7 +43,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Logika Search
     let searchFilter: any = {};
     if (search) {
       searchFilter = {
@@ -56,7 +53,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Logika Filter Status Tab
     let statusFilter: any = {};
     if (status && status !== 'Semua') {
       let mappedStatus = status.toUpperCase();
@@ -239,8 +235,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-
-// POST: Create a new project (PM or Tim Keuangan only)
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');

@@ -5,7 +5,6 @@ export async function POST(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');
     if (userId) {
-      // Create audit trail log for logout
       const user = await prisma.user.findUnique({
         where: { id: parseInt(userId, 10) },
         select: { nama: true },
@@ -23,7 +22,6 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({ message: 'Logout successful' });
     
-    // Clear cookie by setting it with maxAge: 0
     response.cookies.set('auth_token', '', {
       httpOnly: true,
       path: '/',

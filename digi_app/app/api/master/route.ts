@@ -6,7 +6,6 @@ function isSuperAdmin(role: string | null) {
   return role === 'Superadmin' || role === 'superadmin';
 }
 
-// GET: Mengambil daftar data master
 export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -64,7 +63,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
-// POST: Menambahkan data master baru
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -108,7 +106,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });
     }
 
-    // Catat ke Audit Trail
     if (adminId) {
       await prisma.auditTrail.create({
         data: {

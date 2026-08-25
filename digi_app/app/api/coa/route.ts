@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
-// GET: List all aset master accounts as COA
 export async function GET(req: NextRequest) {
   try {
     const cached = getCached('coa');
@@ -42,7 +41,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Create a new pemasukan account via master main / sub
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');

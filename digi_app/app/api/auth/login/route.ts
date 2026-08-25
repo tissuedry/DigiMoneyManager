@@ -32,7 +32,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Get user's project associations and roles
     const userProyeks = await prisma.userProyek.findMany({
       where: { userId: user.id },
     });
@@ -40,13 +39,11 @@ export async function POST(req: Request) {
 
     const rolesSet = new Set<string>();
     
-    // PERBAIKAN: Bersihkan spasi dan ubah ke huruf kecil semua untuk pengecekan
     const safeRole = (user.role || '').trim();
     const dbRoleLower = safeRole.toLowerCase();
 
     let primaryRole = safeRole;
 
-    // Mengecek segala kemungkinan penulisan di database yang sudah dinormalisasi
     const isSuperAdmin = dbRoleLower === 'superadmin' || dbRoleLower === 'super admin';
 
     if (
@@ -60,7 +57,6 @@ export async function POST(req: Request) {
         primaryRole = 'Superadmin'; 
         rolesSet.add('Superadmin');
       } else {
-        // Menggunakan role yang sudah di-trim untuk estetika
         rolesSet.add(safeRole); 
       }
     } else {
@@ -75,14 +71,12 @@ export async function POST(req: Request) {
     
     const allowedRoles = Array.from(rolesSet);
 
-    // DEBUGGING TAHAP 1: Cek di terminal saat Anda login
     console.log("=== ROLE CHECK ===", {
       roleAsliDariDB: user.role,
       roleSetelahDibersihkan: primaryRole,
       isSuperAdmin: isSuperAdmin
     });
 
-    // Sign JWT Token
     const token = signToken({
       id: user.id,
       nama: user.nama,
@@ -92,7 +86,6 @@ export async function POST(req: Request) {
       proyekId: null, 
     });
 
-    // Create audit trail log
     await prisma.auditTrail.create({
       data: {
         userId: user.id,
@@ -101,7 +94,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // Don't return password
     const { passwordHash: _, ...userWithoutPassword } = user;
     const responseUser = {
       ...userWithoutPassword,
@@ -120,7 +112,7 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24,
     });
 
     return response;

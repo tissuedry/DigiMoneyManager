@@ -14,7 +14,6 @@ function isFinanceOrAdmin(role: string | null, rolesHeader: string | null) {
   );
 }
 
-// GET: Mengambil detail satu transaksi pemasukan
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -42,7 +41,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// PUT: Memperbarui transaksi pemasukan
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -157,7 +155,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE: Menghapus transaksi pemasukan
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');

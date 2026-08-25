@@ -88,7 +88,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json();
     const { mainAnggaranId, subAnggaranId, alokasiBaru, namaMain, namaSub, nominal } = body;
 
-    // ─── SKENARIO 1: Tambah Main baru ───────────────────────────────────────
     if (namaMain && !namaSub && !mainAnggaranId) {
       const nominalNum = Number(nominal) || 0;
       if (!namaMain || nominalNum <= 0) {
@@ -117,7 +116,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: true, data: newMain }, { status: 201 });
     }
 
-    // ─── SKENARIO 2: Tambah Sub baru ────────────────────────────────────────
     if (namaMain && namaSub) {
       const nominalNum = Number(nominal) || 0;
       if (!namaSub || nominalNum <= 0) {
@@ -132,7 +130,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ message: 'Budget belum diinisialisasi untuk proyek ini' }, { status: 404 });
       }
 
-      // Cari mainAnggaran berdasarkan namaMain
       const mainAnggaran = await prisma.mainAnggaran.findFirst({
         where: { budgetId: budget.id, namaMain, tipe: 'pemasukan' },
         include: { subAnggaran: true },
@@ -142,7 +139,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ message: 'Main Anggaran tidak ditemukan' }, { status: 404 });
       }
 
-      // Validasi kuota main
       const totalSubSebelumnya = mainAnggaran.subAnggaran.reduce(
         (sum, sub) => sum + Number(sub.nominalAlokasi || 0),
         0
@@ -171,7 +167,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: true, data: newSub }, { status: 201 });
     }
 
-    // ─── SKENARIO 3: Edit Alokasi Main atau Sub ──────────────────────────────
     if (!mainAnggaranId || alokasiBaru === undefined || alokasiBaru < 0) {
       return NextResponse.json(
         { message: 'mainAnggaranId dan alokasiBaru wajib diisi dengan benar' },
@@ -189,7 +184,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         throw new Error('ValidationError: Main Anggaran tidak ditemukan');
       }
 
-      // Jika subAnggaranId dikirim, update SubAnggaran
       if (subAnggaranId) {
         const subAnggaran = await tx.subAnggaran.findUnique({ where: { id: subAnggaranId } });
         if (!subAnggaran) throw new Error('ValidationError: Sub Anggaran tidak ditemukan');
@@ -201,7 +195,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return { targetRecord: updatedSub };
       }
 
-      // Update MainAnggaran
       const sumSub = mainAnggaran.subAnggaran.reduce(
         (acc, sub) => acc + Number(sub.nominalAlokasi || 0),
         0

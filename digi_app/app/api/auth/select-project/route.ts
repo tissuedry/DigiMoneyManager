@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
 
     const targetProyekId = parseInt(proyekId, 10);
 
-    // 1. Fetch user to verify they exist and get details
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -35,7 +34,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'User tidak ditemukan' }, { status: 404 });
     }
 
-    // 2. Determine allowed roles for this user globally
     const allUserProyeks = await prisma.userProyek.findMany({
       where: { userId },
     });
@@ -52,17 +50,15 @@ export async function POST(req: NextRequest) {
     }
     const allowedRoles = Array.from(rolesSet);
 
-    // 3. Resolve role for this specific selected project
     let primaryRole = user.role;
     if (user.role !== 'Direktur / Manajemen' && user.role !== 'Tim Keuangan') {
-      const assignment = user.proyek[0]; // Filtered by where proyekId in include
+      const assignment = user.proyek[0];
       if (!assignment) {
         return NextResponse.json({ message: 'Anda tidak ditugaskan pada proyek ini' }, { status: 403 });
       }
       primaryRole = assignment.role === 'Anggota Lapangan' ? 'Karyawan' : 'Project Manager';
     }
 
-    // 4. Sign updated JWT Token with the selected project context
     const token = signToken({
       id: user.id,
       nama: user.nama,
@@ -72,26 +68,22 @@ export async function POST(req: NextRequest) {
       proyekId: targetProyekId,
     });
 
-    // 5. Clear caches — project switch changes dashboard + me data
     clearCache(`me:${userIdStr}`);
     clearCache('dashboard:');
     clearCache('proyek:');
     clearCache('reimb:');
-
-    // 6. Create Response
     const redirectUrl = primaryRole === 'Project Manager' ? '/pm' : '/karyawan';
     const response = NextResponse.json({
       message: 'Project selected successfully',
       redirectUrl,
     });
 
-    // 6. Set token in Cookie (httpOnly, secure, lax, expires in 24h)
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24,
     });
 
     return response;
