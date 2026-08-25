@@ -8,6 +8,7 @@ import ConfirmDialog from '@/components/confirm-dialog';
 import ImagePreviewModal from './ImagePreviewModal';
 import ReimbursementDetailPanel from './ReimbursementDetailPanel';
 import CompactNominal from '@/components/compact-nominal';
+import { formatTanggal } from '@/lib/formatters';
 
 type Submission = {
   id: string;
@@ -24,14 +25,6 @@ type Submission = {
 };
 
 const TABS = ["Semua", "Menunggu PM", "Menunggu Keuangan", "Dicairkan", "Ditolak"];
-
-function formatTanggal(iso: string) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
-  return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
-}
 
 function makeDisplayId(id: string, index: number) {
   const num = String(index + 1).padStart(3, "0");

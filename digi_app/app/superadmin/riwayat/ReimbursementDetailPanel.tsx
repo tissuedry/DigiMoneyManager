@@ -2,16 +2,7 @@
 
 import React from "react";
 import { X, Download, RefreshCw, AlertTriangle, ZoomIn } from "lucide-react";
-
-function formatTanggalLong(iso: string) {
-  if (!iso) return "";
-
-  const d = new Date(iso);
-
-  if (isNaN(d.getTime())) return iso;
-  const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-  return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
-}
+import { formatTanggalLong, formatApprovalDate } from "@/lib/formatters";
 
 type StepStatus = "done" | "active" | "waiting" | "rejected";
 
@@ -29,15 +20,6 @@ function getApprovalSteps(raw: any, allRaw: any[] = []): ApprovalStep[] {
 
   const pmApprover = pmApproval?.approver?.nama || "Muhammad Alvin Ababli";
   const financeApprover = financeApproval?.approver?.nama || "Muhammad Zaini";
-
-  const formatApprovalDate = (ts: string) => {
-    if (!ts) return "";
-
-    const d = new Date(ts);
-
-    if (isNaN(d.getTime())) return "";
-    return `${d.getDate()} ${["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"][d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-  };
 
   const submittedDate = raw.createdAt;
   const submitterName = raw.user?.nama || "Karyawan";

@@ -5,12 +5,7 @@ import { X, Upload, Loader2, Search, ChevronRight, Plus } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
 import Toast from "@/components/toast";
-
-function formatRupiah(value: string): string {
-  const digitsOnly = value.replace(/\D/g, "");
-  if (!digitsOnly) return "";
-  return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
+import { formatRupiah } from "@/lib/formatters";
 
 type FlatKeteranganOption = {
   id: string;
