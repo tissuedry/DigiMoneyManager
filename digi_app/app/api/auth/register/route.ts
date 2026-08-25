@@ -15,10 +15,8 @@ export async function POST(req: Request) {
     }
     const { nama, email, password, role, proyekId } = result.data;
 
-    // PERBAIKAN: Gunakan .trim() untuk menghapus spasi yang tidak sengaja terketik
     const trimmedEmail = email.trim();
 
-    // Check if email already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: trimmedEmail },
     });
@@ -29,13 +27,12 @@ export async function POST(req: Request) {
 
     const hashedPassword = await hashPassword(password);
 
-    // PERBAIKAN: Normalisasi Role agar selalu konsisten di database
     const safeRole = (role || '').trim();
     const roleLower = safeRole.toLowerCase();
     let normalizedRole = safeRole;
 
     if (roleLower === 'superadmin' || roleLower === 'super admin') {
-      normalizedRole = 'Superadmin'; // Baku-kan menjadi "Superadmin"
+      normalizedRole = 'Superadmin';
     }
 
     const user = await prisma.user.create({
@@ -43,17 +40,16 @@ export async function POST(req: Request) {
         nama,
         email: trimmedEmail,
         passwordHash: hashedPassword,
-        role: normalizedRole, // Simpan role yang sudah dibakukan
+        role: normalizedRole,
       },
     });
 
     if (proyekId) {
-      // Penyesuaian pemetaan role pada proyek
       let projectRole = 'Anggota Lapangan';
       if (normalizedRole === 'Project Manager') {
         projectRole = 'Project Manager';
       } else if (normalizedRole === 'Superadmin') {
-        projectRole = 'Superadmin'; // Disamakan dengan role utamanya agar tidak bingung
+        projectRole = 'Superadmin';
       } else if (normalizedRole === 'Direktur / Manajemen' || normalizedRole === 'Tim Keuangan') {
         projectRole = normalizedRole;
       }
@@ -67,7 +63,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // Create an audit trail log
     await prisma.auditTrail.create({
       data: {
         userId: user.id,
@@ -76,7 +71,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // Don't return password
     const { passwordHash: _, ...userWithoutPassword } = user;
 
     return NextResponse.json({ message: 'User registered successfully', user: userWithoutPassword }, { status: 201 });

@@ -6,13 +6,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const proyekId = parseInt(id, 10);
 
-    // Ambil hanya termin yang statusnya sudah DITERIMA (sudah dicairkan)
     const riwayatPencairan = await prisma.terminPembayaran.findMany({
       where: { 
         proyekId,
         status: 'DITERIMA' 
       },
-      orderBy: { tanggalPencairan: 'desc' }, // Urutkan dari yang terbaru
+      orderBy: { tanggalPencairan: 'desc' }, 
     });
 
     return NextResponse.json({ success: true, data: riwayatPencairan });

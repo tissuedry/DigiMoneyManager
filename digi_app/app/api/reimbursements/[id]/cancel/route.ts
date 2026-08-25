@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-// POST: Cancel (permanently delete) a pending pengajuan (Karyawan or PM)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -26,7 +25,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'Forbidden: You can only cancel your own submissions' }, { status: 403 });
     }
 
-    // Ambil tipe pengajuan (Reimbursement atau Realisasi Anggaran)
     const tipePengajuan = reimbursement.tipe || 'Pengajuan';
 
     const isKaryawanPending = reimbursement.status === 'SUBMITTED';

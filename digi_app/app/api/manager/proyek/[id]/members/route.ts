@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: Fetch all members assigned to this project
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -44,7 +43,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// PUT: Set the list of assigned members for this project
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -64,13 +62,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'userIds or members array is required' }, { status: 400 });
     }
 
-    // Verify project exists
     const project = await prisma.proyek.findUnique({ where: { id: proyekId } });
     if (!project) {
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
-
-    // Check existing project members to avoid redundant update
     const existingMembers = await prisma.userProyek.findMany({
       where: { proyekId },
       select: { userId: true, role: true },
@@ -150,7 +145,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       await deleteOp;
     }
 
-    // Audit trail
     if (adminId) {
       await prisma.auditTrail.create({
         data: {

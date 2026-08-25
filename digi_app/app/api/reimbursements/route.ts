@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
 import { uploadStrukToSupabase } from '@/lib/supabase-storage';
 
-// Helper to map DB fields to client fields
 const mapReimbursement = (r: any, masterAsetList: any[] = []) => {
   if (!r) return null;
 
@@ -31,7 +30,6 @@ const mapReimbursement = (r: any, masterAsetList: any[] = []) => {
   };
 };
 
-// GET: Fetch reimbursement lists based on user role
 export async function GET(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -136,7 +134,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Submit a reimbursement / realisasi (Supports both multipart/form-data and raw JSON)
 export async function POST(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -152,7 +149,6 @@ export async function POST(req: NextRequest) {
     let strukUrl = '';
     let ocrData: any = {};
     
-    // Variabel penampung hasil ekstrak
     let nama = '';
     let merchant = '';
     let tanggalStruk: Date | null = null;
@@ -173,7 +169,6 @@ export async function POST(req: NextRequest) {
       if (rawTgl) tanggalStruk = new Date(rawTgl as string);
       kategoriBukti = (formData.get('kategoriBukti') as string) || '';
 
-      // Ekstrak createdAt jika dikirim dari frontend
       const rawCreatedAt = formData.get('createdAt') || formData.get('submittedAt');
       if (rawCreatedAt) createdAt = new Date(rawCreatedAt as string);
 
@@ -215,7 +210,6 @@ export async function POST(req: NextRequest) {
 
       kategoriBukti = body.kategoriBukti || '';
 
-      // Ekstrak createdAt jika dikirim dari frontend
       if (body.createdAt || body.submittedAt) {
         createdAt = new Date(body.createdAt || body.submittedAt);
       }
@@ -263,14 +257,12 @@ export async function POST(req: NextRequest) {
         urlStruk: strukUrl,
         status: initialStatus,
         
-        // Atribut tersendiri sesuai skema prisma
         nama: nama || null,
         tipe: tipePengajuan,
         merchant: merchant || null,
         tanggalStruk: (tanggalStruk && !isNaN(tanggalStruk.getTime())) ? tanggalStruk : null,
         kategoriBukti: kategoriBukti || null,
         
-        // Simpan createdAt jika ada nilai yang valid dikirimkan
         ...(createdAt && !isNaN(createdAt.getTime()) && { createdAt }),
       },
       include: {
@@ -296,7 +288,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // --- LOGIKA NOTIFIKASI & APPROVAL OTOMATIS ---
     if (initialStatus === 'SUBMITTED') {
       const pmUsers = await prisma.user.findMany({
         where: {

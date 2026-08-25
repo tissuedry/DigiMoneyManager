@@ -21,7 +21,6 @@ async function canAccess(userId: string | null, userRole: string | null, proyekI
   return false;
 }
 
-// GET: Retrieve a project with its full budget, expenses, and budget items
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -158,7 +157,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         })),
     } : null;
 
-    // Calculate cash flow for different ranges
     const getCashFlowForMonths = (monthsCount: number) => {
       const flow: { bulan: string; inflow: number; outflow: number }[] = [];
       const now = new Date();
@@ -229,7 +227,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// PUT: Update project details
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -318,7 +315,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
-    // Otomasi Realisasi Pemasukan saat Proyek SELESAI / DONE
     if (status === 'DONE' || status === 'SELESAI') {
       const budget = await prisma.budget.findUnique({
         where: { proyekId },
@@ -348,7 +344,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             data: { nominalTerpakai: realisasiPemasukan },
           });
 
-          // Cari sub penjualan utama (bukan diskon, retur, atau biaya lainnya)
           const primarySub = mainPemasukan.subAnggaran.find((s) => {
             const sName = (s.namaSub || '').trim().toLowerCase();
             return (
@@ -369,7 +364,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 data: { nominalTerpakai: realisasiPemasukan },
               });
             } else {
-              // Reset sub non-penjualan yang tidak memiliki transaksi riil
               const realTx = await prisma.transaksiPemasukan.findMany({
                 where: {
                   proyekId,
@@ -486,7 +480,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE: Delete a project (Direktur / Super Admin only)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -504,13 +497,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params;
     const proyekId = parseInt(id, 10);
 
-    // Verify project exists
     const project = await prisma.proyek.findUnique({ where: { id: proyekId } });
     if (!project) {
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
-
-    // Perform deletion in a batch transaction to handle non-cascading relations safely (safe for PgBouncer)
     const deleteReimbursements = prisma.reimbursement.deleteMany({
       where: { proyekId },
     });
@@ -522,7 +512,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await prisma.$transaction([deleteReimbursements, deleteProject]);
 
     if (userId) {
-      // PERUBAHAN: Menyesuaikan identitas actor untuk Audit Trail
       const actor = (userRole === 'Superadmin' || userRole === 'superadmin') 
         ? 'Superadmin' 
         : 'Direktur';

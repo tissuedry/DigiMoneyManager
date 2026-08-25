@@ -62,18 +62,8 @@ export async function GET(
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "Sistem Manajemen Proyek";
-
-    // ==========================================
-    // DEFINISI STYLE — DISALIN PERSIS DARI TEMPLATE COA
-    // (warna hasil decode theme color + tint milik template asli)
-    // ==========================================
     const FONT_FAMILY = "Trebuchet MS";
 
-    // Fills (Tingkat Hirarki) — persis sesuai theme+tint template
-    // Level 1 = theme dk1 (hitam) + tint 0.25   -> #404040
-    // Level 2 = theme lt1 (putih) + tint -0.50  -> #7F7F7F ("Darker 50%")
-    // Level 3 = theme lt1 (putih) + tint -0.25  -> #BFBFBF ("Darker 25%")
-    // Level 4 = theme lt1 (putih) + tint -0.15  -> #D9D9D9 ("Darker 15%")
     const fillLevel1: ExcelJS.Fill = {
       type: "pattern",
       pattern: "solid",
@@ -94,8 +84,6 @@ export async function GET(
       pattern: "solid",
       fgColor: { argb: "FFD9D9D9" }, // Baris Detail / Transaksi / Keterangan / Reimbursement
     };
-
-    // Fonts — semua Trebuchet MS sesuai template
     const fontWhiteBold: Partial<ExcelJS.Font> = {
       name: FONT_FAMILY,
       size: 11,
@@ -108,9 +96,7 @@ export async function GET(
       bold: true,
       color: { argb: "FF000000" },
     };
-    // Catatan: di template asli, baris Keterangan MAUPUN baris Reimbursement
-    // sama-sama pakai font non-bold size 10, TIDAK italic. (Versi lama salah
-    // memakai italic abu-abu untuk baris reimbursement — sudah diperbaiki.)
+
     const fontNormal10: Partial<ExcelJS.Font> = {
       name: FONT_FAMILY,
       size: 10,
@@ -119,7 +105,6 @@ export async function GET(
       color: { argb: "FF000000" },
     };
 
-    // Border hairline — warna mengikuti garis theme (#404040) di template
     const borderHair: Partial<ExcelJS.Borders> = {
       top: { style: "hair", color: { argb: "FF404040" } },
       bottom: { style: "hair", color: { argb: "FF404040" } },
@@ -129,7 +114,6 @@ export async function GET(
 
     const numFmtRupiah = '_-"Rp"* #,##0_-;-"Rp"* #,##0_-;_-"Rp"* "-"_-;_-@_-';
 
-    // Tinggi baris persis sesuai template (Pendapatan=14, Biaya Proyek=15)
     const ROW_HEIGHT_PENDAPATAN = 14;
     const ROW_HEIGHT_BIAYA = 15;
 
@@ -141,23 +125,18 @@ export async function GET(
       proyek.budget.nilaiKontrak || 0
     );
 
-    // ==========================================
-    // SHEET 1: PENDAPATAN (5 Kolom Sesuai File)
-    // Col A: Code Lv1 | Col B: Code Lv2 / Header | Col C: Code Lv3 / Lv2 Name | Col D: Lv3 Name / Transaksi | Col E: Realisasi
-    // ==========================================
     const sheetPendapatan = workbook.addWorksheet("Pendapatan");
 
-    // Lebar kolom persis sesuai template (termasuk kolom F kosong sisa dari sumber)
     sheetPendapatan.columns = [
       { width: 6.1640625 },  // A
-      { width: 6.1640625 },  // B (default, tidak di-set khusus di template)
+      { width: 6.1640625 },  // B 
       { width: 8.5 },        // C
       { width: 50.83203125 },// D
       { width: 20.83203125 },// E
-      { width: 6.1640625 },  // F (kolom sisa, tidak dipakai)
+      { width: 6.1640625 },  // F 
     ];
 
-    // Baris 1: [Nama Proyek]
+    // Nama Proyek
     const row1Pem = sheetPendapatan.getRow(1);
     row1Pem.height = ROW_HEIGHT_PENDAPATAN;
     row1Pem.getCell(2).value = proyek.nama;
@@ -169,7 +148,7 @@ export async function GET(
     }
     row1Pem.getCell(2).alignment = { vertical: "middle", horizontal: "left" };
 
-    // Baris 2: Header Utama Pendapatan
+    // Header Pendapatan
     const row2Pem = sheetPendapatan.getRow(2);
     row2Pem.height = ROW_HEIGHT_PENDAPATAN;
     row2Pem.getCell(1).value = "1";
@@ -183,10 +162,8 @@ export async function GET(
     }
     row2Pem.getCell(1).alignment = { vertical: "middle", horizontal: "right" };
     row2Pem.getCell(2).alignment = { vertical: "middle", horizontal: "left" };
-    // "Realisasi" pada header rata KIRI sesuai template (bukan kanan)
     row2Pem.getCell(5).alignment = { vertical: "middle", horizontal: "left" };
 
-    // Data Pemasukan
     let pemasukanMains = proyek.budget.mainAnggaran.filter(
       (m) => m.tipe === "pemasukan"
     );
@@ -334,25 +311,20 @@ export async function GET(
     });
 
 
-    // ==========================================
-    // SHEET 2: BIAYA PROYEK (7 Kolom Sesuai File)
-    // Col A: Code Lv1 | Col B: Code Lv2 / Judul | Col C: Code Lv3 / Lv2 Name | Col D: Lv3 Name / Lv4 Ket | Col E: Lv5 Detail | Col F: Realisasi | Col G: Alokasi
-    // ==========================================
     const sheetBiaya = workbook.addWorksheet("Biaya Proyek");
 
-    // Lebar kolom persis sesuai template (termasuk kolom H kosong sisa dari sumber)
     sheetBiaya.columns = [
       { width: 6.1640625 },  // A
-      { width: 6.1640625 },  // B (default, tidak di-set khusus di template)
+      { width: 6.1640625 },  // B 
       { width: 8.5 },        // C
       { width: 10.5 },       // D
       { width: 50.83203125 },// E
       { width: 20.83203125 },// F
       { width: 20.83203125 },// G
-      { width: 6.1640625 },  // H (kolom sisa, tidak dipakai)
+      { width: 6.1640625 },  // H 
     ];
 
-    // Baris 1: [Nama Proyek]
+    // Nama Proyek
     const row1Biaya = sheetBiaya.getRow(1);
     row1Biaya.height = ROW_HEIGHT_BIAYA;
     row1Biaya.getCell(2).value = proyek.nama;
@@ -364,7 +336,7 @@ export async function GET(
     }
     row1Biaya.getCell(2).alignment = { vertical: "middle", horizontal: "left" };
 
-    // Baris 2: Header Utama Biaya Proyek
+    // Header Biaya Proyek
     const row2Biaya = sheetBiaya.getRow(2);
     row2Biaya.height = ROW_HEIGHT_BIAYA;
     row2Biaya.getCell(1).value = "2";
@@ -379,7 +351,6 @@ export async function GET(
     }
     row2Biaya.getCell(1).alignment = { vertical: "middle", horizontal: "right" };
     row2Biaya.getCell(2).alignment = { vertical: "middle", horizontal: "left" };
-    // "Realisasi" & "Alokasi" pada header rata KIRI sesuai template (bukan kanan)
     row2Biaya.getCell(6).alignment = { vertical: "middle", horizontal: "left" };
     row2Biaya.getCell(7).alignment = { vertical: "middle", horizontal: "left" };
 
@@ -393,7 +364,6 @@ export async function GET(
       let totalRealisasiMain = 0;
       const totalAlokasiMain = Number(main.nominalAlokasi) || 0;
 
-      // Baris Main (Level 2) - Kita tulis placeholder baris dulu
       const mainRowIndex = currentRowBiaya++;
 
       main.subAnggaran.forEach((sub, sIdx) => {
@@ -431,7 +401,7 @@ export async function GET(
                 const nominalReimb = Number(reimb.nominal) || 0;
                 ketReimbsTotal += nominalReimb;
 
-                // Level 5: Reimbursement — non-bold, size 10, TIDAK italic
+                // Level 5: Reimbursement
                 reimbRow.getCell(5).value = `[${labelTipe}] ${namaReimb}${tglStr}`;
                 reimbRow.getCell(6).value = nominalReimb;
                 reimbRow.getCell(6).numFmt = numFmtRupiah;
@@ -468,7 +438,6 @@ export async function GET(
               cell.font = fontNormal10;
               cell.border = borderHair;
             }
-            // Kolom "Keterangan" rata KANAN sesuai template
             ketRow.getCell(4).alignment = { vertical: "middle", horizontal: "right" };
             ketRow.getCell(6).alignment = { vertical: "middle", horizontal: "right" };
             ketRow.getCell(7).alignment = { vertical: "middle", horizontal: "right" };
@@ -479,7 +448,6 @@ export async function GET(
 
         totalRealisasiMain += totalRealisasiSub;
 
-        // Terapkan data dan style pada Sub (Level 3)
         const subRow = sheetBiaya.getRow(subRowIndex);
         subRow.height = ROW_HEIGHT_BIAYA;
         subRow.getCell(3).value = subNum;
@@ -501,7 +469,6 @@ export async function GET(
         subRow.getCell(7).alignment = { vertical: "middle", horizontal: "right" };
       });
 
-      // Terapkan data dan style pada Main (Level 2)
       const mainRow = sheetBiaya.getRow(mainRowIndex);
       mainRow.height = ROW_HEIGHT_BIAYA;
       mainRow.getCell(2).value = mainNum;

@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: List all users (id + nama) for PM member assignment dropdown
 export async function GET(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');

@@ -55,7 +55,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         },
       });
     } else {
-      // APPROVE — validasi ulang batas dalam transaction (race safety)
       try {
         await prisma.$transaction(async (tx) => {
           const current = await tx.pengajuanAnggaran.findUnique({ where: { id: pengajuanId }, select: { status: true } });
