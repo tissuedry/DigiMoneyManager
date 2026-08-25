@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { X, Trash2, Loader2, Plus, AlertCircle, TrendingUp } from "lucide-react";
-import { formatRibuan, ribuanToNumber } from "./utils";
+import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 
 type MasterOption = {
   id: number;

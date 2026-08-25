@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
-import { formatSummaryRupiah } from "./utils";
+import CompactNominal from "@/components/compact-nominal";
 import { useApi } from "@/lib/use-api";
 
 type Props = {
@@ -12,11 +12,6 @@ type Props = {
   onClose: () => void;
   onChanged: () => void;
 };
-
-function formatRp(n: number): string {
-  if (Math.abs(n) >= 100_000_000_000_000) return formatSummaryRupiah(n);
-  return `Rp ${Math.round(Number(n) || 0).toLocaleString('id-ID')}`;
-}
 
 export default function PendingPmModal({ open, project, onClose, onChanged }: Props) {
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -39,7 +34,6 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
       initial[p.id] = true;
     });
     setSelectedIds(initial);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pengajuanQuery.data]);
 
   if (!open && !rejectToastCount && !approveSuccessCount) return null;
@@ -57,9 +51,8 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
     .filter((p: any) => selectedIds[p.id])
     .reduce((sum: number, p: any) => sum + (Number(p.alokasiBaru) - Number(p.alokasiLama)), 0);
 
-  // Nilai proyektif jika semua seleksi disetujui
   const teraProyektif = teralokasiProyek + selectedDelta;
-  const sisaProyektif = totalRAB - teraProyektif; // boleh negatif (over budget)
+  const sisaProyektif = totalRAB - teraProyektif; 
   const isOver = sisaProyektif < 0;
   const progressPct = totalRAB > 0 ? Math.min(Math.max((teraProyektif / totalRAB) * 100, 0), 100) : 0;
 
@@ -86,7 +79,6 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
     setErrorText("");
 
     try {
-      // ponytail: N dynamic URLs per item — useMutate is fixed-URL, keep inline loop
       const results = await Promise.all(
         selectedIdsList.map((id: number) =>
           fetch(`/api/pengajuan-anggaran/${id}/review`, {
@@ -126,7 +118,6 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
     <>
       <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(20,18,14,0.6)] p-4">
         <div className="flex h-[680px] max-h-[85vh] w-[820px] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0px_24px_64px_rgba(20,18,14,0.3)]">
-          {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b-[0.8px] border-[#E6E1D4] px-6 py-5">
             <div className="flex flex-col gap-0.5">
               <div className="font-sans text-[17px] font-bold leading-[25.5px] text-[#14130F]">Pengajuan Perubahan Alokasi Biaya</div>
@@ -141,7 +132,6 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
             </button>
           </div>
 
-          {/* Body */}
           <div className="flex flex-1 flex-col overflow-y-auto p-5">
             {pengajuanQuery.isLoading ? (
               <div className="rounded-xl bg-white p-[48px_24px] text-center font-sans text-[12.5px] text-[#9A948B]">
@@ -153,7 +143,7 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
               <div className="bg-white border border-[#e6e1d4] rounded-[16px] p-4 space-y-2.5 shadow-[0px_0px_0px_1px_rgba(20,18,14,0.04),0px_1px_2px_0px_rgba(20,18,14,0.05)]">
                 <div className="flex items-center justify-between text-[13px]">
                   <span className="font-semibold text-[#14130f]">Overview Alokasi Biaya</span>
-                  <span className={`font-bold font-mono ${isOver ? 'text-[#d36c66]' : 'text-[#14130f]'}`}>{progressPct.toFixed(0)}%</span>
+                  <span className={`font-bold  ${isOver ? 'text-[#d36c66]' : 'text-[#14130f]'}`}>{progressPct.toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-[#f3f0e9] h-2 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-[#d36c66]' : 'bg-[#009162]'}`} style={{ width: `${progressPct}%` }} />
@@ -161,24 +151,22 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
                 <div className="flex justify-between items-center text-[12px] pt-1">
                   <div className="flex items-baseline gap-1">
                     <span className="font-medium text-[#000000]">Nilai Proyek</span>
-                    <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
-                    <span title={formatRp(totalRAB)} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatRp(totalRAB)}</span>
+                    <CompactNominal value={totalRAB} compactThreshold={100_000_000_000_000} className="font-medium text-[#14130f]"
+                       />
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="font-medium text-[#000000]">Teralokasi</span>
-                    <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
-                    <span title={formatRp(teraProyektif)} className={`font-medium font-mono cursor-pointer ${isOver ? 'text-[#d36c66]' : 'text-[#14130f]'}`}>{formatRp(teraProyektif)}</span>
+                    <CompactNominal value={teraProyektif} compactThreshold={100_000_000_000_000} className={`font-medium ${isOver ? 'text-[#d36c66]' : 'text-[#14130f]'}`} />
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="font-normal text-[#9a948b]">Sisa</span>
                     {isOver ? (
-                      <span className={`font-bold font-mono cursor-pointer text-[#d36c66]`}>
+                      <span className={`font-bold  cursor-pointer text-[#d36c66]`}>
                         Over Rp {Math.abs(sisaProyektif).toLocaleString('id-ID')}
                       </span>
                     ) : (
                       <>
-                        <span className="text-[10.2px] font-bold text-[#9a948b] font-mono">Rp</span>
-                        <span title={formatRp(sisaProyektif)} className="font-bold text-[#14130f] font-mono cursor-pointer">{formatRp(sisaProyektif)}</span>
+                        <CompactNominal value={sisaProyektif} compactThreshold={100_000_000_000_000} className="font-bold text-[#14130f]" />
                       </>
                     )}
                   </div>
@@ -219,12 +207,10 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
                       className={`flex flex-col ${idx < pendingPengajuan.length - 1 ? 'border-b border-[#E6E1D4]' : ''}`}
                     >
 
-                      {/* Row */}
                       <div
                         className={`flex cursor-pointer items-start gap-1.5 px-3.5 py-2.5 transition hover:bg-stone-50 ${isChecked ? 'bg-[#D5F4E3]' : 'bg-white'}`}
                         onClick={() => setExpandedId(isExpanded ? null : p.id)}
                       >
-                        {/* Chevron toggle */}
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : p.id); }}
@@ -241,7 +227,6 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
                           </svg>
                         </button>
 
-                        {/* Checkbox */}
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleToggle(p.id); }}
@@ -275,7 +260,7 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
 
                         <div className="flex items-center gap-1.5">
                           <span
-                            className={`rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold ${isChecked
+                            className={`rounded px-1.5 py-0.5  text-[9.5px] font-bold ${isChecked
                               ? delta >= 0
                                 ? 'bg-emerald-100 text-emerald-700'
                                 : 'bg-red-100 text-red-700'
@@ -284,26 +269,23 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
                           >
                             {isChecked ? `${delta >= 0 ? '+' : '−'}${Math.abs(delta).toLocaleString('id-ID')}` : '—'}
                           </span>
-                          <span className="whitespace-nowrap font-mono text-[12px] font-bold text-[#14130F]">
-                            {formatRp(alokasiBaru)}
-                          </span>
+                          <CompactNominal value={alokasiBaru} compactThreshold={100_000_000_000_000} className="whitespace-nowrap text-[12px] font-bold text-[#14130F]" />
                         </div>
                       </div>
 
-                      {/* Expanded detail */}
                       {isExpanded && (
                         <div className="flex flex-col gap-2 bg-white p-[12px_14px_12px_40px]">
                           <div className="flex gap-2.5">
                             <div className="flex-1 rounded-[10px] border border-[#E6E1D4] bg-[#F5F4F0] p-[10px_12px]">
                               <div className="mb-1 font-sans text-[10.5px] font-bold text-[#9A948B]">Alokasi Saat Ini</div>
-                              <div className="font-mono text-[13px] font-bold text-[#6A6660]">
-                                {formatRp(alokasiLama)}
+                              <div className=" text-[13px] font-bold text-[#6A6660]">
+                                <CompactNominal value={alokasiLama} compactThreshold={100_000_000_000_000} />
                               </div>
                             </div>
                             <div className="flex-1 rounded-[10px] border border-[#009162] bg-[rgba(0,145,98,0.06)] p-[10px_12px]">
                               <div className="mb-1 font-sans text-[10.5px] font-bold text-[#005836]">Alokasi Baru</div>
-                              <div className="font-mono text-[13px] font-bold text-[#005836]">
-                                {formatRp(alokasiBaru)}
+                              <div className=" text-[13px] font-bold text-[#005836]">
+                                <CompactNominal value={alokasiBaru} compactThreshold={100_000_000_000_000} />
                               </div>
                             </div>
                           </div>
@@ -327,7 +309,6 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
           )}
           </div>
 
-          {/* Bottom bulk selected summary bar */}
           {pendingPengajuan.length > 0 && (
             <div className={`flex shrink-0 items-center justify-between self-stretch border-t-[0.8px] border-[#E6E1D4] px-6 py-3 ${selectedCount > 0 ? 'bg-[#D5F4E3]' : 'bg-[#F5F4F0]'}`}>
               <div className={`font-sans text-[13px] font-bold ${selectedCount > 0 ? 'text-[#005836]' : 'text-[#6A6660]'}`}>
@@ -358,7 +339,6 @@ export default function PendingPmModal({ open, project, onClose, onChanged }: Pr
             </div>
           )}
 
-          {/* Reject reason panel */}
           {rejecting && (
             <div className="flex shrink-0 flex-col gap-2.5 self-stretch border-t-[0.8px] border-[#E6E1D4] bg-[#FDF3F2] px-6 py-[14px]">
               <div className="font-sans text-[13px] font-bold text-[#902F33]">

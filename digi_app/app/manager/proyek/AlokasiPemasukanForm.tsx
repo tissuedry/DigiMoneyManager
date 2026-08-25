@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, SubmitEvent } from "react";
 import { X, Loader2, AlertCircle, TrendingUp } from "lucide-react";
-import { formatRibuan, ribuanToNumber } from "./utils";
+import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 
 type MasterOption = {
   id: number;
@@ -186,8 +186,8 @@ export default function AlokasiPemasukanForm({
               <div
                 className="relative flex items-center w-full h-10.5 bg-[#F8F7F4] rounded-xl border border-[#E6E1D4] px-3"
               >
-                <span className="text-[13.5px] leading-none font-mono font-medium text-[#78716C] mr-1.5">Rp</span>
-                <span className="font-mono font-bold text-[14px] text-stone-900">
+                <span className="text-[13.5px] leading-none font-medium text-[#78716C] mr-1.5">Rp</span>
+                <span className="font-bold text-[14px] text-stone-900">
                   {formatRibuan(String(Math.round(totalNilaiProyekVal))) || "0"}
                 </span>
               </div>
@@ -198,7 +198,7 @@ export default function AlokasiPemasukanForm({
             >
               <div className="flex justify-between items-center text-[12px] font-bold text-stone-700">
                 <span>Distribusi Nilai Proyek</span>
-                <span className="font-mono text-[13px] font-black text-stone-900">
+                <span className="text-[13px] font-black text-stone-900">
                   Rp {totalAllAllocated.toLocaleString("id-ID")} / {totalNilaiProyekVal.toLocaleString("id-ID")}
                 </span>
               </div>
@@ -216,14 +216,13 @@ export default function AlokasiPemasukanForm({
                 />
               </div>
 
-              {/* 3 Kolom Info Status */}
               <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
                 <div className="flex flex-col">
                   <span className="text-stone-400 font-medium flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shrink-0" />
                     Pengeluaran
                   </span>
-                  <span className="font-mono font-bold text-stone-800 text-[12px] mt-0.5">
+                  <span className="font-bold text-stone-800 text-[12px] mt-0.5">
                     Rp {totalPengeluaranExisting.toLocaleString("id-ID")}
                   </span>
                   <span className="text-[10px] text-stone-400 font-medium">Sudah Terisi</span>
@@ -234,7 +233,7 @@ export default function AlokasiPemasukanForm({
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
                     Pemasukan
                   </span>
-                  <span className="font-mono font-bold text-stone-800 text-[12px] mt-0.5">
+                  <span className="font-bold text-stone-800 text-[12px] mt-0.5">
                     Rp {totalPemasukanAllocated.toLocaleString("id-ID")}
                   </span>
                   <span className="text-[10px] text-emerald-600 font-medium">Alokasi Saat Ini</span>
@@ -244,7 +243,7 @@ export default function AlokasiPemasukanForm({
                   <span className={isOverbudget ? "text-rose-500 font-bold" : "text-stone-400 font-medium"}>
                     {isOverbudget ? "Kelebihan" : "Sisa Belum Dibagi"}
                   </span>
-                  <span className={`font-mono font-bold text-[12px] mt-0.5 ${isOverbudget ? "text-rose-600" : "text-stone-900"}`}>
+                  <span className={`font-bold text-[12px] mt-0.5 ${isOverbudget ? "text-rose-600" : "text-stone-900"}`}>
                     Rp {Math.abs(sisaBelumDialokasikan).toLocaleString("id-ID")}
                   </span>
                   <span className="text-[10px] text-stone-400 font-medium">
@@ -280,7 +279,7 @@ export default function AlokasiPemasukanForm({
                 </select>
 
                 <div className="relative flex items-center w-48">
-                  <span className="absolute left-3 text-[12px] font-bold text-stone-400 font-mono">Rp</span>
+                  <span className="absolute left-3 text-[12px] font-bold text-stone-400">Rp</span>
                   <input
                     type="text"
                     required
@@ -294,7 +293,7 @@ export default function AlokasiPemasukanForm({
                       });
                     }}
                     placeholder="0"
-                    className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[12.5px] bg-white font-mono text-stone-900 font-bold focus:outline-none focus:border-stone-400 text-left"
+                    className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[12.5px] bg-white text-stone-900 font-bold focus:outline-none focus:border-stone-400 text-left"
                   />
                 </div>
               </div>

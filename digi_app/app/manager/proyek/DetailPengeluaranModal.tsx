@@ -2,24 +2,11 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
-import { formatReimbursementDate } from "./utils";
-import { formatFullRupiah } from "@/lib/format-nominal";
+import { formatReimbursementDate } from "@/lib/proyek-utils";
+import CompactNominal from "@/components/compact-nominal";
 
 const APPROVED_STATUSES = ["APPROVED", "PAID", "DISBURSED"];
 const VALID_REIMB_STATUSES = ["APPROVED", "APPROVED_BY_PM", "SUBMITTED", "PAID", "DISBURSED"];
-
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return formatFullRupiah(n);
-}
-
-function formatSisaCurrency(num: number): string {
-  const n = Number(num) || 0;
-  if (n < 0) {
-    return `-Rp ${Math.abs(Math.round(n)).toLocaleString("id-ID")}`;
-  }
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
-}
 
 function statusLabel(s: string): string {
   const map: Record<string, string> = {
@@ -49,7 +36,6 @@ function reimbType(s: string): string {
   return map[s] || s || "REIMB";
 }
 
-// Helpers untuk mencegah duplikasi logika perhitungan realisasi
 function calculateKetRealisasi(ket: any): number {
   const reimbs = ket.reimbursements || [];
   if (reimbs.length > 0) {
@@ -81,7 +67,7 @@ type Props = {
   onRefresh?: () => void;
 };
 
-export default function DetailBudgetModal({
+export default function DetailPengeluaranModal({
   showDetailBudgetModal,
   onClose,
   detailedProjectInfo,
@@ -102,11 +88,10 @@ export default function DetailBudgetModal({
         onClick={onClose}
       >
         <div
-          className="bg-white rounded-[20px] shadow-[0px_24px_64px_rgba(20,18,14,0.30)] w-full max-w-[1112px] max-h-[88vh] flex flex-col overflow-hidden text-left border border-[#E6E1D4] animate-in fade-in zoom-in-95 duration-150"
+          className="bg-white rounded-[20px] shadow-[0px_24px_64px_rgba(20,18,14,0.30)] w-full max-w-278 max-h-[88vh] flex flex-col overflow-hidden text-left border border-[#E6E1D4] animate-in fade-in zoom-in-95 duration-150"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="px-7 pt-[22px] pb-[18px] border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
+          <div className="px-7 pt-5.5 pb-4.5 border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
             <div className="flex flex-col">
               <h3 className="text-[19px] font-bold text-[#14130F] leading-[28.5px] font-sans">
                 Detail Biaya
@@ -125,23 +110,21 @@ export default function DetailBudgetModal({
           </div>
 
           <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
-            {/* Sticky Table Header */}
             <div className="sticky top-0 z-10 px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
-              <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              <div className="flex-1 min-w-70 text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
                 MAIN · SUB · KETERANGAN
               </div>
-              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              <div className="w-36.25 shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
                 REALISASI
               </div>
-              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              <div className="w-36.25 shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
                 ALOKASI
               </div>
-              <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              <div className="w-36.25 shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
                 SISA
               </div>
             </div>
 
-            {/* Scrollable rows content */}
             <div className="px-7 py-3 flex flex-col gap-2">
               {posAnggaran.length > 0 ? (
                 posAnggaran.map((pos: any, idxPos: number) => {
@@ -165,8 +148,7 @@ export default function DetailBudgetModal({
                       }
                       className="py-1.5 flex items-center hover:bg-stone-50/80 rounded-lg cursor-pointer select-none transition"
                     >
-                      {/* Left: Main pos name */}
-                      <div className="flex-1 min-w-[280px] flex items-center gap-2 pr-2">
+                      <div className="flex-1 min-w-70 flex items-center gap-2 pr-2">
                         <div className="p-0.5 shrink-0 text-[#6A6660]">
                           {isMainOpen ? (
                             <ChevronDown size={13} className="shrink-0" />
@@ -182,22 +164,19 @@ export default function DetailBudgetModal({
                         </span>
                       </div>
 
-                      {/* Column 2: REALISASI */}
-                      <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(terpakaiPos)}
+                      <div className="w-36.25 shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
+                        <CompactNominal value={terpakaiPos} compactThreshold={1_000_000_000_000} />
                       </div>
 
-                      {/* Column 3: ALOKASI */}
-                      <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(alokasiPos)}
+                      <div className="w-36.25 shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
+                        <CompactNominal value={alokasiPos} compactThreshold={1_000_000_000_000} />
                       </div>
 
-                      {/* Column 4: SISA */}
                       <div
-                        className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${sisaPos < 0 ? "text-[#902F33]" : "text-[#005836]"
+                        className={`w-36.25 shrink-0 text-center  text-[12.5px] font-semibold ${sisaPos < 0 ? "text-[#902F33]" : "text-[#005836]"
                           }`}
                       >
-                        {formatSisaCurrency(sisaPos)}
+                        <CompactNominal value={sisaPos} compactThreshold={1_000_000_000_000} />
                       </div>
                     </div>
 
@@ -221,7 +200,6 @@ export default function DetailBudgetModal({
 
                             return (
                               <div key={sub.id || idxSub} className="flex flex-col">
-                                {/* SUB row */}
                                 <div
                                   onClick={() =>
                                     setExpandedSub((prev) => ({
@@ -231,8 +209,7 @@ export default function DetailBudgetModal({
                                   }
                                   className="py-1.5 flex items-center hover:bg-stone-50/70 rounded-lg cursor-pointer select-none transition"
                                 >
-                                  {/* Left: Sub pos name */}
-                                  <div className="flex-1 min-w-[280px] pl-7 flex items-center gap-2 pr-2">
+                                  <div className="flex-1 min-w-70 pl-7 flex items-center gap-2 pr-2">
                                     <div className="p-0.5 shrink-0 text-[#6A6660]">
                                       {isSubOpen ? (
                                         <ChevronDown size={12} className="shrink-0" />
@@ -248,22 +225,20 @@ export default function DetailBudgetModal({
                                     </span>
                                   </div>
 
-                                  {/* Column 2: REALISASI */}
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(terpakaiSub)}
+                                  <div className="w-36.25 shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
+                                    <CompactNominal value={terpakaiSub} compactThreshold={1_000_000_000_000} />
+                                    
                                   </div>
 
-                                  {/* Column 3: ALOKASI */}
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(alokasiSub)}
+                                  <div className="w-36.25 shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
+                                    <CompactNominal value={alokasiSub} compactThreshold={1_000_000_000_000} />
                                   </div>
 
-                                  {/* Column 4: SISA */}
                                   <div
-                                    className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${sisaSub < 0 ? "text-[#902F33]" : "text-[#005836]"
+                                    className={`w-36.25 shrink-0 text-center  text-[12.5px] font-semibold ${sisaSub < 0 ? "text-[#902F33]" : "text-[#005836]"
                                       }`}
                                   >
-                                    {formatSisaCurrency(sisaSub)}
+                                    <CompactNominal value={sisaSub} compactThreshold={1_000_000_000_000} />
                                   </div>
                                 </div>
 
@@ -295,7 +270,6 @@ export default function DetailBudgetModal({
 
                                         return (
                                           <div key={ket.id || idxKet} className="flex flex-col">
-                                            {/* KET row */}
                                             <div
                                               onClick={() =>
                                                 setExpandedKet((prev) => ({
@@ -305,8 +279,7 @@ export default function DetailBudgetModal({
                                               }
                                               className="py-1.5 flex items-center hover:bg-stone-50/70 rounded-lg cursor-pointer select-none transition"
                                             >
-                                              {/* Left: Ket name */}
-                                              <div className="flex-1 min-w-[280px] pl-14 flex items-center gap-2 pr-2">
+                                              <div className="flex-1 min-w-70 pl-14 flex items-center gap-2 pr-2">
                                                 <div className="p-0.5 shrink-0 text-[#6A6660]">
                                                   {isKetOpen ? (
                                                     <ChevronDown size={12} className="shrink-0" />
@@ -322,22 +295,19 @@ export default function DetailBudgetModal({
                                                 </span>
                                               </div>
 
-                                              {/* Column 2: REALISASI */}
-                                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-normal text-[#6A6660]">
-                                                {formatFullCurrency(realisasiKet)}
+                                              <div className="w-36.25 shrink-0 text-center  text-[12.5px] font-normal text-[#6A6660]">
+                                                <CompactNominal value={realisasiKet} compactThreshold={1_000_000_000_000} />
                                               </div>
 
-                                              {/* Column 3: ALOKASI */}
-                                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-normal text-[#6A6660]">
-                                                {formatFullCurrency(alokasiKet)}
+                                              <div className="w-36.25 shrink-0 text-center  text-[12.5px] font-normal text-[#6A6660]">
+                                                <CompactNominal value={alokasiKet} compactThreshold={1_000_000_000_000} />
                                               </div>
 
-                                              {/* Column 4: SISA */}
                                               <div
-                                                className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${sisaKet < 0 ? "text-[#902F33]" : "text-[#005836]"
+                                                className={`w-36.25 shrink-0 text-center  text-[12.5px] font-semibold ${sisaKet < 0 ? "text-[#902F33]" : "text-[#005836]"
                                                   }`}
                                               >
-                                                {formatSisaCurrency(sisaKet)}
+                                                <CompactNominal value={sisaKet} compactThreshold={1_000_000_000_000} />
                                               </div>
                                             </div>
 
@@ -373,9 +343,8 @@ export default function DetailBudgetModal({
                                                         key={reimb.id}
                                                         className="py-1.5 flex items-center hover:bg-stone-50/70 rounded-lg transition"
                                                       >
-                                                        {/* Left: Badge + Merchant + Date + Status */}
                                                         <div
-                                                          className="flex-1 min-w-[280px] pl-20 flex items-center gap-2 pr-2"
+                                                          className="flex-1 min-w-70 pl-20 flex items-center gap-2 pr-2"
                                                           title={displayName}
                                                         >
                                                           <span
@@ -406,17 +375,14 @@ export default function DetailBudgetModal({
                                                           </span>
                                                         </div>
 
-                                                        {/* Column 2: REALISASI with Status Icon */}
-                                                        <div className="w-[145px] shrink-0 flex items-center justify-center gap-1.5">
+                                                        <div className="w-36.25 shrink-0 flex items-center justify-center gap-1.5">
                                                           <span
-                                                            className={`text-[11px] font-mono font-normal ${displayStatus === "Dicairkan"
+                                                            className={`text-[11px]  font-normal ${displayStatus === "Dicairkan"
                                                               ? "text-[#6A6660]"
                                                               : "text-[#ADA79F]"
                                                               }`}
                                                           >
-                                                            {formatFullCurrency(
-                                                              Number(reimb.nominal) || 0
-                                                            )}
+                                                            {<CompactNominal value={Number(reimb.nominal) || 0} compactThreshold={1_000_000_000_000} />}
                                                           </span>
                                                           {displayStatus === "Dicairkan" ? (
                                                             <Check
@@ -436,9 +402,8 @@ export default function DetailBudgetModal({
                                                           ) : null}
                                                         </div>
 
-                                                        {/* Columns 3, 4: Empty for reimbursement row */}
-                                                        <div className="w-[145px] shrink-0" />
-                                                        <div className="w-[145px] shrink-0" />
+                                                        <div className="w-36.25 shrink-0" />
+                                                        <div className="w-36.25 shrink-0" />
                                                       </div>
                                                     );
                                                   })
@@ -473,7 +438,6 @@ export default function DetailBudgetModal({
             </div>
           </div>
 
-          {/* Footer */}
           <div className="px-7 py-3.5 border-t border-[#E6E1D4] flex justify-end shrink-0 bg-white">
             <button
               onClick={onClose}

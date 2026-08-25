@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ArrowRight, TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
+import CompactNominal from "@/components/compact-nominal";
 
-// ── Type Definitions ───────────────────────────────────────────────────────────
 type CashFlowMonth = { bulan: string; inflow: number; outflow: number };
 type ProjectItem = {
   id: number;
@@ -55,35 +55,25 @@ type DashboardResponse = {
   dashboard: DashboardData;
 };
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function formatRupiah(n: number): string {
-  return new Intl.NumberFormat("id-ID").format(n);
-}
-
-function formatShort(n: number): string {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? "-" : "";
-  if (abs >= 1_000_000_000) {
-    const v = abs / 1_000_000_000;
-    return `${sign}Rp ${Math.round(v * 10) / 10} M`;
-  }
-  if (abs >= 1_000_000) {
-    const v = abs / 1_000_000;
-    return `${sign}Rp ${Math.round(v * 10) / 10} jt`;
-  }
-  return `${sign}Rp ${abs.toLocaleString("id-ID")}`;
-}
-
 function formatTanggal(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
 
-// ── Bar Chart (Arus Kas Real-Time) ─────────────────────────────────────────────
 function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
   const [activeFilter, setActiveFilter] = useState<"4M" | "12M" | "YTD">("12M");
   const [tooltip, setTooltip] = useState<{ i: number; x: number } | null>(null);
+  const [plotHeight, setPlotHeight] = useState(200);
   const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    setPlotHeight(el.offsetHeight);
+    const ro = new ResizeObserver(() => setPlotHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const displayed =
     activeFilter === "4M" ? data.slice(-4) : data;
@@ -94,8 +84,7 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
   const totalNet = totalInflow - totalOutflow;
 
   return (
-    <div className="bg-white rounded-2xl border border-[#e6e1d4] p-5 flex flex-col gap-3 flex-1 min-w-0">
-      {/* Header */}
+    <div className="bg-white rounded-2xl border border-[#e6e1d4] p-5 flex flex-col gap-3 flex-1 min-w-0 self-stretch">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[15px] font-bold text-[#14130f] tracking-tight">Arus Kas Real-Time</p>
@@ -118,21 +107,18 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
         </div>
       </div>
 
-      {/* Chart bars area — explicit pixel height so bars render correctly */}
-      <div className="relative" ref={chartRef} style={{ height: 200 }}>
-        {/* Base container with fixed height */}
+      <div className="relative flex-1 min-h-[200px]" ref={chartRef}>
         <div
           className="absolute inset-0 flex items-end gap-1 pb-0"
         >
           {displayed.map((d, i) => {
-            const CHART_H = 200;
-            const inPx = Math.max(Math.round((d.inflow / maxVal) * CHART_H), 3);
-            const outPx = Math.max(Math.round((d.outflow / maxVal) * CHART_H), 3);
+            const inPx = Math.max(Math.round((d.inflow / maxVal) * plotHeight), 3);
+            const outPx = Math.max(Math.round((d.outflow / maxVal) * plotHeight), 3);
             return (
               <div
                 key={i}
                 className="flex-1 flex items-end gap-[2px] cursor-pointer group"
-                style={{ height: CHART_H }}
+                style={{ height: plotHeight }}
                 onMouseEnter={(e) => {
                   const rect = chartRef.current?.getBoundingClientRect();
                   if (rect) {
@@ -142,12 +128,10 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
                 }}
                 onMouseLeave={() => setTooltip(null)}
               >
-                {/* Inflow bar – hijau */}
                 <div
                   className="flex-1 rounded-t-[3px] transition-all duration-500 group-hover:opacity-75"
                   style={{ height: inPx, background: "#009162" }}
                 />
-                {/* Outflow bar – merah */}
                 <div
                   className="flex-1 rounded-t-[3px] transition-all duration-500 group-hover:opacity-75"
                   style={{ height: outPx, background: "#902f33" }}
@@ -157,7 +141,6 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
           })}
         </div>
 
-        {/* Tooltip */}
         {tooltip !== null && displayed[tooltip.i] && (
           <div
             className="absolute bottom-12 pointer-events-none bg-[#1c1917] text-white text-[11px] rounded-xl px-3 py-2 shadow-xl z-10 whitespace-nowrap"
@@ -166,17 +149,16 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
             <div className="font-bold mb-1 text-[12px]">{displayed[tooltip.i].bulan}</div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-sm bg-[#009162] inline-block" />
-              Pemasukan: {formatShort(displayed[tooltip.i].inflow)}
+              Pemasukan: <CompactNominal value={displayed[tooltip.i].inflow} compactThreshold={1} />
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="w-2 h-2 rounded-sm bg-[#902f33] inline-block" />
-              Pengeluaran: {formatShort(displayed[tooltip.i].outflow)}
+              Pengeluaran: <CompactNominal value={displayed[tooltip.i].outflow} compactThreshold={1} />
             </div>
           </div>
         )}
       </div>
 
-      {/* X-axis labels */}
       <div className="flex gap-1">
         {displayed.map((d, i) => (
           <div key={i} className="flex-1 text-center text-[9px] text-[#9a948b] font-medium">
@@ -185,22 +167,21 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
         ))}
       </div>
 
-      {/* Legend */}
       <div className="flex items-center gap-5 pt-1 border-t border-[#f3f0e9]">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-[2px] bg-[#009162] inline-block" />
           <span className="text-[12px] text-[#6a6660]">Pemasukan</span>
-          <span className="text-[12px] font-semibold text-[#14130f] ml-1 font-mono">{formatShort(totalInflow)}</span>
+          <span className="text-[12px] font-semibold text-[#14130f] ml-1 "><CompactNominal value={totalInflow} compactThreshold={1} /></span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-[2px] bg-[#902f33] inline-block" />
           <span className="text-[12px] text-[#6a6660]">Pengeluaran</span>
-          <span className="text-[12px] font-semibold text-[#14130f] ml-1 font-mono">{formatShort(totalOutflow)}</span>
+          <span className="text-[12px] font-semibold text-[#14130f] ml-1 "><CompactNominal value={totalOutflow} compactThreshold={1} /></span>
         </div>
         <div className="ml-auto">
           <span className="text-[12px] text-[#6a6660]">Selisih Bersih </span>
-          <span className={`text-[12px] font-bold font-mono ${totalNet >= 0 ? "text-[#005836]" : "text-[#902f33]"}`}>
-            {totalNet < 0 ? "-" : ""}{formatShort(Math.abs(totalNet))}
+          <span className={`text-[12px] font-bold  ${totalNet >= 0 ? "text-[#005836]" : "text-[#902f33]"}`}>
+            <CompactNominal value={totalNet} compactThreshold={1} />
           </span>
         </div>
       </div>
@@ -208,7 +189,6 @@ function CashFlowChart({ data }: { data: CashFlowMonth[] }) {
   );
 }
 
-// ── Summary Card (Pengajuan / Termin) ──────────────────────────────────────────
 function SummaryCard({
   title,
   subtitle,
@@ -234,7 +214,6 @@ function SummaryCard({
         {items.map((item, i) => {
           const isAmber = item.color === "amber";
           const bg = isAmber ? "rgba(216,149,61,0.10)" : "rgba(0,145,98,0.10)";
-          const nominalColor = isAmber ? "#894c06" : "#005836";
           return (
             <div
               key={i}
@@ -245,12 +224,11 @@ function SummaryCard({
                 <p className="text-[12.5px] font-semibold text-[#14130f] leading-[18.75px]">{item.label}</p>
                 <p className="text-[11px] text-[#9a948b] leading-[16.5px]">{item.count}</p>
               </div>
-              <p
-                className="text-[15px] font-bold leading-[22.5px] font-mono"
-                style={{ color: nominalColor }}
-              >
-                Rp {formatRupiah(item.nominal)}
-              </p>
+              <CompactNominal
+                value={item.nominal}
+                compactThreshold={1_000_000_000_000}
+                className={`text-[15px] font-bold leading-[22.5px]  ${isAmber ? "text-[#894c06]" : "text-[#005836]"}`}
+              />
             </div>
           );
         })}
@@ -259,7 +237,6 @@ function SummaryCard({
   );
 }
 
-// ── Skeleton ───────────────────────────────────────────────────────────────────
 function Skeleton() {
   return (
     <main className="flex-1 p-8 overflow-y-auto space-y-6 animate-pulse">
@@ -277,7 +254,6 @@ function Skeleton() {
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────────
 export default function ManagerDashboardPage() {
   const { data, isLoading, error } = useApi<DashboardResponse>("/api/dashboard");
 
@@ -304,7 +280,6 @@ export default function ManagerDashboardPage() {
 
   const { metrics, cashFlow, projectList, pengajuanSummary, terminSummary } = d;
 
-  // Total Nilai Proyek = totalRABAllocated (nilai proyek = RAB)
   const totalNilaiProyek = metrics.totalRABAllocated;
   const totalPemasukan = metrics.totalPemasukan ?? metrics.realisasiYTD;
   const totalPengeluaran = metrics.totalPengeluaran ?? metrics.realisasiYTD;
@@ -312,7 +287,6 @@ export default function ManagerDashboardPage() {
   const pctPemasukan = metrics.pctPemasukan ?? (totalNilaiProyek > 0 ? Math.round((totalPemasukan / totalNilaiProyek) * 100) : 0);
   const pctPengeluaran = metrics.pctPengeluaran ?? (totalNilaiProyek > 0 ? Math.round((totalPengeluaran / totalNilaiProyek) * 100) : 0);
 
-  // Stat cards sesuai desain Figma
   const statCards = [
     {
       id: "total-nilai-proyek",
@@ -368,17 +342,15 @@ export default function ManagerDashboardPage() {
     <main className="flex-1 overflow-y-auto bg-[#f6f4ef]">
       <div className="p-8 flex flex-col gap-6">
 
-        {/* ── Page Header ── */}
         <div>
           <h1 className="text-[24px] font-bold text-[#1c1917] leading-[30px]">
-            Executive Dashboard
+            Beranda Eksekutif
           </h1>
           <p className="text-[14px] text-[#79716b] mt-1">
             Ringkasan real-time arus kas dan nilai proyek per {dateLabel}.
           </p>
         </div>
 
-        {/* ── Stat Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {statCards.map((card) => (
             <div
@@ -386,7 +358,6 @@ export default function ManagerDashboardPage() {
               id={card.id}
               className="bg-white rounded-2xl border border-[#e4e0d9] p-6 flex flex-col gap-[18px] hover:shadow-md transition-shadow"
             >
-              {/* Head */}
               <div className="flex items-center justify-between">
                 <span className="text-[14px] text-[#14130f] font-normal">{card.label}</span>
                 <div
@@ -397,29 +368,18 @@ export default function ManagerDashboardPage() {
                 </div>
               </div>
 
-              {/* Nominal */}
-              <div className="flex items-baseline gap-2">
-                <span
-                  className="text-[14px] font-semibold font-mono"
-                  style={{ color: card.isSelisih && selisihBersih >= 0 ? "#005836" : card.isSelisih ? "#902f33" : "#6a6660" }}
-                >
-                  Rp
-                </span>
-                <span
-                  className="text-[18px] font-bold font-mono"
-                  style={{
-                    color: card.isSelisih
-                      ? selisihBersih >= 0
-                        ? "#005836"
-                        : "#902f33"
-                      : "#000000",
-                  }}
-                >
-                  {formatRupiah(Math.abs(card.nominal))}
-                </span>
-              </div>
+              <CompactNominal
+                value={card.nominal}
+                compactThreshold={1_000_000_000_000}
+                className={`text-[18px] font-bold  ${
+                  card.isSelisih
+                    ? selisihBersih >= 0
+                      ? "text-[#005836]"
+                      : "text-[#902f33]"
+                    : "text-[#000000]"
+                }`}
+              />
 
-              {/* Badge / Sub */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 {card.badge && (
                   <span
@@ -442,12 +402,9 @@ export default function ManagerDashboardPage() {
           ))}
         </div>
 
-        {/* ── Row: Chart + Side Cards ── */}
-        <div className="flex gap-4 items-start">
-          {/* Arus Kas Chart */}
+        <div className="flex gap-4 items-stretch">
           <CashFlowChart data={cashFlow} />
 
-          {/* Right side: Ringkasan Pengajuan + Termin */}
           <div className="flex flex-col gap-4 shrink-0">
             <SummaryCard
               title="Ringkasan Pengajuan"
@@ -488,12 +445,10 @@ export default function ManagerDashboardPage() {
           </div>
         </div>
 
-        {/* ── Proyek Aktif Table ── */}
         <div
           className="bg-white rounded-2xl border-[0.8px] border-[#e7e5e4]"
           style={{ boxShadow: "0px 1px 2px -1px rgba(0,0,0,0.10), 0px 1px 3px 0px rgba(0,0,0,0.10)" }}
         >
-          {/* Table Header */}
           <div className="flex items-center justify-between px-6 py-6 border-b border-[#f5f5f4]">
             <h2 className="text-[15px] font-bold text-[#1c1917] leading-[22.5px]">
               Proyek Aktif
@@ -506,7 +461,6 @@ export default function ManagerDashboardPage() {
             </Link>
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -550,8 +504,7 @@ export default function ManagerDashboardPage() {
                       key={p.id}
                       className="hover:bg-[#f9f8f5] transition-colors border-b border-[#f5f5f4] last:border-0"
                     >
-                      {/* Proyek */}
-                      <td className="pl-6 pr-4 py-4">
+                    <td className="pl-6 pr-4 py-4">
                         <p className="text-[13px] font-bold text-[#1c1917] leading-[16.25px]">
                           {p.proyekNama}
                         </p>
@@ -560,11 +513,9 @@ export default function ManagerDashboardPage() {
                           {p.tanggalSelesai && ` – ${formatTanggal(p.tanggalSelesai)}`}
                         </p>
                       </td>
-                      {/* Klien */}
                       <td className="px-4 py-4 text-[12px] text-[#79716b] font-medium">
                         {p.klien}
                       </td>
-                      {/* Status */}
                       <td className="px-4 py-4">
                         <span
                           className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
@@ -573,19 +524,15 @@ export default function ManagerDashboardPage() {
                           {statusBadge.label}
                         </span>
                       </td>
-                      {/* Nilai Proyek */}
-                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] font-mono">
-                        Rp {formatRupiah(p.rabTotal)}
+                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] ">
+                        <CompactNominal value={p.rabTotal} compactThreshold={1_000_000_000_000} />
                       </td>
-                      {/* Realisasi */}
-                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] font-mono">
-                        Rp {formatRupiah(p.realisasi)}
+                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] ">
+                        <CompactNominal value={p.realisasi} compactThreshold={1_000_000_000_000} />
                       </td>
-                      {/* Sisa */}
-                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] font-mono">
-                        Rp {formatRupiah(p.sisaBudget)}
+                      <td className="px-4 py-4 text-right text-[12px] font-semibold text-[#44403b] ">
+                        <CompactNominal value={p.sisaBudget} compactThreshold={1_000_000_000_000} />
                       </td>
-                      {/* Utilisasi */}
                       <td className="pl-4 pr-6 py-4 w-36">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-[6px] bg-[#f5f5f4] rounded-full overflow-hidden">
@@ -597,7 +544,7 @@ export default function ManagerDashboardPage() {
                               }}
                             />
                           </div>
-                          <span className="text-[11px] text-[#79716b] font-mono w-8 text-right shrink-0">
+                          <span className="text-[11px] text-[#79716b]  w-8 text-right shrink-0">
                             {p.realisasiPct}%
                           </span>
                         </div>

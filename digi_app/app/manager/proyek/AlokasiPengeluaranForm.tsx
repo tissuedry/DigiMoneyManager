@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, SubmitEvent } from "react";
 import { X, Trash2, Loader2, Plus, AlertCircle } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import { Project } from "./types";
-import { formatRibuan, ribuanToNumber } from "./utils";
+import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
+
 import { useApi, useMutate } from "@/lib/use-api";
+import CompactNominal from "@/components/compact-nominal";
 
 type MasterOption = {
   id: number;
@@ -20,7 +22,7 @@ type Props = {
   onSaved: () => void;
 };
 
-export default function InitBudgetModal({
+export default function AlokasiPengeluaranForm({
   showInitBudget,
   detailedProjectInfo,
   onClose,
@@ -71,19 +73,16 @@ export default function InitBudgetModal({
     } else {
       setPosAnggaranList(emptyPos);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showInitBudget?.id, detailedProjectInfo]);
 
   if (!showInitBudget && !savedName) return null;
 
   const totalNilaiProyekVal = ribuanToNumber(rabTotal) || 0;
 
-  // Pemasukan yang sudah dialokasikan di COA
   const totalPemasukanExisting = detailedProjectInfo?.budget?.targetPemasukan !== undefined
     ? Number(detailedProjectInfo.budget.targetPemasukan)
     : (detailedProjectInfo?.alokasiPemasukan?.reduce((acc: number, p: any) => acc + (Number(p.alokasi || p.nominalAlokasi || p.nominal) || 0), 0) || 0);
 
-  // Pengeluaran yang dialokasikan di modal ini
   const totalPengeluaranAllocated = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
 
   const totalAllAllocated = totalPengeluaranAllocated + totalPemasukanExisting;
@@ -103,7 +102,7 @@ export default function InitBudgetModal({
       nominalAlokasi: ribuanToNumber(p.nominalAlokasi),
     }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault();
     setFormError("");
     if (hasDuplicatePengeluaran) return;
@@ -143,129 +142,75 @@ export default function InitBudgetModal({
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
         <div
-          style={{
-            width: 540,
-            background: "white",
-            boxShadow: "0px 24px 64px rgba(20, 18, 14, 0.28)",
-            overflow: "hidden",
-            borderRadius: 24,
-            display: "flex",
-            flexDirection: "column",
-            maxHeight: "92vh",
-            animation: "fadeIn 0.2s ease",
-          }}
+          className="w-[540px] bg-white shadow-[0_24px_64px_rgba(20,18,14,0.28)] overflow-hidden rounded-3xl flex flex-col max-h-[92vh] animate-[fadeIn_0.2s_ease]"
         >
-          {/* Header Modal */}
           <div
-            style={{
-              padding: "20px 24px",
-              borderBottom: "0.80px #E6E1D4 solid",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexShrink: 0,
-            }}
+            className="px-6 py-5 border-b border-[#E6E1D4] flex justify-between items-center shrink-0"
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 17, color: "#14130F", lineHeight: "25.50px" }}>
+            <div className="flex flex-col gap-0.5">
+              <div className="font-sans font-bold text-[17px] text-[#14130F] leading-[25.5px]">
                 Alokasi Pengeluaran
               </div>
-              <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 400, fontSize: 12, color: "#9A948B", lineHeight: "18px" }}>
+              <div className="font-sans font-normal text-xs text-[#9A948B] leading-[18px]">
                 {showInitBudget?.nama}
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 12,
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              className="hover:bg-stone-100 transition"
+              className="px-2.5 py-1.5 rounded-xl border-none bg-transparent cursor-pointer flex items-center justify-center hover:bg-stone-100 transition"
             >
               <X size={16} color="#2C2A24" />
             </button>
           </div>
 
-          {/* Body Form */}
-          <form onSubmit={handleSubmit} style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 px-6 py-5 overflow-y-auto flex flex-col gap-4">
 
-              {/* Total Nilai Proyek Read-only */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <label style={{ color: "#14130F", fontSize: 12.5, fontFamily: "Plus Jakarta Sans", fontWeight: "600" }}>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#14130F] text-[12.5px] font-sans font-semibold">
                   Total Nilai Proyek
                 </label>
                 <div
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    width: "100%",
-                    height: 42,
-                    background: "#F8F7F4",
-                    borderRadius: 12,
-                    border: "1px solid #E6E1D4",
-                    paddingLeft: 12,
-                    paddingRight: 12,
-                  }}
+                  className="relative flex items-center w-full h-[42px] bg-[#F8F7F4] rounded-xl border border-[#E6E1D4] px-3"
                 >
-                  <span style={{ fontSize: 13.5, fontFamily: "IBM Plex Mono", fontWeight: "500", color: "#78716C", marginRight: 6 }}>Rp</span>
-                  <span className="font-mono font-bold text-[14px] text-stone-900">
+                  <span className="text-[13.5px] leading-none  font-medium text-[#78716C] mr-1.5">Rp</span>
+                  <span className=" font-bold text-[14px] text-stone-900">
                     {formatRibuan(String(Math.round(totalNilaiProyekVal))) || "0"}
                   </span>
                 </div>
               </div>
 
-              {/* Real-time Summary Card: Alokasi Dwi-Warna (Pengeluaran vs Pemasukan) */}
               <div
-                style={{
-                  alignSelf: "stretch",
-                  padding: "14px 16px",
-                  background: "white",
-                  borderRadius: 16,
-                  border: "1.2px solid #E6E1D4",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
+                className="self-stretch px-4 py-3.5 bg-white rounded-2xl border-[1.2px] border-[#E6E1D4] flex flex-col gap-2.5"
               >
                 <div className="flex justify-between items-center text-[12px] font-bold text-stone-700">
                   <span>Distribusi Nilai Proyek</span>
-                  <span className="font-mono text-[13px] font-black text-stone-900">
-                    Rp {totalAllAllocated.toLocaleString("id-ID")} / {totalNilaiProyekVal.toLocaleString("id-ID")}
+                  <span className=" text-[13px] font-black text-stone-900">
+                    {<CompactNominal value={totalAllAllocated} compactThreshold={1_000_000_000_000} />} / {<CompactNominal value={totalNilaiProyekVal} compactThreshold={1_000_000_000_000} />}
                   </span>
                 </div>
 
-                {/* Progress Bar Dwi-Warna */}
                 <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden flex">
                   <div
                     className="h-full bg-rose-500 transition-all duration-300"
                     style={{ width: `${Math.min(pctPengeluaran, 100)}%` }}
-                    title={`Pengeluaran (RAB): Rp ${totalPengeluaranAllocated.toLocaleString("id-ID")}`}
+                    title={`Pengeluaran (RAB): ${<CompactNominal value={totalPengeluaranAllocated} compactThreshold={1_000_000_000_000} />}`}
                   />
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
                     style={{ width: `${Math.min(pctPemasukan, 100)}%` }}
-                    title={`Pemasukan (COA): Rp ${totalPemasukanExisting.toLocaleString("id-ID")}`}
+                    title={`Pemasukan (COA): ${<CompactNominal value={totalPemasukanExisting} compactThreshold={1_000_000_000_000} />}`}
                   />
                 </div>
-
-                {/* 3 Kolom Info Status */}
                 <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
                   <div className="flex flex-col">
                     <span className="text-stone-400 font-medium flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shrink-0" />
                       Pengeluaran
                     </span>
-                    <span className="font-mono font-bold text-stone-800 text-[12px] mt-0.5">
-                      Rp {totalPengeluaranAllocated.toLocaleString("id-ID")}
+                    <span className=" font-bold text-stone-800 text-[12px] mt-0.5">
+                      {<CompactNominal value={totalPengeluaranAllocated} compactThreshold={1_000_000_000_000} />}
                     </span>
                     <span className="text-[10px] text-rose-600 font-medium">Alokasi Saat Ini</span>
                   </div>
@@ -275,8 +220,8 @@ export default function InitBudgetModal({
                       <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
                       Pemasukan
                     </span>
-                    <span className="font-mono font-bold text-stone-800 text-[12px] mt-0.5">
-                      Rp {totalPemasukanExisting.toLocaleString("id-ID")}
+                    <span className=" font-bold text-stone-800 text-[12px] mt-0.5">
+                      {<CompactNominal value={totalPemasukanExisting} compactThreshold={1_000_000_000_000} />}
                     </span>
                     <span className="text-[10px] text-stone-400 font-medium">Sudah Terisi</span>
                   </div>
@@ -285,7 +230,7 @@ export default function InitBudgetModal({
                     <span className={isOverbudget ? "text-rose-500 font-bold" : "text-stone-400 font-medium"}>
                       {isOverbudget ? "Kelebihan" : "Sisa Belum Dibagi"}
                     </span>
-                    <span className={`font-mono font-bold text-[12px] mt-0.5 ${isOverbudget ? "text-rose-600" : "text-stone-900"}`}>
+                    <span className={` font-bold text-[12px] mt-0.5 ${isOverbudget ? "text-rose-600" : "text-stone-900"}`}>
                       Rp {Math.abs(sisaBelumDialokasikan).toLocaleString("id-ID")}
                     </span>
                     <span className="text-[10px] text-stone-400 font-medium">
@@ -295,10 +240,9 @@ export default function InitBudgetModal({
                 </div>
               </div>
 
-              {/* List Main Pengeluaran */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-[12.5px] font-bold text-stone-900" style={{ fontFamily: "Plus Jakarta Sans" }}>
+                  <span className="text-[12.5px] font-bold text-stone-900 font-sans">
                     Pos Main Pengeluaran ({posAnggaranList.length})
                   </span>
                   <button
@@ -321,7 +265,7 @@ export default function InitBudgetModal({
                           updated[idx].deskripsi = e.target.value;
                           setPosAnggaranList(updated);
                         }}
-                        className="flex-1 border border-stone-200 rounded-xl px-3 py-2.5 text-[12.5px] font-medium bg-white focus:outline-none focus:border-stone-400 text-stone-800"
+                        className="flex-1 border border-stone-200 rounded-xl px-2.5 py-2.5 text-[12.5px] font-medium bg-white focus:outline-none focus:border-stone-400 text-stone-800"
                       >
                         <option value="" disabled hidden>
                           {loadingOptions ? "Memuat data..." : "Pilih Pos Main Pengeluaran"}
@@ -333,8 +277,8 @@ export default function InitBudgetModal({
                         ))}
                       </select>
 
-                      <div className="relative flex items-center w-40">
-                        <span className="absolute left-3 text-[12px] font-bold text-stone-400 font-mono">Rp</span>
+                      <div className="relative flex items-center w-45">
+                        <span className="absolute left-3 text-[12px] font-bold text-stone-400 ">Rp</span>
                         <input
                           type="text"
                           required
@@ -349,7 +293,7 @@ export default function InitBudgetModal({
                             });
                           }}
                           placeholder="0"
-                          className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[12.5px] bg-white font-mono text-stone-900 font-bold focus:outline-none focus:border-stone-400 text-left"
+                          className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[12.5px] bg-white  text-stone-900 font-bold focus:outline-none focus:border-stone-400 text-left"
                         />
                       </div>
 
@@ -387,56 +331,20 @@ export default function InitBudgetModal({
               )}
             </div>
 
-            {/* Footer Modal */}
             <div
-              style={{
-                padding: "14px 24px",
-                borderTop: "0.80px #E6E1D4 solid",
-                display: "flex",
-                gap: 8,
-                background: "white",
-                flexShrink: 0,
-              }}
+              className="px-6 py-3.5 border-t border-[#E6E1D4] flex gap-2 bg-white shrink-0"
             >
               <button
                 type="button"
                 onClick={onClose}
-                style={{
-                  flex: 1,
-                  padding: "9px 14px",
-                  background: "white",
-                  border: "0.80px solid #E6E1D4",
-                  borderRadius: 12,
-                  fontFamily: "Plus Jakarta Sans",
-                  fontWeight: "600",
-                  fontSize: 13,
-                  color: "#14130F",
-                  cursor: "pointer",
-                }}
-                className="hover:bg-stone-50 transition"
+                className="flex-1 px-3.5 py-2.5 bg-white border-[0.8px] border-[#E6E1D4] rounded-xl font-sans font-semibold text-[13px] text-[#14130F] cursor-pointer hover:bg-stone-50 transition"
               >
                 Batalkan
               </button>
               <button
                 type="submit"
                 disabled={submitting || hasDuplicatePengeluaran || isOverbudget}
-                style={{
-                  flex: 1,
-                  padding: "9px 14px",
-                  background: hasDuplicatePengeluaran || isOverbudget ? "#A1A1AA" : "black",
-                  border: "none",
-                  borderRadius: 12,
-                  fontFamily: "Plus Jakarta Sans",
-                  fontWeight: "600",
-                  fontSize: 13,
-                  color: "white",
-                  cursor: hasDuplicatePengeluaran || isOverbudget ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                }}
-                className="hover:opacity-80 transition"
+                className={`flex-1 px-3.5 py-2.5 rounded-xl font-sans font-semibold text-[13px] text-white ${hasDuplicatePengeluaran || isOverbudget ? "bg-[#A1A1AA] cursor-not-allowed" : "bg-black cursor-pointer"} flex items-center justify-center gap-1.5 hover:opacity-80 transition`}
               >
                 {submitting && <Loader2 size={13} className="animate-spin" />}
                 Simpan Alokasi Pengeluaran

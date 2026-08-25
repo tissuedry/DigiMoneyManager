@@ -8,7 +8,7 @@ import {
     calculateTotalTerpakai,
     calculateBudgetProgress,
     formatStatusLabel
-} from "./utils";
+} from "@/lib/proyek-utils";
 import CompactNominal from "@/components/compact-nominal";
 import GrafikProgressTermin from "@/components/GrafikProgressTermin";
 

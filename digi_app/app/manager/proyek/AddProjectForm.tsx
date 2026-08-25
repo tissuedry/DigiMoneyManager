@@ -4,7 +4,7 @@ import DatePicker from "@/components/date-picker";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import { useMutate } from "@/lib/use-api";
-import { formatRibuan, ribuanToNumber } from "./utils";
+import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 
 const emptyForm = {
   nama: "",
@@ -21,7 +21,7 @@ type Props = {
   onSaved: () => void;
 };
 
-export default function AddProjectModal({ show, onClose, onSaved }: Props) {
+export default function AddProjectForm({ show, onClose, onSaved }: Props) {
   const [projectForm, setProjectForm] = useState(emptyForm);
   const [showConfirm, setShowConfirm] = useState(false);
   const [formError, setFormError] = useState("");
@@ -134,12 +134,13 @@ export default function AddProjectModal({ show, onClose, onSaved }: Props) {
                 <input
                   type="text"
                   value={projectForm.nilaiKontrak || ""}
-                  onChange={(e) =>
-                    setProjectForm({
-                      ...projectForm,
-                      nilaiKontrak: formatRibuan(e.target.value),
-                    })
-                  }
+                  onChange={(e) => {
+                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                    setProjectForm({ ...projectForm, nilaiKontrak: formatted });
+                    requestAnimationFrame(() => {
+                      e.target.setSelectionRange(caret, caret);
+                    });
+                  }}
                   placeholder="0"
                   className="w-full border border-stone-200 rounded-xl pl-10 pr-4 py-2.5 text-[13px] font-mono focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 bg-white"
                 />

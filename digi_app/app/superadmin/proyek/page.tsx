@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
 import { Project, LogAktivitas, Member } from "./types";
-import { formatRupiah, formatSummaryRupiah, formatRibuan, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
+import { formatRupiah, formatSummaryRupiah, formatRibuan, ribuanToNumber, getStatusStyles, formatStatusLabel } from "@/lib/proyek-utils";
 
 import AddProjectModal from "./AddProjectModal";
 import AssignMembersModal from "./AssignMembersModal";
