@@ -8,6 +8,7 @@ import ConfirmDialog from '@/components/confirm-dialog';
 import Toast from '@/components/toast';
 import CompactNominal from '@/components/compact-nominal';
 import { useApi, useInvalidate } from '@/lib/use-api';
+import { formatFullRupiah } from '@/lib/format-nominal';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,8 @@ type Submission = {
   main: string;
   sub: string;
   ket: string;
+  ketAlokasi: number;
+  ketRealisasi: number;
   amount: string;
   amountRaw: number;
   status: ApprovalStatus;
@@ -376,6 +379,8 @@ export default function AntrianApprovalPage() {
       main: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'N/A',
       sub: r.keteranganAnggaran?.subAnggaran?.namaSub || 'N/A',
       ket: r.keteranganAnggaran?.keterangan || 'N/A',
+      ketAlokasi: Number(r.keteranganAnggaran?.nominalAlokasi || 0),
+      ketRealisasi: Number(r.keteranganAnggaran?.nominalRealisasi || 0),
 
       catatanPm: pmApproval?.catatan || "",
       catatanKeuangan: financeApproval?.catatan || "",
@@ -385,7 +390,7 @@ export default function AntrianApprovalPage() {
       status: displayStatus,
       pengaju: r.user?.nama || 'Karyawan',
       pengajuInitials: initials,
-      keterangan: '-', // Jika ada deskripsi lain, bisa dilampirkan di sini
+      keterangan: r.deskripsi || r.ocrData?.keterangan || '-',
       steps,
       strukUrl: r.urlStruk || r.strukUrl,
       isRealisasi
@@ -727,6 +732,56 @@ export default function AntrianApprovalPage() {
                       </p>
                       <p className="text-[32px] font-bold text-stone-900">{selected.amount}</p>
                     </div>
+
+                    {/* Info Realisasi Keterangan Anggaran */}
+                    {selected.ket && selected.ket !== 'N/A' && (() => {
+                      const alokasi = selected.ketAlokasi || 0;
+                      const realisasi = selected.ketRealisasi || 0;
+                      const sisa = alokasi - realisasi;
+                      const percentage = alokasi > 0 ? Math.round((realisasi / alokasi) * 100) : 0;
+                      const isOver = sisa < 0;
+
+                      return (
+                        <div className="bg-white border border-[#e6e1d4] rounded-2xl p-4 space-y-3 shadow-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-semibold text-stone-800 truncate" title={`${selected.isRealisasi ? 'Realisasi Anggaran' : 'Reimbursement'} – KET · ${selected.ket}`}>
+                              {selected.isRealisasi ? 'Realisasi Anggaran' : 'Reimbursement'} – KET · {selected.ket}
+                            </p>
+                            <span className={`text-[12px] font-bold shrink-0 ${isOver ? 'text-[#902f33]' : 'text-stone-800'}`}>
+                              {percentage}%
+                            </span>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="w-full bg-[#f0ece1] h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isOver ? 'bg-[#902f33]' : 'bg-[#00875a]'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
+                            />
+                          </div>
+
+                          {/* Breakdown Angka */}
+                          <div className="flex items-center justify-between text-[11.5px] pt-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Alokasi</span>
+                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(alokasi)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Realisasi</span>
+                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(realisasi)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Sisa</span>
+                              <span className={`font-semibold font-mono ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
+                                {isOver ? `- ${formatFullRupiah(Math.abs(sisa))}` : formatFullRupiah(sisa)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Tampilan Alasan Penolakan Jika Ditolak */}
                     {selected.status === "Ditolak" && (
