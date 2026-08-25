@@ -22,8 +22,8 @@ export default function EditTerminForm({
     terminList,
     onSuccess,
 }: Props) {
-    const [termin0, setTermin0] = useState<{ id?: number; nominal: string }>({ nominal: '' });
-    const [terminData, setTerminData] = useState<TerminItem[]>([{ progress: '', nominal: '' }]);
+    const [termin0, setTermin0] = useState<{ id?: number; nominal: string; isDiterima?: boolean }>({ nominal: '', isDiterima: false });
+    const [terminData, setTerminData] = useState<TerminItem[]>([{ progress: '', nominal: '', isDiterima: false }]);
     const [jumlahTerminInput, setJumlahTerminInput] = useState<string>('1');
 
     const [loading, setLoading] = useState(false);
@@ -41,9 +41,14 @@ export default function EditTerminForm({
         );
 
         if (existingT0) {
-            setTermin0({ id: existingT0.id, nominal: formatRibuan(String(existingT0.nominal || '')) });
+            const isT0Diterima = existingT0.status === 'DITERIMA' || Boolean(existingT0.tanggalPencairan);
+            setTermin0({
+                id: existingT0.id,
+                nominal: formatRibuan(String(existingT0.nominal || '')),
+                isDiterima: isT0Diterima,
+            });
         } else {
-            setTermin0({ nominal: '' });
+            setTermin0({ nominal: '', isDiterima: false });
         }
 
         const regularList = terminList.filter((t: any) =>
@@ -58,10 +63,12 @@ export default function EditTerminForm({
                 id: t.id,
                 progress: t.persentaseProgress || '',
                 nominal: formatRibuan(String(t.nominal || '')),
+                status: t.status,
+                isDiterima: t.status === 'DITERIMA' || Boolean(t.tanggalPencairan),
             })));
             setJumlahTerminInput(String(regularList.length));
         } else {
-            setTerminData([{ progress: '', nominal: '' }]);
+            setTerminData([{ progress: '', nominal: '', isDiterima: false }]);
             setJumlahTerminInput('1');
         }
         setErrorMsg('');
@@ -83,19 +90,28 @@ export default function EditTerminForm({
     const pctTeralokasi = totalNilaiProyekVal > 0 ? (totalTeralokasi / totalNilaiProyekVal) * 100 : 0;
 
     const handleInputChange = (index: number, field: 'progress' | 'nominal', value: string, e?: React.ChangeEvent<HTMLInputElement>) => {
+        if (terminData[index]?.isDiterima) return;
+
         const updated = [...terminData];
         if (field === 'nominal') {
+            const cleanNominal = ribuanToNumber(value);
+            let calculatedPct = '';
+            if (totalNilaiProyekVal > 0 && cleanNominal > 0) {
+                const pct = (cleanNominal / totalNilaiProyekVal) * 100;
+                calculatedPct = String(parseFloat(pct.toFixed(2)));
+            }
+
             if (e) {
                 const caretPos = e.target.selectionStart ?? 0;
                 const { formatted, caret } = formatRibuan(value, caretPos);
-                updated[index] = { ...updated[index], nominal: formatted };
+                updated[index] = { ...updated[index], nominal: formatted, progress: calculatedPct };
                 setTerminData(updated);
                 requestAnimationFrame(() => {
                     e.target.setSelectionRange(caret, caret);
                 });
                 return;
             }
-            updated[index] = { ...updated[index], nominal: formatRibuan(value) };
+            updated[index] = { ...updated[index], nominal: formatRibuan(value), progress: calculatedPct };
         } else if (field === 'progress') {
             let cleanVal = value.replace(/[^0-9.]/g, '');
             const parts = cleanVal.split('.');
@@ -106,12 +122,20 @@ export default function EditTerminForm({
             if (!isNaN(num) && num > 100) {
                 cleanVal = '100';
             }
-            updated[index] = { ...updated[index], progress: cleanVal };
+
+            let calculatedNominal = '';
+            if (cleanVal !== '' && !isNaN(parseFloat(cleanVal)) && totalNilaiProyekVal > 0) {
+                const nom = Math.round((parseFloat(cleanVal) / 100) * totalNilaiProyekVal);
+                calculatedNominal = formatRibuan(String(nom));
+            }
+
+            updated[index] = { ...updated[index], progress: cleanVal, nominal: calculatedNominal };
         }
         setTerminData(updated);
     };
 
     const handleTermin0Change = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (termin0.isDiterima) return;
         const caretPos = e.target.selectionStart ?? 0;
         const { formatted, caret } = formatRibuan(e.target.value, caretPos);
         setTermin0({ ...termin0, nominal: formatted });
@@ -130,14 +154,19 @@ export default function EditTerminForm({
 
         const num = parseInt(cleanVal, 10);
         if (!isNaN(num)) {
+            const minAllowed = terminData.filter(t => t.isDiterima).length;
+            const targetCount = Math.max(num, minAllowed);
+
             setTerminData((prev) => {
                 const updated = [...prev];
-                if (num > updated.length) {
-                    for (let i = updated.length; i < num; i++) {
-                        updated.push({ progress: '', nominal: '' });
+                if (targetCount > updated.length) {
+                    for (let i = updated.length; i < targetCount; i++) {
+                        updated.push({ progress: '', nominal: '', isDiterima: false });
                     }
-                } else if (num < updated.length) {
-                    updated.length = num;
+                } else if (targetCount < updated.length) {
+                    while (updated.length > targetCount && !updated[updated.length - 1].isDiterima) {
+                        updated.pop();
+                    }
                 }
                 return updated;
             });
@@ -154,27 +183,18 @@ export default function EditTerminForm({
         for (let i = 0; i < terminData.length; i++) {
             const t = terminData[i];
             if (t.progress === '' || t.progress === null || t.progress === undefined) {
-                setErrorMsg(`Progress untuk Termin ${i + 1} harus diisi!`);
+                setErrorMsg(`Persen untuk Termin ${i + 1} harus diisi!`);
                 return;
             }
             const progNum = parseFloat(String(t.progress));
             if (isNaN(progNum) || progNum <= 0 || progNum > 100) {
-                setErrorMsg(`Progress Termin ${i + 1} harus lebih dari 0% dan maksimal 100%!`);
+                setErrorMsg(`Persen Termin ${i + 1} harus lebih dari 0% dan maksimal 100%!`);
                 return;
             }
 
             const nomClean = String(t.nominal).replace(/\./g, '');
             if (!nomClean || isNaN(Number(nomClean)) || Number(nomClean) <= 0) {
                 setErrorMsg(`Nominal untuk Termin ${i + 1} harus diisi dengan benar!`);
-                return;
-            }
-        }
-
-        for (let i = 0; i < terminData.length - 1; i++) {
-            const currentProg = parseFloat(String(terminData[i].progress));
-            const nextProg = parseFloat(String(terminData[i + 1].progress));
-            if (currentProg >= nextProg) {
-                setErrorMsg(`Progress Termin ${i + 1} (${currentProg}%) harus lebih kecil dari Termin ${i + 2} (${nextProg}%)!`);
                 return;
             }
         }
@@ -377,7 +397,7 @@ export default function EditTerminForm({
                             Termin
                         </div>
                         <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider text-center">
-                            Progress (%)
+                            Persen (%)
                         </div>
                         <div className="col-span-6 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider pl-1">
                             Nominal Diturunkan (IDR)
@@ -389,6 +409,9 @@ export default function EditTerminForm({
                         <div className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
                             <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
                                 Termin 0 <span className="text-[11px] font-normal text-stone-500">(DP)</span>
+                                {termin0.isDiterima && (
+                                    <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dicairkan</span>
+                                )}
                             </div>
 
                             <div className="col-span-3 relative">
@@ -409,29 +432,42 @@ export default function EditTerminForm({
                                 </span>
                                 <input
                                     type="text"
+                                    disabled={termin0.isDiterima}
                                     value={termin0.nominal}
                                     onChange={handleTermin0Change}
                                     placeholder="0"
-                                    className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px]  font-medium text-stone-800 outline-none focus:border-[#00966c]"
+                                    className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${
+                                        termin0.isDiterima
+                                            ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                                            : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'
+                                    }`}
                                 />
                             </div>
                         </div>
 
-                        {terminData.map((_, idx) => (
+                        {terminData.map((t, idx) => (
                             <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
 
                                 <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
                                     Termin {idx + 1}
+                                    {t.isDiterima && (
+                                        <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dicairkan</span>
+                                    )}
                                 </div>
 
                                 <div className="col-span-3 relative">
                                     <input
                                         type="text"
                                         inputMode="decimal"
-                                        value={terminData[idx]?.progress ?? ''}
+                                        disabled={t.isDiterima}
+                                        value={t.progress ?? ''}
                                         onChange={(e) => handleInputChange(idx, 'progress', e.target.value)}
                                         placeholder="0"
-                                        className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-stone-800 outline-none focus:border-[#00966c] text-center"
+                                        className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${
+                                            t.isDiterima
+                                                ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                                                : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'
+                                        }`}
                                     />
                                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
                                         %
@@ -444,10 +480,15 @@ export default function EditTerminForm({
                                     </span>
                                     <input
                                         type="text"
-                                        value={terminData[idx]?.nominal ?? ''}
+                                        disabled={t.isDiterima}
+                                        value={t.nominal ?? ''}
                                         onChange={(e) => handleInputChange(idx, 'nominal', e.target.value, e)}
                                         placeholder="0"
-                                        className="w-full bg-white border border-[#e6e2d6] rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px]  font-medium text-stone-800 outline-none focus:border-[#00966c]"
+                                        className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${
+                                            t.isDiterima
+                                                ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                                                : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'
+                                        }`}
                                     />
                                 </div>
 

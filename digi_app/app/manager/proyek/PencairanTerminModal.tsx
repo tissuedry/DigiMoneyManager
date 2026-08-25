@@ -139,7 +139,7 @@ export default function PencairanTerminModal({
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-bold text-stone-900 mb-2">Progress</label>
+                <label className="block text-[13px] font-bold text-stone-900 mb-2">Persen</label>
                 <input
                   type="text"
                   readOnly
