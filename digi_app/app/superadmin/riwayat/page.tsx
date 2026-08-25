@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Filter, Eye, RefreshCw, ArrowUpDown, Search, ChevronDown } from "lucide-react";
 import SuccessDialog from '@/components/success-dialog';
 import ConfirmDialog from '@/components/confirm-dialog';
-import ImagePreviewModal from './ImagePreviewModal';
+import ImageLightbox from '@/components/image-lightbox';
 import ReimbursementDetailPanel from './ReimbursementDetailPanel';
 import CompactNominal from '@/components/compact-nominal';
 import { formatTanggal } from '@/lib/formatters';
@@ -554,10 +554,9 @@ export default function RiwayatPengajuanPage() {
       />
 
       {/* Komponen Preview Gambar Struk */}
-      <ImagePreviewModal
-        isOpen={showImageModal}
+      <ImageLightbox
+        url={showImageModal ? selectedImageUrl : null}
         onClose={() => setShowImageModal(false)}
-        imageUrl={selectedImageUrl}
       />
     </div>
   );

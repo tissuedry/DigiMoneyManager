@@ -134,8 +134,7 @@ export default function ReviewForm({
                 <span className="text-[10px] opacity-80 ">
                   (Rp {s.nominal || '0'})
                 </span>
-                {strukList.length > 1 && (
-                  <span
+                <span
                     onClick={(e) => {
                       e.stopPropagation();
                       onRemoveStruk(s.id);
@@ -145,8 +144,7 @@ export default function ReviewForm({
                   >
                     <Trash2 size={12} />
                   </span>
-                )}
-              </button>
+                </button>
             ))}
 
             {strukList.length < maxLimit && (

@@ -1,41 +1,42 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 
-export type LightboxTarget = { url: string; isPdf?: boolean } | null;
-
+/**
+ * Lightbox gambar bersama: klik backdrop untuk tutup, scroll untuk zoom (s.d. 4x),
+ * drag untuk pan. Render tidak ada saat url kosong — state reset otomatis saat unmount.
+ */
 export default function ImageLightbox({
-  target,
+  url,
   onClose,
+  alt = "Bukti Struk",
+  isPdf = false,
 }: {
-  target: LightboxTarget;
+  url: string | null;
   onClose: () => void;
+  alt?: string;
+  isPdf?: boolean;
 }) {
   const [zoomScale, setZoomScale] = useState(1);
   const [panPos, setPanPos] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Lock body scroll selama lightbox terbuka
   useEffect(() => {
-    setZoomScale(1);
-    setPanPos({ x: 0, y: 0 });
-    setIsDragging(false);
-  }, [target?.url]);
-
-  useEffect(() => {
-    if (!target) return;
+    if (!url) return;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [target]);
+  }, [url]);
 
-  if (!target) return null;
+  if (!url) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+      className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <button
@@ -48,9 +49,8 @@ export default function ImageLightbox({
       </button>
 
       <div
-        className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${
-          zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
-        }`}
+        className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
+          }`}
         onClick={(e) => e.stopPropagation()}
         onWheel={(e) => {
           if (e.deltaY < 0) {
@@ -80,16 +80,16 @@ export default function ImageLightbox({
         onMouseUp={() => setIsDragging(false)}
         onMouseLeave={() => setIsDragging(false)}
       >
-        {target.isPdf ? (
+        {isPdf ? (
           <iframe
-            src={target.url}
+            src={url}
             className="w-[85vw] max-w-4xl h-[80vh] rounded-2xl bg-white shadow-2xl border border-stone-200"
             title="Preview PDF"
           />
         ) : (
           <img
-            src={target.url}
-            alt="Bukti Struk Full Preview"
+            src={url}
+            alt={alt}
             draggable={false}
             className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
             style={{

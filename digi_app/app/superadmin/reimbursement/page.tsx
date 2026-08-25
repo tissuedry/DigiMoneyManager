@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Toast from '@/components/toast';
 import DatePicker from '@/components/date-picker';
-import PreviewModal from './PreviewModal';
+import ImageLightbox from '@/components/image-lightbox';
 import {
   PlusCircle,
   Camera,
@@ -860,12 +860,10 @@ function AjukanReimbursementContent() {
 
       </main>
 
-      <PreviewModal 
-        isOpen={isPreviewModalOpen} 
-        onClose={() => setIsPreviewModalOpen(false)} 
-        filePreview={filePreview} 
-        isPdf={!!isPdf} 
-        fileName={selectedFile?.name} 
+      <ImageLightbox
+        url={isPreviewModalOpen ? filePreview : null}
+        onClose={() => setIsPreviewModalOpen(false)}
+        isPdf={!!isPdf}
       />
 
       <Toast

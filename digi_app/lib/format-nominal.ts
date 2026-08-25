@@ -27,6 +27,13 @@ export function formatFullRupiah(value: number | string): string {
   }).format(num);
 }
 
+/** Rupiah penuh dengan tanda minus eksplisit untuk nilai sisa yang overbudget */
+export function formatSisaRupiah(num: number): string {
+  const n = Number(num) || 0;
+  if (n < 0) return `-Rp ${Math.abs(Math.round(n)).toLocaleString("id-ID")}`;
+  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+}
+
 /**
  * Memformat angka hingga maksimal 2 digit desimal belakang koma (id-ID).
  * Contoh: 2.200.000 / 1.000.000 = 2.2 -> "2,20"

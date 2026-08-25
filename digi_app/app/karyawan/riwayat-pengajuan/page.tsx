@@ -9,7 +9,7 @@ import SuccessDialog from '@/components/success-dialog';
 import ConfirmDialog from '@/components/confirm-dialog';
 import CompactNominal from "@/components/compact-nominal";
 import ImageLightbox from "@/components/image-lightbox";
-import { formatTanggal, formatTanggalLong, formatApprovalDate } from "@/lib/formatters";
+import { formatTanggal, formatTanggalLong, formatApprovalDate, getFileExt } from "@/lib/formatters";
 import { statusMeta } from "@/lib/status";
 import { useApi, useMutate } from "@/lib/use-api";
 
@@ -408,7 +408,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           {raw.strukUrl ? (
             <a
               href={raw.strukUrl}
-              download={`bukti-${displayId}.png`}
+              download={`bukti-${displayId}${getFileExt(raw.strukUrl)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-xl text-[12px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
@@ -747,7 +747,6 @@ export default function RiwayatPengajuanPage() {
                       >
                         Reset
                       </button>
-                     
                     </div>
                   </div>
                 )}
@@ -921,7 +920,7 @@ export default function RiwayatPengajuanPage() {
         onClose={() => setShowCancelSuccess(false)}
       />
 
-      <ImageLightbox target={lightboxUrl ? { url: lightboxUrl } : null} onClose={() => setLightboxUrl(null)} />
+      <ImageLightbox  url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
     </div>
   );
 }
