@@ -4,11 +4,8 @@ import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
-
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
-}
+import { formatFullRupiah as formatFullCurrency } from "@/lib/format-nominal";
+import { formatRibuan } from "@/lib/proyek-utils";
 
 function formatRpInput(val: number): string {
   if (!val && val !== 0) return "";
@@ -60,17 +57,22 @@ export default function PerubahanAlokasiModal({
     }
     const num = parseInt(rawStr, 10) || 0;
     const clamped = Math.min(num, maxAlokasi);
-    const inputStr = clamped.toLocaleString("id-ID");
-    const caretPos = e.target.selectionStart ?? 0;
-    const digitsBefore = e.target.value.slice(0, caretPos).replace(/[^0-9]/g, "").length;
-    let caret = 0;
-    let digits = 0;
-    for (let i = 0; i < inputStr.length && digits < digitsBefore; i++) {
-      caret++;
-      if (/[0-9]/.test(inputStr[i])) digits++;
+
+    if (clamped !== num) {
+      // Melebihi batas: tampilkan nilai yang sudah di-clamp, karet di akhir
+      const shown = formatRpInput(clamped);
+      setInputStr(shown);
+      setAlokasiBaru(clamped);
+      requestAnimationFrame(() => {
+        e.target.setSelectionRange(shown.length, shown.length);
+      });
+      return;
     }
 
-    setInputStr(inputStr);
+    // Pemformatan ribuan + pemulihan posisi kursor via helper bersama
+    const caretPos = e.target.selectionStart ?? 0;
+    const { formatted, caret } = formatRibuan(e.target.value, caretPos);
+    setInputStr(formatted);
     setAlokasiBaru(clamped);
     requestAnimationFrame(() => {
       e.target.setSelectionRange(caret, caret);

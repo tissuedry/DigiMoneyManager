@@ -6,7 +6,7 @@ import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
 import CompactNominal from "@/components/compact-nominal";
-import { formatCompactRupiah, formatFullRupiah } from "@/lib/format-nominal";
+import { formatFullRupiah as formatShort } from "@/lib/format-nominal";
 
 type AlokasiKet = {
   id: number;
@@ -78,9 +78,37 @@ const getDraftsFromStorage = (pId: number) => {
   }
 };
 
-const formatShort = (v: number): string => {
-  return formatFullRupiah(v);
-};
+/** Ringkasan live alokasi parent saat mengisi draft (dipakai form Sub & Keterangan) */
+function DraftBudgetSummary({ totalLabel, existingTotal, inputTotal, parentAlokasi, sisaLabel }: {
+  totalLabel: string;
+  existingTotal: number;
+  inputTotal: number;
+  parentAlokasi: number;
+  sisaLabel: string;
+}) {
+  const liveTotal = existingTotal + inputTotal;
+  const sisa = parentAlokasi - liveTotal;
+  const isOver = sisa < 0;
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+        <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">{totalLabel}</p>
+        <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotal)}</p>
+      </div>
+      {isOver ? (
+        <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
+          <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
+          <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisa)}</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+          <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">{sisaLabel}</p>
+          <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisa)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AlokasiPosModal({
   proyekId,
@@ -107,6 +135,7 @@ export default function AlokasiPosModal({
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
   const [pendingSubmitItems, setPendingSubmitItems] = useState<any[]>([]);
   const [showEmptyWarning, setShowEmptyWarning] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
@@ -291,7 +320,7 @@ export default function AlokasiPosModal({
 
   const handleAddSub = (mainId: number) => {
     if (!newSubName || !newSubAlokasi) {
-      alert("Harap isi semua kolom untuk menambah Sub baru!");
+      setValidationError("Harap isi semua kolom untuk menambah Sub baru!");
       return;
     }
     const alokasiVal = parseRupiahInput(newSubAlokasi);
@@ -300,28 +329,28 @@ export default function AlokasiPosModal({
     if (!main) return;
     const currentTotal = main.subPos.reduce((sum, s) => sum + s.alokasi, 0);
     if (currentTotal + alokasiVal > main.alokasi) {
-      alert("Total alokasi Sub Pos melebihi batas alokasi Main Pos parent!");
+      setValidationError("Total alokasi Sub Pos melebihi batas alokasi Main Pos parent!");
       return;
     }
 
     const draftSubId = generateDraftId();
-    const nextData = data.map((main) => {
-      if (main.id === mainId) {
-        const updatedSub: AlokasiSub = {
-          id: draftSubId,
-          nama: newSubName,
-          alokasi: alokasiVal,
-          isLocalDraft: true,
-          keterangan: [],
-        };
-        setExpandedSub((prevSub) => ({ ...prevSub, [updatedSub.id]: true }));
-        return { ...main, subPos: [...main.subPos, updatedSub] };
+    const updatedSub: AlokasiSub = {
+      id: draftSubId,
+      nama: newSubName,
+      alokasi: alokasiVal,
+      isLocalDraft: true,
+      keterangan: [],
+    };
+    const nextData = data.map((m) => {
+      if (m.id === mainId) {
+        return { ...m, subPos: [...m.subPos, updatedSub] };
       }
-      return main;
+      return m;
     });
 
     setData(nextData);
     saveDraftsToStorage(proyekId, nextData);
+    setExpandedSub((prevSub) => ({ ...prevSub, [draftSubId]: true }));
 
     setAddingSubMainId(null);
     setNewSubName("");
@@ -330,7 +359,7 @@ export default function AlokasiPosModal({
 
   const handleAddKet = (subId: number) => {
     if (!newKetName || !newKetAlokasi) {
-      alert("Harap isi semua kolom untuk menambah Keterangan baru!");
+      setValidationError("Harap isi semua kolom untuk menambah Keterangan baru!");
       return;
     }
     const alokasiVal = parseRupiahInput(newKetAlokasi);
@@ -346,7 +375,7 @@ export default function AlokasiPosModal({
     if (!parentSub) return;
     const currentTotal = parentSub.keterangan.reduce((sum, k) => sum + k.alokasi, 0);
     if (currentTotal + alokasiVal > parentSub.alokasi) {
-      alert("Total alokasi Keterangan melebihi batas alokasi Sub Pos parent!");
+      setValidationError("Total alokasi Keterangan melebihi batas alokasi Sub Pos parent!");
       return;
     }
 
@@ -680,32 +709,13 @@ export default function AlokasiPosModal({
                                   {addingKetSubId === sub.id ? (
                                     <div className="space-y-3 my-2 bg-white">
                                       {/* Budget summary for this Sub */}
-                                      {(() => {
-                                        const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
-                                        const inputVal = parseRupiahInput(newKetAlokasi);
-                                        const liveTotalKet = totalKet + inputVal;
-                                        const sisaKet = sub.alokasi - liveTotalKet;
-                                        const isOverKet = sisaKet < 0;
-                                        return (
-                                          <div className="grid grid-cols-2 gap-3">
-                                            <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
-                                              <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
-                                              <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalKet)}</p>
-                                            </div>
-                                            {isOverKet ? (
-                                              <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
-                                                <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
-                                                <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaKet)}</p>
-                                              </div>
-                                            ) : (
-                                              <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
-                                                <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa Sub Belum Dialokasikan</p>
-                                                <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaKet)}</p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
+                                      <DraftBudgetSummary
+                                        totalLabel={`Total SUB · ${sub.nama} Teralokasi`}
+                                        existingTotal={sub.keterangan.reduce((s, k) => s + k.alokasi, 0)}
+                                        inputTotal={parseRupiahInput(newKetAlokasi)}
+                                        parentAlokasi={sub.alokasi}
+                                        sisaLabel="Sisa Sub Belum Dialokasikan"
+                                      />
 
                                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                         <span className="text-[12px] font-medium text-[#14130f] shrink-0 min-w-24">Keterangan Baru:</span>
@@ -774,32 +784,13 @@ export default function AlokasiPosModal({
                           {addingSubMainId === main.id ? (
                             <div className="space-y-3 my-2 bg-white">
                               {/* Budget summary for this Main */}
-                              {(() => {
-                                const totalSub = main.subPos.reduce((s, sub) => s + sub.alokasi, 0);
-                                const inputVal = parseRupiahInput(newSubAlokasi);
-                                const liveTotalSub = totalSub + inputVal;
-                                const sisaSub = main.alokasi - liveTotalSub;
-                                const isOverSub = sisaSub < 0;
-                                return (
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
-                                      <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total MAIN · {main.nama} Teralokasi</p>
-                                      <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalSub)}</p>
-                                    </div>
-                                    {isOverSub ? (
-                                      <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
-                                        <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
-                                        <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaSub)}</p>
-                                      </div>
-                                    ) : (
-                                      <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
-                                        <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa Main Belum Dialokasikan</p>
-                                        <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaSub)}</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })()}
+                              <DraftBudgetSummary
+                                totalLabel={`Total MAIN · ${main.nama} Teralokasi`}
+                                existingTotal={main.subPos.reduce((s, sub) => s + sub.alokasi, 0)}
+                                inputTotal={parseRupiahInput(newSubAlokasi)}
+                                parentAlokasi={main.alokasi}
+                                sisaLabel="Sisa Main Belum Dialokasikan"
+                              />
 
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                 <span className="text-[12px] font-medium text-[#14130f] shrink-0 min-w-24">Sub Baru:</span>
@@ -927,6 +918,13 @@ export default function AlokasiPosModal({
           setShowSubmitSuccess(false);
           onClose();
         }}
+      />
+
+      <Toast
+        open={!!validationError}
+        variant="error"
+        message={validationError || ""}
+        onClose={() => setValidationError(null)}
       />
 
       <SuccessDialog

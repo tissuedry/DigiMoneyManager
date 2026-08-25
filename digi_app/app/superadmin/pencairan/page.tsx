@@ -11,7 +11,7 @@ import SuccessDialog from '@/components/success-dialog';
 import Toast from '@/components/toast';
 import CompactNominal from '@/components/compact-nominal';
 import RejectModal from "./RejectModal";
-import ImagePreviewModal from "./ImagePreviewModal";
+import ImageLightbox from "@/components/image-lightbox";
 import { useApi, useInvalidate } from '@/lib/use-api';
 
 function formatTanggal(iso: string) {
@@ -1096,9 +1096,8 @@ function PencairanContent() {
         onClose={() => setErrorMessage(null)}
       />
 
-      <ImagePreviewModal
-        isOpen={!!zoomImageUrl}
-        imageUrl={zoomImageUrl ?? ''}
+      <ImageLightbox
+        url={zoomImageUrl}
         onClose={() => setZoomImageUrl(null)}
       />
     </div>

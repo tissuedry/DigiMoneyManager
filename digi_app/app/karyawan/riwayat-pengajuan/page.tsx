@@ -921,7 +921,7 @@ export default function RiwayatPengajuanPage() {
         onClose={() => setShowCancelSuccess(false)}
       />
 
-      <ImageLightbox target={lightboxUrl ? { url: lightboxUrl } : null} onClose={() => setLightboxUrl(null)} />
+      <ImageLightbox  url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
     </div>
   );
 }

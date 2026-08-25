@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { useApi, useInvalidate } from "@/lib/use-api";
 import { useRouter } from "next/navigation";
+import { getInitials, getAvatarColor } from "@/lib/formatters";
+import { formatStatusLabel } from "@/lib/proyek-utils";
 
 type PosAnggaran = {
   id: number;
@@ -91,21 +93,6 @@ export const formatShort = (v: number): string => {
   return `${sign}Rp ${Math.round(abs).toLocaleString("id-ID")}`;
 };
 
-const AVATAR_COLORS = [
-  "bg-emerald-100 text-emerald-700",
-  "bg-blue-100 text-blue-700",
-  "bg-violet-100 text-violet-700",
-  "bg-amber-100 text-amber-700",
-  "bg-rose-100 text-rose-700",
-];
-const avatarColor = (s: string) => AVATAR_COLORS[s.charCodeAt(0) % AVATAR_COLORS.length];
-function getInitials(name: string) {
-  if (!name) return "??";
-  const parts = name.split(" ").filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.substring(0, 2).toUpperCase();
-}
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function MemberSelect({ users, selectedUserId, onSelect }: {
@@ -134,7 +121,7 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
         className="w-full flex items-center gap-1.5 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white hover:bg-stone-50 focus:outline-none focus:ring-1 focus:ring-emerald-400 transition"
       >
         {initials ? (
-          <span className={`w-4 h-4 rounded-full text-[7px] font-bold flex items-center justify-center shrink-0 ${avatarColor(initials)}`}>
+          <span className={`w-4 h-4 rounded-full text-[7px] font-bold flex items-center justify-center shrink-0 ${getAvatarColor(initials)}`}>
             {initials}
           </span>
         ) : (
@@ -158,7 +145,7 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
                 className={`w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium hover:bg-stone-50 transition ${u.id === selectedUserId ? "text-emerald-700 bg-emerald-50/50" : "text-stone-700"
                   }`}
               >
-                <span className={`w-4 h-4 rounded-full text-[1px] font-bold flex items-center justify-center shrink-0 ${avatarColor(ini)}`}>
+                <span className={`w-4 h-4 rounded-full text-[1px] font-bold flex items-center justify-center shrink-0 ${getAvatarColor(ini)}`}>
                   {ini}
                 </span>
                 {u.nama}
@@ -403,6 +390,10 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
   const allocated = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
   const unallocated = proyek ? Math.max(0, proyek.totalRAB - allocated) : 0;
 
+  // Hoisted agar tidak dihitung ulang di setiap baris tim
+  const pmMember = proyek?.tim.find((m) => m.role === "Project Manager");
+  const selectableUsers = pmMember ? allUsers.filter((u) => u.id !== pmMember.id) : allUsers;
+
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <Sidebar
@@ -415,7 +406,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
 
         {isLoading ? (
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+          <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
             <ProyekSkeleton />
           </main>
         ) : error ? (
@@ -428,12 +419,12 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
             <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
           </main>
         ) : (
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
+          <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto space-y-6">
             {/* ── Page Header + Project Selector ── */}
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
-                <p className="text-sm text-stone-500 mt-1">
+                <p className="text-sm text-stone-500 mt-1.5">
                   Pantau anggaran, alokasikan pos baru, dan kelola tim untuk proyekmu.
                 </p>
               </div>
@@ -458,8 +449,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                 <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
                   <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
-                    {proyek.status == "AKTIF" ? "Active"
-                      : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
+                    {formatStatusLabel(proyek.status)}
                   </span>
                   <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
                 </div>
@@ -587,7 +577,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                     <div key={pm.id} className="flex items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2 min-w-0">
                       <span className="flex-1 min-w-0 text-[11px] font-semibold text-emerald-700 truncate">Project Manager</span>
                       <div className="flex-1 min-w-0 flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${avatarColor(pm.inisial)}`}>
+                        <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${getAvatarColor(pm.inisial)}`}>
                           {pm.inisial}
                         </div>
                         <span className="text-[11px] font-bold text-stone-800 truncate">{pm.nama}</span>
@@ -606,10 +596,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                           className="flex-1 min-w-0 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
                         />
                         <MemberSelect
-                          users={allUsers.filter((u) => {
-                            const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
-                            return !pmMember || u.id !== pmMember.id;
-                          })}
+                          users={selectableUsers}
                           selectedUserId={row.userId}
                           onSelect={(uid) => updateTimRow(idx, "userId", uid)}
                         />

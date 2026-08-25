@@ -59,8 +59,10 @@ export default function EditProyekModal({
           nama,
           deskripsi: deskripsi || null,
           status,
-          tanggalMulai: new Date(tanggalMulai).toISOString(),
-          tanggalSelesai: tanggalSelesai ? new Date(tanggalSelesai).toISOString() : null,
+          // "YYYY-MM-DD" langsung — backend melakukan new Date() dengan hasil yang sama,
+          // tanpa konversi timezone yang tidak perlu
+          tanggalMulai,
+          tanggalSelesai: tanggalSelesai || null,
         }),
       });
       const data = await res.json();

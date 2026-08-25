@@ -1,24 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
-import { formatFullRupiah } from "@/lib/format-nominal";
+import {
+  formatFullRupiah as formatFullCurrency,
+  formatSisaRupiah as formatSisaCurrency,
+} from "@/lib/format-nominal";
 import { formatReimbursementDate } from "@/lib/proyek-utils";
-
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return formatFullRupiah(n);
-}
-
-function formatSisaCurrency(num: number): string {
-  const n = Number(num) || 0;
-  if (n < 0) {
-    return `-Rp ${Math.abs(Math.round(n)).toLocaleString("id-ID")}`;
-  }
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
-}
 
 type KeteranganPos = {
   id: number;
@@ -143,73 +133,76 @@ export default function DetailAnggaranModal({
   const toggleKet = (id: number) =>
     setExpandedKet((p) => ({ ...p, [id]: !p[id] }));
 
-  const sortedPosAnggaran = [...(posAnggaran || [])]
-    .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === "pengeluaran")
-    .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+  // Pemetaan tree Main > Sub > Keterangan — hanya dihitung saat posAnggaran berubah
+  const mapped: MainPosItem[] = useMemo(() => {
+    const sortedPosAnggaran = [...(posAnggaran || [])]
+      .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === "pengeluaran")
+      .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
 
-  const mapped: MainPosItem[] = sortedPosAnggaran.map((main) => {
-    const sortedSubAnggaran = [...(main.subAnggaran || [])]
-      .filter((s: any) => !s.tipe || s.tipe.toLowerCase() === "pengeluaran")
-      .sort((a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0));
+    return sortedPosAnggaran.map((main) => {
+      const sortedSubAnggaran = [...(main.subAnggaran || [])]
+        .filter((s: any) => !s.tipe || s.tipe.toLowerCase() === "pengeluaran")
+        .sort((a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0));
 
-    const subPos = sortedSubAnggaran.map((sub: any) => {
-      const sortedKeterangan = [...(sub.keterangan || [])].sort(
-        (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
-      );
-
-      const keterangan = sortedKeterangan.map((ket: any) => {
-        const childReimbursements = ket.reimbursements || [];
-
-        const approvedReimbs = childReimbursements
-          .filter((r: any) =>
-            ["APPROVED", "APPROVED_BY_PM", "SUBMITTED", "PAID", "DISBURSED"].includes(r.status)
-          )
-          .sort((a: any, b: any) => getStatusRank(a.status) - getStatusRank(b.status));
-        const hasReimbs = approvedReimbs.length > 0;
-
-        const disbursedReimbs = childReimbursements.filter((r: any) =>
-          ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
+      const subPos = sortedSubAnggaran.map((sub: any) => {
+        const sortedKeterangan = [...(sub.keterangan || [])].sort(
+          (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
         );
-        const ketRealisasi = hasReimbs
-          ? disbursedReimbs.reduce((acc: number, r: any) => acc + (parseFloat(r.nominal) || 0), 0)
-          : parseFloat(ket.nominalRealisasi) || parseFloat(ket.realisasi) || 0;
+
+        const keterangan = sortedKeterangan.map((ket: any) => {
+          const childReimbursements = ket.reimbursements || [];
+
+          const approvedReimbs = childReimbursements
+            .filter((r: any) =>
+              ["APPROVED", "APPROVED_BY_PM", "SUBMITTED", "PAID", "DISBURSED"].includes(r.status)
+            )
+            .sort((a: any, b: any) => getStatusRank(a.status) - getStatusRank(b.status));
+          const hasReimbs = approvedReimbs.length > 0;
+
+          const disbursedReimbs = childReimbursements.filter((r: any) =>
+            ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
+          );
+          const ketRealisasi = hasReimbs
+            ? disbursedReimbs.reduce((acc: number, r: any) => acc + (parseFloat(r.nominal) || 0), 0)
+            : parseFloat(ket.nominalRealisasi) || parseFloat(ket.realisasi) || 0;
+
+          return {
+            id: ket.id,
+            nama: ket.keterangan || ket.nama,
+            alokasi: parseFloat(ket.nominalAlokasi) || parseFloat(ket.alokasi) || 0,
+            realisasi: ketRealisasi,
+            reimbs: approvedReimbs,
+          };
+        });
+
+        const subRealisasi = keterangan.reduce(
+          (acc: number, k: any) => acc + (Number(k.realisasi) || 0),
+          0
+        );
 
         return {
-          id: ket.id,
-          nama: ket.keterangan || ket.nama,
-          alokasi: parseFloat(ket.nominalAlokasi) || parseFloat(ket.alokasi) || 0,
-          realisasi: ketRealisasi,
-          reimbs: approvedReimbs,
+          id: sub.id,
+          nama: sub.namaSub || sub.nama,
+          alokasi: parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0,
+          realisasi: subRealisasi,
+          keterangan,
         };
       });
 
-      const subRealisasi = keterangan.reduce(
-        (acc: number, k: any) => acc + (Number(k.realisasi) || 0),
+      const mainRealisasi = subPos.reduce(
+        (acc: number, s: any) => acc + (Number(s.realisasi) || 0),
         0
       );
 
       return {
-        id: sub.id,
-        nama: sub.namaSub || sub.nama,
-        alokasi: parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0,
-        realisasi: subRealisasi,
-        keterangan,
+        id: main.id,
+        nama: main.namaPos || main.nama || main.deskripsi,
+        alokasi: parseFloat(main.nominalAlokasi) || parseFloat(main.alokasi) || 0,
+        realisasi: mainRealisasi,
+        subPos,
       };
     });
-
-    const mainRealisasi = subPos.reduce(
-      (acc: number, s: any) => acc + (Number(s.realisasi) || 0),
-      0
-    );
-
-    return {
-      id: main.id,
-      nama: main.namaPos || main.nama || main.deskripsi,
-      alokasi: parseFloat(main.nominalAlokasi) || parseFloat(main.alokasi) || 0,
-      realisasi: mainRealisasi,
-      subPos,
-    };
-  });
+  }, [posAnggaran]);
 
   useEffect(() => {
     if (mapped.length > 0 && Object.keys(expandedMain).length === 0) {
@@ -229,7 +222,7 @@ export default function DetailAnggaranModal({
       setExpandedSub(initialSubState);
       setExpandedKet(initialKetState);
     }
-  }, [mapped.length]);
+  }, [mapped]);
 
   return (
     <>
@@ -247,7 +240,7 @@ export default function DetailAnggaranModal({
                 Detail Anggaran
               </h3>
               <p className="text-[13px] text-[#6A6660] leading-[19.5px] mt-0.5 font-sans">
-                {proyekNama || "Pembangunan Gudang Cikarang Fase 2"}
+                {proyekNama || "-"}
               </p>
             </div>
             <button

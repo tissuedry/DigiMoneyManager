@@ -595,7 +595,8 @@ function AjukanReimbursementContent() {
       </div>
 
       <ImageLightbox
-        target={activePreviewStruk}
+        url={activePreviewStruk?.url ?? null}
+        isPdf={activePreviewStruk?.isPdf ?? false}
         onClose={() => setActivePreviewStruk(null)}
       />
 

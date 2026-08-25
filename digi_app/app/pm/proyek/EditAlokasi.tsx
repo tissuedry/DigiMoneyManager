@@ -4,6 +4,7 @@ import React, { useState, useCallback } from "react";
 import { X } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
+import { formatFullRupiah as formatFullCurrency } from "@/lib/format-nominal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,13 +18,6 @@ export type EditTarget = {
   totalTeralokasi: number; // sum of all allocations at this level (including self)
   totalChildrenAlokasi?: number; // sum of allocations of immediate children
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return `Rp\u00a0${Math.round(n).toLocaleString("id-ID")}`;
-}
 
 function formatRpInput(val: number): string {
   if (!val && val !== 0) return "";
