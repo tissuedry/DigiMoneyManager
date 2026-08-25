@@ -20,7 +20,6 @@ interface MenuItem {
   badgeCount?: number;
   isSection?: boolean;      
 }
-
 interface SidebarProps {
   isSidebarOpen?: boolean;
   onClose?: () => void;
@@ -34,7 +33,7 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Riwayat Pengajuan", href: "/karyawan/riwayat-pengajuan", icon: History, hasBadge: false },
   ],
   "Project Manager": [
-    { name: "Beranda PM", href: "/pm", icon: LayoutDashboard, hasBadge: false },
+    { name: "Beranda", href: "/pm", icon: LayoutDashboard, hasBadge: false },
     { name: "Kelola Proyek", href: "/pm/proyek", icon: FolderKanban, hasBadge: false },
     { name: "Antrian Approval", href: "/pm/approval", icon: FileCheck, hasBadge: true, badgeCount: 0 },
   ],
@@ -46,7 +45,7 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Riwayat Pencairan", href: "/keuangan/jurnal", icon: BookOpen, hasBadge: false },
   ],
   "Direktur / Manajemen": [
-    { name: "Executive Dashboard", href: "/manager", icon: LayoutDashboard, hasBadge: false },
+    { name: "Beranda", href: "/manager", icon: LayoutDashboard, hasBadge: false },
     { name: "Kelola Proyek", href: "/manager/proyek", icon: Wallet, hasBadge: false },
     { name: "Laporan", href: "/manager/laporan", icon: FileText, hasBadge: false },
   ],
@@ -91,23 +90,17 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
     try {
       const saved = window.localStorage.getItem("dmm-sidebar-collapsed");
       if (saved === "1") setCollapsed(true);
-    } catch {
-      /* localStorage unavailable */
-    }
+    } catch { }
   }, []);
   useEffect(() => {
     try {
       window.localStorage.setItem("dmm-sidebar-collapsed", collapsed ? "1" : "0");
-    } catch {
-      /* localStorage unavailable */
-    }
+    } catch { }
   }, [collapsed]);
   
-  // 1. Normalisasi userRole (mencegah error jika token mengirimkan 'superadmin' huruf kecil atau undefined)
   const rawRole = typeof userRole === "string" ? userRole : "Karyawan";
   const safeRole = (rawRole.toLowerCase() === "superadmin" ? "Superadmin" : rawRole) as UserRole;
 
-  // 2. Terapkan safeRole dan berikan fallback default (jaga-jaga jika string role tetap tidak dikenali)
   const menuItems = ROLE_MENUS[safeRole] || [];
   const styles = ROLE_STYLES[safeRole] || { bg: "bg-[#f5f4ef]", logoBg: "bg-white", logoText: "text-stone-800" };
 
@@ -140,7 +133,6 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:static lg:flex lg:flex-col
       `}>
-        {/* Upper Header with Chevron Toggle */}
         <div className={`h-20 flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-5'} border-b border-stone-200/60 shrink-0`}>
           {collapsed ? (
             <button
@@ -173,7 +165,6 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
             </div>
           )}
 
-          {/* Close button on mobile */}
           {!collapsed && onClose && (
             <button
               onClick={onClose}
@@ -184,7 +175,6 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
             </button>
           )}
 
-          {/* Upper Chevron Collapse button on desktop */}
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
@@ -197,7 +187,6 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
           )}
         </div>
 
-        {/* Navigation Items */}
         <nav className={`${collapsed ? 'px-2' : 'px-4'} py-4 space-y-1 flex-1 overflow-y-auto pb-20 custom-scrollbar`}>
           {menuItems.map((item, idx) => {
             if (item.isSection) {

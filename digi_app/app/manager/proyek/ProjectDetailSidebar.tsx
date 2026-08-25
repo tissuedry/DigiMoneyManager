@@ -294,9 +294,39 @@ export default function ProjectDetailSidebar({
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-100" onClick={onClose}>
             <div className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-2xl bg-white border-l border-stone-200 shadow-2xl flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
                 {loadingDetail ? (
-                    <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3 text-stone-400">
-                        <Loader2 size={24} className="animate-spin" />
-                        <span className="text-sm">Memuat detail proyek...</span>
+                    <div className="flex-1 flex flex-col overflow-hidden animate-pulse">
+                        <div className="px-8 pt-8 pb-4 flex-shrink-0 text-left space-y-3">
+                            <div className="h-3 w-20 bg-stone-200 rounded-md" />
+                            <div className="h-8 w-2/3 bg-stone-200 rounded-lg" />
+                            <div className="h-4 w-1/2 bg-stone-100 rounded-md" />
+                            <div className="flex gap-2 pt-3">
+                                <div className="h-7 bg-stone-200 rounded-full w-24" />
+                                <div className="h-7 bg-stone-100 rounded-full w-20" />
+                                <div className="h-7 bg-stone-100 rounded-full w-16" />
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-hidden px-8 space-y-4">
+                            <div className="bg-stone-100 rounded-2xl p-5 space-y-3">
+                                <div className="h-4 w-1/3 bg-stone-200 rounded-md" />
+                                <div className="h-12 bg-stone-200 rounded-xl" />
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[...Array(3)].map((_, i) => (
+                                        <div key={i} className="space-y-2">
+                                            <div className="h-3 bg-stone-200 rounded w-full" />
+                                            <div className="h-3 bg-stone-100 rounded w-2/3" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-2.5">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="flex items-center justify-between">
+                                        <div className="h-3 bg-stone-100 rounded w-1/3" />
+                                        <div className="h-5 bg-stone-200 rounded-md w-1/4" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 ) : (
                     <div className="flex-1 flex flex-col overflow-hidden">

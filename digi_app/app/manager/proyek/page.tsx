@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
+import { FolderPlus, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
 import { Project, Member } from "./types";
 import { formatRupiah, formatSummaryRupiah, getStatusStyles, formatStatusLabel } from "@/lib/proyek-utils";
@@ -383,9 +383,26 @@ export default function KelolaProyekPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-24 gap-3 text-stone-400">
-          <Loader2 size={24} className="animate-spin" />
-          <span className="text-sm">Memuat data proyek...</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white border border-stone-200 rounded-2xl p-5 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-stone-200 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-stone-200 rounded-md" />
+                  <div className="h-3 bg-stone-100 rounded-md w-2/3" />
+                </div>
+              </div>
+              <div className="space-y-2.5">
+                <div className="h-3 bg-stone-100 rounded w-4/5" />
+                <div className="h-3 bg-stone-100 rounded w-3/5" />
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <div className="h-5 w-16 bg-stone-200 rounded-full" />
+                <div className="h-4 w-20 bg-stone-100 rounded-md" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : projects.length === 0 ? (
         <div className="bg-white border border-stone-200 rounded-2xl p-12 text-center text-stone-400 space-y-3">

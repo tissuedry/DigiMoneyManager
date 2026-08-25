@@ -761,9 +761,22 @@ export default function LaporanPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3">
-          <Loader2 className="animate-spin text-[#2d6a4f]" size={32} />
-          <p className="text-stone-500 text-[14px]">Memuat data laporan...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 animate-pulse">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm flex flex-col gap-5">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 bg-stone-200 rounded-xl shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-stone-200 rounded-md w-3/4" />
+                  <div className="h-3 bg-stone-100 rounded-md w-full" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <div className="h-9 bg-stone-200 rounded-xl w-32" />
+                <div className="h-9 bg-stone-100 rounded-xl w-32" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         /* Report Cards Grid */
