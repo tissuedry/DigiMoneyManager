@@ -81,7 +81,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'userIds or members array is required' }, { status: 400 });
     }
 
-    // Guard: prevent empty arrays from deleting all members
     const memberArray = (Array.isArray(members) ? members : []) as { userId: number | string; role: string; divisi?: string }[];
     const userIdArray = (Array.isArray(userIds) && !members) ? userIds as number[] : [];
     const hasMembers = memberArray.length > 0;
@@ -91,7 +90,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'members or userIds must not be empty' }, { status: 400 });
     }
 
-    // Guard: Validate 1 PM per project (A single project cannot have multiple PMs)
     if (hasMembers) {
       const pmMembers = memberArray.filter((m) => m.role === 'Project Manager');
       if (pmMembers.length > 1) {

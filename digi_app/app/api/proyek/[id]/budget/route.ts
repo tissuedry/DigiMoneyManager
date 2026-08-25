@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-// PATCH: Update alokasi for a single budget position
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -125,7 +124,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-// POST: Input/Set RAB budget for a project (PM, Tim Keuangan, Direktur / Manajemen, or Superadmin)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -186,14 +184,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const existingBudget = project.budget;
 
-    // Helper parser for numbers
     const parseNumber = (val: any) => {
       if (val === undefined || val === null) return 0;
       if (typeof val === 'number') return val;
       return parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0;
     };
 
-    // Calculate Pengeluaran
     let sumPengeluaran = 0;
     if (rawPosPengeluaran && Array.isArray(rawPosPengeluaran)) {
       sumPengeluaran = rawPosPengeluaran.reduce((sum: number, pos: any) => {
@@ -201,7 +197,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, 0);
     }
 
-    // Calculate Pemasukan
     let sumPemasukan = 0;
     if (rawPosPemasukan && Array.isArray(rawPosPemasukan)) {
       sumPemasukan = rawPosPemasukan.reduce((sum: number, pos: any) => {
@@ -219,7 +214,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const result = await prisma.$transaction(async (tx) => {
       if (existingBudget) {
-        // --- 1. Handle Pos Pengeluaran ---
         if (rawPosPengeluaran && Array.isArray(rawPosPengeluaran)) {
           const existingPengeluaran = existingBudget.mainAnggaran.filter(
             (m) => m.tipe === 'pengeluaran' || !m.tipe
@@ -278,7 +272,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           }
         }
 
-        // --- 2. Handle Pos Pemasukan ---
         if (rawPosPemasukan && Array.isArray(rawPosPemasukan)) {
           const existingPemasukan = existingBudget.mainAnggaran.filter((m) => m.tipe === 'pemasukan');
 
@@ -356,7 +349,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         return updatedBudget;
       } else {
-        // --- Create New Budget ---
         const createMainData: any[] = [];
 
         if (rawPosPengeluaran && Array.isArray(rawPosPengeluaran)) {

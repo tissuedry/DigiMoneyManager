@@ -1,19 +1,18 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Helper to convert objects to CSV string
 function convertToCSV(data: any[]): string {
   if (data.length === 0) return '';
   const headers = Object.keys(data[0]);
   const csvRows = [
-    headers.join(','), // header row
+    headers.join(','),
     ...data.map(row => 
       headers.map(fieldName => {
         let value = row[fieldName];
         if (value === null || value === undefined) value = '';
-        value = String(value).replace(/"/g, '""'); // escape quotes
+        value = String(value).replace(/"/g, '""');
         if (value.includes(',') || value.includes('\n')) {
-          value = `"${value}"`; // wrap in quotes if contains commas or newlines
+          value = `"${value}"`;
         }
         return value;
       }).join(',')
@@ -233,7 +232,6 @@ export async function GET(req: NextRequest) {
         const netRevenue = grossRevenue - totalDiskon - totalRetur - totalBiayaLainnya;
         const labaBersih = netRevenue - totalPengeluaran;
 
-        // Break down expenses by PosAnggaran
         const expensesBreakdown: any = {};
         if (p.budget) {
           p.budget.mainAnggaran

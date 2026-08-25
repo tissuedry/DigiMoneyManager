@@ -6,7 +6,6 @@ function isSuperAdmin(role: string | null) {
   return role === 'Super Admin' || role === 'Superadmin' || role === 'superadmin';
 }
 
-// PUT: Mengubah data master berdasarkan ID
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -76,7 +75,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE: Menghapus data master berdasarkan ID
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');

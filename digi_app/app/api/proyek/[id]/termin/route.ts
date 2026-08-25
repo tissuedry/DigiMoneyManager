@@ -18,7 +18,6 @@ async function checkAuthorization(req: NextRequest, proyekId: number) {
   return isDirektur || isSuperAdmin || isMember;
 }
 
-// GET: Mengambil daftar termin pembayaran
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -42,7 +41,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// POST: Menambah termin baru (status awal: BELUM_DITERIMA)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -56,7 +54,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json();
     const { terminData, namaTermin, nominal, persentaseProgress, catatan, posAnggaranList } = body;
 
-    // Skenario A: Update batch list termin (dari EditTerminModal)
     if (Array.isArray(terminData)) {
       await prisma.$transaction(async (tx) => {
         await tx.terminPembayaran.deleteMany({
@@ -106,7 +103,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: true, message: 'Termin berhasil diperbarui' }, { status: 200 });
     }
 
-    // Skenario B: Tambah single termin murni
     if (namaTermin && nominal) {
       const nominalNum = parseFloat(String(nominal));
       const progressNum = persentaseProgress ? parseFloat(String(persentaseProgress)) : 0;
@@ -156,7 +152,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ message: 'terminId dan tanggalPencairan wajib diisi' }, { status: 400 });
     }
 
-    // Cari termin yang akan dicairkan
     const termin = await prisma.terminPembayaran.findFirst({
       where: { id: parseInt(terminId, 10), proyekId },
     });
@@ -169,9 +164,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ message: 'Termin ini sudah berstatus DITERIMA' }, { status: 400 });
     }
 
-    // Transaksi atomik: update status termin + update akumulasi kas masuk (totalPemasukan) pada budget
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Update status termin
       const updatedTermin = await tx.terminPembayaran.update({
         where: { id: termin.id },
         data: {
@@ -180,7 +173,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         },
       });
 
-      // 2. Update budget: tambahkan nominal kas masuk ke totalPemasukan
       const budget = await tx.budget.findUnique({ where: { proyekId } });
       if (budget) {
         await tx.budget.update({
@@ -204,7 +196,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-// DELETE: Hapus termin (hanya jika statusnya BELUM_DITERIMA)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;

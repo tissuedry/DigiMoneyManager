@@ -23,23 +23,18 @@ interface SingleDocResult {
   isCompressed?: boolean;
 }
 
-// Helper untuk membersihkan dan mem-parsing JSON AI yang toleran terhadap format array / object
 function parseAiJson(text: string): any {
   if (!text) return null;
   let clean = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
-  // Ekstrak dari markdown code block ```json ... ```
   const codeBlockMatch = clean.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (codeBlockMatch) {
     clean = codeBlockMatch[1].trim();
   }
 
-  // 1. Coba parse langsung
   try {
     return JSON.parse(clean);
   } catch { }
-
-  // 2. Cari substring JSON Object { ... }
   const firstBrace = clean.indexOf('{');
   const lastBrace = clean.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace > firstBrace) {
@@ -48,7 +43,6 @@ function parseAiJson(text: string): any {
     } catch { }
   }
 
-  // 3. Cari substring JSON Array [ ... ]
   const firstArray = clean.indexOf('[');
   const lastArray = clean.lastIndexOf(']');
   if (firstArray !== -1 && lastArray > firstArray) {
@@ -61,7 +55,6 @@ function parseAiJson(text: string): any {
   return null;
 }
 
-// Helper pemindaian 1 berkas dokumen mandiri (100% Akurasi & Fokus Maksimal)
 async function scanSingleDocument(
   file: File,
   index: number,
@@ -77,13 +70,12 @@ async function scanSingleDocument(
   let buffer: Buffer = Buffer.from(arrayBuffer);
   const receivedSizeKB = arrayBuffer.byteLength / 1024;
   const origSizeKB = clientOrigSizeKB && clientOrigSizeKB > 0 ? clientOrigSizeKB : receivedSizeKB;
-  let isCompressed = (origSizeKB - receivedSizeKB) > 5; // Terkompresi di client jika ada penghematan > 5KB
+  let isCompressed = (origSizeKB - receivedSizeKB) > 5;
 
   const fileName = file.name || `Dokumen_${index}`;
   const isPdf = file.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
   let mimeType = isPdf ? 'application/pdf' : (file.type || 'image/jpeg');
 
-  // Backend Threshold Compression: Jika gambar masih > 1.5 MB, kompres lagi dengan sharp ke maks 1600px @ 85%
   if (!isPdf && buffer.length > 1536 * 1024) {
     try {
       const compressedBuffer = await sharp(buffer)
@@ -135,7 +127,7 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 detik untuk stabilitas koneksi
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -157,7 +149,7 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
           ],
           generationConfig: {
             response_mime_type: 'application/json',
-            temperature: 0.0, // 0.0 menjamin ekstraksi teks deterministik tanpa halusinasi
+            temperature: 0.0,
           },
         }),
       });
@@ -221,7 +213,6 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
     }
   }
 
-  // Fallback jika API gagal total untuk berkas ini
   console.error(`[OCR #${index}] Gagal memindai berkas ${fileName}: ${lastError}`);
   return {
     index,
@@ -240,7 +231,6 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
   };
 }
 
-// POST: Proses pemindaian dokumen secara PARALEL MANDIRI (Parallel Independent Scan)
 export async function POST(req: NextRequest) {
   try {
     const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -252,7 +242,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Ambil file gambar/PDF dari FormData request
     const formData = await req.formData();
     const files: File[] = [];
 
@@ -302,7 +291,6 @@ export async function POST(req: NextRequest) {
     console.log(`\n================== [START PARALLEL OCR SCAN] ==================`);
     console.log(`🚀 Memproses ${count} dokumen secara PARALEL MANDIRI (Maks 5 berkas)...`);
 
-    // 2. Eksekusi pemindaian setiap dokumen secara PARALEL bersamaan (Promise.all)
     const startTime = Date.now();
     const results = await Promise.all(
       files.map((file, idx) => {
@@ -313,7 +301,6 @@ export async function POST(req: NextRequest) {
     );
     const durationMs = Date.now() - startTime;
 
-    // 3. Akumulasi konsumsi token
     const totalUsage: TokenUsage = {
       promptTokens: results.reduce((acc, r) => acc + (r.usage?.promptTokens || 0), 0),
       candidatesTokens: results.reduce((acc, r) => acc + (r.usage?.candidatesTokens || 0), 0),
@@ -347,7 +334,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Berhasil mengekstrak ${results.length} dokumen secara paralel mandiri (${modelsUsedSet})`,
-      data: results[0], // Backwards compatible untuk modul single-file
+      data: results[0],
       items: results,
       count: results.length,
       usage: totalUsage,

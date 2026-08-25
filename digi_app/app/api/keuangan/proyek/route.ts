@@ -73,7 +73,6 @@ export async function GET(req: NextRequest) {
       const pmUser = p.users.find((u) => u.role === 'Project Manager');
       const termins = p.terminPembayaran || [];
 
-      // Calculate termin metrics
       let terminDiterimaNominal = 0;
       let terminDiterimaCount = 0;
       let terminBelumDiterimaNominal = 0;
@@ -99,7 +98,6 @@ export async function GET(req: NextRequest) {
         0
       );
 
-      // Pos Pemasukan from mainAnggaran
       const rawPosPemasukan = budget?.mainAnggaran || [];
       let posAnggaran: any[] = [];
 
@@ -167,7 +165,6 @@ export async function GET(req: NextRequest) {
           };
         });
       } else if (termins.length > 0) {
-        // Synthesize fallback pos from termin if no mainAnggaran exists yet
         posAnggaran = [
           {
             id: -1,

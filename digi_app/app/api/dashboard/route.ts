@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCached, setCache } from '@/lib/route-cache';
 
-// GET: Retrieve dashboard summary metrics based on user role
 export async function GET(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -13,14 +12,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // ponytail: heaviest endpoint (~28 queries), cache 30s per role+user+project
     const { searchParams } = new URL(req.url);
     const projectIdParam = searchParams.get('projectId') || userProyekId || '';
     const cacheKey = `dashboard:${role}:${userId}:${projectIdParam}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    // Initialize output object
     const dashboardData: any = { role };
 
     if (role === 'Karyawan') {
@@ -154,7 +151,6 @@ export async function GET(req: NextRequest) {
       }
 
     } else if (role === 'Tim Keuangan') {
-      // 3. Tim Keuangan Dashboard data
       const activeProjectsCount = await prisma.proyek.count({
         where: { status: 'AKTIF' },
       });
@@ -165,7 +161,6 @@ export async function GET(req: NextRequest) {
       const totalReimbursementsDisbursed = budgets.reduce((sum, b) => sum + Number(b.totalReimbursement), 0);
       const remainingBudgets = budgets.reduce((sum, b) => sum + Number(b.sisaBudget), 0);
 
-      // Pending Keuangan approvals are status = 'APPROVED_BY_PM'
       const pendingDisbursementCount = await prisma.reimbursement.count({
         where: { status: 'APPROVED_BY_PM' },
       });
@@ -182,7 +177,6 @@ export async function GET(req: NextRequest) {
         take: 10,
       });
 
-      // ── Disbursed Today ──────────────────────────────────────────
       const now = new Date();
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -205,7 +199,6 @@ export async function GET(req: NextRequest) {
         0
       );
 
-      // ── Jurnal Count This Month ──────────────────────────────────
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
       const monthApprovals = await prisma.approval.findMany({
@@ -224,7 +217,6 @@ export async function GET(req: NextRequest) {
         })
         : 0;
 
-      // ── Total Debit = Kredit (balance check) ─────────────────────
       const totalJurnalResult = await prisma.jurnalAkuntansi.aggregate({
         _sum: { nominal: true },
       });
@@ -232,7 +224,6 @@ export async function GET(req: NextRequest) {
       const totalDebit = totalDebitKredit;
       const totalKredit = totalDebitKredit;
 
-      // ── Recent Journals (formatted for frontend) ──────
       const recentJournalsRaw = await prisma.jurnalAkuntansi.findMany({
         include: {
           reimbursement: {
@@ -301,7 +292,6 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // ── Pending Disbursements (formatted list) ───────────────────
       const pendingDisbursementsRaw = await prisma.reimbursement.findMany({
         where: { status: 'APPROVED_BY_PM' },
         include: {
@@ -336,7 +326,6 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // ── Total Biaya (Disbursed Reimbursements) ─────────────────
       const approvedReimbursementsResult = await prisma.reimbursement.aggregate({
         where: { status: 'APPROVED' },
         _sum: { nominal: true },
@@ -345,7 +334,6 @@ export async function GET(req: NextRequest) {
       const totalPengeluaranNominal = Number(approvedReimbursementsResult._sum.nominal || 0);
       const totalPencairanCount = approvedReimbursementsResult._count.id || 0;
 
-      // ── Total Pendapatan & Belum Diterima (Termin Pembayaran) ────
       const terminDiterimaResult = await prisma.terminPembayaran.aggregate({
         where: { status: 'DITERIMA' },
         _sum: { nominal: true },
@@ -362,7 +350,6 @@ export async function GET(req: NextRequest) {
       const totalBelumDiterimaNominal = Number(terminBelumDiterimaResult._sum.nominal || 0);
       const totalTerminBelumDiterimaCount = terminBelumDiterimaResult._count.id || 0;
 
-      // ── Termin Lists from Database ──────────────────────────────
       const pendingTerminRaw = await prisma.terminPembayaran.findMany({
         where: { status: 'BELUM_DITERIMA' },
         include: { proyek: { select: { nama: true } } },
@@ -424,12 +411,10 @@ export async function GET(req: NextRequest) {
       dashboardData.riwayatTerminList = riwayatTerminList;
 
     } else if (role === 'Direktur / Manajemen') {
-      // 4. Executive Dashboard data — full analytics for director
       const now = new Date();
       const startOfYear = new Date(now.getFullYear(), 0, 1);
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // ── Projects & Budgets ───────────────────────────────────────
       const proyekList = await prisma.proyek.findMany({
         include: {
           budget: {
@@ -441,10 +426,8 @@ export async function GET(req: NextRequest) {
         },
       });
 
-      // Status proyek di DB: 'Active', 'Planning', 'Done', 'Canceled' (bukan 'AKTIF')
       const ACTIVE_STATUSES = ['Active', 'AKTIF', 'ACTIVE', 'active', 'aktif'];
       const activeProyek = proyekList.filter(p => ACTIVE_STATUSES.includes(p.status));
-      // Proyek yang tampil di tabel = semua kecuali Done/Canceled
       const displayProyek = proyekList.filter(p => !['Done', 'Canceled', 'DONE', 'CANCELED'].includes(p.status));
 
       const totalRABAktif = activeProyek.reduce((sum, p) => sum + Number(p.budget?.nilaiKontrak || 0), 0);
@@ -452,20 +435,16 @@ export async function GET(req: NextRequest) {
       const totalDisbursed = proyekList.reduce((sum, p) => sum + Number(p.budget?.totalPengeluaran || 0), 0);
       const remainingBudgets = proyekList.reduce((sum, p) => sum + Number(p.budget?.sisaBudget || 0), 0);
 
-      // ── Total Pemasukan from TransaksiPemasukan ───────────────────
       const pemasukanResult = await prisma.transaksiPemasukan.aggregate({
         where: { kategori: { not: 'DISKON_PENJUALAN' } },
         _sum: { nominal: true },
       }).catch(() => ({ _sum: { nominal: null } }));
       const totalPemasukan = Number(pemasukanResult._sum.nominal || 0);
 
-      // ── Total Pengeluaran (total realisasi/disbursed) ─────────────
-      const totalPengeluaran = totalDisbursed; // from budgets.totalPengeluaran
+      const totalPengeluaran = totalDisbursed;
 
-      // ── Selisih Bersih ───────────────────────────────────────────
       const selisihBersih = totalPemasukan - totalPengeluaran;
 
-      // ── YTD Realization ──────────────────────────────────────────
       const ytdApprovals = await prisma.approval.findMany({
         where: {
           level: 'KEUANGAN',
@@ -476,21 +455,18 @@ export async function GET(req: NextRequest) {
       });
       const realisasiYTD = ytdApprovals.reduce((sum, a) => sum + Number(a.reimbursement.nominal), 0);
 
-      // ── Monthly Revenue (pendapatan from disbursed reimbursements per month) ──
       const monthlyApprovals = await prisma.approval.findMany({
         where: { level: 'KEUANGAN', status: 'APPROVED' },
         include: { reimbursement: { select: { nominal: true } } },
         orderBy: { timestamp: 'asc' },
       });
 
-      // Also get monthly pemasukan from TransaksiPemasukan
       const monthlyPemasukan = await prisma.transaksiPemasukan.findMany({
         where: { kategori: { not: 'DISKON_PENJUALAN' } },
         select: { nominal: true, tanggalTransaksi: true },
         orderBy: { tanggalTransaksi: 'asc' },
       }).catch(() => []);
 
-      // Build 12-month cash flow array
       const cashFlowMonths: { bulan: string; inflow: number; outflow: number }[] = [];
       for (let i = 11; i >= 0; i--) {
         const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -504,7 +480,6 @@ export async function GET(req: NextRequest) {
           })
           .reduce((sum, a) => sum + Number(a.reimbursement.nominal), 0);
 
-        // Inflow from actual pemasukan records
         const monthInflowActual = (monthlyPemasukan as Array<{nominal: any; tanggalTransaksi: Date | null}>)
           .filter(tx => {
             if (!tx.tanggalTransaksi) return false;
@@ -513,22 +488,15 @@ export async function GET(req: NextRequest) {
           })
           .reduce((sum, tx) => sum + Number(tx.nominal), 0);
 
-        // Fallback: if no actual pemasukan data, simulate
         const monthInflow = monthInflowActual > 0 ? monthInflowActual : Math.round(monthOutflow * 1.2);
         cashFlowMonths.push({ bulan: monthLabel, inflow: Math.round(monthInflow), outflow: Math.round(monthOutflow) });
       }
-
-      // ── Monthly Pendapatan (current month) ──────────────────────
       const monthApprovals = ytdApprovals.filter(a => new Date(a.timestamp) >= startOfMonth);
       const pendapatanBulanIni = monthApprovals.reduce((sum, a) => sum + Number(a.reimbursement.nominal), 0);
 
-      // ── Margin calculation ──────────────────────────────────────
       const marginBersih = totalRABAllocated > 0
         ? ((remainingBudgets / totalRABAllocated) * 100)
         : 0;
-
-      // ── Reimbursement pipeline status ────────────────────────────
-      // Accurate counts
       const totalDiajukan = await prisma.reimbursement.count();
       const totalDisetujuiPM = await prisma.reimbursement.count({ where: { status: { in: ['APPROVED_BY_PM', 'APPROVED'] } } });
       const totalDiprosesKeuangan = await prisma.reimbursement.count({ where: { status: { in: ['APPROVED_BY_PM', 'APPROVED'] } } });
@@ -550,7 +518,6 @@ export async function GET(req: NextRequest) {
         },
       };
 
-      // ── Pengajuan Summary (Ringkasan Pengajuan) ─────────────────
       const [menungguPersetujuanData, disetujuiData] = await Promise.all([
         prisma.reimbursement.aggregate({
           where: { status: { in: ['SUBMITTED', 'APPROVED_BY_PM'] } },
@@ -574,13 +541,9 @@ export async function GET(req: NextRequest) {
           nominal: Number(disetujuiData._sum.nominal || 0),
         },
       };
-
-      // ── Termin Summary (Ringkasan Termin) ────────────────────────
       const terminAll = await prisma.terminPembayaran.findMany({
         select: { id: true, nominal: true, status: true },
       }).catch(() => []);
-
-      // Status TerminPembayaran: BELUM_DITERIMA, DITERIMA (belum dicairkan = BELUM_DITERIMA)
       const terminBelumDicairkan = (terminAll as Array<{id: number; nominal: any; status: string}>)
         .filter(t => t.status === 'BELUM_DITERIMA');
       const terminDicairkan = (terminAll as Array<{id: number; nominal: any; status: string}>)
@@ -597,7 +560,6 @@ export async function GET(req: NextRequest) {
         },
       };
 
-      // ── Project Profitability ────────────────────────────────────
       const projectProfitability = displayProyek.map((p) => {
         const rab = Number(p.budget?.nilaiKontrak || 0);
         const expense = Number(p.budget?.totalPengeluaran || 0);
@@ -623,7 +585,6 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // ── Summary KPI ──────────────────────────────────────────────
       const avgMargin = projectProfitability.length > 0
         ? projectProfitability.reduce((sum, p) => sum + p.margin, 0) / projectProfitability.length
         : 0;
@@ -639,7 +600,6 @@ export async function GET(req: NextRequest) {
         avgMargin: parseFloat(avgMargin.toFixed(1)),
         projectCount: proyekList.length,
         activeProjectCount: activeProyek.length,
-        // New fields for Figma design
         totalPemasukan,
         totalPengeluaran,
         selisihBersih,
@@ -672,12 +632,11 @@ export async function GET(req: NextRequest) {
 
       const totalUserAktif = await prisma.user.count(); 
 
-      // PERBAIKAN: Hitung Total Nilai Proyek dengan menjumlahkan nilaiKontrak
       const budgets = await prisma.budget.findMany();
       const totalNilaiProyek = budgets.reduce((sum, b) => sum + Number(b.nilaiKontrak), 0);
 
       dashboardData.metrics = {
-        totalNilaiProyek, // Menambahkan perhitungan nilai proyek untuk Super Admin
+        totalNilaiProyek,
         totalPengajuan,
         totalMenungguApproval,
         totalSiapDicairkan,
@@ -688,7 +647,6 @@ export async function GET(req: NextRequest) {
 
     }
 
-    // ponytail: store in cache before returning
     setCache(cacheKey, { dashboard: dashboardData });
 
     return NextResponse.json({ dashboard: dashboardData });
