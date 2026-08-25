@@ -10,7 +10,9 @@ import CompactNominal from '@/components/compact-nominal';
 import RejectModal from './RejectModal';
 import ImageLightbox from '@/components/image-lightbox';
 import { useApi, useInvalidate } from '@/lib/use-api';
-import { formatTanggal, formatApprovalDate as formatDateTime, getAvatarColor } from '@/lib/formatters';
+import { formatFullRupiah } from '@/lib/format-nominal';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type ApprovalStatus = "Menunggu PM" | "Menunggu Keuangan" | "Dicairkan" | "Ditolak";
 
@@ -34,6 +36,8 @@ type Submission = {
   main: string;
   sub: string;
   ket: string;
+  ketAlokasi: number;
+  ketRealisasi: number;
   amount: string;
   amountRaw: number;
   status: ApprovalStatus;
@@ -158,83 +162,29 @@ function mapSubmission(r: any): Submission {
     notaDate: r.tanggalStruk ? formatTanggal(r.tanggalStruk) : 'N/A',
     submittedAt: submissionTime ? formatDateTime(submissionTime) : 'N/A',
 
-    // Ambil secara langsung dari object r sesuai Prisma
-    merchant: r.merchant || r.nama || 'N/A',
-    project: r.proyek?.nama || 'N/A',
-    main: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'N/A',
-    sub: r.keteranganAnggaran?.subAnggaran?.namaSub || 'N/A',
-    ket: r.keteranganAnggaran?.keterangan || 'N/A',
+      // Ambil secara langsung dari object r sesuai Prisma
+      merchant: r.merchant || r.nama || 'N/A',
+      project: r.proyek?.nama || 'N/A',
+      main: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'N/A',
+      sub: r.keteranganAnggaran?.subAnggaran?.namaSub || 'N/A',
+      ket: r.keteranganAnggaran?.keterangan || 'N/A',
+      ketAlokasi: Number(r.keteranganAnggaran?.nominalAlokasi || 0),
+      ketRealisasi: Number(r.keteranganAnggaran?.nominalRealisasi || 0),
 
-    catatanPm: pmApproval?.catatan || "",
-    catatanKeuangan: financeApproval?.catatan || "",
-    rejectionReason,
-    amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
-    amountRaw: Number(r.nominal),
-    status: displayStatus,
-    pengaju: r.user?.nama || 'Karyawan',
-    pengajuInitials: r.user?.nama
-      ? r.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase()
-      : 'KY',
-    keterangan: '-', // Jika ada deskripsi lain, bisa dilampirkan di sini
-    steps,
-    strukUrl: r.urlStruk || r.strukUrl,
-    isRealisasi: r.tipe === 'Realisasi Anggaran'
-  };
-}
-
-const hasStrukUrl = (u?: string) =>
-  Boolean(u && u.trim() !== '' && u !== '/uploads/placeholder.png' && u !== '/bukti_struk.png');
-
-function fileExt(url: string): string {
-  const m = url.split('?')[0].match(/\.[a-z0-9]+$/i);
-  return m ? m[0].toLowerCase() : '.png';
-}
-
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-
-type Tab = "Menunggu Approval" | "Diteruskan" | "Selesai";
-
-export default function AntrianApprovalPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("Menunggu Approval");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [catatan, setCatatan] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // State untuk kontrol Modal Penolakan
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
-  // Zoom struk
-  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
-  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
-  const [showApproveSuccess, setShowApproveSuccess] = useState(false);
-  const [approvedLabel, setApprovedLabel] = useState('');
-  const [showRejectSuccess, setShowRejectSuccess] = useState(false);
-  const [rejectedLabel, setRejectedLabel] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const invalidate = useInvalidate();
-
-  const { data: meData, isLoading: isMeLoading } = useApi<MeResponse>("/api/auth/me");
-  const { data: proyekData } = useApi<ProyekListResponse>("/api/proyek?role=Project+Manager");
-  const { data, isLoading: isReimbLoading } = useApi<ReimbursementsResponse>("/api/reimbursements?role=Project+Manager");
-
-  const allProjects = proyekData?.projects ?? [];
-  const activeProyekId = meData?.user?.proyekId ?? meData?.user?.proyek?.id ?? allProjects[0]?.id ?? null;
-
-  const isLoading = isReimbLoading || isMeLoading;
-
-  // ─── Derived data (memoized: mapping + filter hanya jalan saat data berubah) ──
-  const mappedSubmissions = useMemo(() => {
-    const all = data?.reimbursements ?? [];
-    // Antrian Approval hanya menampilkan proyek yang dipilih di select-project
-    const reimbursements = activeProyekId
-      ? all.filter((r: any) => r.proyekId === activeProyekId || r.proyek?.id === activeProyekId)
-      : all;
-    return reimbursements.map(mapSubmission);
-  }, [data, activeProyekId]);
+      catatanPm: pmApproval?.catatan || "",
+      catatanKeuangan: financeApproval?.catatan || "",
+      rejectionReason,
+      amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
+      amountRaw: Number(r.nominal),
+      status: displayStatus,
+      pengaju: r.user?.nama || 'Karyawan',
+      pengajuInitials: initials,
+      keterangan: r.deskripsi || r.ocrData?.keterangan || '-',
+      steps,
+      strukUrl: r.urlStruk || r.strukUrl,
+      isRealisasi
+    };
+  });
 
   // Filter data berdasarkan tab
   const filteredData = useMemo(() => mappedSubmissions.filter((item) => {
@@ -510,6 +460,56 @@ export default function AntrianApprovalPage() {
                       </p>
                       <p className="text-[32px] font-bold text-stone-900">{selected.amount}</p>
                     </div>
+
+                    {/* Info Realisasi Keterangan Anggaran */}
+                    {selected.ket && selected.ket !== 'N/A' && (() => {
+                      const alokasi = selected.ketAlokasi || 0;
+                      const realisasi = selected.ketRealisasi || 0;
+                      const sisa = alokasi - realisasi;
+                      const percentage = alokasi > 0 ? Math.round((realisasi / alokasi) * 100) : 0;
+                      const isOver = sisa < 0;
+
+                      return (
+                        <div className="bg-white border border-[#e6e1d4] rounded-2xl p-4 space-y-3 shadow-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-semibold text-stone-800 truncate" title={`${selected.isRealisasi ? 'Realisasi Anggaran' : 'Reimbursement'} – KET · ${selected.ket}`}>
+                              {selected.isRealisasi ? 'Realisasi Anggaran' : 'Reimbursement'} – KET · {selected.ket}
+                            </p>
+                            <span className={`text-[12px] font-bold shrink-0 ${isOver ? 'text-[#902f33]' : 'text-stone-800'}`}>
+                              {percentage}%
+                            </span>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="w-full bg-[#f0ece1] h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isOver ? 'bg-[#902f33]' : 'bg-[#00875a]'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
+                            />
+                          </div>
+
+                          {/* Breakdown Angka */}
+                          <div className="flex items-center justify-between text-[11.5px] pt-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Alokasi</span>
+                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(alokasi)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Realisasi</span>
+                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(realisasi)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Sisa</span>
+                              <span className={`font-semibold font-mono ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
+                                {isOver ? `- ${formatFullRupiah(Math.abs(sisa))}` : formatFullRupiah(sisa)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Tampilan Alasan Penolakan Jika Ditolak */}
                     {selected.status === "Ditolak" && (

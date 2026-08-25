@@ -29,6 +29,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         id: true,
         namaMain: true,
         tipe: true,
+        nominalAlokasi: true,
+        nominalTerpakai: true,
         subAnggaran: {
           orderBy: { id: 'asc' },
           select: {
@@ -39,7 +41,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             nominalTerpakai: true,
             keterangan: {
               orderBy: { id: 'asc' },
-              select: { id: true, keterangan: true },
+              select: {
+                id: true,
+                keterangan: true,
+                nominalAlokasi: true,
+                nominalRealisasi: true,
+              },
             },
           },
         },
