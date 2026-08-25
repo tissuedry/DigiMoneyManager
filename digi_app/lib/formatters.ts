@@ -49,3 +49,8 @@ const AVATAR_COLORS = [
 export function getAvatarColor(key: string): string {
   return AVATAR_COLORS[key.charCodeAt(0) % AVATAR_COLORS.length];
 }
+
+export function getFileExt(url: string): string {
+  const m = url.split('?')[0].match(/\.[a-z0-9]+$/i);
+  return m ? m[0].toLowerCase() : '.png';
+}

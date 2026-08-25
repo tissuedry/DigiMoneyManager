@@ -1,13 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
-import {
-  formatFullRupiah as formatFullCurrency,
-  formatSisaRupiah as formatSisaCurrency,
-} from "@/lib/format-nominal";
+import CompactNominal from "@/components/compact-nominal";
 import { formatReimbursementDate } from "@/lib/proyek-utils";
 
 type KeteranganPos = {
@@ -115,9 +112,7 @@ export default function DetailAnggaranModal({
         }
       });
       setPengajuanStatus(map);
-    } catch {
-      // abaikan — tanpa status pengajuan, tombol tetap berfungsi
-    }
+    } catch { }
   };
 
   useEffect(() => {
@@ -133,7 +128,6 @@ export default function DetailAnggaranModal({
   const toggleKet = (id: number) =>
     setExpandedKet((p) => ({ ...p, [id]: !p[id] }));
 
-  // Pemetaan tree Main > Sub > Keterangan — hanya dihitung saat posAnggaran berubah
   const mapped: MainPosItem[] = useMemo(() => {
     const sortedPosAnggaran = [...(posAnggaran || [])]
       .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === "pengeluaran")
@@ -222,7 +216,7 @@ export default function DetailAnggaranModal({
       setExpandedSub(initialSubState);
       setExpandedKet(initialKetState);
     }
-  }, [mapped]);
+  }, [mapped, expandedMain]);
 
   return (
     <>
@@ -253,7 +247,6 @@ export default function DetailAnggaranModal({
           </div>
 
           <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
-            {/* Sticky Table Header */}
             <div className="sticky top-0 z-10 px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
               <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
                 MAIN · SUB · KETERANGAN
@@ -313,19 +306,19 @@ export default function DetailAnggaranModal({
                         </span>
                       </div>
 
-                      <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(main.realisasi)}
+                      <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
+                        <CompactNominal value={main.realisasi} />
                       </div>
 
-                      <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(main.alokasi)}
+                      <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
+                        <CompactNominal value={main.alokasi} />
                       </div>
 
                       <div
-                        className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${mainSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
+                        className={`w-[145px] shrink-0 text-center  text-[12.5px] font-semibold ${mainSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
                           }`}
                       >
-                        {formatSisaCurrency(mainSisa)}
+                        <CompactNominal value={mainSisa} />
                       </div>
 
                       <div className="w-[125px] shrink-0 flex justify-center">
@@ -380,19 +373,19 @@ export default function DetailAnggaranModal({
                                     </span>
                                   </div>
 
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(sub.realisasi)}
+                                  <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
+                                    <CompactNominal value={sub.realisasi} />
                                   </div>
 
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(sub.alokasi)}
+                                  <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
+                                    <CompactNominal value={sub.alokasi} />
                                   </div>
 
                                   <div
-                                    className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${subSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
+                                    className={`w-[145px] shrink-0 text-center  text-[12.5px] font-semibold ${subSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
                                       }`}
                                   >
-                                    {formatSisaCurrency(subSisa)}
+                                    <CompactNominal value={subSisa} />
                                   </div>
 
                                   <div className="w-[125px] shrink-0 flex justify-center">
@@ -460,19 +453,19 @@ export default function DetailAnggaranModal({
                                                 </span>
                                               </div>
 
-                                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-normal text-[#6A6660]">
-                                                {formatFullCurrency(ket.realisasi)}
+                                              <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-normal text-[#6A6660]">
+                                                <CompactNominal value={ket.realisasi} />
                                               </div>
 
-                                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-normal text-[#6A6660]">
-                                                {formatFullCurrency(ket.alokasi)}
+                                              <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-normal text-[#6A6660]">
+                                                <CompactNominal value={ket.alokasi} />
                                               </div>
 
                                               <div
-                                                className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${ketSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
+                                                className={`w-[145px] shrink-0 text-center  text-[12.5px] font-semibold ${ketSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
                                                   }`}
                                               >
-                                                {formatSisaCurrency(ketSisa)}
+                                                <CompactNominal value={ketSisa} />
                                               </div>
 
                                               <div className="w-[125px] shrink-0 flex justify-center">
@@ -568,14 +561,12 @@ export default function DetailAnggaranModal({
 
                                                         <div className="w-[145px] shrink-0 flex items-center justify-center gap-1.5">
                                                           <span
-                                                            className={`text-[11px] font-mono font-normal ${displayStatus === "Dicairkan"
+                                                            className={`text-[11px]  font-normal ${displayStatus === "Dicairkan"
                                                                 ? "text-[#6A6660]"
                                                                 : "text-[#ADA79F]"
                                                               }`}
                                                           >
-                                                            {formatFullCurrency(
-                                                              Number(reimb.nominal) || 0
-                                                            )}
+                                                            <CompactNominal value={Number(reimb.nominal) || 0} />
                                                           </span>
                                                           {displayStatus === "Dicairkan" ? (
                                                             <Check

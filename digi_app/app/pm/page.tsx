@@ -18,7 +18,6 @@ import { useApi } from "@/lib/use-api";
 import { formatFullRupiah as formatRupiah } from "@/lib/format-nominal";
 import PMSkeleton from "./PMSkeleton";
 
-// Type Definitions matching API responses
 type PosAnggaran = {
   id: number;
   namaPos: string;
@@ -81,7 +80,6 @@ export default function PMDashboardPage() {
   const data = dashData?.dashboard ?? null;
   const error = dashError?.message ?? null;
 
-  // ─── Derived dashboard values ────────────────────────────────────────────────
   const project = data?.project ?? null;
   const budget = project?.budget ?? null;
   const rab = budget ? Number(budget.nilaiKontrak) : 0;
@@ -129,7 +127,6 @@ export default function PMDashboardPage() {
         userRole="Project Manager"
       />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
         <Header
           userRole="Project Manager"
@@ -154,7 +151,6 @@ export default function PMDashboardPage() {
             </>
           ) : (
             <>
-              {/* Header Section */}
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
@@ -173,9 +169,7 @@ export default function PMDashboardPage() {
                 </div>
               ) : (
                 <>
-                  {/* Dashboard Stat Cards */}
                   <div className="space-y-6">
-                        {/* Metrics Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                           {statCards.map((card, i) => (
                             <div
@@ -206,14 +200,13 @@ export default function PMDashboardPage() {
                           ))}
                         </div>
 
-                        {/* Overall Budget Progress Bar */}
                         <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4">
                           <div className="flex items-center justify-between">
                             <div>
                               <h3 className="text-sm font-bold text-stone-900">Progres Penyerapan Anggaran</h3>
                               <p className="text-xs text-stone-400 mt-0.5">Visualisasi alokasi terpakai vs sisa dana proyek</p>
                             </div>
-                            <span className="text-xs font-mono font-bold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-lg">
+                            <span className="text-xs  font-bold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-lg">
                               ID: {project?.id}
                             </span>
                           </div>
@@ -239,9 +232,7 @@ export default function PMDashboardPage() {
                           </div>
                         </div>
 
-                        {/* Two-Column Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                          {/* Left: Pos Anggaran breakdown */}
                           <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-5 lg:col-span-7">
                             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                               <div>
@@ -290,7 +281,7 @@ export default function PMDashboardPage() {
                                             </span>
                                           )}
                                         </div>
-                                        <div className="text-stone-500 font-mono">
+                                        <div className="text-stone-500 ">
                                           <span className="font-bold text-stone-800">Rp {real.toLocaleString('id-ID')}</span>
                                           <span className="text-stone-300 mx-1">/</span>
                                           <span>Rp {alloc.toLocaleString('id-ID')}</span>
@@ -317,9 +308,7 @@ export default function PMDashboardPage() {
                             </div>
                           </div>
 
-                          {/* Right: Quick actions & Alerts */}
                           <div className="space-y-6 lg:col-span-5">
-                            {/* Pending Approvals quick action card */}
                             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
                               <h3 className="font-bold text-[15px] text-stone-900 border-b border-stone-100 pb-3">Validasi Reimbursement</h3>
                               <div className="flex items-center gap-4">
@@ -344,7 +333,6 @@ export default function PMDashboardPage() {
                               </Link>
                             </div>
 
-                            {/* Notifications / Alerts list */}
                             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
                               <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                                 <h3 className="font-bold text-[15px] text-stone-900 flex items-center gap-1.5">
@@ -363,7 +351,7 @@ export default function PMDashboardPage() {
                                       <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 shrink-0" />
                                       <div className="flex-1 min-w-0">
                                         <p className="text-xs text-stone-700 leading-normal font-medium">{alert.pesan}</p>
-                                        <span className="text-[9px] text-stone-400 font-mono mt-1 block">
+                                        <span className="text-[9px] text-stone-400  mt-1 block">
                                           {new Date(alert.timestamp).toLocaleTimeString("id-ID", {
                                             hour: "2-digit",
                                             minute: "2-digit"
@@ -391,3 +379,4 @@ export default function PMDashboardPage() {
     </div>
   );
 }
+

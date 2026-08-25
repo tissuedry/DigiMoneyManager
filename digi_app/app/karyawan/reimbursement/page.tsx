@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
@@ -97,7 +97,7 @@ function AjukanReimbursementContent() {
   const { data: reimbData } = useApi<{ reimbursements?: RawReimbursement[] }>(
     resubmitId ? "/api/reimbursements?role=Karyawan" : null
   );
-  const projects = proyekData?.projects ?? [];
+  const projects = useMemo(() => proyekData?.projects ?? [], [proyekData]);
 
   const [proyekId, setProyekId] = useState('');
   const [isLoading, setIsLoading] = useState(false);

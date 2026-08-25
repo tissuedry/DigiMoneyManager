@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import { X } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
+import CompactNominal from "@/components/compact-nominal";
 import { formatFullRupiah as formatFullCurrency } from "@/lib/format-nominal";
 import { formatRibuan } from "@/lib/proyek-utils";
 
@@ -48,7 +49,7 @@ export default function PerubahanAlokasiModal({
     setInputStr(formatRpInput(main.alokasi));
   }, [main.alokasi]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const rawStr = e.target.value.replace(/[^0-9]/g, "");
     if (!rawStr) {
       setInputStr("");
@@ -59,7 +60,6 @@ export default function PerubahanAlokasiModal({
     const clamped = Math.min(num, maxAlokasi);
 
     if (clamped !== num) {
-      // Melebihi batas: tampilkan nilai yang sudah di-clamp, karet di akhir
       const shown = formatRpInput(clamped);
       setInputStr(shown);
       setAlokasiBaru(clamped);
@@ -69,7 +69,6 @@ export default function PerubahanAlokasiModal({
       return;
     }
 
-    // Pemformatan ribuan + pemulihan posisi kursor via helper bersama
     const caretPos = e.target.selectionStart ?? 0;
     const { formatted, caret } = formatRibuan(e.target.value, caretPos);
     setInputStr(formatted);
@@ -79,7 +78,7 @@ export default function PerubahanAlokasiModal({
     });
   };
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSliderChange = (e: ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     setAlokasiBaru(val);
     setInputStr(formatRpInput(val));
@@ -130,7 +129,6 @@ export default function PerubahanAlokasiModal({
         className="bg-white rounded-3xl shadow-2xl w-full max-w-[540px] p-7 relative border border-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Header ── */}
         <div className="flex items-start justify-between mb-6">
           <div>
             <h3 className="text-[18px] font-bold text-stone-900 tracking-tight">
@@ -150,7 +148,6 @@ export default function PerubahanAlokasiModal({
           </button>
         </div>
 
-        {/* ── Peringatan Pengajuan PENDING ── */}
         {isBlocked && (
           <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
             <span className="text-[13px]">⚠</span>
@@ -160,14 +157,13 @@ export default function PerubahanAlokasiModal({
           </div>
         )}
 
-        {/* ── Anggaran Saat Ini vs Anggaran Baru ── */}
         <div className="grid grid-cols-2 gap-3 mb-2">
           <div className="border border-stone-200/80 rounded-2xl p-4 bg-stone-50">
             <p className="text-[11px] font-bold text-stone-500 mb-1 leading-tight">
               Anggaran Saat Ini
             </p>
             <p className="text-[15px] font-normal text-stone-500 tracking-tight">
-              {formatFullCurrency(main.alokasi)}
+              <CompactNominal value={main.alokasi} />
             </p>
           </div>
           <div className="border border-stone-200/80 rounded-2xl p-4 bg-[#F1F7F4]">
@@ -175,31 +171,28 @@ export default function PerubahanAlokasiModal({
               Anggaran Baru
             </p>
             <p className="text-[15px] font-bold text-[#005836] tracking-tight">
-              {formatFullCurrency(alokasiBaru)}
+              <CompactNominal value={alokasiBaru} />
             </p>
           </div>
         </div>
 
-        {/* ── Info Batasan ── */}
         <div className="flex flex-row justify-between mb-6">
           <span className="text-[11px] text-stone-500">
             Total sub alokasi:{" "}
-            <span className="font-bold text-stone-700">{formatFullCurrency(sumSub)}</span>
+            <span className="font-bold text-stone-700"><CompactNominal value={sumSub} /></span>
           </span>
           <span className="text-[11px] text-stone-500">
             Sisa Nilai Proyek:{" "}
             <span className="font-bold text-stone-700">
-              {formatFullCurrency(Math.max(0, totalRAB - sumLain - main.alokasi))}
+              <CompactNominal value={Math.max(0, totalRAB - sumLain - main.alokasi)} />
             </span>
           </span>
         </div>
 
-        {/* ── Label ── */}
         <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2.5">
           MASUKKAN ALOKASI BARU
         </p>
 
-        {/* ── Text Input ── */}
         <div
           className={`flex items-center gap-3 mb-5 ${
             isInvalid ? "" : "cursor-pointer"
@@ -234,9 +227,7 @@ export default function PerubahanAlokasiModal({
           </div>
         </div>
 
-        {/* ── Single Unified Interactive Slider Bar ── */}
         <div className="relative w-full h-11 rounded-2xl border-2 border-stone-950 bg-[#4F9D6E] overflow-hidden flex items-center mb-4 cursor-pointer select-none">
-          {/* Left Fill: Alokasi Baru (Blue #4F8EF7) */}
           <div
             className="h-full bg-[#4F8EF7] transition-all duration-75 relative shrink-0"
             style={{ width: `${barAlokasiPct}%` }}
@@ -260,7 +251,6 @@ export default function PerubahanAlokasiModal({
           />
         </div>
 
-        {/* ── Legend ── */}
         <div className="flex items-center justify-between mb-8 px-1">
           <span className="flex items-center gap-2 text-[12px] font-bold text-stone-900">
             <span className="w-4 h-4 rounded-md bg-[#4F8EF7] border border-stone-800 shrink-0" />
@@ -272,7 +262,6 @@ export default function PerubahanAlokasiModal({
           </span>
         </div>
 
-        {/* ── Catatan (opsional) ── */}
         <div className="mb-5">
           <span className="text-[12px] font-medium text-stone-500 block mb-1.5">
             Catatan (opsional)
@@ -286,12 +275,10 @@ export default function PerubahanAlokasiModal({
           />
         </div>
 
-        {/* ── Error ── */}
         {error && (
           <p className="text-[12px] text-rose-600 mb-4 font-semibold text-center">{error}</p>
         )}
 
-        {/* ── Action Buttons & Warning Inline ── */}
         <div className="flex items-center justify-between gap-3">
           {isInvalid ? (
             <span className="text-[11px] font-normal text-[#902F33] bg-[#FDF3F2] border border-[#902F33] px-2.5 py-1 rounded-lg">
@@ -332,11 +319,11 @@ export default function PerubahanAlokasiModal({
             Apakah Anda yakin ingin mengajukan perubahan alokasi{" "}
             <span className="font-semibold text-stone-900">{main.nama}</span> dari{" "}
             <span className="font-semibold text-stone-900">
-              {formatFullCurrency(main.alokasi)}
+              <CompactNominal value={main.alokasi} />
             </span>{" "}
             menjadi{" "}
             <span className="font-semibold text-stone-900">
-              {formatFullCurrency(alokasiBaru)}
+              <CompactNominal value={alokasiBaru} />
             </span>
             ? Pengajuan ini akan masuk ke antrian persetujuan Direktur.
           </>
@@ -365,3 +352,4 @@ export default function PerubahanAlokasiModal({
     </div>
   );
 }
+

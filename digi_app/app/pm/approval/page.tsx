@@ -10,9 +10,11 @@ import CompactNominal from '@/components/compact-nominal';
 import RejectModal from './RejectModal';
 import ImageLightbox from '@/components/image-lightbox';
 import { useApi, useInvalidate } from '@/lib/use-api';
-import { formatFullRupiah } from '@/lib/format-nominal';
+import { getFileExt } from '@/lib/formatters';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+const hasStrukUrl = (u?: string) =>
+  Boolean(u && u.trim() !== '' && u !== '/uploads/placeholder.png' && u !== '/bukti_struk.png');
+
 
 type ApprovalStatus = "Menunggu PM" | "Menunggu Keuangan" | "Dicairkan" | "Ditolak";
 
@@ -49,6 +51,39 @@ type Submission = {
   isRealisasi?: boolean;
 };
 
+
+function parseDateSafe(isoStr: string | Date | null | undefined): Date | null {
+  if (!isoStr) return null;
+  const d = new Date(isoStr);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function formatTanggal(iso: string) {
+  if (!iso) return "";
+  const d = parseDateSafe(iso);
+  if (!d) return iso;
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const date = d.getDate();
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+  return `${date} ${bulan[m]} ${y}`;
+}
+
+function formatDateTime(dateInput: string | Date | null | undefined) {
+  if (!dateInput) return "";
+  const d = parseDateSafe(dateInput);
+  if (!d) return String(dateInput);
+
+  const day = d.getDate();
+  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+  const month = bulan[d.getMonth()];
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+
+  return `${day} ${month} ${year}, ${hours}:${minutes}`;
+}
+
 const getStatusBadge = (status: ApprovalStatus) => {
   switch (status) {
     case "Menunggu PM":
@@ -62,6 +97,18 @@ const getStatusBadge = (status: ApprovalStatus) => {
     default:
       return "bg-stone-100 text-stone-600";
   }
+};
+
+const getAvatarColor = (initials: string) => {
+  const colors = [
+    "bg-teal-100 text-teal-700",
+    "bg-blue-100 text-blue-700",
+    "bg-violet-100 text-violet-700",
+    "bg-rose-100 text-rose-700",
+    "bg-amber-100 text-amber-700",
+  ];
+  const idx = initials.charCodeAt(0) % colors.length;
+  return colors[idx];
 };
 
 const StepIcon = ({ state, number }: { state: ApprovalStep["state"]; number: number }) => {
@@ -90,79 +137,119 @@ const StepIcon = ({ state, number }: { state: ApprovalStep["state"]; number: num
   );
 };
 
-// ─── Mapping & predicates ────────────────────────────────────────────────────
 
-type MeResponse = { user?: { proyekId?: number; proyek?: { id: number } } };
-type ProyekListResponse = { projects: { id: number }[] };
-type ReimbursementsResponse = { reimbursements: any[] };
 
-function mapSubmission(r: any): Submission {
-  const pmApproval = r.approvals?.find((a: any) => a.level === 'PM');
-  const financeApproval = r.approvals?.find((a: any) => a.level === 'KEUANGAN');
+type Tab = "Menunggu Approval" | "Diteruskan" | "Selesai";
 
-  // Fallback super berlapis untuk memastikan tanggal tidak pernah kosong
-  const submissionTime = r.createdAt || r.created_at || r.tanggalStruk || r.tanggal;
+export default function AntrianApprovalPage() {
+  const [activeTab, setActiveTab] = useState<Tab>("Menunggu Approval");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [catatan, setCatatan] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Ambil data penolakan jika ada
-  const rejectedApproval = r.approvals?.find((a: any) => a.status === 'REJECTED');
-  const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [showApproveSuccess, setShowApproveSuccess] = useState(false);
+  const [approvedLabel, setApprovedLabel] = useState('');
+  const [showRejectSuccess, setShowRejectSuccess] = useState(false);
+  const [rejectedLabel, setRejectedLabel] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const steps: ApprovalStep[] = [
-    {
-      label: "Pengajuan dikirim",
-      sublabel: `${r.user?.nama || 'Karyawan'} • ${submissionTime ? formatDateTime(submissionTime) : '-'}`,
-      state: "done"
-    },
-    {
-      label: "Validasi Project Manager",
-      sublabel: pmApproval
-        ? `${pmApproval.approver?.nama || 'Project Manager'} • ${formatDateTime(pmApproval.timestamp)}`
-        : (r.status === 'SUBMITTED' ? "Menunggu" : "Menunggu • –"),
-      state: pmApproval
-        ? (pmApproval.status === 'REJECTED' ? "rejected" : "done")
-        : (r.status === 'SUBMITTED' ? "active" : "pending")
-    },
-    {
-      label: "Verifikasi Tim Keuangan",
-      sublabel: financeApproval
-        ? `${financeApproval.approver?.nama || 'Tim Keuangan'} • ${formatDateTime(financeApproval.timestamp)}`
-        : (r.status === 'APPROVED_BY_PM' ? "Menunggu" : "Menunggu • –"),
-      state: financeApproval
-        ? (financeApproval.status === 'REJECTED' ? "rejected" : "done")
-        : (r.status === 'APPROVED_BY_PM' ? "active" : "pending")
-    },
-    {
-      label: "Dicairkan",
-      sublabel: r.status === 'APPROVED'
-        ? `Jurnal otomatis • ${financeApproval ? formatDateTime(financeApproval.timestamp) : ''}`
-        : "Jurnal otomatis • –",
-      state: r.status === 'APPROVED' ? "done" : "pending"
+  const invalidate = useInvalidate();
+
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+
+  type MeResponse = { user?: { proyekId?: number; proyek?: { id: number } } };
+  type ProyekListResponse = { projects: { id: number }[] };
+  type ReimbursementsResponse = { reimbursements: any[] };
+
+  const { data: meData, isLoading: isMeLoading } = useApi<MeResponse>("/api/auth/me");
+  const { data: proyekData } = useApi<ProyekListResponse>("/api/proyek?role=Project+Manager");
+  const { data, isLoading: isReimbLoading } = useApi<ReimbursementsResponse>("/api/reimbursements?role=Project+Manager");
+
+  const allProjects = proyekData?.projects ?? [];
+  const activeProyekId = meData?.user?.proyekId ?? meData?.user?.proyek?.id ?? allProjects[0]?.id ?? null;
+
+  const isLoading = isReimbLoading || isMeLoading;
+
+  const mappedSubmissions = useMemo(() => {
+    const all = data?.reimbursements ?? [];
+    const reimbursements = activeProyekId
+      ? all.filter((r: any) => r.proyekId === activeProyekId || r.proyek?.id === activeProyekId)
+      : all;
+
+    return reimbursements.map((r: any): Submission => {
+    const pmApproval = r.approvals?.find((a: any) => a.level === 'PM');
+    const financeApproval = r.approvals?.find((a: any) => a.level === 'KEUANGAN');
+
+    const submissionTime = r.createdAt || r.created_at || r.tanggalStruk || r.tanggal;
+
+    const rejectedApproval = r.approvals?.find((a: any) => a.status === 'REJECTED');
+    const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
+
+    const steps: ApprovalStep[] = [
+      {
+        label: "Pengajuan dikirim",
+        sublabel: `${r.user?.nama || 'Karyawan'} • ${submissionTime ? formatDateTime(submissionTime) : '-'}`,
+        state: "done"
+      },
+      {
+        label: "Validasi Project Manager",
+        sublabel: pmApproval
+          ? `${pmApproval.approver?.nama || 'Project Manager'} • ${formatDateTime(pmApproval.timestamp)}`
+          : (r.status === 'SUBMITTED' ? "Menunggu" : "Menunggu • –"),
+        state: pmApproval
+          ? (pmApproval.status === 'REJECTED' ? "rejected" : "done")
+          : (r.status === 'SUBMITTED' ? "active" : "pending")
+      },
+      {
+        label: "Verifikasi Tim Keuangan",
+        sublabel: financeApproval
+          ? `${financeApproval.approver?.nama || 'Tim Keuangan'} • ${formatDateTime(financeApproval.timestamp)}`
+          : (r.status === 'APPROVED_BY_PM' ? "Menunggu" : "Menunggu • –"),
+        state: financeApproval
+          ? (financeApproval.status === 'REJECTED' ? "rejected" : "done")
+          : (r.status === 'APPROVED_BY_PM' ? "active" : "pending")
+      },
+      {
+        label: "Dicairkan",
+        sublabel: r.status === 'APPROVED'
+          ? `Jurnal otomatis • ${financeApproval ? formatDateTime(financeApproval.timestamp) : ''}`
+          : "Jurnal otomatis • –",
+        state: r.status === 'APPROVED' ? "done" : "pending"
+      }
+    ];
+
+    let displayStatus: ApprovalStatus = "Menunggu PM";
+    if (r.status === 'APPROVED_BY_PM') displayStatus = "Menunggu Keuangan";
+    else if (r.status === 'APPROVED') displayStatus = "Dicairkan";
+    else if (r.status === 'REJECTED') {
+      displayStatus = "Ditolak";
+      if (pmApproval && pmApproval.status === 'REJECTED') {
+        steps[1].state = 'rejected';
+        steps[2].state = 'pending';
+      } else if (financeApproval && financeApproval.status === 'REJECTED') {
+        steps[1].state = 'done';
+        steps[2].state = 'rejected';
+      }
     }
-  ];
 
-  // Map DB status to display status
-  let displayStatus: ApprovalStatus = "Menunggu PM";
-  if (r.status === 'APPROVED_BY_PM') displayStatus = "Menunggu Keuangan";
-  else if (r.status === 'APPROVED') displayStatus = "Dicairkan";
-  else if (r.status === 'REJECTED') {
-    displayStatus = "Ditolak";
-    if (pmApproval && pmApproval.status === 'REJECTED') {
-      steps[1].state = 'rejected';
-      steps[2].state = 'pending';
-    } else if (financeApproval && financeApproval.status === 'REJECTED') {
-      steps[1].state = 'done';
-      steps[2].state = 'rejected';
-    }
-  }
+    const initials = r.user?.nama
+      ? r.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase()
+      : 'KY';
 
-  return {
-    id: `RB-${String(r.id)}`,
-    dbId: r.id,
-    date: submissionTime ? formatDateTime(submissionTime) : 'N/A',
-    notaDate: r.tanggalStruk ? formatTanggal(r.tanggalStruk) : 'N/A',
-    submittedAt: submissionTime ? formatDateTime(submissionTime) : 'N/A',
+    const isRealisasi = r.tipe === 'Realisasi Anggaran';
 
-      // Ambil secara langsung dari object r sesuai Prisma
+    return {
+      id: `RB-${String(r.id)}`,
+      dbId: r.id,
+      date: submissionTime ? formatDateTime(submissionTime) : 'N/A',
+      notaDate: r.tanggalStruk ? formatTanggal(r.tanggalStruk) : 'N/A',
+      submittedAt: submissionTime ? formatDateTime(submissionTime) : 'N/A',
+
       merchant: r.merchant || r.nama || 'N/A',
       project: r.proyek?.nama || 'N/A',
       main: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'N/A',
@@ -184,10 +271,10 @@ function mapSubmission(r: any): Submission {
       strukUrl: r.urlStruk || r.strukUrl,
       isRealisasi
     };
-  });
+    });
+  }, [data, activeProyekId]);
 
-  // Filter data berdasarkan tab
-  const filteredData = useMemo(() => mappedSubmissions.filter((item) => {
+  const filteredData = useMemo(() => mappedSubmissions.filter((item: any) => {
     const matchesTab = activeTab === "Menunggu Approval"
       ? item.status === "Menunggu PM" : activeTab === "Diteruskan"
       ? item.status === "Menunggu Keuangan"
@@ -201,8 +288,7 @@ function mapSubmission(r: any): Submission {
     return matchesTab && matchesSearch;
   }), [mappedSubmissions, activeTab, searchQuery]);
 
-  // Derived selected submission
-  const selected = filteredData.find((item) => item.id === selectedId) || filteredData[0] || null;
+  const selected = filteredData.find((item: any) => item.id === selectedId) || filteredData[0] || null;
 
   const tabCounts = useMemo((): Record<Tab, number> => {
     const counts: Record<Tab, number> = { "Menunggu Approval": 0, Diteruskan: 0, Selesai: 0 };
@@ -214,7 +300,6 @@ function mapSubmission(r: any): Submission {
     return counts;
   }, [mappedSubmissions]);
 
-  // ─── Approve & Reject (satu jalur fetch untuk keduanya) ─────────────────────
   const processApproval = async (action: 'APPROVE' | 'REJECT', alasanPenolakan?: string) => {
     if (!selected) return;
     const isReject = action === 'REJECT';
@@ -228,7 +313,7 @@ function mapSubmission(r: any): Submission {
         body: JSON.stringify({
           action,
           catatan,
-          ...(isReject && { alasan: alasanPenolakan }) // alasan dikirim ke Backend API
+          ...(isReject && { alasan: alasanPenolakan })
         })
       });
       const result = await res.json();
@@ -256,7 +341,6 @@ function mapSubmission(r: any): Submission {
     }
   };
 
-  // Reset pilihan saat tab berganti
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
     setSelectedId(null);
@@ -267,26 +351,22 @@ function mapSubmission(r: any): Submission {
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-      {/* Sidebar */}
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onClose={closeSidebar}
         userRole="Project Manager"
       />
 
-      {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
         <Header onOpenSidebar={openSidebar} userRole="Project Manager" />
 
         <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-8 py-6">
-          {/* Header Title & Subtitle */}
           <div className="shrink-0 mb-6">
             <h1 className="text-2xl font-bold text-stone-900">Antrian Approval</h1>
             <p className="text-sm text-stone-500 mt-1.5">
               Validasi pengajuan reimbursement dari tim. Pastikan pengajuan sesuai dengan RAB dan pos anggaran.
             </p>
 
-            {/* Filter & Tab Switcher Bar */}
             <div className="flex items-center justify-between gap-4 mt-6">
               <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60">
                 {(["Menunggu Approval", "Diteruskan", "Selesai"] as Tab[]).map((tab) => (
@@ -321,9 +401,7 @@ function mapSubmission(r: any): Submission {
             </div>
           </div>
 
-          {/* List and Detail Split Layout */}
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
-            {/* LEFT COLUMN: ITEM LIST */}
             <div className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
               {isLoading ? (
                 <>
@@ -348,7 +426,7 @@ function mapSubmission(r: any): Submission {
                   Tidak ada pengajuan reimbursement.
                 </div>
               ) : (
-                filteredData.map((item) => {
+                filteredData.map((item: any) => {
                   const isSelected = selected && selected.id === item.id;
 
                   return (
@@ -381,13 +459,13 @@ function mapSubmission(r: any): Submission {
                               </div>
                             </div>
                              <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
-                              <CompactNominal value={item.amountRaw ?? item.amount} compactThreshold={100_000_000_000} className="text-[12px] font-bold text-stone-800" />
+                              <CompactNominal value={item.amountRaw ?? item.amount ?? item.nominal} compactThreshold={100_000_000_000} className="text-[12px] font-bold text-stone-800" />
                             </p>
                           </div>
                           <div className="flex items-center justify-between gap-2">
                             <div className="group relative min-w-0">
                               <p className="text-[11px] text-stone-400 truncate">
-                                {item.pengaju} <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
+                                {item.pengaju} <span className="font-normal text-stone-400 ">· {item.id}</span>
                               </p>
                               <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
                                 {item.pengaju} · {item.id}
@@ -405,7 +483,6 @@ function mapSubmission(r: any): Submission {
               )}
             </div>
 
-            {/* RIGHT COLUMN: DETAIL VIEW */}
             <div className="flex-1 flex flex-col bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden h-full">
               {isLoading ? (
                 <div className="flex-1 p-6 space-y-5">
@@ -428,13 +505,11 @@ function mapSubmission(r: any): Submission {
                 </div>
               ) : (
                 <>
-                  {/* Scrollable Detail Body */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
-                    {/* Header Detail */}
                     <div className="border-b border-stone-100 pb-4">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <p className="text-[12px] text-stone-400 font-medium font-mono">{selected.id}</p>
+                          <p className="text-[12px] text-stone-400 font-medium ">{selected.id}</p>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${selected.isRealisasi
                               ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
                               : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
@@ -453,7 +528,6 @@ function mapSubmission(r: any): Submission {
                       </p>
                     </div>
 
-                    {/* Total Pengajuan */}
                     <div className="bg-[#f5f4ef] rounded-xl px-5 py-4 text-center">
                       <p className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-1">
                         Total Pengajuan
@@ -461,7 +535,6 @@ function mapSubmission(r: any): Submission {
                       <p className="text-[32px] font-bold text-stone-900">{selected.amount}</p>
                     </div>
 
-                    {/* Info Realisasi Keterangan Anggaran */}
                     {selected.ket && selected.ket !== 'N/A' && (() => {
                       const alokasi = selected.ketAlokasi || 0;
                       const realisasi = selected.ketRealisasi || 0;
@@ -480,7 +553,6 @@ function mapSubmission(r: any): Submission {
                             </span>
                           </div>
 
-                          {/* Progress Bar */}
                           <div className="w-full bg-[#f0ece1] h-2 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-300 ${
@@ -490,20 +562,20 @@ function mapSubmission(r: any): Submission {
                             />
                           </div>
 
-                          {/* Breakdown Angka */}
                           <div className="flex items-center justify-between text-[11.5px] pt-0.5">
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Alokasi</span>
-                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(alokasi)}</span>
+                              <span className="font-semibold text-stone-900 ">{<CompactNominal value={alokasi} compactThreshold={1_000_000_000_000} />}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Realisasi</span>
-                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(realisasi)}</span>
+                              <span className="font-semibold text-stone-900 ">{<CompactNominal value={realisasi} compactThreshold={1_000_000_000_000} />}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Sisa</span>
-                              <span className={`font-semibold font-mono ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
-                                {isOver ? `- ${formatFullRupiah(Math.abs(sisa))}` : formatFullRupiah(sisa)}
+                              <span className={`font-semibold  ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
+                                {isOver ? `- ${<CompactNominal value={Math.abs(sisa)} compactThreshold={1_000_000_000_000} />}` 
+                                : <CompactNominal value={sisa} compactThreshold={1_000_000_000_000} />}
                               </span>
                             </div>
                           </div>
@@ -511,7 +583,6 @@ function mapSubmission(r: any): Submission {
                       );
                     })()}
 
-                    {/* Tampilan Alasan Penolakan Jika Ditolak */}
                     {selected.status === "Ditolak" && (
                       <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
                         <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
@@ -524,7 +595,6 @@ function mapSubmission(r: any): Submission {
                       </div>
                     )}
 
-                    {/* Table Properties */}
                     <div className="divide-y divide-stone-200 text-[13px]">
                       {[
                         { label: "Proyek", value: selected.project, isNominal: false },
@@ -537,7 +607,7 @@ function mapSubmission(r: any): Submission {
                         <div key={label} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                           <span className="text-stone-400">{label}</span>
                           {isNominal ? (
-                            <span className="font-bold font-mono text-stone-900 text-right">{value}</span>
+                            <span className="font-bold  text-stone-900 text-right">{value}</span>
                           ) : (
                             <span className="font-semibold text-stone-800 text-right max-w-[60%]">{value}</span>
                           )}
@@ -545,7 +615,6 @@ function mapSubmission(r: any): Submission {
                       ))}
                     </div>
 
-                    {/* Preview Struk Upload */}
                     {!hasStrukUrl(selected.strukUrl) ? (
                       <div className="space-y-1">
                         <label className="text-[13px] text-stone-500">
@@ -599,7 +668,6 @@ function mapSubmission(r: any): Submission {
                         </div>
                     )}
 
-                    {/* Catatan dari Pengaju */}
                     <div>
                       <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
                       <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
@@ -607,7 +675,6 @@ function mapSubmission(r: any): Submission {
                       </div>
                     </div>
 
-                    {/* Catatan opsional — Input jika Menunggu PM, Card jika sudah lewat */}
                     {selected.status === "Menunggu PM" ? (
                       <div>
                         <p className="text-[13px] text-stone-500 mb-2">Catatan untuk Keuangan (opsional)</p>
@@ -641,13 +708,11 @@ function mapSubmission(r: any): Submission {
                       </div>
                     )}
 
-                    {/* Alur Approval */}
                     <div>
                       <p className="text-[13px] font-bold text-stone-800 mb-4">Alur Approval</p>
                       <div className="flex flex-col gap-0">
                         {selected.steps.map((step: any, i: number) => (
                           <div key={i} className="flex gap-3">
-                            {/* Ikon + garis vertikal */}
                             <div className="flex flex-col items-center">
                               <StepIcon state={step.state} number={i + 1} />
                               {i < selected.steps.length - 1 && (
@@ -658,7 +723,6 @@ function mapSubmission(r: any): Submission {
                                 />
                               )}
                             </div>
-                            {/* Teks */}
                             <div className="pb-4">
                               <p className={`text-[13px] font-semibold ${step.state === "pending" ? "text-stone-400" : "text-stone-800"
                                 }`}>
@@ -672,12 +736,11 @@ function mapSubmission(r: any): Submission {
                     </div>
                   </div>
 
-                  {/* Tombol aksi (Fixed / Frozen di bawah) */}
                   <div className="flex items-center justify-between px-6 py-4 border-t border-stone-100 bg-white shrink-0">
                     {hasStrukUrl(selected.strukUrl) ? (
                       <a
                         href={selected.strukUrl}
-                        download={`bukti-${selected.id}${fileExt(selected.strukUrl!)}`}
+                        download={`bukti-${selected.id}${getFileExt(selected.strukUrl!)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-600 hover:bg-stone-50 transition cursor-pointer"
@@ -694,7 +757,6 @@ function mapSubmission(r: any): Submission {
 
                     {selected.status === "Menunggu PM" && (
                       <div className="flex items-center gap-2">
-                        {/* Tombol Tolak sekarang memanggil state untuk memunculkan modal */}
                         <button
                           onClick={() => setIsRejectModalOpen(true)}
                           className="flex items-center gap-2 px-4 py-2 bg-[#fee2e2] text-[#be123c] rounded-full text-[13px] font-semibold hover:bg-[#fecaca] transition cursor-pointer"
@@ -719,7 +781,6 @@ function mapSubmission(r: any): Submission {
         </main>
       </div>
 
-      {/* Render Modal Tolak di Sini */}
       <RejectModal
         isOpen={isRejectModalOpen}
         onClose={() => setIsRejectModalOpen(false)}
@@ -769,8 +830,8 @@ function mapSubmission(r: any): Submission {
         onClose={() => setErrorMessage(null)}
       />
 
-      {/* Modal Zoom Gambar Struk */}
       <ImageLightbox url={zoomImageUrl} onClose={() => setZoomImageUrl(null)} />
     </div>
   );
 }
+

@@ -1,15 +1,11 @@
-import React from "react";
-
 export default function PMSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
-      {/* Page Header Skeleton */}
       <div className="space-y-2">
         <div className="h-7 w-64 bg-stone-200 rounded-lg" />
         <div className="h-4 w-96 max-w-full bg-stone-200 rounded-md" />
       </div>
 
-      {/* 4 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
           <div
@@ -28,7 +24,6 @@ export default function PMSkeleton() {
         ))}
       </div>
 
-      {/* Overall Budget Progress Bar */}
       <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1.5">
@@ -46,9 +41,7 @@ export default function PMSkeleton() {
         </div>
       </div>
 
-      {/* Two-Column Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Realisasi Pos Anggaran */}
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-5 lg:col-span-7">
           <div className="flex items-center justify-between border-b border-stone-100 pb-3">
             <div className="space-y-1">
@@ -75,9 +68,7 @@ export default function PMSkeleton() {
           </div>
         </div>
 
-        {/* Right: Quick actions & Alerts */}
         <div className="space-y-6 lg:col-span-5">
-          {/* Validation Card */}
           <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
             <div className="h-4 w-40 bg-stone-200 rounded-md border-b border-stone-100 pb-3" />
             <div className="flex items-center gap-4">
@@ -90,7 +81,6 @@ export default function PMSkeleton() {
             <div className="w-full h-9 bg-stone-200 rounded-xl" />
           </div>
 
-          {/* Notifications Card */}
           <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
               <div className="h-4 w-36 bg-stone-200 rounded-md" />
@@ -113,3 +103,4 @@ export default function PMSkeleton() {
     </div>
   );
 }
+

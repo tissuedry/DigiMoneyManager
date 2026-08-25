@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, FC } from "react";
 import { formatFullRupiah } from "@/lib/format-nominal";
 
 interface RejectModalProps {
@@ -13,7 +13,7 @@ interface RejectModalProps {
   isLoading?: boolean;
 }
 
-const RejectModal: React.FC<RejectModalProps> = ({
+const RejectModal: FC<RejectModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
@@ -22,7 +22,6 @@ const RejectModal: React.FC<RejectModalProps> = ({
 }) => {
   const [alasan, setAlasan] = useState('');
 
-  // Reset alasan ketika modal ditutup
   useEffect(() => {
     if (!isOpen) setAlasan('');
   }, [isOpen]);

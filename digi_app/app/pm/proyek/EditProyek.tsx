@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, SubmitEvent } from "react";
 import { Check, X, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import DatePicker from "@/components/date-picker";
@@ -9,7 +9,7 @@ type ProyekDataMinimal = {
   id: number;
   nama: string;
   deskripsi?: string;
-  tanggalMulai: string; // ISO string
+  tanggalMulai: string;
   tanggalSelesai?: string | null;
   status: string;
 };
@@ -25,7 +25,6 @@ export default function EditProyekModal({
 }) {
   const toDateInput = (isoOrDateStr?: string | null): string => {
     if (!isoOrDateStr) return "";
-    // Backend now sends "YYYY-MM-DD" — use directly
     return isoOrDateStr.slice(0, 10);
   };
 
@@ -38,7 +37,7 @@ export default function EditProyekModal({
   const [error, setError] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault();
     setError("");
     if (!nama || !tanggalMulai || !tanggalSelesai) {
@@ -59,8 +58,6 @@ export default function EditProyekModal({
           nama,
           deskripsi: deskripsi || null,
           status,
-          // "YYYY-MM-DD" langsung — backend melakukan new Date() dengan hasil yang sama,
-          // tanpa konversi timezone yang tidak perlu
           tanggalMulai,
           tanggalSelesai: tanggalSelesai || null,
         }),
@@ -221,3 +218,4 @@ export default function EditProyekModal({
     </div>
   );
 }
+

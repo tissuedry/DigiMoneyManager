@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
   Check,
@@ -32,7 +32,6 @@ const LIMIT = 6;
 const PROYEK_STATUSES = ["Semua", "Planning", "Active", "Done", "Canceled"];
 
 export default function ManagerLaporanPage() {
-  // Budget / Report state
   const [activeTab, setActiveTab] = useState<"has" | "none">("has");
   const [activeStatus, setActiveStatus] = useState("Semua");
 
@@ -47,7 +46,6 @@ export default function ManagerLaporanPage() {
   const [hasBudgetTotal, setHasBudgetTotal] = useState(0);
   const [noBudgetTotal, setNoBudgetTotal] = useState(0);
 
-  // Sidebar & Modal states
   const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null);
   const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -77,7 +75,6 @@ export default function ManagerLaporanPage() {
       ? detailedProjectInfo
       : showProjectDetail;
 
-  // Fetch count badges
   const fetchCounts = useCallback(async () => {
     try {
       const statusParam = activeStatus !== "Semua" ? `&status=${activeStatus}` : "";
@@ -96,7 +93,6 @@ export default function ManagerLaporanPage() {
     } catch {}
   }, [activeStatus]);
 
-  // Fetch initial page 1
   const fetchInitial = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -119,7 +115,6 @@ export default function ManagerLaporanPage() {
     }
   }, [activeTab, activeStatus]);
 
-  // Load next page for infinite scroll
   const loadMoreProjects = useCallback(async () => {
     if (loading || loadingMore || !hasMore) return;
     setLoadingMore(true);
@@ -147,7 +142,6 @@ export default function ManagerLaporanPage() {
     }
   }, [loading, loadingMore, hasMore, page, activeTab, activeStatus]);
 
-  // IntersectionObserver for Infinite Scroll
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -180,7 +174,6 @@ export default function ManagerLaporanPage() {
     fetchInitial();
   };
 
-  // Sidebar open & action handlers
   const handleOpenDetailModal = async (project: Proyek | Project) => {
     setIsDirectEdit(false);
     setShowProjectDetail(project as Project);
@@ -237,16 +230,6 @@ export default function ManagerLaporanPage() {
         setDetailedProjectInfo(data.project);
       }
     } catch {}
-  };
-
-  const handleDirectEdit = (project: Project) => {
-    setIsDirectEdit(true);
-    setShowProjectDetail(null);
-    setFormError("");
-    setSuccess("");
-
-    setShowProjectDetail(project);
-    setEditMode(true);
   };
 
   const handleCloseEdit = () => {
@@ -414,7 +397,6 @@ export default function ManagerLaporanPage() {
 
   return (
     <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 w-full mx-auto space-y-6">
-      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900">Laporan Anggaran Proyek</h1>
@@ -423,7 +405,6 @@ export default function ManagerLaporanPage() {
           </p>
         </div>
 
-        {/* Tombol Buat Laporan Tahunan */}
         <button
           onClick={() => setIsLaporanModalOpen(true)}
           className="shrink-0 flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-stone-200 hover:border-[#2d6a4f] hover:text-[#2d6a4f] text-stone-700 text-[13px] font-bold rounded-xl shadow-sm transition cursor-pointer"
@@ -433,7 +414,6 @@ export default function ManagerLaporanPage() {
         </button>
       </div>
 
-      {/* Error Banner */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between gap-2">
           <span className="flex items-center gap-2">
@@ -449,9 +429,7 @@ export default function ManagerLaporanPage() {
         </div>
       )}
 
-      {/* Filters */}
       <div className="flex flex-wrap justify-between items-center gap-3">
-        {/* Budget Filter */}
         <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 w-fit">
           <button
             onClick={() => switchTab("has")}
@@ -477,7 +455,6 @@ export default function ManagerLaporanPage() {
           </button>
         </div>
 
-        {/* Filter Status Proyek */}
         <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 w-fit">
           {PROYEK_STATUSES.map((status) => (
             <button
@@ -495,10 +472,8 @@ export default function ManagerLaporanPage() {
         </div>
       </div>
 
-      {/* Initial Loading Skeleton */}
       {loading && <BudgetSkeleton />}
 
-      {/* 1 Card Per Baris (Single Column) & Infinite Scroll */}
       {!loading && projects.length > 0 && (
         <div className="space-y-4">
           <div className="flex flex-col gap-4 w-full">
@@ -511,10 +486,8 @@ export default function ManagerLaporanPage() {
             ))}
           </div>
 
-          {/* Sentinel element for infinite scroll */}
           <div ref={sentinelRef} className="h-4 w-full" />
 
-          {/* Loading more spinner */}
           {loadingMore && (
             <div className="flex items-center justify-center py-6 gap-2 text-stone-500">
               <Loader2 size={18} className="animate-spin text-[#008f5d]" />
@@ -522,7 +495,6 @@ export default function ManagerLaporanPage() {
             </div>
           )}
 
-          {/* End of list */}
           {!hasMore && (
             <div className="text-center py-6 text-xs text-stone-400 font-medium">
               Semua proyek telah ditampilkan ({projects.length} proyek).
@@ -530,8 +502,7 @@ export default function ManagerLaporanPage() {
           )}
         </div>
       )}
-
-      {/* Empty — no projects at all */}
+      
       {!loading && totalProjects === 0 && activeStatus === "Semua" && (
         <div className="text-center py-20 text-stone-400">
           <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
@@ -539,7 +510,6 @@ export default function ManagerLaporanPage() {
         </div>
       )}
 
-      {/* Empty — no projects match the current filter */}
       {!loading && projects.length === 0 && !(totalProjects === 0 && activeStatus === "Semua") && (
         <div className="text-center py-20 text-stone-400">
           <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
@@ -549,12 +519,10 @@ export default function ManagerLaporanPage() {
         </div>
       )}
 
-      {/* Laporan Tahunan Modal */}
       {isLaporanModalOpen && (
         <LaporanTahunanModal onClose={() => setIsLaporanModalOpen(false)} />
       )}
 
-      {/* Project Detail Sidebar & Related Modals */}
       <ProjectDetailSidebar
         showProjectDetail={showProjectDetail}
         editMode={editMode}
