@@ -2,11 +2,11 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-type ApproveCheck = { alokasiBaru: number; sumLain: number; rabTotal: number; sumSub: number };
+type ApproveCheck = { alokasiBaru: number; sumLain: number; nilaiKontrak: number; sumSub: number };
 
-export function computeApproveError({ alokasiBaru, sumLain, rabTotal, sumSub }: ApproveCheck): string | null {
+export function computeApproveError({ alokasiBaru, sumLain, nilaiKontrak, sumSub }: ApproveCheck): string | null {
   if (alokasiBaru < sumSub) return 'Alokasi baru kurang dari total alokasi sub';
-  if (sumLain + alokasiBaru > rabTotal) return 'Batas Nilai Proyek terlampaui';
+  if (sumLain + alokasiBaru > nilaiKontrak) return 'Batas Nilai Proyek terlampaui';
   return null;
 }
 
@@ -81,7 +81,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           const err = computeApproveError({
             alokasiBaru: Number(pengajuan.alokasiBaru),
             sumLain: Number(others._sum.nominalAlokasi || 0),
-            rabTotal: Number(budget.rabTotal),
+            nilaiKontrak: Number(budget.nilaiKontrak),
             sumSub: Number(sumSub._sum.nominalAlokasi || 0),
           });
           if (err) throw new Error(`VALIDATION:${err}`);

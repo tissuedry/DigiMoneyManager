@@ -111,7 +111,7 @@ async function main() {
   await prisma.budget.create({
     data: {
       proyekId: project.id,
-      rabTotal: 150000000.00, // Rp 150,000,000
+      nilaiKontrak: 150000000.00, // Rp 150,000,000
       totalPengeluaran: 0.00,
       totalReimbursement: 0.00,
       sisaBudget: 150000000.00,

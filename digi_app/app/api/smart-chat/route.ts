@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
         mockResponseText = 'Sisa budget proyek saat ini:\n' +
           activeProjects.map((p) => {
             const sisa = p.budget.sisaBudget;
-            const total = p.budget.rabTotal;
+            const total = p.budget.nilaiKontrak;
             const pct = total > 0 ? ((sisa / total) * 100).toFixed(1) : '0';
             return `- **${p.nama}**: Sisa Rp ${sisa.toLocaleString()} / Rp ${total.toLocaleString()} (${pct}% sisa).`;
           }).join('\n');

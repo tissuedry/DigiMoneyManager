@@ -112,7 +112,7 @@ async function main() {
     data: budgets.map(b => ({
       id:                 b.id,
       proyekId:           b.proyekId,
-      rabTotal:           b.rabTotal,
+      nilaiKontrak:       b.nilaiKontrak ?? b.rabTotal,
       totalPengeluaran:   b.totalPengeluaran,
       totalReimbursement: b.totalReimbursement,
       sisaBudget:         b.sisaBudget,

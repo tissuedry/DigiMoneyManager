@@ -8,7 +8,7 @@ export type PosAnggaranDB = {
 
 export type BudgetDB = {
   id: number;
-  rabTotal: string;
+  nilaiKontrak: string;
   totalPengeluaran: string;
   sisaBudget: string;
   posAnggaran: PosAnggaranDB[];

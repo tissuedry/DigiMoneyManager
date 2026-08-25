@@ -218,7 +218,7 @@ export async function GET(req: NextRequest) {
         tanggalSelesai: p.tanggalSelesai ? formatDateInput(p.tanggalSelesai) : null,
         pm: pmUser?.user.nama || '',
         status: p.status,
-        totalRAB: budget ? Number(budget.rabTotal) : 0,
+        totalRAB: budget ? Number(budget.nilaiKontrak) : 0,
         realisasi: totalRealisasi,
         posAnggaran,
         tim,

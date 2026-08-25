@@ -85,7 +85,7 @@ export default function InitBudgetModal({
         setPosAnggaranList([{ deskripsi: "", nominalAlokasi: "" }]);
       }
 
-      const currentNilaiKontrak = detailedProjectInfo?.budget?.nilaiKontrak || detailedProjectInfo?.budget?.rabTotal || (showInitBudget as any)?.nilaiProyek || 0;
+      const currentNilaiKontrak = detailedProjectInfo?.budget?.nilaiKontrak || (showInitBudget as any)?.nilaiProyek || 0;
       if (currentNilaiKontrak > 0) {
         setRabTotal(formatRibuan(String(Math.round(currentNilaiKontrak))));
       }

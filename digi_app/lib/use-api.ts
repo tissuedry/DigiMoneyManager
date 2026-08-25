@@ -49,11 +49,11 @@ export function useMutate<TData = any, TArgs = any>(
         headers: { "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const text = await res.text().catch(() => res.statusText);
-        throw new Error(`${method} ${url} ${res.status}: ${text}`);
+        throw new Error((data as any)?.message || `${method} ${url} ${res.status}`);
       }
-      return res.json();
+      return data;
     },
     onSuccess: () => {
       if (invalidateKeys) invalidate(...invalidateKeys);

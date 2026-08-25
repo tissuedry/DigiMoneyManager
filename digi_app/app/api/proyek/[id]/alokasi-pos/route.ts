@@ -83,9 +83,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           const sameTipeMains = budget.mainAnggaran.filter((m) => m.tipe === itemTipe);
           const runningTipeTotal = sameTipeMains.reduce((sum, m) => sum + Number(m.nominalAlokasi), 0);
           
-          if (runningTipeTotal + newAlokasi > Number(budget.rabTotal)) {
+          if (runningTipeTotal + newAlokasi > Number(budget.nilaiKontrak)) {
             throw new Error(
-              `Total alokasi Main Pos melebihi RAB proyek (Rp ${Number(budget.rabTotal).toLocaleString('id-ID')})`
+              `Total alokasi Main Pos melebihi RAB proyek (Rp ${Number(budget.nilaiKontrak).toLocaleString('id-ID')})`
             );
           }
 

@@ -1,11 +1,11 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-type ValidateArgs = { rabTotal: number; sumLain: number; alokasiBaru: number; sumSub: number };
+type ValidateArgs = { nilaiKontrak: number; sumLain: number; alokasiBaru: number; sumSub: number };
 
-export function validateAlokasi({ rabTotal, sumLain, alokasiBaru, sumSub }: ValidateArgs): boolean {
+export function validateAlokasi({ nilaiKontrak, sumLain, alokasiBaru, sumSub }: ValidateArgs): boolean {
   if (alokasiBaru < sumSub) return false;
-  if (sumLain + alokasiBaru > rabTotal) return false;
+  if (sumLain + alokasiBaru > nilaiKontrak) return false;
   return true;
 }
 
@@ -62,11 +62,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
     const sumLain = Number(others._sum.nominalAlokasi || 0);
     const sumSub = main.subAnggaran.reduce((s, sub) => s + Number(sub.nominalAlokasi), 0);
-    const rabTotal = Number(budget.rabTotal);
+    const nilaiKontrak = Number(budget.nilaiKontrak);
 
-    if (!validateAlokasi({ rabTotal, sumLain, alokasiBaru: alokasi, sumSub })) {
+    if (!validateAlokasi({ nilaiKontrak, sumLain, alokasiBaru: alokasi, sumSub })) {
       return NextResponse.json({
-        message: `Alokasi baru tidak valid: tidak boleh kurang dari total alokasi sub (Rp ${sumSub.toLocaleString('id-ID')}) dan total seluruh main tidak boleh melebihi Nilai Proyek (Rp ${rabTotal.toLocaleString('id-ID')})`,
+        message: `Alokasi baru tidak valid: tidak boleh kurang dari total alokasi sub (Rp ${sumSub.toLocaleString('id-ID')}) dan total seluruh main tidak boleh melebihi Nilai Proyek (Rp ${nilaiKontrak.toLocaleString('id-ID')})`,
       }, { status: 400 });
     }
 

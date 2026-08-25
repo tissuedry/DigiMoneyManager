@@ -29,7 +29,7 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
   const [toastError, setToastError] = useState<string | null>(null);
 
   const budget = proyek.budget;
-  const rab = budget ? Number(budget.rabTotal) : 0;
+  const rab = budget ? Number(budget.nilaiKontrak) : 0;
   const terpakai = budget ? Number(budget.totalPengeluaran) : 0;
   const sisa = budget ? Number(budget.sisaBudget) : 0;
   const pct = rab > 0 ? Math.min((terpakai / rab) * 100, 100) : 0;

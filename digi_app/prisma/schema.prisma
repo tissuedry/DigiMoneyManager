@@ -61,7 +61,6 @@ model UserProyek {
 model Budget {
   id                         Int            @id @default(autoincrement())
   proyekId                   Int            @unique @map("proyek_id")
-  rabTotal                   Decimal        @map("rab_total") @db.Decimal(15, 2)
   totalPengeluaran           Decimal        @default(0) @map("total_pengeluaran") @db.Decimal(15, 2)
   totalReimbursement         Decimal        @default(0) @map("total_reimbursement") @db.Decimal(15, 2)
   sisaBudget                 Decimal        @map("sisa_budget") @db.Decimal(15, 2)

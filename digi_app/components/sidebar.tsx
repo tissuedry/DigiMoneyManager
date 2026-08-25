@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { 
   X, LayoutDashboard, Plus, History, FileCheck, Wallet, 
   BookOpen, BarChart3, Users, FileText, 
-  FolderKanban, Layers, Monitor, ChevronLeft
+  FolderKanban, Layers, Monitor, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 
@@ -140,20 +140,31 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:static lg:flex lg:flex-col
       `}>
-        <div className={`h-20 flex items-center justify-between ${collapsed ? 'px-3' : 'px-6'} border-b border-stone-200/50 shrink-0`}>
+        {/* Upper Header with Chevron Toggle */}
+        <div className={`h-20 flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-5'} border-b border-stone-200/60 shrink-0`}>
           {collapsed ? (
             <button
               onClick={() => setCollapsed(false)}
-              className="w-full flex items-center justify-center p-1.5 hover:bg-stone-200/50 rounded-lg transition cursor-pointer"
-              aria-label="Expand sidebar"
+              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-stone-200/60 text-stone-600 hover:text-stone-900 transition-all cursor-pointer group relative"
+              aria-label="Buka sidebar"
               title="Buka sidebar"
             >
-              <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
+              <Image 
+                src="/logo.png" 
+                alt="Digi Money Manager" 
+                width={32} 
+                height={32} 
+                className="object-contain transition-transform duration-200 group-hover:scale-90 group-hover:opacity-30" 
+              />
+              <ChevronRight 
+                size={18} 
+                className="absolute text-stone-700 opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-0.5" 
+              />
             </button>
           ) : (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center">
-                <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center justify-center shrink-0">
+                <Image src="/logo.png" alt="Digi Money Manager" width={34} height={34} className="object-contain" />
               </div>
               <div className="shrink-0">
                 <p className="font-bold text-stone-800 text-[14px] leading-tight whitespace-nowrap">Digi Money Manager</p>
@@ -162,28 +173,31 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
             </div>
           )}
 
+          {/* Close button on mobile */}
           {!collapsed && onClose && (
             <button
               onClick={onClose}
-              className="lg:hidden p-1.5 hover:bg-stone-200/50 rounded-lg text-stone-500 hover:text-stone-800 transition cursor-pointer"
+              className="lg:hidden p-1.5 hover:bg-stone-200/60 rounded-lg text-stone-500 hover:text-stone-800 transition cursor-pointer"
               aria-label="Close sidebar"
             >
               <X size={18} />
             </button>
           )}
 
+          {/* Upper Chevron Collapse button on desktop */}
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
-              className="hidden lg:flex p-1 hover:bg-stone-200/50 rounded-lg text-stone-500 hover:text-stone-800 transition cursor-pointer"
-              aria-label="Collapse sidebar"
-              title="Tutup sidebar"
+              className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-200/70 border border-transparent hover:border-stone-300/40 transition-all cursor-pointer group shrink-0"
+              aria-label="Ciutkan sidebar"
+              title="Ciutkan sidebar"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={16} className="transition-transform duration-200 group-hover:-translate-x-0.5" />
             </button>
           )}
         </div>
 
+        {/* Navigation Items */}
         <nav className={`${collapsed ? 'px-2' : 'px-4'} py-4 space-y-1 flex-1 overflow-y-auto pb-20 custom-scrollbar`}>
           {menuItems.map((item, idx) => {
             if (item.isSection) {
@@ -219,7 +233,7 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
                 <Icon size={18} className="shrink-0" />
                 {!collapsed && <span className="whitespace-nowrap">{item.name}</span>}
                 {displayBadge && displayCount !== undefined && displayCount > 0 && (
-                  <span className={`${collapsed ? 'absolute translate-x-3 -translate-y-3 text-[9px]' : 'ml-auto'} bg-[#117a5b] text-white font-bold text-[10px] px-2 py-0.5 rounded-full`}>
+                  <span className={`${collapsed ? 'absolute top-1.5 right-1.5 min-w-[18px] h-[18px] flex items-center justify-center text-[9px] px-1' : 'ml-auto text-[10px] px-2 py-0.5'} bg-[#117a5b] text-white font-bold rounded-full`}>
                     {displayCount}
                   </span>
                 )}

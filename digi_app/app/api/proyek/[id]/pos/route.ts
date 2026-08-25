@@ -68,7 +68,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await tx.budget.update({
         where: { id: budget.id },
         data: {
-          rabTotal: { increment: Number(nominalAlokasi) },
           sisaBudget: { increment: Number(nominalAlokasi) },
         },
       });

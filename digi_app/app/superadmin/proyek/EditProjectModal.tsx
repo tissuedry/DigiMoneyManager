@@ -26,7 +26,11 @@ export default function EditProjectModal({
 }: Props) {
   if (!editMode) return null;
 
-  const totalPengeluaran = Number(projectDetail?.budget?.rabTotal) || 0;
+  const totalPengeluaran = (Array.isArray(projectDetail?.budget?.posAnggaran)
+    ? projectDetail.budget.posAnggaran
+        .filter((pos: any) => pos.tipe !== "pemasukan")
+        .reduce((acc: number, pos: any) => acc + (Number(pos.nominalAlokasi || pos.alokasi || pos.nominal) || 0), 0)
+    : 0) || 0;
   const totalPemasukan = Number(projectDetail?.budget?.targetPemasukan) || 0;
   const totalAlokasi = totalPengeluaran + totalPemasukan;
   const inputNilai = ribuanToNumber(editForm.rabTotal) || 0;

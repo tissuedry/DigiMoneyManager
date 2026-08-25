@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
       });
 
       const budgets = await prisma.budget.findMany();
-      const totalRABAllocated = budgets.reduce((sum, b) => sum + Number(b.rabTotal), 0);
+      const totalRABAllocated = budgets.reduce((sum, b) => sum + Number(b.nilaiKontrak), 0);
       const totalCashDisbursed = budgets.reduce((sum, b) => sum + Number(b.totalPengeluaran), 0);
       const totalReimbursementsDisbursed = budgets.reduce((sum, b) => sum + Number(b.totalReimbursement), 0);
       const remainingBudgets = budgets.reduce((sum, b) => sum + Number(b.sisaBudget), 0);
@@ -447,8 +447,8 @@ export async function GET(req: NextRequest) {
       // Proyek yang tampil di tabel = semua kecuali Done/Canceled
       const displayProyek = proyekList.filter(p => !['Done', 'Canceled', 'DONE', 'CANCELED'].includes(p.status));
 
-      const totalRABAktif = activeProyek.reduce((sum, p) => sum + Number(p.budget?.rabTotal || 0), 0);
-      const totalRABAllocated = proyekList.reduce((sum, p) => sum + Number(p.budget?.rabTotal || 0), 0);
+      const totalRABAktif = activeProyek.reduce((sum, p) => sum + Number(p.budget?.nilaiKontrak || 0), 0);
+      const totalRABAllocated = proyekList.reduce((sum, p) => sum + Number(p.budget?.nilaiKontrak || 0), 0);
       const totalDisbursed = proyekList.reduce((sum, p) => sum + Number(p.budget?.totalPengeluaran || 0), 0);
       const remainingBudgets = proyekList.reduce((sum, p) => sum + Number(p.budget?.sisaBudget || 0), 0);
 
@@ -599,7 +599,7 @@ export async function GET(req: NextRequest) {
 
       // ── Project Profitability ────────────────────────────────────
       const projectProfitability = displayProyek.map((p) => {
-        const rab = Number(p.budget?.rabTotal || 0);
+        const rab = Number(p.budget?.nilaiKontrak || 0);
         const expense = Number(p.budget?.totalPengeluaran || 0);
         const sisa = Number(p.budget?.sisaBudget || 0);
         const realisasi = expense;
@@ -672,9 +672,9 @@ export async function GET(req: NextRequest) {
 
       const totalUserAktif = await prisma.user.count(); 
 
-      // PERBAIKAN: Hitung Total Nilai Proyek dengan menjumlahkan rabTotal
+      // PERBAIKAN: Hitung Total Nilai Proyek dengan menjumlahkan nilaiKontrak
       const budgets = await prisma.budget.findMany();
-      const totalNilaiProyek = budgets.reduce((sum, b) => sum + Number(b.rabTotal), 0);
+      const totalNilaiProyek = budgets.reduce((sum, b) => sum + Number(b.nilaiKontrak), 0);
 
       dashboardData.metrics = {
         totalNilaiProyek, // Menambahkan perhitungan nilai proyek untuk Super Admin

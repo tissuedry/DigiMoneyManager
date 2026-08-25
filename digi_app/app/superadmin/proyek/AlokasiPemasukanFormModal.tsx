@@ -89,12 +89,14 @@ export default function AlokasiPemasukanFormModal({
   const totalNilaiProyekVal = Number(
     nilaiKontrak > 0
       ? nilaiKontrak
-      : (detailedProjectInfo?.budget?.nilaiKontrak || detailedProjectInfo?.budget?.rabTotal || 0)
+      : (detailedProjectInfo?.budget?.nilaiKontrak || 0)
   ) || 0;
 
-  const totalPengeluaranExisting = detailedProjectInfo?.budget?.rabTotal !== undefined
-    ? Number(detailedProjectInfo.budget.rabTotal)
-    : (detailedProjectInfo?.posAnggaran?.reduce((acc: number, p: any) => acc + (Number(p.alokasi || p.nominalAlokasi || p.nominal) || 0), 0) || 0);
+  const totalPengeluaranExisting = (detailedProjectInfo?.budget?.posAnggaran
+    ? detailedProjectInfo.budget.posAnggaran
+        .filter((p: any) => p.tipe !== "pemasukan")
+        .reduce((acc: number, p: any) => acc + (Number(p.alokasi || p.nominalAlokasi || p.nominal) || 0), 0)
+    : 0) || 0;
 
   const totalPemasukanAllocated = posPemasukanList.reduce(
     (acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0),

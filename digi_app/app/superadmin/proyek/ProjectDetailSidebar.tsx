@@ -467,7 +467,7 @@ export default function ProjectDetailSidebar({
                                                 type="button"
                                                 onClick={() => {
                                                     if (detailedProjectInfo?.budget) {
-                                                        const rawTotal = parseFloat(detailedProjectInfo.budget.rabTotal) || 0;
+                                                        const rawTotal = parseFloat(detailedProjectInfo.budget.nilaiKontrak) || 0;
                                                         setRabTotal(formatRibuan(String(Math.round(rawTotal))));
 
                                                         const existingPos = detailedProjectInfo.budget.posAnggaran.map((pos: any) => {

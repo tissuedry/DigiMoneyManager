@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '4', 10);
 
-    // Perbaikan Cache Key agar tidak bug saat search/filter berubah
     const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}:budgetStatus=${budgetStatus}:page=${page}:limit=${limit}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
@@ -254,14 +253,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal } = body;
+    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, nilaiKontrak } = body;
 
     if (!nama || !tanggalMulai || !tanggalSelesai || !status) {
       return NextResponse.json({ message: 'Nama, Tanggal Mulai, Tanggal Selesai, dan Status Proyek wajib diisi' }, { status: 400 });
     }
 
-    const parsedRab = rabTotal !== undefined && rabTotal !== null && rabTotal !== '' 
-      ? (typeof rabTotal === 'number' ? rabTotal : parseFloat(String(rabTotal).replace(/[^0-9.-]+/g, ''))) 
+    const parsedNilaiKontrak = nilaiKontrak !== undefined && nilaiKontrak !== null && nilaiKontrak !== '' 
+      ? (typeof nilaiKontrak === 'number' ? nilaiKontrak : parseFloat(String(nilaiKontrak).replace(/[^0-9.-]+/g, ''))) 
       : 0;
 
     const newProject = await prisma.proyek.create({
@@ -271,12 +270,11 @@ export async function POST(req: NextRequest) {
         status: status,
         tanggalMulai: new Date(tanggalMulai),
         tanggalSelesai: new Date(tanggalSelesai),
-        ...(parsedRab && parsedRab > 0 ? {
+        ...(parsedNilaiKontrak && parsedNilaiKontrak > 0 ? {
           budget: {
             create: {
-              nilaiKontrak: parsedRab,
-              rabTotal: parsedRab,
-              sisaBudget: parsedRab,
+              nilaiKontrak: parsedNilaiKontrak,
+              sisaBudget: parsedNilaiKontrak,
               targetPemasukan: 0,
               totalPengeluaran: 0,
               totalReimbursement: 0,
@@ -295,8 +293,8 @@ export async function POST(req: NextRequest) {
         data: {
           userId: parseInt(userId, 10),
           aksi: 'create_proyek',
-          detail: parsedRab && parsedRab > 0
-            ? `Membuat proyek baru: ${nama} dengan nilai Rp ${parsedRab.toLocaleString('id-ID')}`
+          detail: parsedNilaiKontrak && parsedNilaiKontrak > 0
+            ? `Membuat proyek baru: ${nama} dengan nilai Rp ${parsedNilaiKontrak.toLocaleString('id-ID')}`
             : `Membuat proyek baru: ${nama}`,
         },
       });

@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
           {
             id: -1,
             nama: 'Pendapatan Termin / Proyek',
-            alokasi: totalTerminNominal > 0 ? totalTerminNominal : (budget ? Number(budget.rabTotal) : 0),
+            alokasi: totalTerminNominal > 0 ? totalTerminNominal : (budget ? Number(budget.nilaiKontrak) : 0),
             terpakai: terminDiterimaNominal,
             warna: '#008f5d',
             subAnggaran: termins.map((t) => ({
@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
         ];
       }
 
-      const totalRAB = budget ? Number(budget.rabTotal) : (totalTerminNominal > 0 ? totalTerminNominal : 0);
+      const totalRAB = budget ? Number(budget.nilaiKontrak) : (totalTerminNominal > 0 ? totalTerminNominal : 0);
       const totalPosTerpakai = posAnggaran.reduce((s, pos) => s + pos.terpakai, 0);
       const realisasiPemasukan = Math.max(terminDiterimaNominal, totalPosTerpakai, totalTransaksiPemasukan);
 

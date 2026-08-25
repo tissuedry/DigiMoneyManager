@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { ChevronDown, ChevronRight, X, Check, Clock, Settings } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
 import { formatReimbursementDate } from "./utils";
 import { formatFullRupiah } from "@/lib/format-nominal";
-import EditAlokasiModal from "./PerubahanAlokasi";
 
 const APPROVED_STATUSES = ["APPROVED", "PAID", "DISBURSED"];
 const VALID_REIMB_STATUSES = ["APPROVED", "APPROVED_BY_PM", "SUBMITTED", "PAID", "DISBURSED"];
@@ -79,12 +78,6 @@ type Props = {
   showDetailBudgetModal: boolean;
   onClose: () => void;
   detailedProjectInfo: any;
-  expandedMain: Record<number, boolean>;
-  setExpandedMain: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
-  expandedSub: Record<string, boolean>;
-  setExpandedSub: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  expandedKet: Record<string, boolean>;
-  setExpandedKet: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   onRefresh?: () => void;
 };
 
@@ -92,32 +85,15 @@ export default function DetailBudgetModal({
   showDetailBudgetModal,
   onClose,
   detailedProjectInfo,
-  expandedMain,
-  setExpandedMain,
-  expandedSub,
-  setExpandedSub,
-  expandedKet,
-  setExpandedKet,
-  onRefresh,
 }: Props) {
-  const [editTarget, setEditTarget] = useState<{
-    type: "main" | "sub";
-    id: number;
-    mainId?: number;
-    nama: string;
-    currentAlokasi: number;
-    totalRAB?: number;
-    totalTeralokasi?: number;
-  } | null>(null);
+  const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
+  const [expandedSub, setExpandedSub] = useState<Record<string, boolean>>({});
+  const [expandedKet, setExpandedKet] = useState<Record<string, boolean>>({});
 
   if (!showDetailBudgetModal) return null;
 
   const posAnggaran = detailedProjectInfo?.budget?.posAnggaran || [];
   const projectName = detailedProjectInfo?.nama || "Pembangunan Gudang Cikarang Fase 2";
-  const totalPemasukan =
-    Number(detailedProjectInfo?.budget?.nilaiTotal) ||
-    Number(detailedProjectInfo?.nilaiProyek) ||
-    0;
 
   return (
     <>
@@ -508,35 +484,6 @@ export default function DetailBudgetModal({
           </div>
         </div>
       </div>
-
-      {editTarget && (
-        <EditAlokasiModal
-          proyekId={
-            typeof detailedProjectInfo?.id === "string"
-              ? parseInt(detailedProjectInfo.id, 10)
-              : detailedProjectInfo?.id || 0
-          }
-          main={{
-            id: editTarget.type === "sub" ? editTarget.mainId || 0 : editTarget.id,
-            nama: editTarget.nama,
-            alokasi: Number(editTarget.currentAlokasi) || 0,
-          }}
-          subId={editTarget.type === "sub" ? editTarget.id : undefined}
-          totalRAB={
-            editTarget.type === "sub"
-              ? Number(editTarget.totalRAB) || totalPemasukan
-              : totalPemasukan
-          }
-          sumLain={0}
-          sumSub={editTarget.totalTeralokasi || 0}
-          kategoriProyek={detailedProjectInfo?.kategori || "general"}
-          onClose={() => setEditTarget(null)}
-          onSuccess={() => {
-            setEditTarget(null);
-            onRefresh?.();
-          }}
-        />
-      )}
     </>
   );
 }

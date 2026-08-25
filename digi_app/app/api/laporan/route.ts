@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
 
     } else if (type === 'neraca') {
       const reportData = await Promise.all(projects.map(async (p) => {
-        const rabTotal = p.budget ? Number(p.budget.nilaiKontrak || p.budget.rabTotal || 0) : 0;
+        const rabTotal = p.budget ? Number(p.budget.nilaiKontrak || 0) : 0;
         const totalPengeluaran = p.budget ? Number(p.budget.totalPengeluaran || 0) : 0;
         const sisaBudget = p.budget ? Number(p.budget.sisaBudget || 0) : 0;
 
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
       const reportData: any[] = [];
 
       for (const p of projects) {
-        const grossRevenue = p.budget ? Number(p.budget.nilaiKontrak || p.budget.rabTotal || 0) : 0;
+        const grossRevenue = p.budget ? Number(p.budget.nilaiKontrak || 0) : 0;
         const totalPengeluaran = p.budget ? Number(p.budget.totalPengeluaran || 0) : 0;
 
         const txPemasukan = await prisma.transaksiPemasukan.findMany({
