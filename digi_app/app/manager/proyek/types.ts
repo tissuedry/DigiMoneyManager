@@ -40,4 +40,6 @@ export type TerminItem = {
     id?: number;
     progress: number | string;
     nominal: string;
+    status?: string;
+    isDiterima?: boolean;
 };
