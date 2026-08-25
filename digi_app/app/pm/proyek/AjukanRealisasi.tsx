@@ -6,12 +6,15 @@ import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
 import Toast from "@/components/toast";
 import { formatRupiah } from "@/lib/formatters";
+import { formatFullRupiah } from "@/lib/format-nominal";
 
 type FlatKeteranganOption = {
   id: string;
   keterangan: string;
   mainNama: string;
   subNama: string;
+  nominalAlokasi: number;
+  nominalRealisasi: number;
 };
 
 export default function AjukanRealisasiModal({
@@ -55,6 +58,8 @@ export default function AjukanRealisasiModal({
           keterangan: k.keterangan,
           mainNama: m.namaMain,
           subNama: s.namaSub,
+          nominalAlokasi: Number(k.nominalAlokasi || 0),
+          nominalRealisasi: Number(k.nominalRealisasi || 0),
         }))
       )
     );
@@ -225,6 +230,46 @@ export default function AjukanRealisasiModal({
               </div>
             )}
           </div>
+
+          {/* Info Alokasi & Sisa Realisasi */}
+          {(() => {
+            const cleanInputNominal = Number(nominal.replace(/\./g, "")) || 0;
+            const nominalAlokasi = selectedPos?.nominalAlokasi || 0;
+            const nominalRealisasi = (selectedPos?.nominalRealisasi || 0) + cleanInputNominal;
+            const sisaRealisasi = nominalAlokasi - nominalRealisasi;
+            const isOver = sisaRealisasi < 0;
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+                  <p className="text-[12px] font-semibold text-[#14130f] mb-0.5 truncate" title={selectedPos ? `Total Alokasi · ${selectedPos.keterangan}` : "Total Alokasi Keterangan"}>
+                    {selectedPos ? `Total Alokasi · ${selectedPos.keterangan}` : "Total Alokasi Keterangan"}
+                  </p>
+                  <p className="text-[13.5px] font-normal text-[#000000] font-mono">
+                    {selectedPos ? formatFullRupiah(nominalAlokasi) : "Rp 0"}
+                  </p>
+                </div>
+                {isOver ? (
+                  <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
+                    <p className="text-[12px] font-semibold text-[#902f33] mb-0.5 truncate">
+                      Kelebihan Realisasi (Overbudget)
+                    </p>
+                    <p className="text-[13.5px] font-normal text-[#902f33] font-mono">
+                      - {formatFullRupiah(Math.abs(sisaRealisasi))}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+                    <p className="text-[12px] font-semibold text-[#14130f] mb-0.5 truncate">
+                      Sisa yang Belum Terealisasi
+                    </p>
+                    <p className="text-[13.5px] font-normal text-[#000000] font-mono">
+                      {selectedPos ? formatFullRupiah(sisaRealisasi) : "Rp 0"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">

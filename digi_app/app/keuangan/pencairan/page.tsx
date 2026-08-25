@@ -13,6 +13,7 @@ import SuccessDialog from '@/components/success-dialog';
 import Toast from '@/components/toast';
 import CompactNominal from '@/components/compact-nominal';
 import { useApi, useInvalidate } from '@/lib/use-api';
+import { formatFullRupiah } from '@/lib/format-nominal';
 
 function formatTanggal(iso: string) {
   if (!iso) return "";
@@ -728,6 +729,70 @@ function PencairanContent() {
                             diajukan oleh <span className="font-semibold text-stone-600">{selectedItem.user?.nama}</span>
                             {detailTanggal ? <> pada {formatTanggalWaktu(detailTanggal)}</> : <span className="italic text-stone-300"> · tanggal tidak tersedia</span>}
                           </p>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Total Pengajuan */}
+                    <div className="bg-[#f5f4ef] rounded-xl px-5 py-4 text-center">
+                      <p className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-1">
+                        Total Pengajuan
+                      </p>
+                      <p className="text-[32px] font-bold text-stone-900">
+                        {formatFullRupiah(selectedItem.nominal)}
+                      </p>
+                    </div>
+
+                    {/* Info Realisasi Keterangan Anggaran */}
+                    {(() => {
+                      const ketObj = selectedItem.keteranganAnggaran || selectedItem.posAnggaran;
+                      const ketNama = ketObj?.keterangan || ketObj?.deskripsi;
+                      if (!ketNama) return null;
+
+                      const alokasi = Number(ketObj.nominalAlokasi || 0);
+                      const realisasi = Number(ketObj.nominalRealisasi || 0);
+                      const sisa = alokasi - realisasi;
+                      const percentage = alokasi > 0 ? Math.round((realisasi / alokasi) * 100) : 0;
+                      const isOver = sisa < 0;
+
+                      return (
+                        <div className="bg-white border border-[#e6e1d4] rounded-2xl p-4 space-y-3 shadow-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-semibold text-stone-800 truncate" title={`${selectedItem.tipe === 'Realisasi Anggaran' ? 'Realisasi Anggaran' : 'Reimbursement'} – KET · ${ketNama}`}>
+                              {selectedItem.tipe === 'Realisasi Anggaran' ? 'Realisasi Anggaran' : 'Reimbursement'} – KET · {ketNama}
+                            </p>
+                            <span className={`text-[12px] font-bold shrink-0 ${isOver ? 'text-[#902f33]' : 'text-stone-800'}`}>
+                              {percentage}%
+                            </span>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="w-full bg-[#f0ece1] h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isOver ? 'bg-[#902f33]' : 'bg-[#00875a]'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
+                            />
+                          </div>
+
+                          {/* Breakdown Angka */}
+                          <div className="flex items-center justify-between text-[11.5px] pt-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Alokasi</span>
+                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(alokasi)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Realisasi</span>
+                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(realisasi)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Sisa</span>
+                              <span className={`font-semibold font-mono ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
+                                {isOver ? `- ${formatFullRupiah(Math.abs(sisa))}` : formatFullRupiah(sisa)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       );
                     })()}
