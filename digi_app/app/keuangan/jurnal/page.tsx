@@ -10,6 +10,7 @@ import DatePicker from '@/components/date-picker';
 import CompactNominal from '@/components/compact-nominal';
 import { formatTanggal } from '@/lib/formatters';
 import { useApi } from '@/lib/use-api';
+import { JurnalPageSkeleton } from './skeletons';
 
 type JournalLine = {
   type: "Dr" | "Cr";
@@ -628,11 +629,23 @@ function JurnalAkuntansiContent() {
                   </thead>
                   <tbody>
                     {isLoading ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-12 text-stone-400 font-medium text-xs">
-                          Memuat data jurnal...
-                        </td>
-                      </tr>
+                      [...Array(6)].map((_, i) => (
+                        <tr key={`loading-${i}`} className={i < 5 ? "border-b border-stone-100" : ""}>
+                          <td className="px-7 py-3"><div className="h-3 w-16 bg-stone-200 rounded animate-pulse" /></td>
+                          <td className="px-4 py-3"><div className="h-3 w-20 bg-stone-100 rounded animate-pulse" /></td>
+                          <td className="px-4 py-3"><div className="h-3 w-40 bg-stone-100 rounded animate-pulse" /></td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-5.5 h-5.5 rounded-full bg-stone-200 shrink-0 animate-pulse" />
+                              <div className="h-3 w-10 bg-stone-200 rounded animate-pulse" />
+                              <div className="h-3 w-28 bg-stone-100 rounded animate-pulse" />
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5"><div className="h-3 w-24 bg-stone-200 rounded ml-auto animate-pulse" /></td>
+                          <td className="px-4 py-2.5"><div className="h-3 w-24 bg-stone-200 rounded ml-auto animate-pulse" /></td>
+                          <td className="px-6 py-3"><div className="h-3 w-14 bg-stone-100 rounded animate-pulse" /></td>
+                        </tr>
+                      ))
                     ) : journalEntries.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="text-center py-12 text-stone-400 font-medium text-xs">
@@ -738,8 +751,8 @@ function JurnalAkuntansiContent() {
 export default function JurnalAkuntansiPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#f6f4f0]">
-        <div className="text-stone-400 font-medium text-xs">Memuat halaman...</div>
+      <div className="flex h-screen w-full bg-[#f9f8f4] overflow-hidden">
+        <JurnalPageSkeleton />
       </div>
     }>
       <JurnalAkuntansiContent />
