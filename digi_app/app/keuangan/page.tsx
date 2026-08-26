@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Wallet,
   Notebook,
@@ -18,24 +18,7 @@ import Header from "@/components/header";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
 import CompactNominal from "@/components/compact-nominal";
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function formatTanggal(iso: string | null): string {
-  if (!iso) return "-";
-  const parts = iso.split("T")[0].split("-");
-  if (parts.length < 3) return iso;
-  const [y, m, d] = parts;
-  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
-  const mIdx = parseInt(m, 10) - 1;
-  return `${parseInt(d, 10)} ${bulan[mIdx] || m} ${y}`;
-}
-
-function getInitials(name: string) {
-  if (!name) return "??";
-  const parts = name.trim().split(" ").filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.substring(0, 2).toUpperCase();
-}
+import { formatTanggal, getInitials } from "@/lib/formatters";
 
 interface DashboardMetrics {
   totalPengeluaranNominal?: number;
@@ -147,15 +130,13 @@ export default function KeuanganDashboardPage() {
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
-      {/* Sidebar */}
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         userRole="Tim Keuangan"
       />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4]">
         <Header
           onOpenSidebar={() => setIsSidebarOpen(true)}
           userRole="Tim Keuangan"
@@ -163,23 +144,21 @@ export default function KeuanganDashboardPage() {
 
         <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 w-full mx-auto space-y-6">
 
-          {/* ── Page Header ── */}
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-stone-900 leading-tight">
                 Beranda Keuangan
               </h1>
-              <p className="text-sm text-stone-500 mt-1">
+              <p className="text-sm text-stone-500 mt-1.5">
                 Proses pencairan reimbursement yang telah divalidasi PM. Jurnal
                 akuntansi ter-generate otomatis.
               </p>
             </div>
 
-            {/* Tombol Antrian Pencairan */}
             {!isLoading && (
               <Link
                 href="/keuangan/pencairan"
-                className="flex items-center gap-2 bg-[#008f5d] hover:bg-[#00754c] transition-all duration-200 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl shadow-sm shrink-0 self-start hover:shadow-md"
+                className="flex items-center gap-2 mt-5 bg-[#008f5d] hover:bg-[#00754c] transition-all duration-200 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl shadow-sm shrink-0 self-start hover:shadow-md"
               >
                 <SquareMinus size={15} />
                 Antrian Pencairan ({pencairanList.length})
@@ -188,7 +167,6 @@ export default function KeuanganDashboardPage() {
           </div>
 
           {isLoading ? (
-            /* ── Full-page Loading Skeleton ── */
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {[...Array(4)].map((_, i) => (
@@ -219,10 +197,8 @@ export default function KeuanganDashboardPage() {
               </div>
             </div>
           ) : (
-            /* ── Dashboard Content ── */
             <div className="space-y-6 pb-8">
 
-              {/* ── 4 Stat Cards Row ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {statCards.map((card, i) => (
                   <div
@@ -241,7 +217,7 @@ export default function KeuanganDashboardPage() {
                     </div>
                     <div className="mt-2">
                       <div className="text-[20px] font-bold text-stone-900 leading-tight">
-                        <CompactNominal value={card.rawNominal} compactThreshold={100_000_000_000} />
+                        <CompactNominal value={card.rawNominal} compactThreshold={100_000_000_000_000} />
                       </div>
                       <p className="text-[11px] text-stone-400 mt-1 font-medium">
                         {card.sub}
@@ -251,10 +227,8 @@ export default function KeuanganDashboardPage() {
                 ))}
               </div>
 
-              {/* ── Row 1: Antrian Pencairan + Riwayat Pencairan ── */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-                {/* 1. Antrian Pencairan */}
                 <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[380px]">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 shrink-0">
                     <div>
@@ -329,7 +303,6 @@ export default function KeuanganDashboardPage() {
                   </div>
                 </div>
 
-                {/* 2. Riwayat Pencairan */}
                 <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[380px]">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 shrink-0">
                     <div>
@@ -365,11 +338,11 @@ export default function KeuanganDashboardPage() {
                       jurnalList.map((entry, idx) => (
                         <div key={idx} className="px-6 py-3.5 hover:bg-stone-50/80 transition-colors duration-150">
                           <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] font-mono text-stone-500 bg-stone-100 border border-stone-200/60 px-2 py-0.5 rounded font-semibold">
+                            <span className="text-[10px]  text-stone-500 bg-stone-100 border border-stone-200/60 px-2 py-0.5 rounded font-semibold">
                               {entry.jeId}
                             </span>
                             <span className="text-[11px] text-stone-400 font-medium">
-                              {formatTanggal(entry.tanggal)}
+                              {entry.tanggal ? formatTanggal(entry.tanggal) : "-"}
                             </span>
                           </div>
 
@@ -384,7 +357,7 @@ export default function KeuanganDashboardPage() {
                                 {entry.debitKode} {entry.debitNama}
                               </span>
                               <span className="text-stone-800 font-bold tabular-nums shrink-0 ml-2">
-                                <CompactNominal value={entry.nominal} compactThreshold={100_000_000} />
+                                <CompactNominal value={entry.nominal} compactThreshold={100_000_000_000_000} />
                               </span>
                             </div>
 
@@ -394,7 +367,7 @@ export default function KeuanganDashboardPage() {
                                 {entry.kreditKode} {entry.kreditNama}
                               </span>
                               <span className="text-stone-600 font-semibold tabular-nums shrink-0 ml-2">
-                                <CompactNominal value={entry.nominal} compactThreshold={100_000_000} />
+                                <CompactNominal value={entry.nominal} compactThreshold={100_000_000_000_000} />
                               </span>
                             </div>
                           </div>
@@ -406,10 +379,8 @@ export default function KeuanganDashboardPage() {
 
               </div>
 
-              {/* ── Row 2: Termin Belum Diterima + Riwayat Termin ── */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-                {/* 3. Termin Belum Diterima */}
                 <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[360px]">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 shrink-0">
                     <div>
@@ -470,7 +441,6 @@ export default function KeuanganDashboardPage() {
                   </div>
                 </div>
 
-                {/* 4. Riwayat Termin */}
                 <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[360px]">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 shrink-0">
                     <div>
@@ -513,7 +483,7 @@ export default function KeuanganDashboardPage() {
                               {item.namaTermin} · {item.proyek?.nama}
                             </p>
                             <p className="text-[11px] text-stone-400 mt-0.5 font-medium">
-                              Progress: {item.persentaseProgress}% · Cair: {formatTanggal(item.tanggalPencairan)}
+                              Progress: {item.persentaseProgress}% · Cair: {item.tanggalPencairan ? formatTanggal(item.tanggalPencairan) : "-"}
                             </p>
                           </div>
 

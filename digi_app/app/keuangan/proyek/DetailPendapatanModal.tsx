@@ -1,25 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
 import { formatFullRupiah } from "@/lib/format-nominal";
 import { useApi } from "@/lib/use-api";
-
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return formatFullRupiah(n);
-}
-
-function formatDate(dateStr?: string | null): string {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { formatTanggal } from "@/lib/formatters";
 
 type TransaksiItem = {
   id: number;
@@ -46,26 +31,23 @@ type MainPosItem = {
   subPos: SubPosItem[];
 };
 
-export default function DetailAnggaranModal({
+export default function DetailPendapatanModal({
   proyekId,
   proyekNama,
   proyekStatus,
   posAnggaran = [],
-  totalRAB,
   onClose,
 }: {
   proyekId: number;
   proyekNama: string;
   proyekStatus?: string;
   posAnggaran?: any[];
-  totalRAB?: number;
   onClose: () => void;
   onRefresh?: () => void;
 }) {
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
 
-  // Fetch riwayat transaksi pemasukan
   const { data: transaksiData } = useApi<any>(
     `/api/pemasukan?proyekId=${proyekId}`
   );
@@ -168,11 +150,10 @@ export default function DetailAnggaranModal({
         className="bg-white rounded-[20px] shadow-[0px_24px_64px_rgba(20,18,14,0.30)] w-full max-w-[1112px] max-h-[88vh] flex flex-col overflow-hidden text-left border border-[#E6E1D4] animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Modal */}
         <div className="px-7 pt-[22px] pb-[18px] border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
           <div className="flex flex-col">
             <h3 className="text-[19px] font-bold text-[#14130F] leading-[28.5px] font-sans">
-              Detail Anggaran
+              Detail Anggaran Pendapatan
             </h3>
             <p className="text-[13px] text-[#6A6660] leading-[19.5px] mt-0.5 font-sans">
               {proyekNama || "Pembangunan Proyek"}
@@ -188,7 +169,6 @@ export default function DetailAnggaranModal({
         </div>
 
         <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
-          {/* Sticky Table Header */}
           <div className="sticky top-0 z-10 px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
             <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
               MAIN · SUB
@@ -218,7 +198,6 @@ export default function DetailAnggaranModal({
                     key={main.id}
                     className={`flex flex-col ${!isLast ? "pb-1 border-b border-[#E6E1D4]" : ""}`}
                   >
-                    {/* MAIN Row */}
                     <div
                       onClick={() => toggleMain(main.id)}
                       className="py-1.5 flex items-center hover:bg-stone-50/80 rounded-lg cursor-pointer select-none transition"
@@ -239,13 +218,11 @@ export default function DetailAnggaranModal({
                         </span>
                       </div>
 
-                      {/* REALISASI Column */}
-                      <div className="w-[160px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(main.realisasi)}
+                      <div className="w-[160px] shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
+                        {formatFullRupiah(main.realisasi)}
                       </div>
                     </div>
 
-                    {/* SUB Rows */}
                     {isMainOpen && (
                       <div className="flex flex-col">
                         {main.subPos.length === 0 ? (
@@ -283,13 +260,11 @@ export default function DetailAnggaranModal({
                                     </span>
                                   </div>
 
-                                  {/* REALISASI Column */}
-                                  <div className="w-[160px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(sub.realisasi)}
+                                  <div className="w-[160px] shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
+                                    {formatFullRupiah(sub.realisasi)}
                                   </div>
                                 </div>
 
-                                {/* Transactions rows under SUB */}
                                 {isSubOpen && (
                                   <div className="flex flex-col">
                                     {hasTransaksis ? (
@@ -312,7 +287,7 @@ export default function DetailAnggaranModal({
                                                 REAL
                                               </span>
                                               <span className="text-[11.5px] text-[#9A948B] font-normal truncate font-sans">
-                                                · {labelText} · {formatDate(tr.tanggalTransaksi)}
+                                                · {labelText} · {tr.tanggalTransaksi ? formatTanggal(tr.tanggalTransaksi) : "-"}
                                               </span>
                                               <span className="text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 font-sans bg-[rgba(0,145,98,0.12)] text-[#005836]">
                                                 Dicairkan
@@ -320,8 +295,8 @@ export default function DetailAnggaranModal({
                                             </div>
 
                                             <div className="w-[160px] shrink-0 flex items-center justify-center gap-1.5">
-                                              <span className="text-[11px] font-mono font-normal text-[#6A6660]">
-                                                {formatFullCurrency(tr.nominal)}
+                                              <span className="text-[11px]  font-normal text-[#6A6660]">
+                                                {formatFullRupiah(tr.nominal)}
                                               </span>
                                               <Check
                                                 size={13}
@@ -353,8 +328,8 @@ export default function DetailAnggaranModal({
                                           </div>
 
                                           <div className="w-[160px] shrink-0 flex items-center justify-center gap-1.5">
-                                            <span className="text-[11px] font-mono font-normal text-[#6A6660]">
-                                              {formatFullCurrency(isProyekDone ? sub.realisasi : 0)}
+                                            <span className="text-[11px]  font-normal text-[#6A6660]">
+                                              {formatFullRupiah(isProyekDone ? sub.realisasi : 0)}
                                             </span>
                                             {isProyekDone ? (
                                               <Check
@@ -383,7 +358,6 @@ export default function DetailAnggaranModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-7 py-3.5 border-t border-[#E6E1D4] flex justify-end shrink-0 bg-white">
           <button
             onClick={onClose}

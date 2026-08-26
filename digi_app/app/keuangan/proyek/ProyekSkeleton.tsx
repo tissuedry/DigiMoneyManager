@@ -1,9 +1,6 @@
-import React from "react";
-
 export default function ProyekSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      {/* Header Skeleton */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-2">
           <div className="h-7 w-48 bg-stone-200 rounded-lg" />
@@ -12,7 +9,6 @@ export default function ProyekSkeleton() {
         <div className="h-10 w-64 bg-stone-200 rounded-xl" />
       </div>
 
-      {/* Main Card Skeleton */}
       <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-2xs space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-stone-100">
           <div className="flex items-center gap-3">
