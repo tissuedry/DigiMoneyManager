@@ -436,14 +436,14 @@ export default function ManagerDashboardPage() {
   ];
 
   return (
-    <main className="flex-1 overflow-y-auto bg-[#f6f4ef]">
-      <div className="p-8 flex flex-col gap-6">
+    <main className="flex-1 overflow-y-auto bg-[#f9f8f4]">
+      <div className="px-6 lg:px-8 py-6 flex flex-col gap-6">
 
         <div>
-          <h1 className="text-[24px] font-bold text-[#1c1917] leading-[30px]">
+          <h1 className="text-2xl font-bold text-[#1c1917] leading-[30px]">
             Beranda Eksekutif
           </h1>
-          <p className="text-[14px] text-[#79716b] mt-1">
+          <p className="text-sm text-[#79716b] mt-1.5">
             Ringkasan real-time arus kas dan nilai proyek per {dateLabel}.
           </p>
         </div>

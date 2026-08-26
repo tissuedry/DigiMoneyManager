@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, memo } from "react";
 import { Menu, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
@@ -43,7 +43,7 @@ const ROLE_AVATAR_STYLES: Record<UserRole, { bg: string; text: string }> = {
   "Superadmin": { bg: "bg-[#f3e8ff]", text: "text-purple-800" },
 };
 
-export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotificationDropdown = false }: HeaderProps) {
+export default memo(function Header({ onOpenSidebar, userRole = "Karyawan", hideNotificationDropdown = false }: HeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -209,4 +209,4 @@ export default function Header({ onOpenSidebar, userRole = "Karyawan", hideNotif
       />
     </header>
   );
-}
+});

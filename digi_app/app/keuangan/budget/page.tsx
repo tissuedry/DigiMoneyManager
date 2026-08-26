@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
   Check,
@@ -32,6 +32,8 @@ const STATUS_MAP: Record<string, string[]> = {
 
 export default function KeuanganBudgetPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
+  const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
   const [isLaporanModalOpen, setIsLaporanModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"none" | "has">("has");
   const [activeStatus, setActiveStatus] = useState("Semua");
@@ -40,10 +42,15 @@ export default function KeuanganBudgetPage() {
 
   const hasQuery = useApi<any>(`/api/proyek?limit=${LIMIT}&budgetStatus=has&page=${pageHasBudget}`);
   const noneQuery = useApi<any>(`/api/proyek?limit=${LIMIT}&budgetStatus=none&page=${pageNoBudget}`);
-  const allHasQuery = useApi<any>("/api/proyek?limit=1000&budgetStatus=has");
-  const allNoneQuery = useApi<any>("/api/proyek?limit=1000&budgetStatus=none");
 
-  const loading = hasQuery.isLoading || noneQuery.isLoading || allHasQuery.isLoading || allNoneQuery.isLoading;
+  const isFiltering = activeStatus !== "Semua";
+  const allHasQuery = useApi<any>("/api/proyek?limit=1000&budgetStatus=has", { enabled: isFiltering });
+  const allNoneQuery = useApi<any>("/api/proyek?limit=1000&budgetStatus=none", { enabled: isFiltering });
+
+  const loading =
+    hasQuery.isLoading ||
+    noneQuery.isLoading ||
+    (isFiltering && (allHasQuery.isLoading || allNoneQuery.isLoading));
   const error = hasQuery.error || noneQuery.error || allHasQuery.error || allNoneQuery.error;
   const retry = () => {
     hasQuery.refetch();
@@ -72,7 +79,6 @@ export default function KeuanganBudgetPage() {
 
   const totalProjects = noBudgetTotal + hasBudgetTotal;
 
-  const isFiltering = activeStatus !== "Semua";
   const activeTabAll = activeTab === "has" ? hasBudgetAll : noBudgetAll;
   const activeTabList = activeTab === "has" ? hasBudgetList : noBudgetList;
   const activeTabTotal = activeTab === "has" ? hasBudgetTotal : noBudgetTotal;
@@ -97,10 +103,10 @@ export default function KeuanganBudgetPage() {
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] text-stone-800 overflow-hidden">
-      <Sidebar isSidebarOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} userRole="Tim Keuangan" />
+      <Sidebar isSidebarOpen={isSidebarOpen} onClose={closeSidebar} userRole="Tim Keuangan" />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Tim Keuangan" />
+        <Header onOpenSidebar={openSidebar} userRole="Tim Keuangan" />
 
         <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 w-full mx-auto space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

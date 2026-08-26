@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
-import DetailPendapatanModal from "./DetailPendapatanModal";
-import AddPosModal from "./AddPosModal";
-import RealisasiPemasukanModal from "./RealisasiPemasukanModal";
 import ProyekSkeleton from "./ProyekSkeleton";
 import Toast from "@/components/toast";
 import {
@@ -17,6 +15,10 @@ import {
 import { useApi, useInvalidate } from "@/lib/use-api";
 import { getStatusStyles } from "@/lib/proyek-utils";
 import { formatSisaRupiah } from "@/lib/format-nominal";
+
+const DetailPendapatanModal = dynamic(() => import("./DetailPendapatanModal"), { ssr: false });
+const AddPosModal = dynamic(() => import("./AddPosModal"), { ssr: false });
+const RealisasiPemasukanModal = dynamic(() => import("./RealisasiPemasukanModal"), { ssr: false });
 
 type PosAnggaran = {
   id: number;
@@ -132,6 +134,8 @@ const STORAGE_KEY = "digi_keuangan_last_selected_proyek_id";
 
 export default function KeuanganKelolaProyekContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
+  const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
   const [isRealisasiOpen, setIsRealisasiOpen] = useState(false);
@@ -152,7 +156,7 @@ export default function KeuanganKelolaProyekContent() {
 
   const { data: responseData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>(
     "/api/keuangan/proyek",
-    { refetchInterval: 10000 }
+    { refetchInterval: 60_000 }
   );
 
   const projects = responseData?.projects ?? [];
@@ -190,12 +194,12 @@ export default function KeuanganKelolaProyekContent() {
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <Sidebar
         isSidebarOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
+        onClose={closeSidebar}
         userRole="Tim Keuangan"
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Tim Keuangan" />
+        <Header onOpenSidebar={openSidebar} userRole="Tim Keuangan" />
 
         {isLoading ? (
           <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
@@ -373,7 +377,7 @@ export default function KeuanganKelolaProyekContent() {
           posAnggaran={proyek.posAnggaran}
           onClose={() => setIsDetailOpen(false)}
           onRefresh={() => {
-            invalidate("/api/keuangan/proyek");
+            invalidate("/api/keuangan/proyek", "/api/dashboard", "/api/proyek");
             refetch();
           }}
         />
@@ -388,7 +392,7 @@ export default function KeuanganKelolaProyekContent() {
           posAnggaran={proyek.posAnggaran}
           onClose={() => setIsAlokasiOpen(false)}
           onSuccess={(msg: any) => {
-            invalidate("/api/keuangan/proyek");
+            invalidate("/api/keuangan/proyek", "/api/dashboard", "/api/proyek");
             refetch();
             if (msg) setAlokasiSuccessToast(msg);
           }}
@@ -401,7 +405,7 @@ export default function KeuanganKelolaProyekContent() {
           proyekNama={proyek.nama}
           onClose={() => setIsRealisasiOpen(false)}
           onRefresh={() => {
-            invalidate("/api/keuangan/proyek");
+            invalidate("/api/keuangan/proyek", "/api/dashboard", "/api/proyek", "/api/pemasukan");
             refetch();
             setRealisasiSuccessToast("Realisasi pendapatan berhasil dicatat.");
           }}

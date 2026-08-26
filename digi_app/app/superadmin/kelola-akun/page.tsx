@@ -113,7 +113,6 @@ export default function AnggotaPage() {
       const data = await res.json();
       setProyekList(data.projects || data.proyek || []);
     } catch {
-      // silently handle
     }
   };
 
@@ -150,7 +149,6 @@ export default function AnggotaPage() {
       setHasMore(data.hasMore ?? false);
       setPage(pageNum);
     } catch {
-      // silently handle
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -207,7 +205,7 @@ export default function AnggotaPage() {
     setForm({
       nama: m.nama,
       email: m.email,
-      password: "", // Not required for edit
+      password: "",
       userRole: m.role,
       divisi: m.divisi || "",
     });
@@ -312,12 +310,11 @@ export default function AnggotaPage() {
   };
 
   return (
-    <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-      {/* Header */}
+    <main className="px-6 lg:px-8 py-6 w-full overflow-y-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900 leading-tight">Registrasi Anggota</h1>
-          <p className="text-sm text-stone-500 mt-1">
+          <p className="text-sm text-stone-500 mt-1.5">
             Kelola akun tim. Daftarkan karyawan, Project Manager, dan Tim Keuangan ke sistem, serta atur penugasan proyek mereka.
           </p>
         </div>
@@ -330,7 +327,6 @@ export default function AnggotaPage() {
         </button>
       </div>
 
-      {/* Registration / Edit Form Modal Component */}
       <AnggotaModal
         isOpen={showForm}
         onClose={() => { setShowForm(false); setEditingMember(null); }}
@@ -345,9 +341,7 @@ export default function AnggotaPage() {
         formError={formError}
       />
 
-      {/* Members List */}
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
-        {/* Toolbar */}
         <div className="p-5 border-b border-stone-100 flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-stone-50/20">
           <div className="flex items-center gap-2 bg-stone-100 rounded-xl px-3 py-2 flex-1">
             <Search size={14} className="text-stone-400 shrink-0" />
@@ -382,7 +376,6 @@ export default function AnggotaPage() {
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -463,7 +456,6 @@ export default function AnggotaPage() {
           </table>
         </div>
 
-        {/* Infinite Scroll Sentinel & Loader */}
         <div ref={observerTarget} className="py-4 text-center border-t border-stone-100 bg-stone-50/20">
           {!hasMore && members.length > 0 && !loading && (
             <span className="text-[11px] text-stone-400 font-medium py-1 inline-block">

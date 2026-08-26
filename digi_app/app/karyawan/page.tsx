@@ -50,11 +50,11 @@ export default function BerandaKaryawanPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
 
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
           <div className="flex items-start justify-between mb-8">
             <div>
               <h1 className="text-[24px] font-bold text-stone-900">Beranda Karyawan</h1>
-              <p className="text-[14px] text-stone-500 mt-1.5">
+              <p className="text-sm text-stone-500 mt-1.5">
                 Pantau status pengajuan reimbursement-mu dan ajukan klaim baru dalam hitungan detik.
               </p>
             </div>

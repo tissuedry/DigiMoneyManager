@@ -12,7 +12,10 @@ export type Project = {
     totalPengeluaran: string;
     totalReimbursement: string;
     sisaBudget: string;
-    posAnggaran: { id: number; namaPos: string; nominalAlokasi: string; deskripsi?: string }[];
+    totalPemasukan?: string | number;
+    totalMainPemasukan?: string | number;
+    mainAnggaran?: any[];
+    posAnggaran: { id: number; namaPos: string; nominalAlokasi: string; deskripsi?: string; nominalTerpakai?: string }[];
   } | null;
 };
 
@@ -31,4 +34,12 @@ export type Member = {
   email: string;
   role: string;
   divisi: string | null;
+};
+
+export type TerminItem = {
+    id?: number;
+    progress: number | string;
+    nominal: string;
+    status?: string;
+    isDiterima?: boolean;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, Suspense } from "react";
+import { useState, useRef, useEffect, useMemo, Suspense, useCallback } from "react";
 import {
   Calendar, Filter, Download, ArrowUp, ArrowDown, Check, BookOpen, ChevronDown, X,
 } from "lucide-react";
@@ -10,14 +10,15 @@ import DatePicker from '@/components/date-picker';
 import CompactNominal from '@/components/compact-nominal';
 import { formatTanggal } from '@/lib/formatters';
 import { useApi } from '@/lib/use-api';
+import Pagination from '@/components/pagination';
 import { JurnalPageSkeleton } from './skeletons';
 
 type JournalLine = {
   type: "Dr" | "Cr";
   kode: string;
   akun: string;
-  debit: string | null;
-  kredit: string | null;
+  debit: number | null;
+  kredit: number | null;
 };
 
 type JournalEntry = {
@@ -38,6 +39,8 @@ function periodeLabel(start: string, end: string) {
 
 function JurnalAkuntansiContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
+  const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
   const [showPeriode, setShowPeriode] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [periodeStart, setPeriodeStart] = useState("");
@@ -52,7 +55,7 @@ function JurnalAkuntansiContent() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const { data: reportRes, isLoading } = useApi<any>("/api/laporan?type=buku-besar", {
-    refetchInterval: 5000,
+    refetchInterval: 60_000,
   });
   const reportData: any[] = useMemo(() => reportRes?.report ?? [], [reportRes]);
 
@@ -183,73 +186,40 @@ function JurnalAkuntansiContent() {
       const [crCode, ...crNameParts] = item['Akun Kredit'].split(' - ');
       const crName = crNameParts.join(' - ');
 
-      const formattedNominal = Number(item.Nominal).toLocaleString('id-ID');
-
       const entry: JournalEntry = {
         id: `JE-${String(item.ID).substring(0, 8).toUpperCase()}`,
         tanggal: formatTanggal(item.Tanggal),
         keterangan: item.Keterangan,
         ref: `RB-${String(item.ID).substring(0, 8).toUpperCase()}`,
         lines: [
-          { type: "Dr", kode: dbCode, akun: dbName, debit: formattedNominal, kredit: null },
-          { type: "Cr", kode: crCode, akun: crName, debit: null, kredit: formattedNominal }
+          { type: "Dr", kode: dbCode, akun: dbName, debit: Number(item.Nominal) || 0, kredit: null },
+          { type: "Cr", kode: crCode, akun: crName, debit: null, kredit: Number(item.Nominal) || 0 }
         ]
       };
       return entry;
     });
   }, [sortedReport]);
 
-  const summaryEntries = useMemo(() => {
-    return reportData.map((item) => {
-      const formattedNominal = Number(item.Nominal).toLocaleString('id-ID');
-      return {
-        id: `JE-${String(item.ID).substring(0, 8).toUpperCase()}`,
-        lines: [
-          { type: "Dr" as const, kode: "", akun: "", debit: formattedNominal, kredit: null },
-          { type: "Cr" as const, kode: "", akun: "", debit: null, kredit: formattedNominal }
-        ]
-      };
-    });
-  }, [reportData]);
-
-
-  const parseFormattedNumber = (val: string | null): number => {
-    if (!val) return 0;
-    return parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
-  };
-
-  const totalDebit = useMemo(() => {
-    return journalEntries.reduce((sum, entry) => {
-      return sum + entry.lines.reduce((lineSum, line) => {
-        if (line.debit) {
-          return lineSum + parseFormattedNumber(line.debit);
-        }
-        return lineSum;
-      }, 0);
-    }, 0);
-  }, [journalEntries]);
-
-  const totalKredit = useMemo(() => {
-    return journalEntries.reduce((sum, entry) => {
-      return sum + entry.lines.reduce((lineSum, line) => {
-        if (line.kredit) {
-          return lineSum + parseFormattedNumber(line.kredit);
-        }
-        return lineSum;
-      }, 0);
-    }, 0);
-  }, [journalEntries]);
-
-  const summaryTotalDebit = useMemo(() => {
-    return summaryEntries.reduce((sum, entry) => sum + parseFormattedNumber(entry.lines[0].debit), 0);
-  }, [summaryEntries]);
-
-  const summaryTotalKredit = useMemo(() => {
-    return summaryEntries.reduce((sum, entry) => sum + parseFormattedNumber(entry.lines[1].kredit), 0);
-  }, [summaryEntries]);
+  const totalDebit = useMemo(() => sortedReport.reduce((sum, item) => sum + (Number(item.Nominal) || 0), 0), [sortedReport]);
+  const totalKredit = totalDebit;
+  const summaryTotalDebit = useMemo(() => reportData.reduce((sum, item) => sum + (Number(item.Nominal) || 0), 0), [reportData]);
+  const summaryTotalKredit = summaryTotalDebit;
 
   const isBalanced = Math.abs(summaryTotalDebit - summaryTotalKredit) < 0.01;
   const selisih = Math.abs(summaryTotalDebit - summaryTotalKredit);
+
+  const J_PAGE_SIZE = 25;
+  const [jPage, setJPage] = useState(1);
+  const jTotalPages = Math.max(1, Math.ceil(journalEntries.length / J_PAGE_SIZE));
+  const jSafePage = Math.min(jPage, jTotalPages);
+  const pagedEntries = useMemo(
+    () => journalEntries.slice((jSafePage - 1) * J_PAGE_SIZE, jSafePage * J_PAGE_SIZE),
+    [journalEntries, jSafePage]
+  );
+
+  useEffect(() => {
+    setJPage(1);
+  }, [periodeStart, periodeEnd, filterTipe, filterKaryawan, filterProyek, filterMin, filterMax]);
 
   const toggleSort = (key: string) => {
     if (sortKey === key) {
@@ -269,12 +239,12 @@ function JurnalAkuntansiContent() {
     <div className="flex h-screen w-full bg-[#f9f8f4] text-stone-800 overflow-hidden">
       <Sidebar
         isSidebarOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
+        onClose={closeSidebar}
         userRole="Tim Keuangan"
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
-        <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
+        <Header onOpenSidebar={openSidebar} />
 
         <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6">
 
@@ -295,7 +265,7 @@ function JurnalAkuntansiContent() {
                 </div>
               </div>
               <div>
-                <p className="text-[28px] font-bold text-stone-900 leading-none">{summaryEntries.length}</p>
+                <p className="text-[28px] font-bold text-stone-900 leading-none">{reportData.length}</p>
                 <p className="text-[11px] text-stone-400 mt-2 font-medium">Semua Data</p>
               </div>
             </div>
@@ -311,7 +281,7 @@ function JurnalAkuntansiContent() {
                 <div className="text-[22px] font-bold text-stone-900 leading-none">
                   <CompactNominal value={summaryTotalDebit} compactThreshold={100_000_000_000} />
                 </div>
-                <p className="text-[11px] text-stone-400 mt-2 font-medium">{summaryEntries.length} entri jurnal</p>
+                <p className="text-[11px] text-stone-400 mt-2 font-medium">{reportData.length} entri jurnal</p>
               </div>
             </div>
 
@@ -326,7 +296,7 @@ function JurnalAkuntansiContent() {
                 <div className="text-[22px] font-bold text-stone-900 leading-none">
                   <CompactNominal value={summaryTotalKredit} compactThreshold={100_000_000_000} />
                 </div>
-                <p className="text-[11px] text-stone-400 mt-2 font-medium">{summaryEntries.length} entri jurnal</p>
+                <p className="text-[11px] text-stone-400 mt-2 font-medium">{reportData.length} entri jurnal</p>
               </div>
             </div>
 
@@ -653,13 +623,13 @@ function JurnalAkuntansiContent() {
                         </td>
                       </tr>
                     ) : (
-                      journalEntries.map((entry, entryIdx) =>
+                      pagedEntries.map((entry, entryIdx) =>
                         entry.lines.map((line, lineIdx) => (
                           <tr
                             key={`${entry.id}-${lineIdx}`}
                             className={`${lineIdx < entry.lines.length - 1
                               ? "border-b border-stone-100"
-                              : entryIdx < journalEntries.length - 1
+                              : entryIdx < pagedEntries.length - 1
                                 ? "border-b-2 border-stone-200"
                                 : ""
                               } hover:bg-stone-50/30 transition-colors`}
@@ -703,10 +673,10 @@ function JurnalAkuntansiContent() {
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-right text-[12px]  text-stone-800 whitespace-nowrap">
-                              {line.debit ? <CompactNominal value={line.debit} compactThreshold={100_000_000_000_000} /> : "—"}
+                              {line.debit !== null ? <CompactNominal value={line.debit} compactThreshold={100_000_000_000_000} /> : "—"}
                             </td>
                             <td className="px-4 py-2.5 text-right text-[12px]  text-stone-800 whitespace-nowrap">
-                              {line.kredit ? <CompactNominal value={line.kredit} compactThreshold={100_000_000_000_000} /> : "—"}
+                              {line.kredit !== null ? <CompactNominal value={line.kredit} compactThreshold={100_000_000_000_000} /> : "—"}
                             </td>
                             {lineIdx === 0 && (
                               <td
@@ -741,6 +711,9 @@ function JurnalAkuntansiContent() {
               </div>
             )}
 
+            {!isLoading && journalEntries.length > 0 && (
+              <Pagination page={jSafePage} totalPages={jTotalPages} onChange={setJPage} />
+            )}
           </div>
         </main>
       </div>

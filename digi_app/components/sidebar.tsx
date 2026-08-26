@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -56,7 +56,7 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Kelola Akun", href: "/superadmin/kelola-akun", icon: Users, hasBadge: false },
     
     { name: "DIREKTUR", href: "", isSection: true },
-    { name: "Kelola Proyek", href: "/superadmin/proyek", icon: FolderKanban, hasBadge: false },
+    { name: "Kelola Proyek", href: "/superadmin/manajemen-proyek", icon: FolderKanban, hasBadge: false },
     { name: "Laporan", href: "/superadmin/laporan", icon: FileText, hasBadge: false },
     
     { name: "PROJECT MANAGER", href: "", isSection: true },
@@ -64,13 +64,14 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Antrian Approval", href: "/superadmin/approval", icon: FileCheck, hasBadge: true, badgeCount: 0 },
     
     { name: "TIM KEUANGAN", href: "", isSection: true },
+    { name: "Kelola Proyek", href: "/superadmin/pendapatan-proyek", icon: FolderKanban, hasBadge: false },
     { name: "Pencairan", href: "/superadmin/pencairan", icon: Wallet, hasBadge: true, badgeCount: 0 },
     { name: "Laporan Anggaran", href: "/superadmin/budget", icon: BarChart3, hasBadge: false },
     { name: "Riwayat Pencairan", href: "/superadmin/jurnal", icon: BookOpen, hasBadge: false },
     
     { name: "KARYAWAN", href: "", isSection: true },
     { name: "Ajukan Reimbursement", href: "/superadmin/reimbursement", icon: Plus, hasBadge: false },
-    { name: "Riwayat Pengajuan", href: "/superadmin/riwayat", icon: History, hasBadge: false },
+    { name: "Riwayat Pengajuan", href: "/superadmin/riwayat-pengajuan", icon: History, hasBadge: false },
   ],
 };
 
@@ -82,7 +83,7 @@ const ROLE_STYLES: Record<UserRole, { bg: string; logoBg: string; logoText: stri
   "Superadmin": { bg: "bg-[#f5f4ef]", logoBg: "bg-white", logoText: "text-stone-800" },
 };
 
-export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarProps) {
+export default memo(function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarProps) {
   const pathname = usePathname();
 
   const [collapsed, setCollapsed] = useState<boolean>(false);
@@ -233,4 +234,4 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
       </aside>
     </>
   );
-}
+});

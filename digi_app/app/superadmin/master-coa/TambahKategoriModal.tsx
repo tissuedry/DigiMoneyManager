@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ChevronRight, TrendingUp, TrendingDown, Landmark, Check } from "lucide-react";
+import { TrendingUp, TrendingDown, Landmark } from "lucide-react";
 import ModalWrapper from "./ModalWrapper";
 import Toast from "@/components/toast";
 
@@ -46,7 +46,6 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
         body: JSON.stringify(payload),
       });
 
-      // Mencegah "Unexpected end of JSON input" jika response kosong
       const text = await res.text();
       const responseData = text ? JSON.parse(text) : {};
 

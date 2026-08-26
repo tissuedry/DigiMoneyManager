@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCompactRupiah, formatFullRupiah, parseNominalNumber } from '@/lib/format-nominal';
 
@@ -11,7 +11,7 @@ interface CompactNominalProps {
   showTooltip?: boolean;
 }
 
-export default function CompactNominal({
+function CompactNominalInner({
   value,
   className = '',
   compactThreshold = 1_000_000_000_000,
@@ -118,3 +118,6 @@ export default function CompactNominal({
     </>
   );
 }
+
+const CompactNominal = memo(CompactNominalInner);
+export default CompactNominal;

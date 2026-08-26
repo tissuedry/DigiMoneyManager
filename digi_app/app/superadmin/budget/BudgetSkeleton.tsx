@@ -3,7 +3,6 @@
 export default function BudgetSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
-      {/* Filters Skeleton */}
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 w-fit">
           <div className="h-6 w-40 bg-stone-200 rounded-full" />
@@ -18,7 +17,6 @@ export default function BudgetSkeleton() {
         </div>
       </div>
 
-      {/* Project Cards Grid Skeleton */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="bg-white border border-stone-200 rounded-2xl shadow-sm p-5">
@@ -59,7 +57,6 @@ export default function BudgetSkeleton() {
         ))}
       </div>
 
-      {/* Pagination Skeleton */}
       <div className="flex items-center justify-center gap-5 mt-8">
         <div className="w-8 h-8 bg-stone-200 rounded-full" />
         <div className="flex items-center gap-2.5">

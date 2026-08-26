@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Wallet,
   Notebook,
@@ -88,6 +88,8 @@ interface DashboardResponse {
 
 export default function KeuanganDashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
+  const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
 
   const { data, isLoading } = useApi<DashboardResponse>("/api/dashboard");
 
@@ -132,13 +134,13 @@ export default function KeuanganDashboardPage() {
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <Sidebar
         isSidebarOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
+        onClose={closeSidebar}
         userRole="Tim Keuangan"
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4]">
         <Header
-          onOpenSidebar={() => setIsSidebarOpen(true)}
+          onOpenSidebar={openSidebar}
           userRole="Tim Keuangan"
         />
 
