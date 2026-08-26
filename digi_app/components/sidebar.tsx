@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { 
   X, LayoutDashboard, Plus, History, FileCheck, Wallet, 
   BookOpen, BarChart3, Users, FileText, 
-  FolderKanban, Layers, Monitor, ChevronLeft, ChevronRight
+  FolderKanban, Layers, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 
@@ -61,7 +61,7 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     
     { name: "PROJECT MANAGER", href: "", isSection: true },
     { name: "Kelola Proyek", href: "/superadmin/detail-proyek", icon: FolderKanban, hasBadge: false },
-    { name: "Antrian Approval", href: "/superadmin/approval", icon: Monitor, hasBadge: true, badgeCount: 0 },
+    { name: "Antrian Approval", href: "/superadmin/approval", icon: FileCheck, hasBadge: true, badgeCount: 0 },
     
     { name: "TIM KEUANGAN", href: "", isSection: true },
     { name: "Pencairan", href: "/superadmin/pencairan", icon: Wallet, hasBadge: true, badgeCount: 0 },
