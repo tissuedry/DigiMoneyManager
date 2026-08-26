@@ -523,7 +523,7 @@ function AjukanReimbursementContent() {
   }
 
   return (
-    <div className="h-screen bg-background flex text-stone-800 font-sans selection:bg-emerald-100 overflow-hidden">
+    <div className="h-screen bg-[#f9f8f4] flex text-stone-800 font-sans selection:bg-emerald-100 overflow-hidden">
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -533,7 +533,7 @@ function AjukanReimbursementContent() {
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
-        <main className="flex-1 p-4 lg:p-8 space-y-6 w-full mx-auto overflow-y-auto">
+        <main className="flex-1 px-6 lg:px-8 py-6 space-y-6 w-full mx-auto overflow-y-auto">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h1 className="text-[24px] font-bold tracking-tight text-stone-900">Ajukan Reimbursement</h1>
@@ -541,7 +541,7 @@ function AjukanReimbursementContent() {
                 <Sparkles size={11} className="text-emerald-600" /> Multi-Struk AI
               </span>
             </div>
-            <p className="text-[13px] text-stone-400">
+            <p className="text-sm text-stone-400 mt-1.5">
               Unggah atau foto beberapa struk sekaligus. AI akan mengekstrak nominal, tanggal, dan vendor tiap struk secara otomatis.
             </p>
           </div>

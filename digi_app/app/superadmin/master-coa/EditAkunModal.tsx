@@ -11,7 +11,6 @@ export default function EditAkunModal({ isOpen, onClose, data, onRefresh }: any)
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Mengisi form dengan data yang dipilih saat modal dibuka
   useEffect(() => {
     if (isOpen && data) {
       setNomorAkun(data.nomorAkun ? String(data.nomorAkun) : "");
@@ -25,10 +24,8 @@ export default function EditAkunModal({ isOpen, onClose, data, onRefresh }: any)
     setIsLoading(true);
     setErrorMsg("");
     try {
-      // Membersihkan format nomor akun dari karakter non-angka
       const cleanNomorAkun = nomorAkun.replace(/\D/g, '');
 
-      // Endpoint PUT ke /api/coa/[id][cite: 21]
       const res = await fetch(`/api/coa/${data?.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -40,7 +37,6 @@ export default function EditAkunModal({ isOpen, onClose, data, onRefresh }: any)
         }),
       });
 
-      // Mencegah error "Unexpected end of JSON input" jika response kosong
       const text = await res.text();
       const responseData = text ? JSON.parse(text) : {};
 

@@ -5,8 +5,6 @@ import { X } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type EditTarget = {
   type: "main" | "sub" | "ket";
   id: number;
@@ -14,11 +12,9 @@ export type EditTarget = {
   parentNama?: string;
   currentAlokasi: number;
   totalRAB: number;
-  totalTeralokasi: number; // sum of all allocations at this level (including self)
-  totalChildrenAlokasi?: number; // sum of allocations of immediate children
+  totalTeralokasi: number;
+  totalChildrenAlokasi?: number;
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatFullCurrency(num: number): string {
   const n = Number(num) || 0;
@@ -29,8 +25,6 @@ function formatRpInput(val: number): string {
   if (!val && val !== 0) return "";
   return Math.round(val).toLocaleString("id-ID");
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function EditAlokasiModal({
   target,
@@ -43,13 +37,10 @@ export default function EditAlokasiModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  // Nominal alokasi item lain di level yang sama
   const otherAlokasi = Math.max(0, target.totalTeralokasi - target.currentAlokasi);
   
-  // Total RAB proyek / parent allocation limit
   const totalRAB = Math.max(target.totalRAB || 0, target.totalTeralokasi || 0, target.currentAlokasi || 0);
 
-  // Maksimum alokasi yang bisa diberikan ke pos ini = totalRAB - alokasi pos-pos lainnya
   const maxAlokasi = Math.max(target.currentAlokasi, totalRAB - otherAlokasi);
 
   const [alokasiBaru, setAlokasiBaru] = useState<number>(target.currentAlokasi);
@@ -59,7 +50,6 @@ export default function EditAlokasiModal({
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Live total teralokasi & sisa nilai proyek / main / sub
   const liveTotalTeralokasi = otherAlokasi + alokasiBaru;
   const liveSisaBelumDialokasikan = Math.max(0, totalRAB - liveTotalTeralokasi);
 
@@ -94,7 +84,6 @@ export default function EditAlokasiModal({
     updateValue(val);
   };
 
-  // Persentase untuk visual slider tunggal
   const barAlokasiPct = maxAlokasi > 0 ? Math.min(100, Math.max(0, (alokasiBaru / maxAlokasi) * 100)) : 0;
 
   const typeLabel =
@@ -103,7 +92,6 @@ export default function EditAlokasiModal({
   const parentLabel =
     target.type === "main" ? "Nilai Proyek" : target.type === "sub" ? "Main" : "Sub";
 
-  // Minimum allocation required by child positions (if any)
   const minChildAlokasi = target.totalChildrenAlokasi || 0;
   const isInvalid = minChildAlokasi > 0 && alokasiBaru < minChildAlokasi;
 
@@ -150,7 +138,6 @@ export default function EditAlokasiModal({
         className="bg-white rounded-3xl shadow-2xl w-full max-w-[540px] p-7 relative border border-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Header ── */}
         <div className="flex items-start justify-between mb-6">
           <div>
             <h3 className="text-[18px] font-bold text-stone-900 tracking-tight">
@@ -192,7 +179,6 @@ export default function EditAlokasiModal({
           </button>
         </div>
 
-        {/* ── Info Cards (Live Updates) ── */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="border border-stone-200/80 rounded-2xl p-4 bg-white shadow-2xs">
             <p className="text-[11px] font-bold text-stone-700 mb-1 leading-tight">
@@ -212,12 +198,10 @@ export default function EditAlokasiModal({
           </div>
         </div>
 
-        {/* ── Label ── */}
         <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2.5">
           KETIK ATAU GESER UNTUK MENGURANGI / MENAMBAH ALOKASI
         </p>
 
-        {/* ── Text Input ── */}
         <div className="flex items-center gap-3 mb-5">
           <span className="text-[12px] font-medium text-stone-500 shrink-0">
             Alokasi baru
@@ -249,15 +233,12 @@ export default function EditAlokasiModal({
           </div>
         </div>
 
-        {/* ── Single Unified Interactive Slider Bar ── */}
         <div className="relative w-full h-11 rounded-2xl border-2 border-stone-950 bg-[#4F9D6E] overflow-hidden flex items-center mb-4 cursor-pointer select-none">
-          {/* Left Fill: Alokasi Baru (Blue #4F8EF7) */}
           <div
             className="h-full bg-[#4F8EF7] transition-all duration-75 relative shrink-0"
             style={{ width: `${barAlokasiPct}%` }}
           />
 
-          {/* White vertical oblong handle thumb centered at boundary */}
           <div
             className="absolute z-10 w-2.5 h-7 rounded-full bg-white shadow-sm border border-stone-200 pointer-events-none transition-all duration-75"
             style={{
@@ -265,7 +246,6 @@ export default function EditAlokasiModal({
             }}
           />
 
-          {/* Actual Range Input overlay covering the bar */}
           <input
             type="range"
             min={0}
@@ -277,7 +257,6 @@ export default function EditAlokasiModal({
           />
         </div>
 
-        {/* ── Legend ── */}
         <div className="flex items-center justify-between mb-8 px-1">
           <span className="flex items-center gap-2 text-[12px] font-bold text-stone-900">
             <span className="w-4 h-4 rounded-md bg-[#4F8EF7] border border-stone-800 shrink-0" />
@@ -289,12 +268,10 @@ export default function EditAlokasiModal({
           </span>
         </div>
 
-        {/* ── Error ── */}
         {error && (
           <p className="text-[12px] text-rose-600 mb-4 font-semibold text-center">{error}</p>
         )}
 
-        {/* ── Action Buttons & Warning Inline ── */}
         <div className="flex items-center justify-between gap-3">
           {isInvalid ? (
             <span className="text-[11px] font-normal text-[#902F33] bg-[#FDF3F2] border border-[#902F33] px-2.5 py-1 rounded-lg">

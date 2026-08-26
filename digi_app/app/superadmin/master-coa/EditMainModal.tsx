@@ -20,7 +20,6 @@ export default function EditMainModal({ isOpen, onClose, data, onRefresh }: any)
     setIsLoading(true);
     setErrorMsg("");
     try {
-      // Mengubah endpoint ke dynamic route /api/master/[id]
       const res = await fetch(`/api/master/${data?.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -32,7 +31,6 @@ export default function EditMainModal({ isOpen, onClose, data, onRefresh }: any)
         }),
       });
 
-      // Mencegah error 'Unexpected end of JSON input'
       const text = await res.text();
       const responseData = text ? JSON.parse(text) : {};
 

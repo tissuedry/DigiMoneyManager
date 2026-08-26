@@ -16,15 +16,15 @@ export function parseNominalNumber(val: number | string): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
-export function formatFullRupiah(value: number | string): string {
-  const num = parseNominalNumber(value);
+const idrFullFormatter = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
 
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(num);
+export function formatFullRupiah(value: number | string): string {
+  return idrFullFormatter.format(parseNominalNumber(value));
 }
 
 /** Rupiah penuh dengan tanda minus eksplisit untuk nilai sisa yang overbudget */

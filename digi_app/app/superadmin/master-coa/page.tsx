@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Upload, Plus, Settings, ChevronDown, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import { Plus, Settings, ChevronDown, ChevronRight, Loader2, Trash2 } from "lucide-react";
 
-// Import Modal
 import EditMainModal from "./EditMainModal";
 import EditSubModal from "./EditSubModal";
 import TambahKategoriModal from "./TambahKategoriModal";
@@ -50,7 +49,6 @@ export default function MasterCoAPage() {
   const openModal = (type: ModalType, data: any = null) => setModalConfig({ isOpen: true, type, data });
   const closeModal = () => setModalConfig({ isOpen: false, type: null, data: null });
 
-  // Urutan tipe: Aset -> Pemasukan -> Pengeluaran
   const getTipeOrder = (tipe: string) => {
     if (tipe === "aset") return 1;
     if (tipe === "pemasukan") return 2;
@@ -58,7 +56,6 @@ export default function MasterCoAPage() {
     return 4;
   };
 
-  // Filter master data berdasarkan tab aktif
   const filteredMasterData = masterData
     .filter((item) => {
       if (activeTab === "Aset") {
@@ -106,14 +103,12 @@ export default function MasterCoAPage() {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto min-h-full flex flex-col bg-[#f9f8f4]">
-      {/* Header Info */}
+    <div className="px-6 lg:px-8 py-6 w-full mx-auto min-h-full flex flex-col bg-[#f9f8f4]">
       <div className="mb-6">
-        <h1 className="text-[28px] font-bold text-stone-900 leading-tight">Master Chart of Accounts</h1>
-        <p className="text-stone-500 mt-1 text-[15px]">Kelola chart of accounts dari aset, pemasukan, dan pengeluaran proyek dalam struktur Main dan Sub</p>
+        <h1 className="text-2xl font-bold text-stone-900 leading-tight">Master Chart of Accounts</h1>
+        <p className="text-stone-500 mt-1.5 text-sm">Kelola chart of accounts dari aset, pemasukan, dan pengeluaran proyek dalam struktur Main dan Sub</p>
       </div>
 
-      {/* Tabs & Actions Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex bg-stone-200/50 p-1 rounded-xl w-fit">
           {(["Semua", "Aset", "Pemasukan", "Pengeluaran"] as TabType[]).map((tab) => (
@@ -139,7 +134,6 @@ export default function MasterCoAPage() {
         </div>
       </div>
 
-      {/* HIRARKI TREE MASTER MAIN & SUB */}
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm flex-1 flex flex-col overflow-hidden">
         <div className="bg-[#f5f4ef] border-b border-stone-200 px-6 py-4 flex items-center justify-between text-[11px] font-bold text-stone-500 uppercase tracking-wider shrink-0">
           <span>Struktur Master (Main - Sub)</span>
@@ -241,7 +235,6 @@ export default function MasterCoAPage() {
         </div>
       </div>
 
-      {/* RENDER MODAL */}
       <EditMainModal isOpen={modalConfig.isOpen && modalConfig.type === 'editMain'} onClose={closeModal} data={modalConfig.data} onRefresh={fetchData} />
       <EditSubModal isOpen={modalConfig.isOpen && modalConfig.type === 'editSub'} onClose={closeModal} data={modalConfig.data} onRefresh={fetchData} />
       <TambahKategoriModal isOpen={modalConfig.isOpen && (modalConfig.type === 'tambahMain' || modalConfig.type === 'tambahSub')} onClose={closeModal} type={modalConfig.type} data={modalConfig.data} onRefresh={fetchData} />

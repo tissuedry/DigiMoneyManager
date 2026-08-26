@@ -654,10 +654,10 @@ export default function RiwayatPengajuanPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Karyawan" />
 
-        <main ref={mainRef} className="flex-1 p-8 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
           <div className="mb-8">
             <h1 className="text-[24px] font-bold text-stone-900">Riwayat Pengajuan</h1>
-            <p className="text-[14px] text-stone-500 mt-1.5">
+            <p className="text-sm text-stone-500 mt-1.5">
               Semua reimbursement yang pernah kamu ajukan, lengkap dengan status dan jejak audit.
             </p>
           </div>

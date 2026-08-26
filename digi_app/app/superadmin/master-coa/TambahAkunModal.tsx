@@ -6,10 +6,10 @@ import ModalWrapper from "./ModalWrapper";
 export default function TambahAkunModal({ isOpen, onClose, onRefresh }: any) {
   const [nomorAkun, setNomorAkun] = useState("");
   const [namaAkun, setNamaAkun] = useState("");
-  const [tipe, setTipe] = useState("Aset");
-  const [saldoNormal, setSaldoNormal] = useState("Debit");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const tipe = "Aset";
+  const saldoNormal = "Debit";
 
   const handleSubmit = async () => {
     setIsLoading(true);

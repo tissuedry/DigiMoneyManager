@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense, useMemo, Fragment } from "react";
+import { useState, useEffect, useRef, Suspense, useMemo, Fragment, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Download, X, Check, Filter, ZoomIn, AlertTriangle
@@ -89,6 +89,8 @@ function PencairanContent() {
   const [creditAccount, setCreditAccount] = useState("");
   const [catatan, setCatatan] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
+  const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedProyek, setSelectedProyek] = useState("Semua");
@@ -113,32 +115,31 @@ function PencairanContent() {
     return opts;
   }, [masterAsetList]);
 
-  const daftarProyek = [
-    "Semua",
-    ...new Set(
-      reimbursements
-        .map((item: any) => item.proyek?.nama)
-        .filter(Boolean)
-    ),
-  ];
+  const daftarProyek = useMemo(
+    () => ["Semua", ...new Set(reimbursements.map((item: any) => item.proyek?.nama).filter(Boolean))],
+    [reimbursements]
+  );
 
-  const filteredList = reimbursements.filter((item: any) => {
-    const matchesTab = activeTab === 'diteruskan'
-      ? item.status === 'APPROVED_BY_PM'
-      : (item.status === 'APPROVED' || item.status === 'REJECTED');
+  const filteredList = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return reimbursements.filter((item: any) => {
+      const matchesTab = activeTab === 'diteruskan'
+        ? item.status === 'APPROVED_BY_PM'
+        : (item.status === 'APPROVED' || item.status === 'REJECTED');
 
-    const matchesSearch = searchQuery
-      ? (item.user?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.proyek?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(item.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.merchant?.toLowerCase().includes(searchQuery.toLowerCase()))
-      : true;
+      const matchesSearch = searchQuery
+        ? (item.user?.nama?.toLowerCase().includes(q) ||
+          item.proyek?.nama?.toLowerCase().includes(q) ||
+          String(item.id).toLowerCase().includes(q) ||
+          item.nama?.toLowerCase().includes(q) ||
+          item.merchant?.toLowerCase().includes(q))
+        : true;
 
-    const matchesProyek = selectedProyek === "Semua" || item.proyek?.nama === selectedProyek;
+      const matchesProyek = selectedProyek === "Semua" || item.proyek?.nama === selectedProyek;
 
-    return matchesTab && matchesSearch && matchesProyek;
-  });
+      return matchesTab && matchesSearch && matchesProyek;
+    });
+  }, [reimbursements, activeTab, searchQuery, selectedProyek]);
 
   const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -146,8 +147,14 @@ function PencairanContent() {
   const isLoadingMoreRef = useRef(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const countDiteruskan = reimbursements.filter((item: any) => item.status === 'APPROVED_BY_PM').length;
-  const countSelesai = reimbursements.filter((item: any) => item.status === 'APPROVED' || item.status === 'REJECTED').length;
+  const countDiteruskan = useMemo(
+    () => reimbursements.filter((item: any) => item.status === 'APPROVED_BY_PM').length,
+    [reimbursements]
+  );
+  const countSelesai = useMemo(
+    () => reimbursements.filter((item: any) => item.status === 'APPROVED' || item.status === 'REJECTED').length,
+    [reimbursements]
+  );
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -223,7 +230,7 @@ function PencairanContent() {
       if (res.ok) {
         setRejectedLabel(selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || 'Pengajuan');
         setIsRejectModalOpen(false);
-        invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
+        invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications", "/api/laporan?type=buku-besar");
         setShowRejectSuccess(true);
       } else {
         setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
@@ -255,7 +262,7 @@ function PencairanContent() {
       if (res.ok) {
         setApprovedLabel(selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || 'Pengajuan');
         setShowApproveConfirm(false);
-        invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications");
+        invalidate("/api/reimbursements", "/api/dashboard", "/api/notifications", "/api/laporan?type=buku-besar");
         setShowApproveSuccess(true);
       } else {
         setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
@@ -315,12 +322,12 @@ function PencairanContent() {
 
       <Sidebar
         isSidebarOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
+        onClose={closeSidebar}
         userRole="Tim Keuangan"
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
-        <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Tim Keuangan" />
+        <Header onOpenSidebar={openSidebar} userRole="Tim Keuangan" />
 
         <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-8 py-6">
 
@@ -374,7 +381,7 @@ function PencairanContent() {
                   >
                     <Filter size={14} className="text-stone-500" />
                     <span className="truncate max-w-[120px]">
-                      {selectedProyek === "Semua" ? "Filter Proyek" : selectedProyek}
+                      {selectedProyek === "Semua" ? "Semua Proyek" : selectedProyek}
                     </span>
                   </button>
 

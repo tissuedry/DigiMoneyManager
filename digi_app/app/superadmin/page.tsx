@@ -36,7 +36,6 @@ export default function SuperAdminDashboard() {
         
         if (res.ok) {
           const data = await res.json();
-          // PERBAIKAN: Memetakan struktur response backend ke format state
           if (data.dashboard && data.dashboard.metrics) {
             const m = data.dashboard.metrics;
             setStats({
@@ -62,14 +61,6 @@ export default function SuperAdminDashboard() {
     fetchDashboardData();
   }, []);
 
-  const formatRupiah = (angka: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(angka);
-  };
-
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-stone-400">
@@ -80,16 +71,14 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-300">
-      {/* Header Info */}
+    <div className="px-6 lg:px-8 py-6 w-full mx-auto space-y-6 animate-in fade-in duration-300">
       <div>
-        <h1 className="text-3xl font-bold text-stone-900">Beranda Super Admin</h1>
-        <p className="text-stone-500 mt-2 text-sm max-w-3xl">
+        <h1 className="text-2xl font-bold text-stone-900">Beranda Super Admin</h1>
+        <p className="text-stone-500 mt-1.5 text-sm max-w-3xl">
           Satu layar untuk memantau seluruh alur kerja — karyawan, project manager, keuangan, dan direktur.
         </p>
       </div>
 
-      {/* Stats Summary Bar */}
       <div className="flex flex-wrap items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-2 bg-[#f2f4f7] px-3 py-1.5 rounded-lg border border-stone-100">
           <Wallet size={16} className="text-blue-500" />
@@ -118,7 +107,6 @@ export default function SuperAdminDashboard() {
         </div>
       </div>
 
-      {/* Grid Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between hover:shadow-md transition">
@@ -129,7 +117,7 @@ export default function SuperAdminDashboard() {
             <h3 className="font-bold text-lg text-stone-800">Karyawan</h3>
             <p className="text-sm text-stone-500 mt-1">Reimbursement & riwayat pengajuan</p>
           </div>
-          <Link href="/superadmin/riwayat" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
+          <Link href="/superadmin/riwayat-pengajuan" className="flex items-center justify-between text-emerald-600 font-semibold text-sm mt-6 hover:text-emerald-700">
             {stats.totalPengajuan} pengajuan tercatat <ArrowRight size={16} />
           </Link>
         </div>

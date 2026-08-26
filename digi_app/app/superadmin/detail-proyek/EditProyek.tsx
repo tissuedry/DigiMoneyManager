@@ -9,7 +9,7 @@ type ProyekDataMinimal = {
   id: number;
   nama: string;
   deskripsi?: string;
-  tanggalMulai: string; // ISO string
+  tanggalMulai: string;
   tanggalSelesai?: string | null;
   status: string;
 };
@@ -25,7 +25,6 @@ export default function EditProyekModal({
 }) {
   const toDateInput = (isoOrDateStr?: string | null): string => {
     if (!isoOrDateStr) return "";
-    // Backend now sends "YYYY-MM-DD" — use directly
     return isoOrDateStr.slice(0, 10);
   };
 

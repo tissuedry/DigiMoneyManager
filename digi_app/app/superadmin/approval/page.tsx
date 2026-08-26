@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Download, X, Check, ZoomIn, AlertTriangle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Download, X, Check, ZoomIn, AlertTriangle, Filter } from "lucide-react";
 import ConfirmDialog from '@/components/confirm-dialog';
 import Toast from '@/components/toast';
 import CompactNominal from '@/components/compact-nominal';
 import RejectModal from './RejectModal';
 import ImageLightbox from '@/components/image-lightbox';
 import { useApi, useInvalidate } from '@/lib/use-api';
+import { getFileExt, formatTanggal, formatApprovalDate, getInitials, getAvatarColor } from '@/lib/formatters';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
+const hasStrukUrl = (u?: string) =>
+  Boolean(u && u.trim() !== '' && u !== '/uploads/placeholder.png' && u !== '/bukti_struk.png');
 type ApprovalStatus = "Menunggu PM" | "Menunggu Keuangan" | "Dicairkan" | "Ditolak";
 
 type ApprovalStep = {
@@ -22,6 +23,7 @@ type ApprovalStep = {
 type Submission = {
   id: string;
   dbId: number;
+  proyekId?: number | null;
   date: string;
   notaDate?: string;
   submittedAt: string;
@@ -33,6 +35,8 @@ type Submission = {
   main: string;
   sub: string;
   ket: string;
+  ketAlokasi: number;
+  ketRealisasi: number;
   amount: string;
   amountRaw: number;
   status: ApprovalStatus;
@@ -44,39 +48,6 @@ type Submission = {
   isRealisasi?: boolean;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseDateSafe(isoStr: string | Date | null | undefined): Date | null {
-  if (!isoStr) return null;
-  const d = new Date(isoStr);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function formatTanggal(iso: string) {
-  if (!iso) return "";
-  const d = parseDateSafe(iso);
-  if (!d) return iso;
-  const y = d.getFullYear();
-  const m = d.getMonth();
-  const date = d.getDate();
-  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
-  return `${date} ${bulan[m]} ${y}`;
-}
-
-function formatDateTime(dateInput: string | Date | null | undefined) {
-  if (!dateInput) return "";
-  const d = parseDateSafe(dateInput);
-  if (!d) return String(dateInput);
-
-  const day = d.getDate();
-  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
-  const month = bulan[d.getMonth()];
-  const year = d.getFullYear();
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-
-  return `${day} ${month} ${year}, ${hours}:${minutes}`;
-}
 
 const getStatusBadge = (status: ApprovalStatus) => {
   switch (status) {
@@ -93,19 +64,6 @@ const getStatusBadge = (status: ApprovalStatus) => {
   }
 };
 
-const getAvatarColor = (initials: string) => {
-  const colors = [
-    "bg-teal-100 text-teal-700",
-    "bg-blue-100 text-blue-700",
-    "bg-violet-100 text-violet-700",
-    "bg-rose-100 text-rose-700",
-    "bg-amber-100 text-amber-700",
-  ];
-  const idx = initials.charCodeAt(0) % colors.length;
-  return colors[idx];
-};
-
-// Step icon dalam alur approval
 const StepIcon = ({ state, number }: { state: ApprovalStep["state"]; number: number }) => {
   if (state === "done")
     return (
@@ -132,7 +90,7 @@ const StepIcon = ({ state, number }: { state: ApprovalStep["state"]; number: num
   );
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+
 
 type Tab = "Menunggu Approval" | "Diteruskan" | "Selesai";
 
@@ -141,11 +99,9 @@ export default function AntrianApprovalPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [catatan, setCatatan] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // STATE BARU: Untuk menyimpan ID Proyek yang dipilih di dropdown filter
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
+  const [selectedProyek, setSelectedProyek] = useState("Semua");
+  const [isProyekOpen, setIsProyekOpen] = useState(false);
 
-  // State untuk kontrol Modal Penolakan
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -158,52 +114,39 @@ export default function AntrianApprovalPage() {
 
   const invalidate = useInvalidate();
 
-  // ─── Infinite Scroll ────────────────────────────────────────────────────────
-  const PAGE_SIZE = 10;
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const isLoadingMoreRef = useRef(false);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  // Zoom Struk State
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
 
-  const { isLoading: isMeLoading } = useApi<any>("/api/auth/me");
-  const { data: proyekData } = useApi<any>("/api/proyek?role=Superadmin");
-  const { data, isLoading: isReimbLoading } = useApi<any>("/api/reimbursements?role=Superadmin");
+  type ProyekListResponse = { projects: { id: number; nama: string }[] };
+  type ReimbursementsResponse = { reimbursements: any[] };
 
-  const isLoading = isReimbLoading || isMeLoading;
-  
+  const { data: proyekData } = useApi<ProyekListResponse>("/api/proyek?role=Superadmin&limit=1000");
+  const { data, isLoading } = useApi<ReimbursementsResponse>("/api/reimbursements?role=Superadmin");
+
   const allProjects = proyekData?.projects ?? [];
-  const allReimbursements = data?.reimbursements ?? [];
+  const selectedProyekNama = allProjects.find((p) => String(p.id) === selectedProyek)?.nama;
 
-  // Antrian Approval difilter berdasarkan proyek yang dipilih dari Dropdown (selectedProjectId)
-  const reimbursements = selectedProjectId === "all"
-    ? allReimbursements
-    : allReimbursements.filter((r: any) => String(r.proyekId) === selectedProjectId || String(r.proyek?.id) === selectedProjectId);
+  const mappedSubmissions = useMemo(() => {
+    const reimbursements = data?.reimbursements ?? [];
 
-  // Convert API reimbursements to Submission type
-  const mappedSubmissions = reimbursements.map((r: any): Submission => {
+    return reimbursements.map((r: any): Submission => {
     const pmApproval = r.approvals?.find((a: any) => a.level === 'PM');
     const financeApproval = r.approvals?.find((a: any) => a.level === 'KEUANGAN');
 
-    // Fallback super berlapis untuk memastikan tanggal tidak pernah kosong
     const submissionTime = r.createdAt || r.created_at || r.tanggalStruk || r.tanggal;
 
-    // Ambil data penolakan jika ada
     const rejectedApproval = r.approvals?.find((a: any) => a.status === 'REJECTED');
     const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
 
     const steps: ApprovalStep[] = [
       {
         label: "Pengajuan dikirim",
-        sublabel: `${r.user?.nama || 'Karyawan'} • ${submissionTime ? formatDateTime(submissionTime) : '-'}`,
+        sublabel: `${r.user?.nama || 'Karyawan'} • ${submissionTime ? formatApprovalDate(submissionTime) : '-'}`,
         state: "done"
       },
       {
         label: "Validasi Project Manager",
         sublabel: pmApproval
-          ? `${pmApproval.approver?.nama || 'Project Manager'} • ${formatDateTime(pmApproval.timestamp)}`
+          ? `${pmApproval.approver?.nama || 'Project Manager'} • ${formatApprovalDate(pmApproval.timestamp)}`
           : (r.status === 'SUBMITTED' ? "Menunggu" : "Menunggu • –"),
         state: pmApproval
           ? (pmApproval.status === 'REJECTED' ? "rejected" : "done")
@@ -212,7 +155,7 @@ export default function AntrianApprovalPage() {
       {
         label: "Verifikasi Tim Keuangan",
         sublabel: financeApproval
-          ? `${financeApproval.approver?.nama || 'Tim Keuangan'} • ${formatDateTime(financeApproval.timestamp)}`
+          ? `${financeApproval.approver?.nama || 'Tim Keuangan'} • ${formatApprovalDate(financeApproval.timestamp)}`
           : (r.status === 'APPROVED_BY_PM' ? "Menunggu" : "Menunggu • –"),
         state: financeApproval
           ? (financeApproval.status === 'REJECTED' ? "rejected" : "done")
@@ -221,13 +164,12 @@ export default function AntrianApprovalPage() {
       {
         label: "Dicairkan",
         sublabel: r.status === 'APPROVED'
-          ? `Jurnal otomatis • ${financeApproval ? formatDateTime(financeApproval.timestamp) : ''}`
+          ? `Jurnal otomatis • ${financeApproval ? formatApprovalDate(financeApproval.timestamp) : ''}`
           : "Jurnal otomatis • –",
         state: r.status === 'APPROVED' ? "done" : "pending"
       }
     ];
 
-    // Map DB status to display status
     let displayStatus: ApprovalStatus = "Menunggu PM";
     if (r.status === 'APPROVED_BY_PM') displayStatus = "Menunggu Keuangan";
     else if (r.status === 'APPROVED') displayStatus = "Dicairkan";
@@ -242,24 +184,25 @@ export default function AntrianApprovalPage() {
       }
     }
 
-    const initials = r.user?.nama
-      ? r.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase()
-      : 'KY';
+    const initials = r.user?.nama ? getInitials(r.user.nama) : 'KY';
 
     const isRealisasi = r.tipe === 'Realisasi Anggaran';
 
     return {
       id: `RB-${String(r.id)}`,
       dbId: r.id,
-      date: submissionTime ? formatDateTime(submissionTime) : 'N/A',
+      proyekId: r.proyekId ?? r.proyek?.id ?? null,
+      date: submissionTime ? formatApprovalDate(submissionTime) : 'N/A',
       notaDate: r.tanggalStruk ? formatTanggal(r.tanggalStruk) : 'N/A',
-      submittedAt: submissionTime ? formatDateTime(submissionTime) : 'N/A',
+      submittedAt: submissionTime ? formatApprovalDate(submissionTime) : 'N/A',
 
       merchant: r.merchant || r.nama || 'N/A',
       project: r.proyek?.nama || 'N/A',
       main: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'N/A',
       sub: r.keteranganAnggaran?.subAnggaran?.namaSub || 'N/A',
       ket: r.keteranganAnggaran?.keterangan || 'N/A',
+      ketAlokasi: Number(r.keteranganAnggaran?.nominalAlokasi || 0),
+      ketRealisasi: Number(r.keteranganAnggaran?.nominalRealisasi || 0),
 
       catatanPm: pmApproval?.catatan || "",
       catatanKeuangan: financeApproval?.catatan || "",
@@ -269,40 +212,47 @@ export default function AntrianApprovalPage() {
       status: displayStatus,
       pengaju: r.user?.nama || 'Karyawan',
       pengajuInitials: initials,
-      keterangan: '-', 
+      keterangan: r.deskripsi || r.ocrData?.keterangan || '-',
       steps,
       strukUrl: r.urlStruk || r.strukUrl,
       isRealisasi
     };
-  });
+    });
+  }, [data]);
 
-  // Filter data berdasarkan tab & searchQuery
-  const filteredData = mappedSubmissions.filter((item: any) => {
-    const matchesTab = activeTab === "Menunggu Approval"  
-      ? item.status === "Menunggu PM" : activeTab === "Diteruskan" 
-      ? item.status === "Menunggu Keuangan" 
+  const filteredData = useMemo(() => mappedSubmissions.filter((item: any) => {
+    const matchesTab = activeTab === "Menunggu Approval"
+      ? item.status === "Menunggu PM" : activeTab === "Diteruskan"
+      ? item.status === "Menunggu Keuangan"
       : (item.status === "Dicairkan" || item.status === "Ditolak");
+
+    const matchesProyek = selectedProyek === "Semua" || String(item.proyekId) === selectedProyek;
 
     const matchesSearch = searchQuery
       ? (item.merchant?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.pengaju?.toLowerCase().includes(searchQuery.toLowerCase()))
       : true;
 
-    return matchesTab && matchesSearch;
-  });
+    return matchesTab && matchesProyek && matchesSearch;
+  }), [mappedSubmissions, activeTab, searchQuery, selectedProyek]);
 
-  // Derived selected submission
   const selected = filteredData.find((item: any) => item.id === selectedId) || filteredData[0] || null;
 
-  const handleProcess = async (action: 'APPROVE' | 'REJECT', alasanTeks?: string) => {
-    if (!selected) return;
-
-    if (action === 'APPROVE') {
-      setShowApproveConfirm(true);
-      return;
+  const tabCounts = useMemo((): Record<Tab, number> => {
+    const counts: Record<Tab, number> = { "Menunggu Approval": 0, Diteruskan: 0, Selesai: 0 };
+    for (const s of mappedSubmissions) {
+      if (s.status === "Menunggu PM") counts["Menunggu Approval"]++;
+      else if (s.status === "Menunggu Keuangan") counts.Diteruskan++;
+      else counts.Selesai++;
     }
+    return counts;
+  }, [mappedSubmissions]);
 
-    setIsSubmittingReject(true);
+  const processApproval = async (action: 'APPROVE' | 'REJECT', alasanPenolakan?: string) => {
+    if (!selected) return;
+    const isReject = action === 'REJECT';
+    if (isReject) setIsSubmittingReject(true);
+    else setIsApproving(true);
 
     try {
       const res = await fetch(`/api/reimbursements/${selected.dbId}/approve`, {
@@ -311,54 +261,30 @@ export default function AntrianApprovalPage() {
         body: JSON.stringify({
           action,
           catatan,
-          alasan: alasanTeks // Parameter alasan dikirim ke Backend API
+          ...(isReject && { alasan: alasanPenolakan })
         })
       });
-      const data = await res.json();
+      const result = await res.json();
       if (res.ok) {
-        setRejectedLabel(selected.merchant || selected.pengaju || 'Pengajuan');
+        if (isReject) {
+          setRejectedLabel(selected.merchant || selected.pengaju || 'Pengajuan');
+          setIsRejectModalOpen(false);
+          setShowRejectSuccess(true);
+        } else {
+          setApprovedLabel(selected.merchant || selected.pengaju || 'Pengajuan');
+          setShowApproveConfirm(false);
+          setShowApproveSuccess(true);
+        }
         setCatatan("");
-        setIsRejectModalOpen(false);
         invalidate("/api/reimbursements?role=Superadmin", "/api/dashboard", "/api/notifications");
-        setShowRejectSuccess(true);
       } else {
-        setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
+        setErrorMessage("Gagal memproses pengajuan: " + (result.message || "Unknown error"));
       }
     } catch (err) {
       console.error(err);
       setErrorMessage("Terjadi kesalahan sistem saat memproses pengajuan.");
     } finally {
       setIsSubmittingReject(false);
-    }
-  };
-
-  const handleConfirmApprove = async () => {
-    if (!selected) return;
-    setIsApproving(true);
-
-    try {
-      const res = await fetch(`/api/reimbursements/${selected.dbId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'APPROVE',
-          catatan,
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setApprovedLabel(selected.merchant || selected.pengaju || 'Pengajuan');
-        setCatatan("");
-        setShowApproveConfirm(false);
-        invalidate("/api/reimbursements?role=Superadmin", "/api/dashboard", "/api/notifications");
-        setShowApproveSuccess(true);
-      } else {
-        setErrorMessage("Gagal memproses pengajuan: " + (data.message || "Unknown error"));
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMessage("Terjadi kesalahan sistem saat memproses pengajuan.");
-    } finally {
       setIsApproving(false);
     }
   };
@@ -366,36 +292,10 @@ export default function AntrianApprovalPage() {
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
     setSelectedId(null);
-    setVisibleCount(PAGE_SIZE);
-  };
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const handleScroll = () => {
-      if (isLoadingMoreRef.current) return;
-      if (visibleCount >= filteredData.length) return;
-      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
-      isLoadingMoreRef.current = true;
-      setIsLoadingMore(true);
-      setTimeout(() => {
-        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredData.length));
-        setIsLoadingMore(false);
-        isLoadingMoreRef.current = false;
-      }, 500);
-    };
-    el.addEventListener('scroll', handleScroll);
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [filteredData.length, visibleCount]);
-
-  const tabCounts: Record<Tab, number> = {
-    "Menunggu Approval": mappedSubmissions.filter((s: any) => s.status === "Menunggu PM").length,
-    Diteruskan: mappedSubmissions.filter((s: any) => s.status === "Menunggu Keuangan").length,
-    Selesai: mappedSubmissions.filter((s: any) => s.status === "Dicairkan" || s.status === "Ditolak").length,
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
+    <div className="flex h-full w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
         <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-8 py-6">
           <div className="shrink-0 mb-6">
@@ -427,20 +327,6 @@ export default function AntrianApprovalPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* --- FILTER DROPDOWN PROYEK DITAMBAHKAN DI SINI --- */}
-                <select
-                  value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="px-3.5 py-2 text-xs bg-white border border-stone-200 rounded-full outline-none focus:border-stone-400 transition text-stone-800 cursor-pointer"
-                >
-                  <option value="all">Semua Proyek</option>
-                  {allProjects.map((p: any) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.nama}
-                    </option>
-                  ))}
-                </select>
-
                 <input
                   type="text"
                   placeholder="Cari nama pengaju atau reimbursement..."
@@ -448,12 +334,54 @@ export default function AntrianApprovalPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="px-3.5 py-2 text-xs bg-white border border-stone-200 rounded-full outline-none focus:border-stone-400 transition w-58 sm:w-70 text-stone-800 placeholder:text-stone-400"
                 />
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsProyekOpen(!isProyekOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full shadow-sm text-[13px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+                  >
+                    <Filter size={14} className="text-stone-500" />
+                    <span className="truncate max-w-[140px]">{selectedProyekNama ?? "Semua Proyek"}</span>
+                  </button>
+
+                  {isProyekOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-stone-200 rounded-xl shadow-lg z-10 py-1 overflow-hidden">
+                      <div className="px-3 py-2 text-xs font-semibold text-stone-500 bg-stone-50 border-b border-stone-100">
+                        Pilih Proyek
+                      </div>
+                      <ul className="max-h-56 overflow-y-auto custom-scrollbar">
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedProyek("Semua"); setIsProyekOpen(false); }}
+                            className="w-full text-left px-3 py-2 text-[13px] text-stone-700 hover:bg-stone-100 flex items-center justify-between transition cursor-pointer"
+                          >
+                            <span className="truncate pr-2">Semua Proyek</span>
+                            {selectedProyek === "Semua" && <Check size={14} className="text-blue-500 flex-shrink-0" />}
+                          </button>
+                        </li>
+                        {allProjects.map((p) => (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedProyek(String(p.id)); setIsProyekOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-[13px] text-stone-700 hover:bg-stone-100 flex items-center justify-between transition cursor-pointer"
+                            >
+                              <span className="truncate pr-2">{p.nama}</span>
+                              {selectedProyek === String(p.id) && <Check size={14} className="text-blue-500 flex-shrink-0" />}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
-            <div ref={listRef} className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
+            <div className="w-full lg:w-[400px] flex flex-col gap-2 shrink-0 lg:overflow-y-auto pb-4 pr-1 custom-scrollbar">
               {isLoading ? (
                 <>
                   {[1, 2, 3].map((item) => (
@@ -477,7 +405,7 @@ export default function AntrianApprovalPage() {
                   Tidak ada pengajuan reimbursement.
                 </div>
               ) : (
-                filteredData.slice(0, visibleCount).map((item: any) => {
+                filteredData.map((item: any) => {
                   const isSelected = selected && selected.id === item.id;
 
                   return (
@@ -509,14 +437,14 @@ export default function AntrianApprovalPage() {
                                 {item.merchant}
                               </div>
                             </div>
-                            <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
+                             <p className="text-[12px] font-bold text-stone-800 flex-shrink-0">
                               <CompactNominal value={item.amountRaw ?? item.amount ?? item.nominal} compactThreshold={100_000_000_000} className="text-[12px] font-bold text-stone-800" />
                             </p>
                           </div>
                           <div className="flex items-center justify-between gap-2">
                             <div className="group relative min-w-0">
                               <p className="text-[11px] text-stone-400 truncate">
-                                {item.pengaju} <span className="font-normal text-stone-400 font-mono">· {item.id}</span>
+                                {item.pengaju} <span className="font-normal text-stone-400 ">· {item.id}</span>
                               </p>
                               <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
                                 {item.pengaju} · {item.id}
@@ -532,21 +460,6 @@ export default function AntrianApprovalPage() {
                   );
                 })
               )}
-              {isLoadingMore && Array.from({ length: Math.min(PAGE_SIZE, filteredData.length - visibleCount) }).map((_, i) => (
-                <div key={`skeleton-${i}`} className="bg-white border border-stone-200 rounded-2xl px-4 py-3.5 flex justify-between items-center">
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="w-8 h-8 rounded-full bg-stone-200 animate-pulse shrink-0" />
-                    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                      <div className="h-3 w-32 rounded bg-stone-200 animate-pulse" />
-                      <div className="h-2.5 w-24 rounded bg-stone-200/60 animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
-                    <div className="h-3 w-16 rounded bg-stone-200 animate-pulse" />
-                    <div className="h-4 w-20 rounded-full bg-stone-200/60 animate-pulse" />
-                  </div>
-                </div>
-              ))}
             </div>
 
             <div className="flex-1 flex flex-col bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden h-full">
@@ -575,7 +488,7 @@ export default function AntrianApprovalPage() {
                     <div className="border-b border-stone-100 pb-4">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <p className="text-[12px] text-stone-400 font-medium font-mono">{selected.id}</p>
+                          <p className="text-[12px] text-stone-400 font-medium ">{selected.id}</p>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${selected.isRealisasi
                               ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
                               : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
@@ -601,6 +514,54 @@ export default function AntrianApprovalPage() {
                       <p className="text-[32px] font-bold text-stone-900">{selected.amount}</p>
                     </div>
 
+                    {selected.ket && selected.ket !== 'N/A' && (() => {
+                      const alokasi = selected.ketAlokasi || 0;
+                      const realisasi = selected.ketRealisasi || 0;
+                      const sisa = alokasi - realisasi;
+                      const percentage = alokasi > 0 ? Math.round((realisasi / alokasi) * 100) : 0;
+                      const isOver = sisa < 0;
+
+                      return (
+                        <div className="bg-white border border-[#e6e1d4] rounded-2xl p-4 space-y-3 shadow-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-semibold text-stone-800 truncate" title={`${selected.isRealisasi ? 'Realisasi Anggaran' : 'Reimbursement'} – KET · ${selected.ket}`}>
+                              {selected.isRealisasi ? 'Realisasi Anggaran' : 'Reimbursement'} – KET · {selected.ket}
+                            </p>
+                            <span className={`text-[12px] font-bold shrink-0 ${isOver ? 'text-[#902f33]' : 'text-stone-800'}`}>
+                              {percentage}%
+                            </span>
+                          </div>
+
+                          <div className="w-full bg-[#f0ece1] h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isOver ? 'bg-[#902f33]' : 'bg-[#00875a]'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11.5px] pt-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Alokasi</span>
+                              <span className="font-semibold text-stone-900 ">{<CompactNominal value={alokasi} compactThreshold={1_000_000_000_000} />}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Realisasi</span>
+                              <span className="font-semibold text-stone-900 ">{<CompactNominal value={realisasi} compactThreshold={1_000_000_000_000} />}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-stone-500 font-medium">Sisa</span>
+                              <span className={`font-semibold  ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
+                                {isOver ? `- ${<CompactNominal value={Math.abs(sisa)} compactThreshold={1_000_000_000_000} />}` 
+                                : <CompactNominal value={sisa} compactThreshold={1_000_000_000_000} />}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {selected.status === "Ditolak" && (
                       <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
                         <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
@@ -625,7 +586,7 @@ export default function AntrianApprovalPage() {
                         <div key={label} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                           <span className="text-stone-400">{label}</span>
                           {isNominal ? (
-                            <span className="font-bold font-mono text-stone-900 text-right">{value}</span>
+                            <span className="font-bold  text-stone-900 text-right">{value}</span>
                           ) : (
                             <span className="font-semibold text-stone-800 text-right max-w-[60%]">{value}</span>
                           )}
@@ -633,33 +594,24 @@ export default function AntrianApprovalPage() {
                       ))}
                     </div>
 
-                    {/* Preview Struk Upload */}
-                    {(() => {
-                      const hasStruk = Boolean(
-                        selected.strukUrl &&
-                        selected.strukUrl.trim() !== '' &&
-                        selected.strukUrl !== '/uploads/placeholder.png' &&
-                        selected.strukUrl !== '/bukti_struk.png'
-                      );
-
-                      if (!hasStruk) {
-                        return (
-                          <div className="space-y-1">
-                            <label className="text-[13px] text-stone-500">
-                              {selected.isRealisasi ? 'Bukti Gambar' : 'Bukti Struk / Dokumen'}
-                            </label>
-                            <div className="bg-[#f5f4ef] border border-stone-200/80 rounded-xl px-4 py-3 text-[13px] text-stone-400 italic">
-                              Tidak ada bukti {selected.isRealisasi ? 'gambar' : 'struk'} yang dilampirkan.
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="space-y-1">
-                          <label className="text-[13px] text-stone-500">Bukti Struk / Dokumen</label>
+                    {!hasStrukUrl(selected.strukUrl) ? (
+                      <div className="space-y-1">
+                        <label className="text-[13px] text-stone-500">
+                          {selected.isRealisasi ? 'Bukti Gambar' : 'Bukti Struk / Dokumen'}
+                        </label>
+                        <div className="bg-[#f5f4ef] border border-stone-200/80 rounded-xl px-4 py-3 text-[13px] text-stone-400 italic">
+                          Tidak ada bukti {selected.isRealisasi ? 'gambar' : 'struk'} yang dilampirkan.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <label className="text-[13px] text-stone-500">Bukti Struk / Dokumen</label>
                           {selected.strukUrl!.toLowerCase().split('?')[0].endsWith('.pdf') ? (
-                            <div className="border border-stone-200 rounded-xl p-3 bg-[#fdfaf5] flex items-center justify-between gap-3 max-w-xs">
+                            <button
+                              type="button"
+                              onClick={() => setZoomImageUrl(selected.strukUrl!)}
+                              className="border border-stone-200 rounded-xl p-3 bg-[#fdfaf5] flex items-center justify-between gap-3 max-w-xs cursor-pointer hover:border-stone-400 transition w-full text-left"
+                            >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center shrink-0 border border-red-200">
                                   PDF
@@ -669,15 +621,10 @@ export default function AntrianApprovalPage() {
                                   <p className="text-[10px] text-stone-400 truncate">Klik untuk membuka file</p>
                                 </div>
                               </div>
-                              <a
-                                href={selected.strukUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs font-semibold shrink-0 hover:bg-stone-800 transition"
-                              >
+                              <span className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs font-semibold shrink-0 hover:bg-stone-800 transition">
                                 Buka PDF
-                              </a>
-                            </div>
+                              </span>
+                            </button>
                           ) : (
                             <div
                               onClick={() => setZoomImageUrl(selected.strukUrl!)}
@@ -697,8 +644,7 @@ export default function AntrianApprovalPage() {
                             </div>
                           )}
                         </div>
-                      );
-                    })()}
+                    )}
 
                     <div>
                       <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
@@ -769,10 +715,10 @@ export default function AntrianApprovalPage() {
                   </div>
 
                   <div className="flex items-center justify-between px-6 py-4 border-t border-stone-100 bg-white shrink-0">
-                    {selected.strukUrl && selected.strukUrl.trim() !== '' && selected.strukUrl !== '/uploads/placeholder.png' && selected.strukUrl !== '/bukti_struk.png' ? (
+                    {hasStrukUrl(selected.strukUrl) ? (
                       <a
                         href={selected.strukUrl}
-                        download={`bukti-${selected.id}.png`}
+                        download={`bukti-${selected.id}${getFileExt(selected.strukUrl!)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-full text-[13px] font-medium text-stone-600 hover:bg-stone-50 transition cursor-pointer"
@@ -797,7 +743,7 @@ export default function AntrianApprovalPage() {
                           <span>Tolak</span>
                         </button>
                         <button
-                          onClick={() => handleProcess('APPROVE')}
+                          onClick={() => setShowApproveConfirm(true)}
                           className="flex items-center gap-2 px-4 py-2 bg-[#2d6a4f] text-white rounded-full text-[13px] font-semibold hover:bg-[#245c43] transition shadow-sm cursor-pointer"
                         >
                           <Check size={14} />
@@ -816,7 +762,7 @@ export default function AntrianApprovalPage() {
       <RejectModal
         isOpen={isRejectModalOpen}
         onClose={() => setIsRejectModalOpen(false)}
-        onSubmit={(alasanTeks: string) => handleProcess('REJECT', alasanTeks)}
+        onSubmit={(alasanTeks) => processApproval('REJECT', alasanTeks)}
         data={
           selected
             ? {
@@ -840,7 +786,7 @@ export default function AntrianApprovalPage() {
         confirmLabel="Teruskan"
         isLoading={isApproving}
         onCancel={() => setShowApproveConfirm(false)}
-        onConfirm={handleConfirmApprove}
+        onConfirm={() => processApproval('APPROVE')}
       />
 
       <Toast
@@ -862,7 +808,12 @@ export default function AntrianApprovalPage() {
         onClose={() => setErrorMessage(null)}
       />
 
-      <ImageLightbox url={zoomImageUrl} onClose={() => setZoomImageUrl(null)} />
+      <ImageLightbox
+        url={zoomImageUrl}
+        onClose={() => setZoomImageUrl(null)}
+        isPdf={zoomImageUrl?.toLowerCase().split('?')[0].endsWith('.pdf') ?? false}
+      />
     </div>
   );
 }
+

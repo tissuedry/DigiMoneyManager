@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
 import { formatFullRupiah } from "@/lib/format-nominal";
 import { useApi } from "@/lib/use-api";
@@ -52,7 +52,7 @@ export default function DetailPendapatanModal({
     `/api/pemasukan?proyekId=${proyekId}`
   );
 
-  const transaksiList: any[] = transaksiData?.data || [];
+  const transaksiList: any[] = useMemo(() => transaksiData?.data ?? [], [transaksiData]);
   const isProyekDone =
     proyekStatus?.toUpperCase() === "DONE" ||
     proyekStatus?.toUpperCase() === "SELESAI";
@@ -62,7 +62,7 @@ export default function DetailPendapatanModal({
   const toggleSub = (id: number) =>
     setExpandedSub((p) => ({ ...p, [id]: !p[id] }));
 
-    const mapped: MainPosItem[] = (posAnggaran || []).map((m: any, mIdx: number) => {
+    const mapped: MainPosItem[] = useMemo(() => (posAnggaran || []).map((m: any, mIdx: number) => {
     const mainId = m.id ?? mIdx;
     const subPos: SubPosItem[] = (m.subAnggaran || []).map((s: any, sIdx: number) => {
       const subId = s.id ?? sIdx;
@@ -124,7 +124,7 @@ export default function DetailPendapatanModal({
       realisasi: mainRealisasi,
       subPos,
     };
-  });
+  }), [posAnggaran, transaksiList, isProyekDone]);
 
   useEffect(() => {
     if (mapped.length > 0 && Object.keys(expandedMain).length === 0) {

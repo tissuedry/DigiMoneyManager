@@ -1,8 +1,7 @@
-"use client";
+import { useEffect, useState, FC } from "react";
+import { formatFullRupiah } from "@/lib/format-nominal";
 
-import React, { useState, useEffect } from "react";
-
-export interface RejectModalProps {
+interface RejectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (alasan: string) => void;
@@ -14,27 +13,18 @@ export interface RejectModalProps {
   isLoading?: boolean;
 }
 
-export default function RejectModal({
+const RejectModal: FC<RejectModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
   data,
   isLoading = false
-}: RejectModalProps) {
+}) => {
   const [alasan, setAlasan] = useState('');
 
-  // Reset alasan ketika modal ditutup
   useEffect(() => {
     if (!isOpen) setAlasan('');
   }, [isOpen]);
-
-  const formatRupiah = (angka: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(angka);
-  };
 
   const handleSubmit = () => {
     if (!alasan.trim()) return;
@@ -50,7 +40,7 @@ export default function RejectModal({
           <h2 className="text-xl font-bold text-gray-900">Tolak Pengajuan</h2>
           {data && (
             <p className="mt-1 text-sm text-gray-500">
-              {data.merchant} &middot; {data.userName} &middot; {formatRupiah(data.nominal)}
+              {data.merchant} &middot; {data.userName} &middot; {formatFullRupiah(data.nominal)}
             </p>
           )}
         </div>
@@ -88,4 +78,6 @@ export default function RejectModal({
       </div>
     </div>
   );
-}
+};
+
+export default RejectModal;

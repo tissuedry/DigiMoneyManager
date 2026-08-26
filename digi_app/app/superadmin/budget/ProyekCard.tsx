@@ -4,24 +4,8 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp, AlertCircle, Wallet, FileSpreadsheet, Loader2 } from "lucide-react";
 import Toast from "@/components/toast";
 import CompactNominal from "@/components/compact-nominal";
+import { getStatusStyles } from "@/lib/proyek-utils";
 import type { Proyek } from "./types";
-
-function getStatusBadgeStyle(statusStr?: string) {
-  const status = statusStr?.toUpperCase();
-  if (status === "AKTIF" || status === "ACTIVE") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-100";
-  }
-  if (status === "DONE" || status === "SELESAI") {
-    return "bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]";
-  }
-  if (status === "PLANNING") {
-    return "bg-[#fbf0e4] text-[#854d0e] border-[#f5e1ce]";
-  }
-  if (status === "CANCELLED" || status === "CANCELED" || status === "DIBATALKAN") {
-    return "bg-rose-50 text-rose-800 border-rose-100";
-  }
-  return "bg-stone-100 text-stone-600 border-stone-200";
-}
 
 export default function ProyekCard({ proyek }: { proyek: Proyek }) {
   const [expanded, setExpanded] = useState(false);
@@ -62,7 +46,6 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
   return (
     <>
       <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-        {/* Card Header */}
         <div className="p-5 flex items-start gap-4">
           <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
             <Wallet size={18} className="text-emerald-600" />
@@ -73,7 +56,7 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
                 <p className="text-[14px] font-bold text-stone-900 leading-tight truncate">{proyek.nama}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadgeStyle(proyek.status)}`}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusStyles(proyek.status)}`}
                   >
                     {proyek.status}
                   </span>
@@ -87,7 +70,6 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
                 </div>
               </div>
 
-              {/* Tombol Aksi */}
               {budget ? (
                 <div className="flex items-center gap-2 shrink-0">
                   <button
@@ -104,10 +86,8 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
               )}
             </div>
 
-            {/* Budget Summary */}
             {budget ? (
               <div className="mt-3 space-y-3">
-                {/* Total Nilai Proyek */}
                 <div className="flex items-center justify-between">
                   <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wider">Total Nilai Proyek</p>
                   <p className="text-[15px] font-extrabold text-stone-900 whitespace-nowrap">
@@ -115,7 +95,6 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
                   </p>
                 </div>
 
-                {/* Stacked bar */}
                 <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden flex shadow-inner">
                   <div
                     style={{ width: `${pct}%` }}
@@ -129,7 +108,6 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
                   )}
                 </div>
 
-                {/* Realisasi vs Sisa */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 flex flex-col justify-between min-w-0">
                     <div className="flex items-center gap-2">
@@ -152,7 +130,6 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
                   </div>
                 </div>
 
-                {/* Expand toggle */}
                 <button
                   onClick={() => setExpanded(!expanded)}
                   className="flex items-center gap-1 text-[11px] font-semibold text-stone-400 hover:text-stone-700 transition cursor-pointer"
@@ -170,7 +147,6 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
           </div>
         </div>
 
-        {/* Expanded Pos Anggaran */}
         {expanded && posPengeluaran.length > 0 && (
           <div className="border-t border-stone-100 px-5 py-4 space-y-6">
             {posPengeluaran.map((pos, index) => {
