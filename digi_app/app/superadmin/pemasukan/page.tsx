@@ -7,8 +7,8 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
-import ProyekPemasukanCard, { ProyekItem } from "@/app/keuangan/pemasukan/ProyekPemasukanCard";
-import RealisasiPemasukanModal from "@/app/keuangan/pemasukan/RealisasiPemasukanModal";
+import ProyekPemasukanCard, { ProyekItem } from "./ProyekPemasukanCard";
+import RealisasiPemasukanModal from "@/app/keuangan/proyek/RealisasiPemasukanModal";
 
 export default function PemasukanSuperadminPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

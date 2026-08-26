@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronRight, Plus, X, Loader2, Settings } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import Toast from "@/components/toast";
@@ -58,7 +58,7 @@ const getDraftsFromStorage = (pId: number) => {
   }
 };
 
-export default function SettingPosModal({
+export default function AddPosModal({
   proyekId,
   proyekNama,
   posAnggaran,
@@ -94,7 +94,6 @@ export default function SettingPosModal({
       })),
     }));
 
-    // Restore unsubmitted local drafts from localStorage
     const savedDrafts = getDraftsFromStorage(proyekId);
     const autoExpandMains: Record<number, boolean> = {};
 
@@ -125,11 +124,9 @@ export default function SettingPosModal({
     }
   }, [data, expandedMain]);
 
-  // Adding Sub state
   const [addingSubMainId, setAddingSubMainId] = useState<number | null>(null);
   const [newSubName, setNewSubName] = useState("");
 
-  // Master data states for dropdowns
   const [masterMainList, setMasterMainList] = useState<any[]>([]);
   const [subOptions, setSubOptions] = useState<Record<number, any[]>>({});
   const [loadingSubOptions, setLoadingSubOptions] = useState<Record<number, boolean>>({});
@@ -319,10 +316,9 @@ export default function SettingPosModal({
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-[20px] shadow-[0px_24px_64px_0px_rgba(20,18,14,0.28)] w-full max-w-[720px] max-h-[88vh] flex flex-col overflow-hidden text-left" onClick={(e) => e.stopPropagation()}>
 
-        {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-[#e6e1d4] flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-[17px] font-bold text-[#14130f] leading-[25.5px]">Setting Pos pendapatan</h2>
+            <h2 className="text-[17px] font-bold text-[#14130f] leading-[25.5px]">Tambah Pos Pendapatan</h2>
             <p className="text-[12.5px] text-[#6a6660] leading-[18.75px] mt-0.5">{proyekNama}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-[#f3f0e9] rounded-xl transition text-[#14130f] hover:text-black cursor-pointer">
@@ -330,12 +326,10 @@ export default function SettingPosModal({
           </button>
         </div>
 
-        {/* Error banner */}
         {error && (
           <div className="mx-6 mt-4 bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-4 py-2.5 text-[12px] font-medium text-[#902f33]">{error}</div>
         )}
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           <div className="flex items-center justify-between px-0.5">
             <p className="text-[12.5px] font-semibold text-[#14130f]">
@@ -358,7 +352,6 @@ export default function SettingPosModal({
 
               return (
                 <div key={main.id} className="bg-white">
-                  {/* Main Pos Header */}
                   <div
                     onClick={() => toggleMain(main.id)}
                     className="bg-white px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-[#fbfaf6] transition select-none"
@@ -381,7 +374,6 @@ export default function SettingPosModal({
                       {main.subPos.map((sub) => {
                         return (
                           <div key={sub.id} className="bg-white">
-                            {/* Sub Pos Row */}
                             <div className="pl-10 pr-4 py-2 flex items-center justify-between transition select-none hover:bg-[#fbfaf6]">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">SUB</span>
@@ -415,7 +407,6 @@ export default function SettingPosModal({
                         );
                       })}
 
-                      {/* Add Sub inline under Main */}
                       {hasAvailableSub && (
                         <div className="pl-10 pr-4 py-1.5">
                           {addingSubMainId === main.id ? (
@@ -487,7 +478,6 @@ export default function SettingPosModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-3.5 border-t border-[#e6e1d4] flex items-center justify-between shrink-0 bg-white">
           <div className="flex items-center gap-3">
             {localDraftCount > 0 && (

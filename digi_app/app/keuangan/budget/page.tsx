@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import {
   Check,
@@ -11,6 +11,7 @@ import {
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Pagination from "@/components/pagination";
+import { useApi } from "@/lib/use-api";
 import ProyekCard from "./ProyekCard";
 import BudgetSkeleton from "./BudgetSkeleton";
 import type { Proyek } from "./types";
@@ -31,80 +32,42 @@ const STATUS_MAP: Record<string, string[]> = {
 
 export default function KeuanganBudgetPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [noBudgetList, setNoBudgetList] = useState<Proyek[]>([]);
-  const [hasBudgetList, setHasBudgetList] = useState<Proyek[]>([]);
-  const [noBudgetAll, setNoBudgetAll] = useState<Proyek[]>([]);
-  const [hasBudgetAll, setHasBudgetAll] = useState<Proyek[]>([]);
-  const [noBudgetTotal, setNoBudgetTotal] = useState(0);
-  const [hasBudgetTotal, setHasBudgetTotal] = useState(0);
-  const [pageNoBudget, setPageNoBudget] = useState(1);
-  const [pageHasBudget, setPageHasBudget] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [isLaporanModalOpen, setIsLaporanModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"none" | "has">("has");
   const [activeStatus, setActiveStatus] = useState("Semua");
+  const [pageNoBudget, setPageNoBudget] = useState(1);
+  const [pageHasBudget, setPageHasBudget] = useState(1);
 
-  const fetchSection = useCallback(async (status: "has" | "none", page: number) => {
-    setError("");
-    try {
-      const res = await fetch(`/api/proyek?limit=${LIMIT}&budgetStatus=${status}&page=${page}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Gagal memuat data proyek.");
-      if (status === "has") {
-        setHasBudgetList(data.projects ?? []);
-        setHasBudgetTotal(data.pagination?.totalItems ?? 0);
-      } else {
-        setNoBudgetList(data.projects ?? []);
-        setNoBudgetTotal(data.pagination?.totalItems ?? 0);
-      }
-    } catch {
-      setError("Gagal memuat data proyek. Periksa koneksi dan coba lagi.");
-    }
-  }, []);
+  const hasQuery = useApi<any>(`/api/proyek?limit=${LIMIT}&budgetStatus=has&page=${pageHasBudget}`);
+  const noneQuery = useApi<any>(`/api/proyek?limit=${LIMIT}&budgetStatus=none&page=${pageNoBudget}`);
+  const allHasQuery = useApi<any>("/api/proyek?limit=1000&budgetStatus=has");
+  const allNoneQuery = useApi<any>("/api/proyek?limit=1000&budgetStatus=none");
 
-  const fetchAll = useCallback(async () => {
-    const [hasRes, noneRes] = await Promise.all([
-      fetch(`/api/proyek?limit=1000&budgetStatus=has`),
-      fetch(`/api/proyek?limit=1000&budgetStatus=none`),
-    ]);
-    if (hasRes.ok) {
-      const d = await hasRes.json();
-      setHasBudgetAll(d.projects ?? []);
-    }
-    if (noneRes.ok) {
-      const d = await noneRes.json();
-      setNoBudgetAll(d.projects ?? []);
-    }
-  }, []);
+  const loading = hasQuery.isLoading || noneQuery.isLoading || allHasQuery.isLoading || allNoneQuery.isLoading;
+  const error = hasQuery.error || noneQuery.error || allHasQuery.error || allNoneQuery.error;
+  const retry = () => {
+    hasQuery.refetch();
+    noneQuery.refetch();
+    allHasQuery.refetch();
+    allNoneQuery.refetch();
+  };
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    await Promise.all([
-      fetchSection("has", pageHasBudget),
-      fetchSection("none", pageNoBudget),
-      fetchAll(),
-    ]);
-    setLoading(false);
-  }, [fetchSection, pageHasBudget, pageNoBudget, fetchAll]);
-
-  useEffect(() => { loadAll(); }, [loadAll]);
+  const hasBudgetList: Proyek[] = hasQuery.data?.projects ?? [];
+  const hasBudgetTotal: number = hasQuery.data?.pagination?.totalItems ?? 0;
+  const noBudgetList: Proyek[] = noneQuery.data?.projects ?? [];
+  const noBudgetTotal: number = noneQuery.data?.pagination?.totalItems ?? 0;
+  const hasBudgetAll: Proyek[] = allHasQuery.data?.projects ?? [];
+  const noBudgetAll: Proyek[] = allNoneQuery.data?.projects ?? [];
 
   useEffect(() => {
     setPageNoBudget(1);
     setPageHasBudget(1);
-    if (activeStatus !== "Semua") fetchAll();
-  }, [activeStatus, fetchAll]);
+  }, [activeStatus]);
 
   const switchTab = (tab: "none" | "has") => {
     setActiveTab(tab);
-    if (tab === "none" && pageNoBudget !== 1) {
-      setPageNoBudget(1);
-      fetchSection("none", 1);
-    } else if (tab === "has" && pageHasBudget !== 1) {
-      setPageHasBudget(1);
-      fetchSection("has", 1);
-    }
+    if (tab === "none") setPageNoBudget(1);
+    else setPageHasBudget(1);
   };
 
   const totalProjects = noBudgetTotal + hasBudgetTotal;
@@ -140,7 +103,6 @@ export default function KeuanganBudgetPage() {
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Tim Keuangan" />
 
         <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 w-full mx-auto space-y-6">
-          {/* Page Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-stone-900">Laporan Anggaran Proyek</h1>
@@ -158,15 +120,14 @@ export default function KeuanganBudgetPage() {
             </button>
           </div>
 
-          {/* Error Banner */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
                 <AlertCircle size={16} />
-                {error}
+                {error.message}
               </span>
               <button
-                onClick={loadAll}
+                onClick={retry}
                 className="shrink-0 text-[12px] font-bold px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-100 transition cursor-pointer"
               >
                 Coba Lagi
@@ -174,10 +135,8 @@ export default function KeuanganBudgetPage() {
             </div>
           )}
 
-          {/* Filters */}
           {!loading && (
             <div className="flex flex-wrap justify-between items-center gap-3">
-              {/* Budget Filter */}
               <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 w-fit">
                 <button
                   onClick={() => switchTab("has")}
@@ -203,7 +162,6 @@ export default function KeuanganBudgetPage() {
                 </button>
               </div>
 
-              {/* Filter Status Proyek */}
               <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60 w-fit">
                 {PROYEK_STATUSES.map((status) => (
                   <button
@@ -222,7 +180,6 @@ export default function KeuanganBudgetPage() {
             </div>
           )}
 
-          {/* Active List */}
           {!loading && activeList.length > 0 && (
             <div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -233,15 +190,11 @@ export default function KeuanganBudgetPage() {
               <Pagination
                 page={activeTab === "has" ? pageHasBudget : pageNoBudget}
                 totalPages={activePages}
-                onChange={(p) => {
-                  setActivePage(p);
-                  if (!isFiltering) fetchSection(activeTab, p);
-                }}
+                onChange={setActivePage}
               />
             </div>
           )}
 
-          {/* Empty — no projects at all */}
           {!loading && totalProjects === 0 && activeStatus === "Semua" && (
             <div className="text-center py-20 text-stone-400">
               <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
@@ -249,7 +202,6 @@ export default function KeuanganBudgetPage() {
             </div>
           )}
 
-          {/* Empty — no projects match the current filter */}
           {!loading && activeList.length === 0 && !(totalProjects === 0 && activeStatus === "Semua") && (
             <div className="text-center py-20 text-stone-400">
               <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
@@ -259,12 +211,10 @@ export default function KeuanganBudgetPage() {
             </div>
           )}
 
-          {/* Loading */}
           {loading && <BudgetSkeleton />}
         </main>
       </div>
 
-      {/* Laporan Tahunan Modal */}
       {isLaporanModalOpen && (
         <LaporanTahunanModal onClose={() => setIsLaporanModalOpen(false)} />
       )}

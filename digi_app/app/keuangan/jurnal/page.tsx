@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo, Suspense } from "react";
+import { useState, useRef, useEffect, useMemo, Suspense } from "react";
 import {
   Calendar, Filter, Download, ArrowUp, ArrowDown, Check, BookOpen, ChevronDown, X,
 } from "lucide-react";
@@ -8,6 +8,9 @@ import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import DatePicker from '@/components/date-picker';
 import CompactNominal from '@/components/compact-nominal';
+import { formatTanggal } from '@/lib/formatters';
+import { useApi } from '@/lib/use-api';
+import { JurnalPageSkeleton } from './skeletons';
 
 type JournalLine = {
   type: "Dr" | "Cr";
@@ -25,16 +28,6 @@ type JournalEntry = {
   lines: JournalLine[];
 };
 
-
-function formatTanggal(iso: string) {
-  if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length < 3) return iso;
-  const [y, m, d] = parts;
-  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
-  const mIdx = parseInt(m) - 1;
-  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
-}
 
 function periodeLabel(start: string, end: string) {
   if (start && end) return `${formatTanggal(start)} – ${formatTanggal(end)}`;
@@ -57,9 +50,11 @@ function JurnalAkuntansiContent() {
   const [filterMax, setFilterMax] = useState("");
   const [sortKey, setSortKey] = useState<string>("tanggal");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [reportData, setReportData] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
+
+  const { data: reportRes, isLoading } = useApi<any>("/api/laporan?type=buku-besar", {
+    refetchInterval: 5000,
+  });
+  const reportData: any[] = useMemo(() => reportRes?.report ?? [], [reportRes]);
 
   const periodeRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -95,25 +90,6 @@ function JurnalAkuntansiContent() {
     setSelectedRangeOption(option);
     setShowPeriode(false);
   };
-
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/laporan?type=buku-besar');
-      const data = await res.json();
-      if (data.report) {
-        setReportData(data.report);
-      }
-    } catch (e) {
-      console.error("Error fetching ledger report:", e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
@@ -223,7 +199,6 @@ function JurnalAkuntansiContent() {
     });
   }, [sortedReport]);
 
-  // Entries based on all data (ignores all filters) — for summary cards
   const summaryEntries = useMemo(() => {
     return reportData.map((item) => {
       const formattedNominal = Number(item.Nominal).toLocaleString('id-ID');
@@ -285,56 +260,33 @@ function JurnalAkuntansiContent() {
     }
   };
 
-  const formatRupiahShort = (value: number): string => {
-    if (value >= 1_000_000_000_000) {
-      const val = value / 1_000_000_000_000;
-      const rounded = Math.round(val * 100) / 100;
-      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} T`;
-    } else if (value >= 1_000_000_000) {
-      const val = value / 1_000_000_000;
-      const rounded = Math.round(val * 100) / 100;
-      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} M`;
-    } else if (value >= 1_000_000) {
-      const val = value / 1_000_000;
-      const rounded = Math.round(val * 100) / 100;
-      return `${rounded % 1 === 0 ? rounded : rounded.toFixed(2).replace('.', ',')} jt`;
-    } else {
-      return value.toLocaleString('id-ID');
-    }
-  };
-
   const handleExport = (format: 'csv' | 'pdf') => {
-    setIsExporting(true);
     const url = `/api/laporan?type=buku-besar&export=${format}`;
     window.open(url, '_blank');
-    setIsExporting(false);
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#f4f2ec] text-stone-800 overflow-hidden">
+    <div className="flex h-screen w-full bg-[#f9f8f4] text-stone-800 overflow-hidden">
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         userRole="Tim Keuangan"
       />
 
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
-        <main className="flex-1 overflow-y-auto px-8 py-6">
+        <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6">
 
-          {/* Judul Halaman */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-[#14130F]">Riwayat Pencairan</h1>
-            <p className="text-[13px] text-stone-500 mt-1.5">
+            <p className="text-sm text-stone-500 mt-1.5">
               Pencatatan jurnal umum otomatis dari setiap transaksi pencairan. Sesuai standar PSAK.
             </p>
           </div>
 
-          {/* Kartu Ringkasan */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
 
-            {/* Kartu 1: Total Jurnal */}
             <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
               <div className="flex justify-between items-start">
                 <span className="text-[12px] text-stone-500 font-medium">Total Jurnal</span>
@@ -348,7 +300,6 @@ function JurnalAkuntansiContent() {
               </div>
             </div>
 
-            {/* Kartu 2: Total Debit */}
             <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
               <div className="flex justify-between items-start">
                 <span className="text-[12px] text-stone-500 font-medium">Total Debit</span>
@@ -364,7 +315,6 @@ function JurnalAkuntansiContent() {
               </div>
             </div>
 
-            {/* Kartu 3: Total Kredit */}
             <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
               <div className="flex justify-between items-start">
                 <span className="text-[12px] text-stone-500 font-medium">Total Kredit</span>
@@ -380,7 +330,6 @@ function JurnalAkuntansiContent() {
               </div>
             </div>
 
-            {/* Kartu 4: Saldo */}
             <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[124px] transition-all duration-200 hover:shadow-md">
               <div className="flex justify-between items-start">
                 <span className="text-[12px] text-stone-500 font-medium">Status Saldo</span>
@@ -413,14 +362,11 @@ function JurnalAkuntansiContent() {
             </div>
           </div>
 
-          {/* Kontrol Periode + Filter + Export */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-0 mb-4">
             <div />
 
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Wrapper Periode */}
               <div ref={periodeRef} className="relative flex items-center gap-2 shrink-0">
-                {/* Label Periode */}
                 <button
                   onClick={() => setShowPeriode((v) => !v)}
                   className="flex items-center gap-2 text-[12px] font-medium text-stone-600 border border-stone-200 bg-stone-50 px-3 py-1.5 rounded-lg shrink-0 hover:bg-stone-100 transition cursor-pointer"
@@ -429,12 +375,10 @@ function JurnalAkuntansiContent() {
                   <span>{periodeLabel(periodeStart, periodeEnd)}</span>
                 </button>
 
-                {/* Dropdown Periode */}
                 {showPeriode && (
                   <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-stone-200 rounded-xl shadow-lg p-4 w-72">
                     <p className="text-[12px] font-semibold text-stone-700 mb-3">Pilih Rentang Periode</p>
 
-                    {/* Pilihan Cepat */}
                     <div className="mb-4">
                       <p className="text-[11px] font-medium text-stone-400 mb-2">Pilihan Cepat</p>
                       <div className="flex flex-wrap gap-1.5">
@@ -497,7 +441,6 @@ function JurnalAkuntansiContent() {
                 )}
               </div>
 
-              {/* Tombol Filter */}
               <div ref={filterRef} className="relative shrink-0">
                 <button
                   onClick={() => setShowFilter((v) => !v)}
@@ -521,7 +464,6 @@ function JurnalAkuntansiContent() {
                     <p className="text-[12px] font-semibold text-stone-700 mb-3">Filter Data Jurnal</p>
 
                     <div className="space-y-3">
-                      {/* Filter Jenis Pencairan */}
                       <div>
                         <label className="text-[11px] font-medium text-stone-400 mb-1 block">Jenis Pencairan</label>
                         <div className="relative">
@@ -539,7 +481,6 @@ function JurnalAkuntansiContent() {
                         </div>
                       </div>
 
-                      {/* Filter Karyawan */}
                       <div>
                         <label className="text-[11px] font-medium text-stone-400 mb-1 block">Karyawan / Pengaju</label>
                         <div className="relative">
@@ -557,7 +498,6 @@ function JurnalAkuntansiContent() {
                         </div>
                       </div>
 
-                      {/* Filter Proyek */}
                       <div>
                         <label className="text-[11px] font-medium text-stone-400 mb-1 block">Proyek</label>
                         <div className="relative">
@@ -575,7 +515,6 @@ function JurnalAkuntansiContent() {
                         </div>
                       </div>
 
-                      {/* Filter Nominal Range */}
                       <div>
                         <label className="text-[11px] font-medium text-stone-400 mb-1 block">Range Nominal (Rp)</label>
                         <div className="flex items-center gap-2">
@@ -628,10 +567,8 @@ function JurnalAkuntansiContent() {
             </div>
           </div>
 
-          {/* Panel Tabel */}
           <div className="bg-white border border-stone-200/80 rounded-xl shadow-sm overflow-hidden">
 
-            {/* Tabel Jurnal Umum */}
             {(
               <div className="overflow-x-auto">
                 <table className="w-full min-w-200">
@@ -692,11 +629,23 @@ function JurnalAkuntansiContent() {
                   </thead>
                   <tbody>
                     {isLoading ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-12 text-stone-400 font-medium text-xs">
-                          Memuat data jurnal...
-                        </td>
-                      </tr>
+                      [...Array(6)].map((_, i) => (
+                        <tr key={`loading-${i}`} className={i < 5 ? "border-b border-stone-100" : ""}>
+                          <td className="px-7 py-3"><div className="h-3 w-16 bg-stone-200 rounded animate-pulse" /></td>
+                          <td className="px-4 py-3"><div className="h-3 w-20 bg-stone-100 rounded animate-pulse" /></td>
+                          <td className="px-4 py-3"><div className="h-3 w-40 bg-stone-100 rounded animate-pulse" /></td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-5.5 h-5.5 rounded-full bg-stone-200 shrink-0 animate-pulse" />
+                              <div className="h-3 w-10 bg-stone-200 rounded animate-pulse" />
+                              <div className="h-3 w-28 bg-stone-100 rounded animate-pulse" />
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5"><div className="h-3 w-24 bg-stone-200 rounded ml-auto animate-pulse" /></td>
+                          <td className="px-4 py-2.5"><div className="h-3 w-24 bg-stone-200 rounded ml-auto animate-pulse" /></td>
+                          <td className="px-6 py-3"><div className="h-3 w-14 bg-stone-100 rounded animate-pulse" /></td>
+                        </tr>
+                      ))
                     ) : journalEntries.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="text-center py-12 text-stone-400 font-medium text-xs">
@@ -718,7 +667,7 @@ function JurnalAkuntansiContent() {
                             {lineIdx === 0 && (
                               <td
                                 rowSpan={entry.lines.length}
-                                className="px-7 py-3 align-top text-[12px] font-mono font-semibold text-stone-800 whitespace-nowrap min-w-[130px]"
+                                className="px-7 py-3 align-top text-[12px]  font-semibold text-stone-800 whitespace-nowrap min-w-[130px]"
                               >
                                 {entry.id}
                               </td>
@@ -740,7 +689,7 @@ function JurnalAkuntansiContent() {
                               </td>
                             )}
                             <td className="px-4 py-2.5">
-                              <div className="flex items-center gap-2 text-[12px] font-mono text-stone-700">
+                              <div className="flex items-center gap-2 text-[12px]  text-stone-700">
                                 <span
                                   className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${line.type === "Dr"
                                     ? "bg-[#d1fae5] text-[#065f46]"
@@ -753,16 +702,16 @@ function JurnalAkuntansiContent() {
                                 <span className="text-stone-700">{line.akun}</span>
                               </div>
                             </td>
-                            <td className="px-4 py-2.5 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
+                            <td className="px-4 py-2.5 text-right text-[12px]  text-stone-800 whitespace-nowrap">
                               {line.debit ? <CompactNominal value={line.debit} compactThreshold={100_000_000_000_000} /> : "—"}
                             </td>
-                            <td className="px-4 py-2.5 text-right text-[12px] font-mono text-stone-800 whitespace-nowrap">
+                            <td className="px-4 py-2.5 text-right text-[12px]  text-stone-800 whitespace-nowrap">
                               {line.kredit ? <CompactNominal value={line.kredit} compactThreshold={100_000_000_000_000} /> : "—"}
                             </td>
                             {lineIdx === 0 && (
                               <td
                                 rowSpan={entry.lines.length}
-                                className="px-6 py-3 align-top text-[12px] font-mono text-[#0277bd] font-medium whitespace-nowrap"
+                                className="px-6 py-3 align-top text-[12px]  text-[#0277bd] font-medium whitespace-nowrap"
                               >
                                 {entry.ref}
                               </td>
@@ -778,10 +727,10 @@ function JurnalAkuntansiContent() {
                         <td colSpan={4} className="px-6 py-3.5 text-right text-[11px] font-semibold text-stone-500 uppercase tracking-wider">
                           Total
                         </td>
-                        <td className="px-4 py-3.5 text-right text-[12px] font-mono font-bold text-stone-900 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-right text-[12px]  font-bold text-stone-900 whitespace-nowrap">
                           Rp {totalDebit.toLocaleString('id-ID')}
                         </td>
-                        <td className="px-4 py-3.5 text-right text-[12px] font-mono font-bold text-stone-900 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-right text-[12px]  font-bold text-stone-900 whitespace-nowrap">
                           Rp {totalKredit.toLocaleString('id-ID')}
                         </td>
                         <td className="px-6 py-3.5"></td>
@@ -802,8 +751,8 @@ function JurnalAkuntansiContent() {
 export default function JurnalAkuntansiPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#f6f4f0]">
-        <div className="text-stone-400 font-medium text-xs">Memuat halaman...</div>
+      <div className="flex h-screen w-full bg-[#f9f8f4] overflow-hidden">
+        <JurnalPageSkeleton />
       </div>
     }>
       <JurnalAkuntansiContent />

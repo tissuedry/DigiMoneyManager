@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense, useMemo, Fragment } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Download, X, Check, Filter, ZoomIn, AlertTriangle
@@ -14,46 +14,12 @@ import Toast from '@/components/toast';
 import CompactNominal from '@/components/compact-nominal';
 import { useApi, useInvalidate } from '@/lib/use-api';
 import { formatFullRupiah } from '@/lib/format-nominal';
+import ImageLightbox from '@/components/image-lightbox';
+import { formatApprovalDate, formatTanggal, getAvatarColor } from '@/lib/formatters';
+import RejectModal from './RejectModal';
 
-function formatTanggal(iso: string) {
-  if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length < 3) return iso;
-  const [y, m, d] = parts;
-  const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
-  const mIdx = parseInt(m) - 1;
-  return `${parseInt(d)} ${bulan[mIdx] || m} ${y}`;
-}
-
-// PERBARUAN: Menampilkan tanggal beserta jam dan menit
-function formatTanggalWaktu(isoStr: string | null | undefined) {
-  if (!isoStr) return "-";
-  try {
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) {
-      return formatTanggal(isoStr);
-    }
-    const day = d.getDate();
-    const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
-    const month = bulan[d.getMonth()];
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, "0");
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-
-    return `${day} ${month} ${year}, ${hours}:${minutes}`;
-  } catch {
-    return isoStr;
-  }
-}
-
-const AVATAR_COLORS = [
-  "bg-teal-100 text-teal-700",
-  "bg-blue-100 text-blue-700",
-  "bg-violet-100 text-violet-700",
-  "bg-amber-100 text-amber-700",
-  "bg-rose-100 text-rose-700",
-];
-const getAvatarColor = (initials: string) => AVATAR_COLORS[(initials || 'AI').charCodeAt(0) % AVATAR_COLORS.length];
+const formatTanggalWaktu = (isoStr: string | null | undefined) =>
+  isoStr ? formatApprovalDate(isoStr) : "-";
 
 const StepIcon = ({ state, number }: { state: "done" | "active" | "pending" | "rejected"; number: number }) => {
   if (state === "done")
@@ -81,97 +47,6 @@ const StepIcon = ({ state, number }: { state: "done" | "active" | "pending" | "r
   );
 };
 
-// ─── Komponen Pop-up Modal Penolakan (RejectModal) ──────────────────────────
-
-interface RejectModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (alasan: string) => void;
-  data?: {
-    merchant: string;
-    userName: string;
-    nominal: number;
-  };
-  isLoading?: boolean;
-}
-
-const RejectModal: React.FC<RejectModalProps> = ({
-  isOpen,
-  onClose,
-  onSubmit,
-  data,
-  isLoading = false
-}) => {
-  const [alasan, setAlasan] = useState('');
-
-  useEffect(() => {
-    if (!isOpen) setAlasan('');
-  }, [isOpen]);
-
-  const formatRupiah = (angka: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(angka);
-  };
-
-  const handleSubmit = () => {
-    if (!alasan.trim()) return;
-    onSubmit(alasan);
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Tolak Pengajuan</h2>
-          {data && (
-            <p className="mt-1 text-sm text-gray-500">
-              {data.merchant} &middot; {data.userName} &middot; {formatRupiah(data.nominal)}
-            </p>
-          )}
-        </div>
-        <div className="mb-6">
-          <label htmlFor="alasan" className="mb-2 block text-sm font-semibold text-gray-900">
-            Alasan <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="alasan"
-            rows={4}
-            className="w-full rounded-xl border border-[#E5E5E5] p-4 text-sm text-gray-900 focus:border-black focus:outline-none focus:ring-1 focus:ring-black resize-none"
-            placeholder="Jelaskan alasan penolakan..."
-            value={alasan}
-            onChange={(e) => setAlasan(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isLoading}
-            className="w-full rounded-2xl border border-[#E5E5E5] bg-white py-3.5 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
-          >
-            Batal
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!alasan.trim() || isLoading}
-            className="w-full rounded-2xl bg-black py-3.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400 cursor-pointer"
-          >
-            {isLoading ? 'Mengirim...' : 'Kirim Penolakan'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Main Content Component ───────────────────────────────────────────────────
-
 function PencairanContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -183,12 +58,6 @@ function PencairanContent() {
   const [selectedId, setSelectedId] = useState<string | null>(idParam);
   const [isAllSelected, setIsAllSelected] = useState(selectParam === 'all');
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
-  const [zoomScale, setZoomScale] = useState<number>(1);
-  const [panPos, setPanPos] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-  // State untuk Kontrol Reject Modal
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -200,24 +69,8 @@ function PencairanContent() {
   const [rejectedLabel, setRejectedLabel] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const resetZoomAndPan = () => {
-    setZoomScale(1);
-    setPanPos({ x: 0, y: 0 });
-    setIsDragging(false);
-  };
-
-  useEffect(() => {
-    if (zoomImageUrl) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [zoomImageUrl]);
-
   const handleOpenZoom = (url: string) => {
     setZoomImageUrl(url);
-    resetZoomAndPan();
   };
 
   const handleSelect = (id: string | null, all = false) => {
@@ -232,7 +85,7 @@ function PencairanContent() {
     }
   };
 
-  const [debitAccount, setDebitAccount] = useState("");
+  const [debitAccount] = useState("");
   const [creditAccount, setCreditAccount] = useState("");
   const [catatan, setCatatan] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -246,7 +99,7 @@ function PencairanContent() {
   const reimbursements = rData?.reimbursements ?? [];
   const masterAsetList = masterAsetRes?.data || (Array.isArray(masterAsetRes) ? masterAsetRes : []);
 
-  const masterCreditOptions = React.useMemo(() => {
+  const masterCreditOptions = useMemo(() => {
     const opts: Array<{ displayVal: string; mainNama: string; subNama: string }> = [];
     masterAsetList.forEach((main: any) => {
       (main.MasterSub || []).forEach((sub: any) => {
@@ -265,7 +118,7 @@ function PencairanContent() {
     ...new Set(
       reimbursements
         .map((item: any) => item.proyek?.nama)
-        .filter(Boolean) // Untuk membuang nilai null atau undefined
+        .filter(Boolean)
     ),
   ];
 
@@ -278,7 +131,6 @@ function PencairanContent() {
       ? (item.user?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.proyek?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(item.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
-        // Tambahan untuk mencari berdasarkan kolom 'nama' dan 'merchant'
         item.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.merchant?.toLowerCase().includes(searchQuery.toLowerCase()))
       : true;
@@ -419,13 +271,11 @@ function PencairanContent() {
   const pmApproval = selectedItem?.approvals?.find((a: any) => a.level === 'PM' || a.approver?.role === 'Project Manager');
   const financeApproval = selectedItem?.approvals?.find((a: any) => a.level === 'KEUANGAN' || a.approver?.role === 'Tim Keuangan');
 
-  // Ambil data penolakan jika status REJECTED
   const rejectedApproval = selectedItem?.approvals?.find((a: any) => a.status === 'REJECTED');
   const rejectionReason = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
 
   const isSelectedRealisasi = selectedItem?.tipe === 'Realisasi Anggaran';
 
-  // Disesuaikan agar menggunakan selectedItem.createdAt untuk status pengajuan dikirim
   const baseApprovalSteps = selectedItem ? [
     {
       label: "Pengajuan dikirim",
@@ -528,7 +378,6 @@ function PencairanContent() {
                     </span>
                   </button>
 
-                  {/* Menu Dropdown */}
                   {isFilterOpen && (
                     <div className="absolute right-0 mt-2 w-64 bg-white border border-stone-200 rounded-xl shadow-lg z-10 py-1 overflow-hidden">
                       <div className="px-3 py-2 text-xs font-semibold text-stone-500 bg-stone-50 border-b border-stone-100">
@@ -589,11 +438,9 @@ function PencairanContent() {
                   {visibleList.map((item: any) => {
                     const initials = item.user?.nama ? item.user.nama.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'AI';
                     const active = isAllSelected || String(selectedItem?.id) === String(item.id);
-                    const formattedNominal = Number(item.nominal).toLocaleString('id-ID');
                     const itemCode = `RB-${String(item.id).padStart(4, '0')}`;
                     const isRealisasi = item.tipe === 'Realisasi Anggaran';
 
-                    // Disesuaikan dengan data sebenarnya (tanpa ocrData)
                     const vendorTitle = item.merchant || item.nama || item.posAnggaran?.deskripsi || (isRealisasi ? 'Realisasi Anggaran' : 'Pengajuan Reimbursement');
                     const projectTitle = item.proyek?.nama || 'Proyek';
 
@@ -633,7 +480,7 @@ function PencairanContent() {
                             <div className="flex items-center justify-between gap-2">
                               <div className="group relative min-w-0">
                                 <p className="text-[11px] text-stone-400 truncate">
-                                  {item.user?.nama || 'Karyawan'} <span className="font-normal text-stone-400 font-mono">· {itemCode}</span>
+                                  {item.user?.nama || 'Karyawan'} <span className="font-normal text-stone-400 ">· {itemCode}</span>
                                 </p>
                                 <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[320px] whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-800 shadow-lg group-hover:block">
                                   {item.user?.nama || 'Karyawan'} · {itemCode}
@@ -700,13 +547,12 @@ function PencairanContent() {
                       const isRealisasiDetail = selectedItem.tipe === 'Realisasi Anggaran';
                       const detailVendorTitle = selectedItem.merchant || selectedItem.nama || selectedItem.posAnggaran?.deskripsi || selectedItem.proyek?.nama;
 
-                      // Disesuaikan agar menggunakan selectedItem.createdAt
                       const detailTanggal = selectedItem.createdAt || null;
                       return (
                         <div className="border-b border-stone-100 pb-4">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <p className="text-[12px] text-stone-400 font-medium font-mono">RB-{String(selectedItem.id).padStart(4, '0')}</p>
+                              <p className="text-[12px] text-stone-400 font-medium ">RB-{String(selectedItem.id).padStart(4, '0')}</p>
                               <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wide border ${isRealisasiDetail
                                 ? 'bg-[#E9E8F4] text-[#483E90] border-[#c4c0e0]'
                                 : 'bg-[#F0F7FB] text-[#005D8D] border-[#b3d6ea]'
@@ -733,7 +579,6 @@ function PencairanContent() {
                       );
                     })()}
 
-                    {/* Total Pengajuan */}
                     <div className="bg-[#f5f4ef] rounded-xl px-5 py-4 text-center">
                       <p className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-1">
                         Total Pengajuan
@@ -743,7 +588,6 @@ function PencairanContent() {
                       </p>
                     </div>
 
-                    {/* Info Realisasi Keterangan Anggaran */}
                     {(() => {
                       const ketObj = selectedItem.keteranganAnggaran || selectedItem.posAnggaran;
                       const ketNama = ketObj?.keterangan || ketObj?.deskripsi;
@@ -766,7 +610,6 @@ function PencairanContent() {
                             </span>
                           </div>
 
-                          {/* Progress Bar */}
                           <div className="w-full bg-[#f0ece1] h-2 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-300 ${
@@ -776,19 +619,18 @@ function PencairanContent() {
                             />
                           </div>
 
-                          {/* Breakdown Angka */}
                           <div className="flex items-center justify-between text-[11.5px] pt-0.5">
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Alokasi</span>
-                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(alokasi)}</span>
+                              <span className="font-semibold text-stone-900 ">{formatFullRupiah(alokasi)}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Realisasi</span>
-                              <span className="font-semibold text-stone-900 font-mono">{formatFullRupiah(realisasi)}</span>
+                              <span className="font-semibold text-stone-900 ">{formatFullRupiah(realisasi)}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Sisa</span>
-                              <span className={`font-semibold font-mono ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
+                              <span className={`font-semibold  ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
                                 {isOver ? `- ${formatFullRupiah(Math.abs(sisa))}` : formatFullRupiah(sisa)}
                               </span>
                             </div>
@@ -797,7 +639,6 @@ function PencairanContent() {
                       );
                     })()}
 
-                    {/* Tampilan Alasan Penolakan Jika Ditolak */}
                     {selectedItem.status === "REJECTED" && (
                       <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
                         <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
@@ -839,7 +680,7 @@ function PencairanContent() {
                       </div>
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Nominal</span>
-                        <span className="font-bold font-mono text-stone-900 text-right">
+                        <span className="font-bold  text-stone-900 text-right">
                           <CompactNominal value={selectedItem.nominal} compactThreshold={100_000_000} />
                         </span>
                       </div>
@@ -917,7 +758,7 @@ function PencairanContent() {
                       <div className="text-[13px] font-bold text-stone-800 mb-1.5">Preview Jurnal Akuntansi (Auto-generated)</div>
                       <div className="bg-[#f5f4ef] border border-stone-200/80 rounded-xl p-4 space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="font-mono text-stone-400 text-[12px] font-bold">
+                          <span className=" text-stone-400 text-[12px] font-bold">
                             {selectedItem.jurnalAkuntansi?.[0] ? `JE-${String(selectedItem.jurnalAkuntansi[0].id).substring(0, 8).toUpperCase()}` : `JE-2026-${String(selectedItem.id).padStart(4, '0')}`}
                           </span>
                         </div>
@@ -964,7 +805,7 @@ function PencairanContent() {
                                   </span>
                                 </div>
                               </div>
-                              <span className="font-mono text-stone-900 text-[12px] shrink-0 font-bold">
+                              <span className=" text-stone-900 text-[12px] shrink-0 font-bold">
                                 Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}
                               </span>
                             </div>
@@ -974,7 +815,7 @@ function PencairanContent() {
                               <select
                                 value={creditAccount}
                                 onChange={(e) => setCreditAccount(e.target.value)}
-                                className="flex-1 text-[12px] font-mono bg-white border border-stone-200 rounded-lg p-1.5 outline-none focus:ring-1 focus:ring-emerald-500 text-stone-800"
+                                className="flex-1 text-[12px]  bg-white border border-stone-200 rounded-lg p-1.5 outline-none focus:ring-1 focus:ring-emerald-500 text-stone-800"
                               >
                                 <option value="">Pilih Akun Kredit</option>
                                 {(masterCreditOptions.length > 0 ? masterCreditOptions : (selectedItem.creditOptions || [])).map((opt: any, idx: number) => (
@@ -983,7 +824,7 @@ function PencairanContent() {
                                   </option>
                                 ))}
                               </select>
-                              <span className="font-mono text-stone-900 text-[12px] shrink-0 font-bold">
+                              <span className=" text-stone-900 text-[12px] shrink-0 font-bold">
                                 Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}
                               </span>
                             </div>
@@ -992,7 +833,7 @@ function PencairanContent() {
                           <div className="space-y-2 pt-2 border-t border-stone-200 text-[12px]">
                             {selectedItem.jurnalAkuntansi && selectedItem.jurnalAkuntansi.length > 0 ? (
                               selectedItem.jurnalAkuntansi.map((j: any) => (
-                                <React.Fragment key={j.id}>
+                                <Fragment key={j.id}>
                                   <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5 min-w-0">
                                       <span className="text-[#2d6a4f] font-bold shrink-0">Dr</span>
@@ -1026,7 +867,7 @@ function PencairanContent() {
                                         </span>
                                       </div>
                                     </div>
-                                    <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                    <span className=" text-stone-900 font-bold shrink-0">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
                                   </div>
                                   <div className="flex justify-between items-center pl-3 text-[12px]">
                                     <div className="flex items-center gap-1.5 min-w-0">
@@ -1035,12 +876,12 @@ function PencairanContent() {
                                         {j.noAkunKredit || 'MAIN · Kas & Bank > SUB · BCA'}
                                       </span>
                                     </div>
-                                    <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                    <span className=" text-stone-900 font-bold shrink-0">Rp {Number(j.nominal || selectedItem.nominal).toLocaleString('id-ID')}</span>
                                   </div>
-                                </React.Fragment>
+                                </Fragment>
                               ))
                             ) : (
-                              <React.Fragment>
+                              <Fragment>
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <span className="text-[#2d6a4f] font-bold shrink-0">Dr</span>
@@ -1074,16 +915,16 @@ function PencairanContent() {
                                       </span>
                                     </div>
                                   </div>
-                                  <span className="font-mono text-stone-900 font-bold shrink-0">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                  <span className=" text-stone-900 font-bold shrink-0">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
                                 </div>
                                 <div className="flex justify-between items-center pl-3">
                                   <span>
                                     <span className="text-[#be123c] font-bold mr-1">Cr</span>
                                     <span className="text-stone-600"> 1-1102 Bank BCA - Operasional</span>
                                   </span>
-                                  <span className="font-mono text-stone-900 font-bold">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
+                                  <span className=" text-stone-900 font-bold">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</span>
                                 </div>
-                              </React.Fragment>
+                              </Fragment>
                             )}
                           </div>
                         )}
@@ -1093,7 +934,6 @@ function PencairanContent() {
                     <div>
                       <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
                       <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
-                        {/* Disesuaikan karena tidak ada ocrData */}
                         {selectedItem.nama || '-'}
                       </div>
                     </div>
@@ -1156,7 +996,6 @@ function PencairanContent() {
 
                   </div>
 
-                  {/* Action Footer */}
                   <div className="flex items-center justify-between px-6 py-4 border-t border-stone-100 bg-white shrink-0">
                     {selectedItem.strukUrl && selectedItem.strukUrl.trim() !== '' && selectedItem.strukUrl !== '/uploads/placeholder.png' && selectedItem.strukUrl !== '/bukti_struk.png' ? (
                       <a
@@ -1178,7 +1017,6 @@ function PencairanContent() {
 
                     {selectedItem.status === 'APPROVED_BY_PM' && (
                       <div className="flex items-center gap-2">
-                        {/* Tombol Tolak membuka state pop-up modal alih-alih `confirm()` */}
                         <button
                           onClick={() => setIsRejectModalOpen(true)}
                           className="flex items-center gap-2 px-4 py-2 bg-[#fee2e2] text-[#be123c] rounded-full text-[13px] font-semibold hover:bg-[#fecaca] transition cursor-pointer"
@@ -1203,7 +1041,6 @@ function PencairanContent() {
         </main>
       </div>
 
-      {/* Render komponen Modal Penolakan disini */}
       <RejectModal
         isOpen={isRejectModalOpen}
         onClose={() => setIsRejectModalOpen(false)}
@@ -1294,74 +1131,7 @@ function PencairanContent() {
         onClose={() => setErrorMessage(null)}
       />
 
-      {/* Modal Zoom Gambar */}
-      {zoomImageUrl && (
-        <div
-          className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
-          onClick={() => {
-            setZoomImageUrl(null);
-            resetZoomAndPan();
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setZoomImageUrl(null);
-              resetZoomAndPan();
-            }}
-            className="absolute top-5 right-5 z-50 p-2.5 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 transition cursor-pointer shadow-xl"
-            title="Tutup"
-          >
-            <X size={20} />
-          </button>
-
-          <div
-            className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${zoomScale > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
-              }`}
-            onClick={(e) => e.stopPropagation()}
-            onWheel={(e) => {
-              if (e.deltaY < 0) {
-                setZoomScale((prev) => Math.min(prev + 0.25, 4));
-              } else {
-                setZoomScale((prev) => {
-                  const next = Math.max(prev - 0.25, 1);
-                  if (next === 1) setPanPos({ x: 0, y: 0 });
-                  return next;
-                });
-              }
-            }}
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setIsDragging(true);
-                setDragStart({ x: e.clientX - panPos.x, y: e.clientY - panPos.y });
-              }
-            }}
-            onMouseMove={(e) => {
-              if (isDragging) {
-                setPanPos({
-                  x: e.clientX - dragStart.x,
-                  y: e.clientY - dragStart.y,
-                });
-              }
-            }}
-            onMouseUp={() => setIsDragging(false)}
-            onMouseLeave={() => setIsDragging(false)}
-          >
-            <img
-              src={zoomImageUrl}
-              alt="Bukti Struk"
-              draggable={false}
-              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
-              style={{
-                transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${zoomScale})`,
-              }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/bukti_struk.png';
-              }}
-            />
-          </div>
-        </div>
-      )}
+      <ImageLightbox url={zoomImageUrl} onClose={() => setZoomImageUrl(null)} />
     </div>
   );
 }

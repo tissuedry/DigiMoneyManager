@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp, AlertCircle, TrendingUp, Plus } from "lucide-react";
 import Toast from "@/components/toast";
 import CompactNominal from "@/components/compact-nominal";
+import { getStatusStyles } from "@/lib/proyek-utils";
 
 export type ProyekItem = {
   id: number;
@@ -37,23 +38,6 @@ export type ProyekItem = {
   };
 };
 
-function getStatusBadgeStyle(statusStr?: string) {
-  const status = statusStr?.toUpperCase();
-  if (status === "AKTIF" || status === "ACTIVE") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-100";
-  }
-  if (status === "DONE" || status === "SELESAI") {
-    return "bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]";
-  }
-  if (status === "PLANNING") {
-    return "bg-[#fbf0e4] text-[#854d0e] border-[#f5e1ce]";
-  }
-  if (status === "CANCELLED" || status === "CANCELED" || status === "DIBATALKAN") {
-    return "bg-rose-50 text-rose-800 border-rose-100";
-  }
-  return "bg-stone-100 text-stone-600 border-stone-200";
-}
-
 export default function ProyekPemasukanCard({
   proyek,
   onOpenRealisasi,
@@ -65,7 +49,6 @@ export default function ProyekPemasukanCard({
   const [toastError, setToastError] = useState<string | null>(null);
 
   const budget = proyek.budget;
-  // Target pemasukan bisa dari targetPemasukan atau nilaiKontrak/rabTotal
   const targetPemasukan = budget
     ? Number(budget.targetPemasukan || budget.nilaiKontrak || 0)
     : 0;
@@ -73,7 +56,6 @@ export default function ProyekPemasukanCard({
   const sisaPemasukan = Math.max(0, targetPemasukan - realisasiPemasukan);
   const pct = targetPemasukan > 0 ? Math.min((realisasiPemasukan / targetPemasukan) * 100, 100) : 0;
 
-  // Ambil sub pemasukan dari budget
   const posPemasukan = (budget?.mainAnggaran?.filter((m) => m.tipe === "pendapatan") ?? []).flatMap(
     (m) =>
       (m.subAnggaran || []).map((s) => ({
@@ -88,7 +70,6 @@ export default function ProyekPemasukanCard({
   return (
     <>
       <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-        {/* Card Header */}
         <div className="p-5 flex items-start gap-4">
           <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
             <TrendingUp size={18} className="text-emerald-600" />
@@ -101,7 +82,7 @@ export default function ProyekPemasukanCard({
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadgeStyle(
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusStyles(
                       proyek.status
                     )}`}
                   >
@@ -117,7 +98,6 @@ export default function ProyekPemasukanCard({
                 </div>
               </div>
 
-              {/* Tombol Aksi */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => onOpenRealisasi(proyek)}
@@ -129,10 +109,8 @@ export default function ProyekPemasukanCard({
               </div>
             </div>
 
-            {/* Target Pemasukan Summary */}
             {budget ? (
               <div className="mt-3 space-y-3">
-                {/* Total Target Pemasukan */}
                 <div className="flex items-center justify-between">
                   <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wider">
                     Total Target Pendapatan
@@ -145,7 +123,6 @@ export default function ProyekPemasukanCard({
                   </p>
                 </div>
 
-                {/* Stacked bar */}
                 <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden flex shadow-inner">
                   <div
                     style={{ width: `${pct}%` }}
@@ -159,7 +136,6 @@ export default function ProyekPemasukanCard({
                   )}
                 </div>
 
-                {/* Realisasi vs Sisa */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 flex flex-col justify-between min-w-0">
                     <div className="flex items-center gap-2">
@@ -192,7 +168,6 @@ export default function ProyekPemasukanCard({
                   </div>
                 </div>
 
-                {/* Expand toggle */}
                 {posPemasukan.length > 0 && (
                   <button
                     onClick={() => setExpanded(!expanded)}
@@ -212,7 +187,6 @@ export default function ProyekPemasukanCard({
           </div>
         </div>
 
-        {/* Expanded Pos Pemasukan */}
         {expanded && posPemasukan.length > 0 && (
           <div className="border-t border-stone-100 px-5 py-4 space-y-6">
             {posPemasukan.map((pos, index) => {

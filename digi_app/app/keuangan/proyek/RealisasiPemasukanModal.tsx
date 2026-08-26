@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, DragEvent, ChangeEvent, SubmitEvent } from "react";
 import { X, Upload, Loader2, Search, ChevronRight, Plus } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
@@ -44,7 +44,6 @@ export default function RealisasiPemasukanModal({
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Ambil data tree Pos Anggaran proyek khusus sub_anggaran pemasukan
   const { data: posData, isLoading: isLoadingPos } = useApi<any>(`/api/proyek/${proyekId}/pos-anggaran`);
 
   const flatOptions: FlatPosOption[] = useMemo(() => {
@@ -100,17 +99,17 @@ export default function RealisasiPemasukanModal({
     setFile(f);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) validateAndSetFile(e.target.files[0]);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: DragEvent) => {
     e.preventDefault();
     setIsDragActive(false);
     if (e.dataTransfer.files?.[0]) validateAndSetFile(e.dataTransfer.files[0]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault();
     if (!selectedPos) return alert("Sub / Kategori pendapatan wajib dipilih!");
     if (!namaRealisasi.trim()) return alert("Nama realisasi wajib diisi!");
@@ -166,7 +165,6 @@ export default function RealisasiPemasukanModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-[600px] flex flex-col overflow-hidden">
-        {/* Header Modal */}
         <div className="px-6 pt-5 pb-4 flex items-start justify-between shrink-0">
           <div>
             <h2 className="text-[18px] font-bold text-stone-900 leading-tight">Realisasi Pendapatan</h2>
@@ -180,9 +178,7 @@ export default function RealisasiPemasukanModal({
           </button>
         </div>
 
-        {/* Body Form */}
         <form onSubmit={handleSubmit} className="p-6 pt-2 space-y-4 overflow-y-auto">
-          {/* Pencarian Keterangan / Sub Pemasukan */}
           <div className="space-y-1.5 relative" ref={dropdownRef}>
             <label className="text-[11px] font-bold text-stone-700">
               Keterangan / Sub Pendapatan <span className="text-red-500">*</span>
@@ -206,7 +202,6 @@ export default function RealisasiPemasukanModal({
               <Search size={14} className="absolute right-3.5 top-3 text-stone-400 pointer-events-none" />
             </div>
 
-            {/* Breadcrumb Terpilih (Sesuai Gambar 3) */}
             {selectedPos && !isDropdownOpen && (
               <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[10px] pt-1">
                 <span className="font-bold text-stone-400 tracking-wider">MAIN</span>
@@ -217,7 +212,6 @@ export default function RealisasiPemasukanModal({
               </div>
             )}
 
-            {/* Dropdown Options */}
             {isDropdownOpen && (
               <div className="absolute z-20 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg max-h-48 overflow-y-auto py-1">
                 {filteredOptions.length === 0 ? (
@@ -285,7 +279,6 @@ export default function RealisasiPemasukanModal({
             />
           </div>
 
-          {/* Area Drag & Drop File */}
           <div
             onClick={() => fileInputRef.current?.click()}
             onDragEnter={(e) => {
@@ -337,7 +330,6 @@ export default function RealisasiPemasukanModal({
             </span>
           </div>
 
-          {/* Footer Actions */}
           <div className="flex items-center justify-end gap-2 pt-4">
             <button
               type="button"
