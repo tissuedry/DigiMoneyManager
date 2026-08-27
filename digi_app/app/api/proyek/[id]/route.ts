@@ -424,11 +424,40 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             );
           }) || budget.mainAnggaran[0]?.subAnggaran[0];
 
+          let validMasterSubId: number | null = null;
+          if (primarySubAll?.namaSub) {
+            const matchedMasterSub = await prisma.masterSub.findFirst({
+              where: {
+                tipe: 'pemasukan',
+                nama: { equals: primarySubAll.namaSub.trim(), mode: 'insensitive' },
+              },
+            });
+            if (matchedMasterSub) {
+              validMasterSubId = matchedMasterSub.id;
+            }
+          }
+
+          if (!validMasterSubId) {
+            const fallbackMasterSub =
+              (await prisma.masterSub.findFirst({
+                where: {
+                  tipe: 'pemasukan',
+                  nama: { contains: 'Penjualan', mode: 'insensitive' },
+                },
+              })) ||
+              (await prisma.masterSub.findFirst({
+                where: { tipe: 'pemasukan' },
+              }));
+            if (fallbackMasterSub) {
+              validMasterSubId = fallbackMasterSub.id;
+            }
+          }
+
           const newTx = await prisma.transaksiPemasukan.create({
             data: {
               proyekId,
               userId: userId ? parseInt(userId, 10) : null,
-              subCoaId: primarySubAll?.id || null,
+              subCoaId: validMasterSubId,
               kategori: 'PENERIMAAN_PENJUALAN',
               nominal: realisasiPemasukan,
               status: 'CAIR',
