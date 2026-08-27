@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { Menu, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";

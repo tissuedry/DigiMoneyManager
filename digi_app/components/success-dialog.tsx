@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, AlertTriangle } from "lucide-react";
 import { useDialogBehavior } from "@/hooks/use-dialog-behavior";

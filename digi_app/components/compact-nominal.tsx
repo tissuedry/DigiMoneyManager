@@ -33,12 +33,10 @@ function CompactNominalInner({
 
   const numValue = parseNominalNumber(value);
 
-  // Penyingkatan HANYA aktif jika nominal melebihi ambang batas container (agar tidak meluap/bocor dari box)
   const isCompactNeeded = Math.abs(numValue) >= compactThreshold;
   const displayText = isCompactNeeded ? formatCompactRupiah(numValue) : formatFullRupiah(numValue);
   const fullText = formatFullRupiah(numValue);
 
-  // Hitung posisi floating card presisi agar TIDAK PERNAH keluar dari layar kanan (mencegah horizontal scrollbar Chrome)
   const updatePosition = () => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
@@ -49,13 +47,10 @@ function CompactNominalInner({
       let targetLeft = rect.left + rect.width / 2;
       let targetTransform = 'translateX(-50%)';
 
-      // Geser ke kiri jika melampaui batas kanan layar (margin 16px dari tepi layar)
       if (rect.left + rect.width / 2 + halfWidth > viewportWidth - 16) {
         targetLeft = Math.min(rect.right, viewportWidth - 16);
         targetTransform = 'translateX(-100%)';
-      } 
-      // Geser ke kanan jika melampaui batas kiri layar
-      else if (rect.left + rect.width / 2 - halfWidth < 16) {
+      } else if (rect.left + rect.width / 2 - halfWidth < 16) {
         targetLeft = Math.max(rect.left, 16);
         targetTransform = 'translateX(0%)';
       }
@@ -83,7 +78,6 @@ function CompactNominalInner({
     setIsHovered(false);
   };
 
-  // Jika digit tidak terlalu banyak (muat di dalam container), tampilkan format lengkap bersih tanpa tooltip
   if (!showTooltip || !isCompactNeeded) {
     return <span className={className}>{displayText}</span>;
   }

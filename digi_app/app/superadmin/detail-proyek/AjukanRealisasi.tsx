@@ -6,7 +6,7 @@ import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
 import Toast from "@/components/toast";
 import { formatRupiah } from "@/lib/formatters";
-import { formatFullRupiah } from "@/lib/format-nominal";
+import CompactNominal from "@/components/compact-nominal";
 
 type FlatKeteranganOption = {
   id: string;
@@ -236,7 +236,7 @@ export default function AjukanRealisasiModal({
                     {selectedPos ? `Total Alokasi · ${selectedPos.keterangan}` : "Total Alokasi Keterangan"}
                   </p>
                   <p className="text-[13.5px] font-normal text-[#000000] ">
-                    {selectedPos ? formatFullRupiah(nominalAlokasi) : "Rp 0"}
+                    {selectedPos ? <CompactNominal value={nominalAlokasi} compactThreshold={1_000_000_000_000} showTooltip /> : "Rp 0"}
                   </p>
                 </div>
                 {isOver ? (
@@ -245,7 +245,7 @@ export default function AjukanRealisasiModal({
                       Kelebihan Realisasi (Overbudget)
                     </p>
                     <p className="text-[13.5px] font-normal text-[#902f33] ">
-                      - {formatFullRupiah(Math.abs(sisaRealisasi))}
+                      - {<CompactNominal value={Math.abs(sisaRealisasi)} compactThreshold={1_000_000_000_000} showTooltip />}
                     </p>
                   </div>
                 ) : (
@@ -254,7 +254,7 @@ export default function AjukanRealisasiModal({
                       Sisa yang Belum Terealisasi
                     </p>
                     <p className="text-[13.5px] font-normal text-[#000000] ">
-                      {selectedPos ? formatFullRupiah(sisaRealisasi) : "Rp 0"}
+                      {selectedPos ? <CompactNominal value={sisaRealisasi} compactThreshold={10_000_000_000_000} showTooltip /> : "Rp 0"}
                     </p>
                   </div>
                 )}

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
+import CompactNominal from "./compact-nominal";
 
 export type TerminItem = {
     id?: number;
@@ -14,13 +15,6 @@ type Props = {
     projectName?: string;
     showEnlargeHint?: boolean;
 };
-
-function formatFullRupiah(val: number | string | undefined): string {
-    if (val === undefined || val === null || val === "") return "Rp 0";
-    const num = Number(val);
-    if (isNaN(num)) return "Rp 0";
-    return `Rp ${num.toLocaleString("id-ID")}`;
-}
 
 function formatCompactRupiah(val: number | string | undefined): string {
     if (val === undefined || val === null || val === "") return "";
@@ -51,14 +45,12 @@ export default function GrafikProgressTermin({
     const [hoveredIdxCard, setHoveredIdxCard] = useState<number | null>(null);
     const [hoveredIdxModal, setHoveredIdxModal] = useState<number | null>(null);
 
-    // Default fallback dataset if terminData is undefined
     const defaultTermins: TerminItem[] = [
         { namaTermin: "Termin 1", persentaseProgress: 20, nominal: 2000000, status: "DITERIMA" },
         { namaTermin: "Termin 2", persentaseProgress: 50, nominal: 3000000, status: "DITERIMA" },
         { namaTermin: "Termin 3", persentaseProgress: 100, nominal: 5000000, status: "BELUM_DITERIMA" },
     ];
 
-    // If terminData is explicitly passed as empty array [], render empty state
     const hasData = terminData !== undefined ? terminData.length > 0 : true;
 
     const rawTermins = (terminData && terminData.length > 0)
@@ -70,7 +62,6 @@ export default function GrafikProgressTermin({
         }))
         : defaultTermins;
 
-    // Calculate CUMULATIVE NOMINAL for each termin
     const termins = rawTermins.map((t, idx, arr) => {
         const prevCum = arr
             .slice(0, idx)
@@ -86,7 +77,6 @@ export default function GrafikProgressTermin({
 
     const count = termins.length;
 
-    // Check if the first termin is DP / Termin 0%
     const hasTermin0 = termins.length > 0 && (
         Number(termins[0].persentaseProgress) === 0 ||
         termins[0].namaTermin?.toLowerCase().trim() === "termin 0" ||
@@ -94,11 +84,8 @@ export default function GrafikProgressTermin({
         termins[0].namaTermin?.toLowerCase().includes("down payment")
     );
 
-    // If there is Termin 0%, columns start right at xStart (totalSections = count).
-    // If no Termin 0%, the first section (0% to Termin 1) is empty space (totalSections = count + 1).
     const totalSections = hasTermin0 ? Math.max(1, count) : count + 1;
 
-    // SVG geometry
     const viewWidth = Math.max(560, totalSections * 115);
     const viewHeight = 250;
 
@@ -112,7 +99,6 @@ export default function GrafikProgressTermin({
 
     const sectionWidth = totalWidth / totalSections;
 
-    // Calculate maximum cumulative nominal
     const maxCumNominal = Math.max(1, termins.length > 0 ? termins[termins.length - 1].cumNominal : 1);
 
     const renderLegend = (isModal: boolean) => (
@@ -140,7 +126,6 @@ export default function GrafikProgressTermin({
         const activeHoveredIdx = isModal ? hoveredIdxModal : hoveredIdxCard;
         const setHoveredIdx = isModal ? setHoveredIdxModal : setHoveredIdxCard;
 
-        // Calculate geometry for each termin column
         const stepPositions = termins.map((t, idx) => {
             const xMilestone = hasTermin0
                 ? xStart + idx * sectionWidth
@@ -159,7 +144,6 @@ export default function GrafikProgressTermin({
                 )
                 : idx < 2;
 
-            // Height calculations
             const curCumHeight = (t.cumNominal / maxCumNominal) * chartHeight;
             const prevCumHeight = (t.prevCumNominal / maxCumNominal) * chartHeight;
             const nominalHeight = (t.nominalNum / maxCumNominal) * chartHeight;
@@ -188,7 +172,6 @@ export default function GrafikProgressTermin({
 
         return (
             <div className="relative w-full overflow-visible">
-                {/* Header Legend */}
                 <div className="mb-3 w-full">
                     {renderLegend(isModal)}
                 </div>
@@ -199,7 +182,6 @@ export default function GrafikProgressTermin({
                     style={{ maxHeight: isModal ? "540px" : "230px" }}
                 >
                     <defs>
-                        {/* Clip path for unified column with exactly 4 outer rounded corners */}
                         {stepPositions.map((step, idx) => (
                             <clipPath key={`clip-${clipPrefix}-${idx}`} id={`clip-${clipPrefix}-${idx}`}>
                                 <rect
@@ -213,7 +195,6 @@ export default function GrafikProgressTermin({
                         ))}
                     </defs>
 
-                    {/* Y-Axis Section Header */}
                     <text
                         x={xStart - 8}
                         y={yTop - 15}
@@ -223,7 +204,6 @@ export default function GrafikProgressTermin({
                         Total Kumulatif
                     </text>
 
-                    {/* Horizontal Baseline */}
                     <line
                         x1={xStart - 10}
                         y1={yBottom}
@@ -233,7 +213,6 @@ export default function GrafikProgressTermin({
                         strokeWidth="1.2"
                     />
 
-                    {/* Origin (0%) Vertical Dashed Line & Label */}
                     <line
                         x1={xStart}
                         y1={yTop - 5}
@@ -252,14 +231,12 @@ export default function GrafikProgressTermin({
                         0%
                     </text>
 
-                    {/* Y-Axis Labels & Horizontal Guidelines (Hanya Muncul Saat di-Hover) */}
                     {stepPositions.map((step, idx) => {
                         const isHovered = activeHoveredIdx === idx;
                         const compactText = formatCompactRupiah(step.cumNominal);
 
                         return (
                             <g key={`y-axis-${idx}`}>
-                                {/* Garis putus-putus horizontal HANYA muncul saat di-hover */}
                                 {isHovered && (
                                     <line
                                         x1={xStart - 4}
@@ -273,12 +250,11 @@ export default function GrafikProgressTermin({
                                     />
                                 )}
 
-                                {/* Left Y-Axis Label */}
                                 <text
                                     x={xStart - 8}
                                     y={step.yTopCurCum + 3.5}
                                     textAnchor="end"
-                                    className={`text-[9.5px] font-mono tracking-tight transition-all ${isHovered
+                                    className={`text-[9.5px]  tracking-tight transition-all ${isHovered
                                             ? "fill-stone-900 font-extrabold text-[10.5px]"
                                             : "fill-stone-400 font-medium"
                                         }`}
@@ -289,7 +265,6 @@ export default function GrafikProgressTermin({
                         );
                     })}
 
-                    {/* Render Columns & Milestones */}
                     {stepPositions.map((step, idx) => {
                         const t = termins[idx];
                         const isHovered = activeHoveredIdx === idx;
@@ -303,7 +278,6 @@ export default function GrafikProgressTermin({
                                 onMouseLeave={() => setHoveredIdx(null)}
                                 className="cursor-pointer transition-opacity duration-150"
                             >
-                                {/* Milestone Vertical Dashed Line & Labels (Skip duplicate for 0% origin line) */}
                                 {!isTermin0Origin && (
                                     <>
                                         <line
@@ -334,11 +308,9 @@ export default function GrafikProgressTermin({
                                     </>
                                 )}
 
-                                {/* Unified Column Shape with 4 outer curves via clipPath */}
                                 <g clipPath={`url(#clip-${clipPrefix}-${idx})`}>
                                     {step.isDisbursed ? (
                                         <>
-                                            {/* Bottom: Previous Accumulation (#afdcc9) */}
                                             {hasPrevCum && (
                                                 <rect
                                                     x={step.colX}
@@ -349,7 +321,6 @@ export default function GrafikProgressTermin({
                                                 />
                                             )}
 
-                                            {/* Top: Current Disbursed Termin (#4d9368) */}
                                             <rect
                                                 x={step.colX}
                                                 y={step.yTopCurCum}
@@ -361,7 +332,6 @@ export default function GrafikProgressTermin({
                                         </>
                                     ) : (
                                         <>
-                                            {/* Bottom: Previous Accumulation for undisbursed (#cdd8df) */}
                                             {hasPrevCum && (
                                                 <rect
                                                     x={step.colX}
@@ -372,7 +342,6 @@ export default function GrafikProgressTermin({
                                                 />
                                             )}
 
-                                            {/* Top: Current Undisbursed Termin (#8ea3b0) */}
                                             <rect
                                                 x={step.colX}
                                                 y={step.yTopCurCum}
@@ -384,7 +353,6 @@ export default function GrafikProgressTermin({
                                     )}
                                 </g>
 
-                                {/* Hover Outline */}
                                 {isHovered && (
                                     <rect
                                         x={step.colX}
@@ -399,13 +367,12 @@ export default function GrafikProgressTermin({
                                     />
                                 )}
 
-                                {/* Text inside top block */}
                                 {step.nominalHeight >= 14 && (
                                     <text
                                         x={step.midX}
                                         y={step.yTopCurCum + step.nominalHeight / 2 + 3}
                                         textAnchor="middle"
-                                        className="text-[9px] font-bold fill-white font-mono tracking-tight pointer-events-none"
+                                        className="text-[9px] font-bold fill-white  tracking-tight pointer-events-none"
                                     >
                                         {formatCompactRupiah(step.nominalNum)}
                                     </text>
@@ -414,7 +381,6 @@ export default function GrafikProgressTermin({
                         );
                     })}
 
-                    {/* Floating Tooltip rendered directly in SVG coordinate space for identical positioning on all bars */}
                     {activeHoveredIdx !== null && stepPositions[activeHoveredIdx] && (
                         <foreignObject
                             x={stepPositions[activeHoveredIdx].midX - 90}
@@ -425,7 +391,6 @@ export default function GrafikProgressTermin({
                         >
                             <div className="flex flex-col items-center justify-end w-full h-full">
                                 <div className="bg-white border border-stone-200/90 shadow-xl rounded-xl p-2.5 w-max text-left animate-in fade-in zoom-in-95 duration-150 space-y-0.5 whitespace-nowrap">
-                                    {/* Status Header */}
                                     <div className="flex items-center gap-1.5 whitespace-nowrap mb-0.5">
                                         <span
                                             className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
@@ -437,19 +402,17 @@ export default function GrafikProgressTermin({
                                         </span>
                                     </div>
 
-                                    {/* Nominal Termin */}
                                     <div className="flex items-center justify-between gap-3 text-[9px] whitespace-nowrap">
                                         <span className="text-stone-400 font-medium whitespace-nowrap">Nominal termin</span>
-                                        <span className="font-bold text-[#2d6a4f] font-mono whitespace-nowrap">
-                                            {formatFullRupiah(termins[activeHoveredIdx].nominalNum)}
+                                        <span className="font-bold text-[#2d6a4f]  whitespace-nowrap">
+                                            {<CompactNominal value={termins[activeHoveredIdx].nominalNum} compactThreshold={1_000_000_000} showTooltip />}
                                         </span>
                                     </div>
 
-                                    {/* Total Kumulatif */}
                                     <div className="flex items-center justify-between gap-3 text-[9px] whitespace-nowrap">
                                         <span className="text-stone-400 font-medium whitespace-nowrap">Total kumulatif</span>
-                                        <span className="font-bold text-stone-900 font-mono whitespace-nowrap">
-                                            {formatFullRupiah(termins[activeHoveredIdx].cumNominal)}
+                                        <span className="font-bold text-stone-900  whitespace-nowrap">
+                                            {<CompactNominal value={termins[activeHoveredIdx].cumNominal} compactThreshold={1_000_000_000} showTooltip />}
                                         </span>
                                     </div>
                                 </div>
@@ -463,7 +426,6 @@ export default function GrafikProgressTermin({
 
     return (
         <>
-            {/* Main Interactive Card */}
             <div
                 onClick={() => setIsModalOpen(true)}
                 className="bg-white border border-stone-200 hover:border-emerald-500 rounded-2xl p-4 shadow-sm hover:shadow transition-all duration-200 cursor-pointer group text-left space-y-3"
@@ -488,7 +450,6 @@ export default function GrafikProgressTermin({
                 )}
             </div>
 
-            {/* Pop-up Modal View */}
             {isModalOpen && (
                 <div
                     className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
@@ -501,7 +462,6 @@ export default function GrafikProgressTermin({
                         className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl max-w-4xl w-full border border-stone-100 animate-in zoom-in-95 duration-200 relative text-left flex flex-col max-h-[90vh] overflow-visible"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Modal Header */}
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-6 pb-2 flex-shrink-0">
                             <div>
                                 <h3 className="font-bold text-xl sm:text-2xl text-stone-900 leading-tight">
@@ -522,7 +482,6 @@ export default function GrafikProgressTermin({
                             </button>
                         </div>
 
-                        {/* Modal Chart Content */}
                         <div className="w-full flex-1 pt-2 pb-4 overflow-visible">
                             {!hasData ? (
                                 <div className="w-full h-[350px] bg-stone-50/60 border border-dashed border-stone-200 rounded-2xl flex items-center justify-center text-sm font-medium text-stone-400 italic">

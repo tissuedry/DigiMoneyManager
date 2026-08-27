@@ -13,7 +13,6 @@ import SuccessDialog from '@/components/success-dialog';
 import Toast from '@/components/toast';
 import CompactNominal from '@/components/compact-nominal';
 import { useApi, useInvalidate } from '@/lib/use-api';
-import { formatFullRupiah } from '@/lib/format-nominal';
 import ImageLightbox from '@/components/image-lightbox';
 import { formatApprovalDate, formatTanggal, getAvatarColor } from '@/lib/formatters';
 import RejectModal from './RejectModal';
@@ -591,7 +590,7 @@ function PencairanContent() {
                         Total Pengajuan
                       </p>
                       <p className="text-[32px] font-bold text-stone-900">
-                        {formatFullRupiah(selectedItem.nominal)}
+                        {<CompactNominal value={selectedItem.nominal} compactThreshold={1_000_000_000_000} showTooltip />}
                       </p>
                     </div>
 
@@ -629,16 +628,21 @@ function PencairanContent() {
                           <div className="flex items-center justify-between text-[11.5px] pt-0.5">
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Alokasi</span>
-                              <span className="font-semibold text-stone-900 ">{formatFullRupiah(alokasi)}</span>
+                              <span className="font-semibold text-stone-900 ">
+                                {<CompactNominal value={alokasi} compactThreshold={1_000_000_000_000} showTooltip />}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Realisasi</span>
-                              <span className="font-semibold text-stone-900 ">{formatFullRupiah(realisasi)}</span>
+                              <span className="font-semibold text-stone-900 ">
+                                {<CompactNominal value={realisasi} compactThreshold={1_000_000_000_000} showTooltip />}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Sisa</span>
                               <span className={`font-semibold  ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
-                                {isOver ? `- ${formatFullRupiah(Math.abs(sisa))}` : formatFullRupiah(sisa)}
+                                {isOver ? `- ${<CompactNominal value={Math.abs(sisa)} compactThreshold={1_000_000_000_000} showTooltip />}` 
+                                : <CompactNominal value={sisa} compactThreshold={1_000_000_000_000} showTooltip />}
                               </span>
                             </div>
                           </div>

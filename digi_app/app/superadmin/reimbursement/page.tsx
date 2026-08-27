@@ -90,13 +90,12 @@ function AjukanReimbursementContent() {
   const [activePreviewStruk, setActivePreviewStruk] = useState<{ url: string; isPdf: boolean } | null>(null);
 
   const { data: meData } = useApi<MeResponse>("/api/auth/me");
-  const { data: proyekData } = useApi<ProyekResponse>("/api/proyek?role=Superadmin");
+  const { data: proyekData } = useApi<ProyekResponse>("/api/proyek?role=Superadmin&limit=1000");
   const { data: reimbData } = useApi<{ reimbursements?: RawReimbursement[] }>(
     resubmitId ? "/api/reimbursements?role=Superadmin" : null
   );
   const projects = useMemo(
-    () => (proyekData?.projects ?? []).filter((p) => String(p.status ?? '').toUpperCase() === 'AKTIF'),
-    [proyekData]
+    () => (proyekData?.projects ?? []), [proyekData]
   );
 
   const [proyekId, setProyekId] = useState('');
