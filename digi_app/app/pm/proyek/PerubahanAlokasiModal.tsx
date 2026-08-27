@@ -294,9 +294,13 @@ export default function PerubahanAlokasiModal({
           {isInvalid ? (
             <span className="text-[11px] font-normal text-[#902F33] bg-[#FDF3F2] border border-[#902F33] px-2.5 py-1 rounded-lg">
               <span className="mr-1.5">⚠</span>
-              {alokasiBaru < sumSub
-                ? `Alokasi baru kurang dari total sub (${<CompactNominal value={sumSub} compactThreshold={1_000_000_000_000} showTooltip />})`
-                : "Melebihi sisa Nilai Proyek"}
+              {alokasiBaru < sumSub ? (
+                <>
+                  Alokasi baru kurang dari total sub <span className="whitespace-nowrap">(<CompactNominal value={sumSub} />)</span>
+                </>
+              ) : (
+                "Melebihi sisa Nilai Proyek"
+              )}
             </span>
           ) : (
             <div />

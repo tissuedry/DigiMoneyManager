@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import DatePicker from '@/components/date-picker';
 import KeteranganSearchDropdown, { type FlatKeteranganOption } from './KeteranganSearchDropdown';
-import { formatRupiah } from '@/lib/formatters';
+import { formatRibuan } from '@/lib/proyek-utils';
 
 export interface StrukItem {
   id: string;
@@ -123,11 +123,10 @@ export default function ReviewForm({
                 key={s.id}
                 type="button"
                 onClick={() => onSelectIndex(idx)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border shrink-0 cursor-pointer ${
-                  activeIndex === idx
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border shrink-0 cursor-pointer ${activeIndex === idx
                     ? 'bg-[#008F5D] text-white border-[#008F5D] shadow-sm'
                     : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                }`}
+                  }`}
               >
                 <span>#{idx + 1}</span>
                 <span className="truncate max-w-[120px]">{s.merchant || `Struk ${idx + 1}`}</span>
@@ -135,16 +134,16 @@ export default function ReviewForm({
                   (Rp {s.nominal || '0'})
                 </span>
                 <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveStruk(s.id);
-                    }}
-                    className={`p-0.5 rounded hover:bg-black/20 ${activeIndex === idx ? 'text-white' : 'text-stone-400 hover:text-red-500'}`}
-                    title="Hapus struk ini"
-                  >
-                    <Trash2 size={12} />
-                  </span>
-                </button>
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveStruk(s.id);
+                  }}
+                  className={`p-0.5 rounded hover:bg-black/20 ${activeIndex === idx ? 'text-white' : 'text-stone-400 hover:text-red-500'}`}
+                  title="Hapus struk ini"
+                >
+                  <Trash2 size={12} />
+                </span>
+              </button>
             ))}
 
             {strukList.length < maxLimit && (
@@ -238,12 +237,11 @@ export default function ReviewForm({
                 type="text"
                 value={item.merchant}
                 onChange={(e) => onUpdateField(item.id, { merchant: e.target.value })}
-                placeholder="Gramedia Merdeka / Nama Merchant..."
-                className={`w-full bg-white border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
-                  item.errors?.merchant
+                placeholder="cth: Pembelian Alat Tulis"
+                className={`w-full bg-white border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${item.errors?.merchant
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-stone-200 focus:border-[#008F5D]'
-                }`}
+                  }`}
               />
               {item.errors?.merchant && (
                 <p className="text-red-500 font-medium text-[11px]">{item.errors.merchant}</p>
@@ -285,15 +283,18 @@ export default function ReviewForm({
                 <input
                   type="text"
                   value={item.nominal}
-                  onChange={(e) =>
-                    onUpdateField(item.id, { nominal: formatRupiah(e.target.value) })
-                  }
+                  onChange={(e) => {
+                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                    onUpdateField(item.id, { nominal: formatted });
+                    requestAnimationFrame(() => {
+                      e.target.setSelectionRange(caret, caret);
+                    });
+                  }}
                   placeholder="0"
-                  className={`w-full bg-white border rounded-xl pl-9 pr-3.5 py-2.5 text-xs sm:text-sm font-bold text-stone-900  focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
-                    item.errors?.nominal
+                  className={`w-full bg-white border rounded-xl pl-9 pr-3.5 py-2.5 text-xs sm:text-sm font-bold text-stone-900  focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${item.errors?.nominal
                       ? 'border-red-300 focus:border-red-500'
                       : 'border-stone-200 focus:border-[#008F5D]'
-                  }`}
+                    }`}
                 />
               </div>
               {item.errors?.nominal && (
@@ -314,11 +315,10 @@ export default function ReviewForm({
                 <select
                   value={item.kategoriBukti}
                   onChange={(e) => onUpdateField(item.id, { kategoriBukti: e.target.value })}
-                  className={`w-full bg-white border rounded-xl pl-3.5 pr-10 py-2.5 text-xs sm:text-sm font-medium text-stone-900 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
-                    item.errors?.kategoriBukti
+                  className={`w-full bg-white border rounded-xl pl-3.5 pr-10 py-2.5 text-xs sm:text-sm font-medium text-stone-900 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${item.errors?.kategoriBukti
                       ? 'border-red-300 focus:border-red-500'
                       : 'border-stone-200 focus:border-[#008F5D]'
-                  }`}
+                    }`}
                 >
                   <option value="Struk Pembelian">Struk Pembelian</option>
                   <option value="Invoice / Faktur">Invoice / Faktur</option>

@@ -19,6 +19,7 @@ type SubPosItem = {
   id: number;
   nama: string;
   alokasi: number;
+  pendingNominal?: number;
   realisasi: number;
   transaksis: TransaksiItem[];
 };
@@ -66,7 +67,8 @@ export default function DetailPendapatanModal({
     const mainId = m.id ?? mIdx;
     const subPos: SubPosItem[] = (m.subAnggaran || []).map((s: any, sIdx: number) => {
       const subId = s.id ?? sIdx;
-      const subNominal = Number(s.alokasi || s.nominalAlokasi || 0);
+      const subNominal = Number(s.alokasi || s.nominalAlokasi || 0) || (m.subAnggaran?.length === 1 ? mainNominal : 0);
+      const pendingNominal = Math.max(subNominal, Number(s.terpakai || s.nominalTerpakai || 0));
 
       const sName = (s.namaSub || s.nama || "").trim().toLowerCase();
       const isPenjualanSub =
@@ -93,14 +95,15 @@ export default function DetailPendapatanModal({
         ? (transaksiTotal > 0
             ? transaksiTotal
             : isProyekDone
-            ? Math.max(subNominal, Number(s.terpakai || s.nominalTerpakai || 0))
-            : Math.max(Number(s.terpakai || s.nominalTerpakai || 0), transaksiTotal))
+            ? pendingNominal
+            : Number(s.terpakai || s.nominalTerpakai || 0))
         : transaksiTotal;
 
       return {
         id: subId,
         nama: s.namaSub || s.nama,
         alokasi: subNominal,
+        pendingNominal,
         realisasi: subRealisasi,
         transaksis: relatedTransaksis,
       };
@@ -114,8 +117,8 @@ export default function DetailPendapatanModal({
     const mainRealisasi = calculatedMainRealisasi > 0
       ? calculatedMainRealisasi
       : isProyekDone
-      ? Math.max(mainNominal, calculatedMainRealisasi)
-      : calculatedMainRealisasi;
+      ? mainNominal
+      : 0;
 
     return {
       id: mainId,
@@ -329,7 +332,7 @@ export default function DetailPendapatanModal({
 
                                           <div className="w-[160px] shrink-0 flex items-center justify-center gap-1.5">
                                             <span className="text-[11px]  font-normal text-[#6A6660]">
-                                              {<CompactNominal value={isProyekDone ? sub.realisasi : 0} compactThreshold={1_000_000_000_000} showTooltip />}
+                                              {<CompactNominal value={sub.pendingNominal || sub.alokasi || sub.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}
                                             </span>
                                             {isProyekDone ? (
                                               <Check

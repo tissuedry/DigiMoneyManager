@@ -55,6 +55,11 @@ export default function PencairanTerminModal({
     e.preventDefault();
     setError("");
 
+    if (!termin || termin.length === 0) {
+      setError("Proyek masih belum memiliki termin");
+      return;
+    }
+
     if (!nextTermin) {
       setError("Semua termin sudah dicairkan");
       return;
@@ -122,7 +127,13 @@ export default function PencairanTerminModal({
             <input
               type="text"
               readOnly
-              value={nextTermin ? nextTermin.namaTermin : "Semua termin sudah dicairkan"}
+              value={
+                !termin || termin.length === 0
+                  ? "Proyek masih belum memiliki termin"
+                  : nextTermin
+                  ? (nextTermin.namaTermin === "Termin 0" ? "DP" : nextTermin.namaTermin)
+                  : "Semua termin sudah dicairkan"
+              }
               className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[14px] text-stone-800 bg-[#F8F7F4] font-medium outline-none cursor-default"
             />
           </div>

@@ -4,6 +4,7 @@ import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import { Project } from "./types";
 import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
+import { formatFullRupiah } from "@/lib/format-nominal";
 
 import { useApi, useMutate } from "@/lib/use-api";
 import CompactNominal from "@/components/compact-nominal";
@@ -149,7 +150,7 @@ export default function AlokasiPengeluaranForm({
           >
             <div className="flex flex-col gap-0.5">
               <div className="font-sans font-bold text-[17px] text-[#14130F] leading-[25.5px]">
-                Alokasi Pengeluaran
+                Alokasi Biaya
               </div>
               <div className="font-sans font-normal text-xs text-[#9A948B] leading-[18px]">
                 {showInitBudget?.nama}
@@ -195,19 +196,19 @@ export default function AlokasiPengeluaranForm({
                   <div
                     className="h-full bg-rose-500 transition-all duration-300"
                     style={{ width: `${Math.min(pctPengeluaran, 100)}%` }}
-                    title={`Pengeluaran (RAB): ${<CompactNominal value={totalPengeluaranAllocated} compactThreshold={1_000_000_000_000} />}`}
+                    title={`Pengeluaran (RAB): ${formatFullRupiah(totalPengeluaranAllocated)}`}
                   />
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
                     style={{ width: `${Math.min(pctPemasukan, 100)}%` }}
-                    title={`Pemasukan (COA): ${<CompactNominal value={totalPemasukanExisting} compactThreshold={1_000_000_000_000} />}`}
+                    title={`Pemasukan (COA): ${formatFullRupiah(totalPemasukanExisting)}`}
                   />
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
                   <div className="flex flex-col">
                     <span className="text-stone-400 font-medium flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shrink-0" />
-                      Pengeluaran
+                      Biaya
                     </span>
                     <span className=" font-bold text-stone-800 text-[12px] mt-0.5">
                       {<CompactNominal value={totalPengeluaranAllocated} compactThreshold={1_000_000_000_000} />}
@@ -218,7 +219,7 @@ export default function AlokasiPengeluaranForm({
                   <div className="flex flex-col">
                     <span className="text-stone-400 font-medium flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
-                      Pemasukan
+                      Pendapatan
                     </span>
                     <span className=" font-bold text-stone-800 text-[12px] mt-0.5">
                       {<CompactNominal value={totalPemasukanExisting} compactThreshold={1_000_000_000_000} />}
@@ -243,7 +244,7 @@ export default function AlokasiPengeluaranForm({
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-[12.5px] font-bold text-stone-900 font-sans">
-                    Pos Main Pengeluaran ({posAnggaranList.length})
+                    Pos Main Biaya ({posAnggaranList.length})
                   </span>
                   <button
                     type="button"
@@ -268,7 +269,7 @@ export default function AlokasiPengeluaranForm({
                         className="flex-1 border border-stone-200 rounded-xl px-2.5 py-2.5 text-[12.5px] font-medium bg-white focus:outline-none focus:border-stone-400 text-stone-800"
                       >
                         <option value="" disabled hidden>
-                          {loadingOptions ? "Memuat data..." : "Pilih Pos Main Pengeluaran"}
+                          {loadingOptions ? "Memuat data..." : "Pilih Pos Main Biaya"}
                         </option>
                         {pengeluaranOptions.map((opt) => (
                           <option key={opt.id} value={opt.nama}>

@@ -270,6 +270,22 @@ export default function ProjectDetailSidebar({
 
     const terminList: any[] = detailedProjectInfo?.terminPembayaran ?? [];
 
+    const activeProjectData = detailedProjectInfo || showProjectDetail;
+
+    const hasAlokasiBiaya = Boolean(
+        (activeProjectData?.budget?.posAnggaran && activeProjectData.budget.posAnggaran.some((p: any) => (p.tipe ? p.tipe !== "pemasukan" : true) && Number(p.nominalAlokasi || p.alokasi || p.nominal) > 0)) ||
+        (activeProjectData?.budget?.mainAnggaran && activeProjectData.budget.mainAnggaran.some((m: any) => m.tipe !== "pemasukan" && Number(m.nominalAlokasi || m.alokasi || m.nominal) > 0))
+    );
+
+    const hasAlokasiPendapatan = Boolean(
+        (activeProjectData?.alokasiPemasukan && activeProjectData.alokasiPemasukan.some((m: any) => Number(m.nominalAlokasi || m.alokasi || m.nominal) > 0)) ||
+        (activeProjectData?.budget?.alokasiPemasukan && activeProjectData.budget.alokasiPemasukan.some((m: any) => Number(m.nominalAlokasi || m.alokasi || m.nominal) > 0)) ||
+        (activeProjectData?.budget?.posAnggaran && activeProjectData.budget.posAnggaran.some((m: any) => m.tipe === "pemasukan" && Number(m.nominalAlokasi || m.alokasi || m.nominal) > 0)) ||
+        (activeProjectData?.budget?.mainAnggaran && activeProjectData.budget.mainAnggaran.some((m: any) => m.tipe === "pemasukan" && Number(m.nominalAlokasi || m.alokasi || m.nominal) > 0)) ||
+        (dataAlokasiModal && dataAlokasiModal.length > 0 && dataAlokasiModal.some((m: any) => Number(m.nominalAlokasi || m.alokasi || m.nominal) > 0)) ||
+        (Number(activeProjectData?.budget?.targetPemasukan || activeProjectData?.targetPemasukan || activeProjectData?.budget?.totalPemasukan || activeProjectData?.totalPemasukan) > 0)
+    );
+
     if (!showProjectDetail || editMode || isDirectEdit) return null;
 
     const detailTotalRAB = parseFloat(detailedProjectInfo?.budget?.nilaiKontrak) || 0;
@@ -433,31 +449,31 @@ export default function ProjectDetailSidebar({
                                                 <span className=" text-sm font-black">{calculatedPercentUsed}%</span>
                                             </div>
 
-                                                {(() => {
-                                                    let macroBarColor = "bg-[#00966c]";
-                                                    if (calculatedPercentUsed >= 90) {
-                                                        macroBarColor = "bg-[#d65f5f]";
-                                                    } else if (calculatedPercentUsed >= 80) {
-                                                        macroBarColor = "bg-[#d4a373]";
-                                                    }
+                                            {(() => {
+                                                let macroBarColor = "bg-[#00966c]";
+                                                if (calculatedPercentUsed >= 90) {
+                                                    macroBarColor = "bg-[#d65f5f]";
+                                                } else if (calculatedPercentUsed >= 80) {
+                                                    macroBarColor = "bg-[#d4a373]";
+                                                }
 
-                                                    return (
-                                                        <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full transition-all duration-500 ease-out ${macroBarColor}`}
-                                                                style={{ width: `${calculatedPercentUsed}%` }}
-                                                            />
-                                                        </div>
-                                                    );
-                                                })()}
+                                                return (
+                                                    <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-500 ease-out ${macroBarColor}`}
+                                                            style={{ width: `${calculatedPercentUsed}%` }}
+                                                        />
+                                                    </div>
+                                                );
+                                            })()}
 
-                                                <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
-                                                    <span>Nilai Proyek <b className="text-stone-700  font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000_000_000} /></b></span>
-                                                    <span>Realisasi <b className="text-stone-700  font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000_000_000} /></b></span>
-                                                    <span>Sisa <b className="text-stone-400  font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000_000_000} /></b></span>
-                                                </div>
+                                            <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium">
+                                                <span>Nilai Proyek <b className="text-stone-700  font-bold ml-0.5"><CompactNominal value={detailTotalRAB} compactThreshold={1_000_000_000_000} /></b></span>
+                                                <span>Realisasi <b className="text-stone-700  font-bold ml-0.5"><CompactNominal value={calculatedTotalTerpakai} compactThreshold={1_000_000_000_000} /></b></span>
+                                                <span>Sisa <b className="text-stone-400  font-bold ml-0.5"><CompactNominal value={Math.max(0, detailTotalRAB - calculatedTotalTerpakai)} compactThreshold={1_000_000_000_000} /></b></span>
                                             </div>
-                                        ) : (
+                                        </div>
+                                    ) : (
                                         <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-xl text-xs flex items-center justify-between text-left">
                                             <span>Nilai Proyek belum diinisialisasi.</span>
                                             <button type="button" onClick={() => { onClose(); setShowAlokasiPengeluaran(showProjectDetail); }} className="px-3 py-1.5 bg-amber-100 text-amber-900 font-bold rounded-lg text-[11px]">Set Nilai Proyek</button>
@@ -515,9 +531,12 @@ export default function ProjectDetailSidebar({
                                             <button
                                                 type="button"
                                                 onClick={() => setShowAlokasiPengeluaran(showProjectDetail)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                                                className={`flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer ${!hasAlokasiBiaya
+                                                    ? "bg-[#fdf5ea] hover:bg-[#faebd7] text-[#935a16] border border-[#eabd8e]"
+                                                    : "bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700"
+                                                    }`}
                                             >
-                                                <Settings size={14} className="text-stone-500 shrink-0" />
+                                                <Settings size={14} className={`shrink-0 ${!hasAlokasiBiaya ? "text-[#935a16]" : "text-stone-500"}`} />
                                                 <span>Alokasi Biaya</span>
                                             </button>
                                         </div>
@@ -736,16 +755,24 @@ export default function ProjectDetailSidebar({
 
                                                 <button
                                                     onClick={() => setIsEditTerminOpen(true)}
-                                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                                                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer ${terminList.length === 0
+                                                            ? "bg-[#fdf5ea] hover:bg-[#faebd7] text-[#935a16] border border-[#eabd8e]"
+                                                            : "bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700"
+                                                        }`}
                                                 >
-                                                    <Settings size={14} className="text-stone-500 shrink-0" /> Edit Termin
+                                                    <Settings size={14} className={`shrink-0 ${terminList.length === 0 ? "text-[#935a16]" : "text-stone-500"}`} />
+                                                    {terminList.length === 0 ? "Set Termin" : "Edit Termin"}
                                                 </button>
 
                                                 <button
                                                     onClick={() => setIsAlokasiPemasukanFormOpen(true)}
-                                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                                                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer ${!hasAlokasiPendapatan
+                                                        ? "bg-[#fdf5ea] hover:bg-[#faebd7] text-[#935a16] border border-[#eabd8e]"
+                                                        : "bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700"
+                                                        }`}
                                                 >
-                                                    <Settings size={14} className="text-stone-500 shrink-0" /> Alokasi Pemasukan
+                                                    <Settings size={14} className={`shrink-0 ${!hasAlokasiPendapatan ? "text-[#935a16]" : "text-stone-500"}`} />
+                                                    <span>Alokasi Pendapatan</span>
                                                 </button>
                                             </div>
 
@@ -753,7 +780,7 @@ export default function ProjectDetailSidebar({
                                                 onClick={() => setisDetailPemasukanOpen(true)}
                                                 className="w-full flex items-center justify-center gap-1.5 px-2 h-[34px] bg-white border border-[#e2e2e0] hover:bg-stone-50 text-stone-700 text-[12px] font-medium rounded-xl shadow-sm transition-all cursor-pointer"
                                             >
-                                                <Eye size={14} className="text-stone-500 shrink-0" /> Lihat Detail Pemasukan
+                                                <Eye size={14} className="text-stone-500 shrink-0" /> Lihat Detail Pendapatan
                                             </button>
                                         </div>
 
@@ -782,7 +809,7 @@ export default function ProjectDetailSidebar({
                                                             >
                                                                 <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
                                                                     <span className="text-[13px] font-bold text-stone-800 truncate">
-                                                                        {termin.namaTermin}
+                                                                        {termin.namaTermin === "Termin 0" ? "DP" : termin.namaTermin}
                                                                     </span>
                                                                     {parseFloat(termin.persentaseProgress) > 0 && (
                                                                         <span className="text-[12px] text-stone-400 font-medium shrink-0">

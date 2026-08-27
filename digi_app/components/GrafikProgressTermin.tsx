@@ -54,13 +54,22 @@ export default function GrafikProgressTermin({
     const hasData = terminData !== undefined ? terminData.length > 0 : true;
 
     const rawTermins = (terminData && terminData.length > 0)
-        ? terminData.map((t, idx) => ({
-            namaTermin: t.namaTermin || `Termin ${idx + 1}`,
-            persentaseProgress: Math.min(100, Math.max(0, Number(t.persentaseProgress) || 0)),
-            nominal: t.nominal !== undefined ? Number(t.nominal) : (idx + 1) * 1000000,
-            status: t.status || (idx < 2 ? "DITERIMA" : "BELUM_DITERIMA"),
-        }))
-        : defaultTermins;
+        ? terminData.map((t, idx) => {
+            const isDpItem =
+                t.namaTermin?.toLowerCase().trim() === "dp" ||
+                t.namaTermin?.toLowerCase().trim() === "termin 0" ||
+                t.namaTermin?.toLowerCase().startsWith("termin 0") ||
+                t.namaTermin?.toLowerCase().includes("down payment");
+
+            return {
+                namaTermin: isDpItem ? "DP" : (t.namaTermin || `Termin ${idx + 1}`),
+                isDP: isDpItem,
+                persentaseProgress: Math.min(100, Math.max(0, Number(t.persentaseProgress) || 0)),
+                nominal: t.nominal !== undefined ? Number(t.nominal) : (idx + 1) * 1000000,
+                status: t.status || (idx < 2 ? "DITERIMA" : "BELUM_DITERIMA"),
+            };
+        })
+        : defaultTermins.map((t) => ({ ...t, isDP: false }));
 
     const termins = rawTermins.map((t, idx, arr) => {
         const prevCum = arr
@@ -76,17 +85,9 @@ export default function GrafikProgressTermin({
     });
 
     const count = termins.length;
+    const totalSections = Math.max(1, count);
 
-    const hasTermin0 = termins.length > 0 && (
-        Number(termins[0].persentaseProgress) === 0 ||
-        termins[0].namaTermin?.toLowerCase().trim() === "termin 0" ||
-        termins[0].namaTermin?.toLowerCase().trim() === "dp" ||
-        termins[0].namaTermin?.toLowerCase().includes("down payment")
-    );
-
-    const totalSections = hasTermin0 ? Math.max(1, count) : count + 1;
-
-    const viewWidth = Math.max(560, totalSections * 115);
+    const viewWidth = Math.max(560, totalSections * 120);
     const viewHeight = 250;
 
     const xStart = 88;
@@ -102,11 +103,10 @@ export default function GrafikProgressTermin({
     const maxCumNominal = Math.max(1, termins.length > 0 ? termins[termins.length - 1].cumNominal : 1);
 
     const renderLegend = (isModal: boolean) => (
-        <div className={`flex items-center font-medium text-stone-600 whitespace-nowrap flex-nowrap ${
-            isModal
+        <div className={`flex items-center font-medium text-stone-600 whitespace-nowrap flex-nowrap ${isModal
                 ? "justify-end gap-4 text-xs"
                 : "justify-start sm:justify-end gap-2 sm:gap-3 text-[9px] sm:text-[10px]"
-        }`}>
+            }`}>
             <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#4d9368] shadow-sm flex-shrink-0" />
                 <span className="text-stone-600">Nominal termin</span>
@@ -127,16 +127,12 @@ export default function GrafikProgressTermin({
         const setHoveredIdx = isModal ? setHoveredIdxModal : setHoveredIdxCard;
 
         const stepPositions = termins.map((t, idx) => {
-            const xMilestone = hasTermin0
-                ? xStart + idx * sectionWidth
-                : xStart + (idx + 1) * sectionWidth;
-
-            const colX = hasTermin0
-                ? xStart + idx * sectionWidth + 3
-                : xStart + (idx + 1) * sectionWidth + 3;
-
-            const colWidth = Math.max(20, sectionWidth - 6);
+            const colLeft = xStart + idx * sectionWidth + 6;
+            const colRight = xStart + (idx + 1) * sectionWidth - 6;
+            const colWidth = Math.max(24, colRight - colLeft);
+            const colX = colLeft;
             const midX = colX + colWidth / 2;
+            const xGridStart = xStart + idx * sectionWidth;
 
             const isDisbursed = t.status
                 ? ["DITERIMA", "PAID", "DISBURSED", "APPROVED", "SUDAH_DITERIMA", "SUDAH_DICAIRKAN", "CAIR"].includes(
@@ -152,7 +148,7 @@ export default function GrafikProgressTermin({
             const yTopPrevCum = yBottom - prevCumHeight;
 
             return {
-                xMilestone,
+                xGridStart,
                 colX,
                 colWidth,
                 midX,
@@ -213,23 +209,27 @@ export default function GrafikProgressTermin({
                         strokeWidth="1.2"
                     />
 
+                    {stepPositions.map((step, idx) => (
+                        <line
+                            key={`grid-line-${idx}`}
+                            x1={step.xGridStart}
+                            y1={yTop - 5}
+                            x2={step.xGridStart}
+                            y2={yBottom}
+                            stroke={step.isDisbursed ? "#7cd3c1" : "#d1d5db"}
+                            strokeWidth="1.2"
+                            strokeDasharray="4 4"
+                        />
+                    ))}
                     <line
-                        x1={xStart}
+                        x1={xStart + count * sectionWidth}
                         y1={yTop - 5}
-                        x2={xStart}
+                        x2={xStart + count * sectionWidth}
                         y2={yBottom}
-                        stroke={(hasTermin0 && stepPositions[0]?.isDisbursed) ? "#7cd3c1" : "#d1d5db"}
+                        stroke={stepPositions[count - 1]?.isDisbursed ? "#7cd3c1" : "#d1d5db"}
                         strokeWidth="1.2"
                         strokeDasharray="4 4"
                     />
-                    <text
-                        x={xStart}
-                        y={yBottom + 20}
-                        textAnchor="middle"
-                        className="text-[10px] font-medium fill-stone-400 font-sans"
-                    >
-                        0%
-                    </text>
 
                     {stepPositions.map((step, idx) => {
                         const isHovered = activeHoveredIdx === idx;
@@ -254,9 +254,9 @@ export default function GrafikProgressTermin({
                                     x={xStart - 8}
                                     y={step.yTopCurCum + 3.5}
                                     textAnchor="end"
-                                    className={`text-[9.5px]  tracking-tight transition-all ${isHovered
-                                            ? "fill-stone-900 font-extrabold text-[10.5px]"
-                                            : "fill-stone-400 font-medium"
+                                    className={`text-[9.5px] tracking-tight transition-all ${isHovered
+                                        ? "fill-stone-900 font-extrabold text-[10.5px]"
+                                        : "fill-stone-400 font-medium"
                                         }`}
                                 >
                                     {compactText}
@@ -269,7 +269,6 @@ export default function GrafikProgressTermin({
                         const t = termins[idx];
                         const isHovered = activeHoveredIdx === idx;
                         const hasPrevCum = step.prevCumNominal > 0;
-                        const isTermin0Origin = hasTermin0 && idx === 0;
 
                         return (
                             <g
@@ -278,35 +277,14 @@ export default function GrafikProgressTermin({
                                 onMouseLeave={() => setHoveredIdx(null)}
                                 className="cursor-pointer transition-opacity duration-150"
                             >
-                                {!isTermin0Origin && (
-                                    <>
-                                        <line
-                                            x1={step.xMilestone}
-                                            y1={yTop - 5}
-                                            x2={step.xMilestone}
-                                            y2={yBottom}
-                                            stroke={step.isDisbursed ? "#7cd3c1" : "#d1d5db"}
-                                            strokeWidth="1.2"
-                                            strokeDasharray="4 4"
-                                        />
-                                        <text
-                                            x={step.xMilestone}
-                                            y={yBottom + 16}
-                                            textAnchor="middle"
-                                            className="text-[10.5px] font-bold fill-stone-800 font-sans"
-                                        >
-                                            {t.namaTermin}
-                                        </text>
-                                        <text
-                                            x={step.xMilestone}
-                                            y={yBottom + 28}
-                                            textAnchor="middle"
-                                            className="text-[9.5px] font-medium fill-stone-400 font-sans"
-                                        >
-                                            {t.persentaseProgress}%
-                                        </text>
-                                    </>
-                                )}
+                                <text
+                                    x={step.midX}
+                                    y={yBottom + 20}
+                                    textAnchor="middle"
+                                    className="text-[11px] font-bold fill-stone-800 font-sans"
+                                >
+                                    {t.namaTermin}
+                                </text>
 
                                 <g clipPath={`url(#clip-${clipPrefix}-${idx})`}>
                                     {step.isDisbursed ? (
@@ -372,7 +350,7 @@ export default function GrafikProgressTermin({
                                         x={step.midX}
                                         y={step.yTopCurCum + step.nominalHeight / 2 + 3}
                                         textAnchor="middle"
-                                        className="text-[9px] font-bold fill-white  tracking-tight pointer-events-none"
+                                        className="text-[9px] font-bold fill-white tracking-tight pointer-events-none"
                                     >
                                         {formatCompactRupiah(step.nominalNum)}
                                     </text>
@@ -380,6 +358,8 @@ export default function GrafikProgressTermin({
                             </g>
                         );
                     })}
+
+
 
                     {activeHoveredIdx !== null && stepPositions[activeHoveredIdx] && (
                         <foreignObject
@@ -393,9 +373,8 @@ export default function GrafikProgressTermin({
                                 <div className="bg-white border border-stone-200/90 shadow-xl rounded-xl p-2.5 w-max text-left animate-in fade-in zoom-in-95 duration-150 space-y-0.5 whitespace-nowrap">
                                     <div className="flex items-center gap-1.5 whitespace-nowrap mb-0.5">
                                         <span
-                                            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                                stepPositions[activeHoveredIdx].isDisbursed ? "bg-[#4d9368]" : "bg-[#8ea3b0]"
-                                            }`}
+                                            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${stepPositions[activeHoveredIdx].isDisbursed ? "bg-[#4d9368]" : "bg-[#8ea3b0]"
+                                                }`}
                                         />
                                         <span className="text-[9.5px] font-medium text-stone-500 whitespace-nowrap">
                                             {stepPositions[activeHoveredIdx].isDisbursed ? "Sudah dicairkan" : "Belum dicairkan"}

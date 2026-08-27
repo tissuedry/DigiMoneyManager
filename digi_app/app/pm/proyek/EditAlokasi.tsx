@@ -7,6 +7,8 @@ import SuccessDialog from "@/components/success-dialog";
 import CompactNominal from "@/components/compact-nominal";
 
 
+import { formatRibuan } from "@/lib/proyek-utils";
+
 export type EditTarget = {
   type: "main" | "sub" | "ket";
   id: number;
@@ -61,7 +63,7 @@ export default function EditAlokasiModal({
   );
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const rawStr = e.target.value.replace(/\./g, "").replace(/[^0-9]/g, "");
+    const rawStr = e.target.value.replace(/[^0-9]/g, "");
     if (!rawStr) {
       setInputStr("");
       setAlokasiBaru(0);
@@ -69,8 +71,24 @@ export default function EditAlokasiModal({
     }
     const num = parseInt(rawStr, 10) || 0;
     const clamped = Math.min(num, maxAlokasi);
-    setInputStr(clamped.toLocaleString("id-ID"));
+
+    if (clamped !== num) {
+      const shown = formatRpInput(clamped);
+      setInputStr(shown);
+      setAlokasiBaru(clamped);
+      requestAnimationFrame(() => {
+        e.target.setSelectionRange(shown.length, shown.length);
+      });
+      return;
+    }
+
+    const caretPos = e.target.selectionStart ?? 0;
+    const { formatted, caret } = formatRibuan(e.target.value, caretPos);
+    setInputStr(formatted);
     setAlokasiBaru(clamped);
+    requestAnimationFrame(() => {
+      e.target.setSelectionRange(caret, caret);
+    });
   };
 
   const handleInputBlur = () => {

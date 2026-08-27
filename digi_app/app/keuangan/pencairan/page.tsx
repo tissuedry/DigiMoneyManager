@@ -640,9 +640,14 @@ function PencairanContent() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Sisa</span>
-                              <span className={`font-semibold  ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
-                                {isOver ? `- ${<CompactNominal value={Math.abs(sisa)} compactThreshold={1_000_000_000_000} showTooltip />}` 
-                                : <CompactNominal value={sisa} compactThreshold={1_000_000_000_000} showTooltip />}
+                              <span className={`font-semibold ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
+                                {isOver ? (
+                                  <>
+                                    - <CompactNominal value={Math.abs(sisa)} compactThreshold={1_000_000_000_000} showTooltip />
+                                  </>
+                                ) : (
+                                  <CompactNominal value={sisa} compactThreshold={1_000_000_000_000} showTooltip />
+                                )}
                               </span>
                             </div>
                           </div>
@@ -1077,23 +1082,23 @@ function PencairanContent() {
             <div className="space-y-2.5">
               <p>Apakah Anda yakin ingin mencairkan pengajuan ini dan men-generate jurnal?</p>
               <dl className="text-xs bg-stone-50 border border-stone-100 rounded-xl p-3.5 space-y-2">
-                <div className="flex justify-between gap-4">
+                <div className="flex justify-between gap-4 items-start">
                   <dt className="text-stone-400 font-medium shrink-0">Pemohon</dt>
-                  <dd className="font-bold text-stone-800 text-right truncate">{selectedItem.user?.nama || '-'}</dd>
+                  <dd className="font-bold text-stone-800 text-right break-words">{selectedItem.user?.nama || '-'}</dd>
                 </div>
-                <div className="flex justify-between gap-4">
+                <div className="flex justify-between gap-4 items-start">
                   <dt className="text-stone-400 font-medium shrink-0">Nominal</dt>
                   <dd className="font-bold text-stone-800 text-right">Rp {Number(selectedItem.nominal).toLocaleString('id-ID')}</dd>
                 </div>
-                <div className="flex justify-between gap-4 items-center">
-                  <dt className="text-stone-400 font-medium shrink-0 whitespace-nowrap">Akun Debit (Auto)</dt>
-                  <dd className="font-bold text-stone-800 text-right whitespace-nowrap">
+                <div className="flex justify-between gap-4 items-start">
+                  <dt className="text-stone-400 font-medium shrink-0">Akun Debit (Auto)</dt>
+                  <dd className="font-bold text-stone-800 text-right break-words">
                     {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'} &gt; {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'} &gt; {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-4">
+                <div className="flex justify-between gap-4 items-start">
                   <dt className="text-stone-400 font-medium shrink-0">Akun Kredit</dt>
-                  <dd className="font-bold text-right truncate">
+                  <dd className="font-bold text-right break-words">
                     {creditAccount ? (
                       <span className="text-stone-800 font-bold">
                         {creditAccount}

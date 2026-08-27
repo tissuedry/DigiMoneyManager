@@ -71,7 +71,7 @@ export default function DetailPemasukanModal({
         <div className="px-7 pt-[22px] pb-[18px] border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
           <div className="flex flex-col">
             <h3 className="text-[19px] font-bold text-[#14130F] leading-[28.5px] font-sans">
-              Detail Pemasukan
+              Detail Pendapatan
             </h3>
             <p className="text-[13px] text-[#6A6660] leading-[19.5px] mt-0.5 font-sans">
               {proyekNama}
@@ -100,10 +100,10 @@ export default function DetailPemasukanModal({
             {(dataPemasukan || []).length === 0 ? (
               <div className="p-12 text-center border border-stone-200 rounded-xl my-4">
                 <div className="font-sans font-bold text-sm text-stone-900 mb-1.5">
-                  Data Pemasukan Kosong
+                  Data Pendapatan Kosong
                 </div>
                 <div className="font-sans text-xs text-stone-400">
-                  Belum ada data nilai proyek atau pos alokasi pemasukan yang diinisialisasi.
+                  Belum ada data nilai proyek atau pos alokasi pendapatan yang diinisialisasi.
                 </div>
               </div>
             ) : (
@@ -113,7 +113,8 @@ export default function DetailPemasukanModal({
                 const subList = main.subAnggaran || [];
 
                 const calculatedSubPos = subList.map((sub: any) => {
-                  const subNominal = Number(sub.nominalAlokasi || sub.alokasi || 0);
+                  const subNominal = Number(sub.nominalAlokasi || sub.alokasi || 0) || (subList.length === 1 ? mainNominal : 0);
+                  const pendingNominal = Math.max(subNominal, Number(sub.nominalTerpakai || sub.terpakai || 0));
                   const sName = (sub.namaSub || sub.nama || "").trim().toLowerCase();
                   const isPenjualanSub =
                     (sName.startsWith("penjualan") || sName.startsWith("pendapatan") || sName === (main.namaMain || main.nama || "").trim().toLowerCase()) &&
@@ -136,15 +137,16 @@ export default function DetailPemasukanModal({
 
                   const subRealisasi = isPenjualanSub
                     ? (transaksiTotal > 0
-                        ? transaksiTotal
-                        : isProyekDone
-                        ? Math.max(subNominal, Number(sub.nominalTerpakai || sub.terpakai || 0))
-                        : Math.max(Number(sub.nominalTerpakai || sub.terpakai || 0), transaksiTotal))
+                      ? transaksiTotal
+                      : isProyekDone
+                        ? pendingNominal
+                        : Number(sub.nominalTerpakai || sub.terpakai || 0))
                     : transaksiTotal;
 
                   return {
                     ...sub,
                     subNominal,
+                    pendingNominal,
                     isPenjualanSub,
                     relatedTransaksis,
                     transaksiTotal,
@@ -159,8 +161,8 @@ export default function DetailPemasukanModal({
                 const mainRealisasi = calculatedMainRealisasi > 0
                   ? calculatedMainRealisasi
                   : isProyekDone
-                  ? Math.max(mainNominal, calculatedMainRealisasi)
-                  : calculatedMainRealisasi;
+                    ? mainNominal
+                    : 0;
                 const isLast = idxMain === (dataPemasukan || []).length - 1;
 
                 return (
@@ -299,8 +301,7 @@ export default function DetailPemasukanModal({
 
                                           <div className="w-[160px] shrink-0 flex items-center justify-center gap-1.5">
                                             <span className="text-[11px]  font-normal text-[#6A6660]">
-                                              <CompactNominal value={isProyekDone ? subRealisasi : 0} compactThreshold={1_000_000_000_000} />
-                                              
+                                              <CompactNominal value={sub.pendingNominal || sub.subNominal || subRealisasi} compactThreshold={1_000_000_000_000} />
                                             </span>
                                             {isProyekDone ? (
                                               <Check

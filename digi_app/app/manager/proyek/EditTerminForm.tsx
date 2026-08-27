@@ -306,7 +306,9 @@ export default function EditTerminForm({
                 <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
                   <Coins size={13} className="text-emerald-700" strokeWidth={2.5} />
                 </div>
-                <h2 className="text-[17px] font-bold text-stone-900">Edit Termin Pembayaran</h2>
+                <h2 className="text-[17px] font-bold text-stone-900">
+                  {(!terminList || terminList.length === 0) ? "Set Termin Pembayaran" : "Edit Termin Pembayaran"}
+                </h2>
               </div>
               <p className="text-[12px] text-stone-500 mt-1 pl-8">{proyekNama}</p>
             </div>

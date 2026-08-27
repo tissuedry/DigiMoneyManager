@@ -168,10 +168,7 @@ function StackedBar({ realisasi, total }: { realisasi: number; total: number }) 
   );
 }
 
-function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
-  const allocated = pos.reduce((s, p) => s + p.alokasi, 0);
-  const unallocated = Math.max(0, total - allocated);
-
+function BarLegend({ pos }: { pos: PosAnggaran[] }) {
   return (
     <div className="flex flex-wrap gap-x-6 gap-y-2.5 mt-3">
       {pos.map((p) => (
@@ -181,13 +178,6 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
           <CompactNominal value={p.alokasi} className="font-bold text-stone-800" />
         </span>
       ))}
-      {unallocated > 0 && (
-        <span className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
-          <span className="w-2.5 h-2.5 rounded-sm bg-stone-300 shrink-0" />
-          Belum dialokasikan
-          <CompactNominal value={unallocated} className="font-bold text-stone-800" />
-        </span>
-      )}
     </div>
   );
 }
@@ -371,8 +361,8 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
     router.replace("/pm/proyek", { scroll: false });
   }
 
-  const allocated = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
-  const unallocated = proyek ? Math.max(0, proyek.totalRAB - allocated) : 0;
+  const totalAlokasiBiaya = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
+  const sisaAlokasiBiaya = Math.max(0, totalAlokasiBiaya - (proyek?.realisasi || 0));
 
   const pmMember = proyek?.tim.find((m) => m.role === "Project Manager");
   const selectableUsers = pmMember ? allUsers.filter((u) => u.id !== pmMember.id) : allUsers;
@@ -433,14 +423,14 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                   <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
+                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL ALOKASI BIAYA</p>
                   <p className="text-2xl font-extrabold text-stone-900 whitespace-nowrap">
-                    <CompactNominal value={proyek.totalRAB} className="text-2xl font-extrabold text-stone-900" />
+                    <CompactNominal value={totalAlokasiBiaya} className="text-2xl font-extrabold text-stone-900" />
                   </p>
                 </div>
               </div>
 
-              <StackedBar realisasi={proyek.realisasi} total={proyek.totalRAB} />
+              <StackedBar realisasi={proyek.realisasi} total={totalAlokasiBiaya} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
                 <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
@@ -459,14 +449,9 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                       <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
                       <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
                     </div>
-                    {unallocated > 0 && (
-                      <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap">
-                        <CompactNominal value={unallocated} className="text-[11px] font-semibold text-amber-600" /> <span className="font-normal text-amber-700">belum dialokasikan</span>
-                      </span>
-                    )}
                   </div>
                   <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">
-                    <CompactNominal value={proyek.totalRAB - proyek.realisasi} className="text-xl font-extrabold text-stone-900" />
+                    <CompactNominal value={sisaAlokasiBiaya} className="text-xl font-extrabold text-stone-900" />
                   </p>
                 </div>
               </div>
@@ -506,21 +491,14 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                     <div
                       key={p.id}
                       title={`${p.nama}: ${formatCompactRupiah(p.alokasi)}`}
-                      style={{ width: `${(p.alokasi / proyek.totalRAB) * 100}%`, backgroundColor: p.warna }}
+                      style={{ width: `${totalAlokasiBiaya > 0 ? (p.alokasi / totalAlokasiBiaya) * 100 : 0}%`, backgroundColor: p.warna }}
                       className="h-full transition-all duration-500"
                     />
                   ))}
-                  {unallocated > 0 && (
-                    <div
-                      style={{ width: `${(unallocated / proyek.totalRAB) * 100}%` }}
-                      className="h-full bg-stone-300"
-                      title="Belum dialokasikan"
-                    />
-                  )}
                 </div>
 
                 <div>
-                  <BarLegend pos={proyek.posAnggaran} total={proyek.totalRAB} />
+                  <BarLegend pos={proyek.posAnggaran} />
                 </div>
 
                 <PosRows pos={proyek.posAnggaran} />

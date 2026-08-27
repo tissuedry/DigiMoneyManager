@@ -5,7 +5,7 @@ import { X, Upload, Loader2, Search, ChevronRight, Plus } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
 import Toast from "@/components/toast";
-import { formatRupiah } from "@/lib/formatters";
+import { formatRibuan } from "@/lib/proyek-utils";
 
 type FlatPosOption = {
   id: string;
@@ -247,7 +247,7 @@ export default function RealisasiPemasukanModal({
                 type="text"
                 value={namaRealisasi}
                 onChange={(e) => setNamaRealisasi(e.target.value)}
-                placeholder="cth: Gramedia Merdeka"
+                placeholder="cth: Pengembalian Dana Karyawan"
                 className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-[13px] font-medium text-stone-800 focus:outline-none focus:border-stone-400 transition"
               />
             </div>
@@ -260,7 +260,13 @@ export default function RealisasiPemasukanModal({
                 <input
                   type="text"
                   value={nominal}
-                  onChange={(e) => setNominal(formatRupiah(e.target.value))}
+                  onChange={(e) => {
+                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                    setNominal(formatted);
+                    requestAnimationFrame(() => {
+                      e.target.setSelectionRange(caret, caret);
+                    });
+                  }}
                   placeholder="0"
                   className="w-full bg-white border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[13px] font-medium text-stone-800 focus:outline-none focus:border-stone-400 transition"
                 />
@@ -289,8 +295,8 @@ export default function RealisasiPemasukanModal({
             onDragLeave={() => setIsDragActive(false)}
             onDrop={handleDrop}
             className={`group relative border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${isDragActive
-                ? "border-emerald-500 bg-emerald-50/50"
-                : "border-stone-200 bg-stone-50/50 hover:border-emerald-500 hover:bg-emerald-50/50"
+              ? "border-emerald-500 bg-emerald-50/50"
+              : "border-stone-200 bg-stone-50/50 hover:border-emerald-500 hover:bg-emerald-50/50"
               }`}
           >
             <input

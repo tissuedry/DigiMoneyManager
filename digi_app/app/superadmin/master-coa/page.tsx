@@ -8,7 +8,7 @@ import EditSubModal from "./EditSubModal";
 import TambahKategoriModal from "./TambahKategoriModal";
 import DeleteModal from "./DeleteModal";
 
-type TabType = "Semua" | "Aset" | "Pemasukan" | "Pengeluaran";
+type TabType = "Semua" | "Aset" | "Pendapatan" | "Biaya";
 type ModalType = "editMain" | "editSub" | "tambahMain" | "tambahSub" | "deleteMain" | "deleteSub" | null;
 
 export default function MasterCoAPage() {
@@ -61,10 +61,10 @@ export default function MasterCoAPage() {
       if (activeTab === "Aset") {
         return item.tipe === "aset";
       }
-      if (activeTab === "Pemasukan") {
+      if (activeTab === "Pendapatan") {
         return item.tipe === "pemasukan";
       }
-      if (activeTab === "Pengeluaran") {
+      if (activeTab === "Biaya") {
         return item.tipe === "pengeluaran";
       }
       return true;
@@ -92,12 +92,12 @@ export default function MasterCoAPage() {
     }
     if (tipe === 'pemasukan') {
       return {
-        label: 'Pemasukan',
+        label: 'Pendapatan',
         className: 'bg-emerald-100 text-emerald-700',
       };
     }
     return {
-      label: 'Pengeluaran',
+      label: 'Biaya',
       className: 'bg-red-100 text-red-700',
     };
   };
@@ -106,30 +106,29 @@ export default function MasterCoAPage() {
     <div className="px-6 lg:px-8 py-6 w-full mx-auto min-h-full flex flex-col bg-[#f9f8f4]">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-stone-900 leading-tight">Master Chart of Accounts</h1>
-        <p className="text-stone-500 mt-1.5 text-sm">Kelola chart of accounts dari aset, pemasukan, dan pengeluaran proyek dalam struktur Main dan Sub</p>
+        <p className="text-stone-500 mt-1.5 text-sm">Kelola chart of accounts dari aset, pendapatan, dan biaya proyek dalam struktur Main dan Sub</p>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex bg-stone-200/50 p-1 rounded-xl w-fit">
-          {(["Semua", "Aset", "Pemasukan", "Pengeluaran"] as TabType[]).map((tab) => (
+          {(["Semua", "Aset", "Pendapatan", "Biaya"] as TabType[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 cursor-pointer ${
-                activeTab === tab ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
-              }`}
+              className={`px-5 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 cursor-pointer ${activeTab === tab ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
+                }`}
             >
-              {tab === "Aset" ? "Aset (Asset)" : tab === "Pemasukan" ? "Pemasukan (Revenue)" : tab === "Pengeluaran" ? "Pengeluaran (Expense)" : tab}
+              {tab === "Aset" ? "Aset (Asset)" : tab === "Pendapatan" ? "Pendapatan (Revenue)" : tab === "Biaya" ? "Biaya (Expense)" : tab}
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => openModal('tambahMain', activeTab === 'Semua' ? {} : { tipe: activeTab.toLowerCase() })}
+            onClick={() => openModal('tambahMain', activeTab === 'Semua' ? {} : { tipe: activeTab === 'Pendapatan' ? 'pemasukan' : activeTab === 'Biaya' ? 'pengeluaran' : activeTab.toLowerCase() })}
             className="flex items-center gap-2 px-4 py-2 bg-[#008f5d] text-white rounded-xl text-sm font-bold shadow-sm hover:bg-[#007a4f] transition cursor-pointer"
           >
-            <Plus size={16} strokeWidth={3} /> Tambah Main {activeTab === 'Aset' ? 'Aset' : activeTab === 'Pemasukan' ? 'Pemasukan' : activeTab === 'Pengeluaran' ? 'Pengeluaran' : ''}
+            <Plus size={16} strokeWidth={3} /> Tambah Main {activeTab === 'Aset' ? 'Aset' : activeTab === 'Pendapatan' ? 'Pendapatan' : activeTab === 'Biaya' ? 'Biaya' : ''}
           </button>
         </div>
       </div>
@@ -205,8 +204,8 @@ export default function MasterCoAPage() {
                               >
                                 <Settings size={14} />
                               </button>
-                              <button 
-                                onClick={() => openModal('deleteSub', subItem)} 
+                              <button
+                                onClick={() => openModal('deleteSub', subItem)}
                                 className="p-1 text-stone-400 hover:text-red-600 cursor-pointer"
                               >
                                 <Trash2 size={14} />
@@ -219,7 +218,7 @@ export default function MasterCoAPage() {
                       )}
 
                       <div className="pl-2 pt-1 border-t border-stone-100 mt-2">
-                        <button 
+                        <button
                           onClick={() => openModal('tambahSub', { parentId: mainItem.id, main: mainItem.nama, tipe: mainItem.tipe })}
                           className="text-[11px] font-bold text-[#008f5d] hover:text-[#006b45] flex items-center gap-1 transition mt-2 cursor-pointer"
                         >
@@ -238,7 +237,7 @@ export default function MasterCoAPage() {
       <EditMainModal isOpen={modalConfig.isOpen && modalConfig.type === 'editMain'} onClose={closeModal} data={modalConfig.data} onRefresh={fetchData} />
       <EditSubModal isOpen={modalConfig.isOpen && modalConfig.type === 'editSub'} onClose={closeModal} data={modalConfig.data} onRefresh={fetchData} />
       <TambahKategoriModal isOpen={modalConfig.isOpen && (modalConfig.type === 'tambahMain' || modalConfig.type === 'tambahSub')} onClose={closeModal} type={modalConfig.type} data={modalConfig.data} onRefresh={fetchData} />
-      <DeleteModal 
+      <DeleteModal
         isOpen={modalConfig.isOpen && ['deleteMain', 'deleteSub'].includes(modalConfig.type as string)}
         onClose={closeModal}
         data={modalConfig.data}

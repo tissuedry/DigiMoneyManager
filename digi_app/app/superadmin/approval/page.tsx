@@ -552,9 +552,14 @@ export default function AntrianApprovalPage() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-stone-500 font-medium">Sisa</span>
-                              <span className={`font-semibold  ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
-                                {isOver ? `- ${<CompactNominal value={Math.abs(sisa)} compactThreshold={1_000_000_000_000} />}` 
-                                : <CompactNominal value={sisa} compactThreshold={1_000_000_000_000} />}
+                              <span className={`font-semibold ${isOver ? 'text-[#902f33]' : 'text-stone-900'}`}>
+                                {isOver ? (
+                                  <>
+                                    - <CompactNominal value={Math.abs(sisa)} compactThreshold={1_000_000_000_000} />
+                                  </>
+                                ) : (
+                                  <CompactNominal value={sisa} compactThreshold={1_000_000_000_000} />
+                                )}
                               </span>
                             </div>
                           </div>

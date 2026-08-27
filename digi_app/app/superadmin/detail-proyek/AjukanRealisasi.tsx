@@ -5,7 +5,7 @@ import { X, Upload, Loader2, Search, ChevronRight, Plus } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
 import Toast from "@/components/toast";
-import { formatRupiah } from "@/lib/formatters";
+import { formatRibuan } from "@/lib/proyek-utils";
 import CompactNominal from "@/components/compact-nominal";
 
 type FlatKeteranganOption = {
@@ -32,7 +32,7 @@ export default function AjukanRealisasiModal({
   const [nominal, setNominal] = useState("");
   const [catatan, setCatatan] = useState("");
   const [selectedPos, setSelectedPos] = useState<FlatKeteranganOption | null>(null);
-  
+
   const [file, setFile] = useState<File | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +46,7 @@ export default function AjukanRealisasiModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data: posData, isLoading: isLoadingPos } = useApi<any>(`/api/proyek/${proyekId}/pos-anggaran`);
-  
+
   const flatOptions: FlatKeteranganOption[] = React.useMemo(() => {
     if (!posData?.posAnggaran) return [];
     return posData.posAnggaran.flatMap((m: any) =>
@@ -65,9 +65,9 @@ export default function AjukanRealisasiModal({
 
   const filteredOptions = searchQuery.trim()
     ? flatOptions.filter((opt) =>
-        opt.keterangan.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        opt.subNama.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      opt.keterangan.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      opt.subNama.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : flatOptions;
 
   useEffect(() => {
@@ -150,7 +150,7 @@ export default function AjukanRealisasiModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-[600px] flex flex-col overflow-hidden">
-        
+
         <div className="px-6 pt-5 pb-4 flex items-start justify-between shrink-0">
           <div>
             <h2 className="text-[18px] font-bold text-stone-900 leading-tight">Ajukan Realisasi</h2>
@@ -162,7 +162,7 @@ export default function AjukanRealisasiModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 pt-2 space-y-4 overflow-y-auto">
-          
+
           <div className="space-y-1.5 relative" ref={dropdownRef}>
             <label className="text-[11px] font-bold text-stone-700">Keterangan <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -197,7 +197,7 @@ export default function AjukanRealisasiModal({
               </div>
             )}
 
-                        {isDropdownOpen && (
+            {isDropdownOpen && (
               <div className="absolute z-20 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg max-h-48 overflow-y-auto py-1">
                 {filteredOptions.length === 0 ? (
                   <div className="px-3 py-2 text-stone-400 text-[11px]">Tidak ada yang cocok</div>
@@ -280,7 +280,13 @@ export default function AjukanRealisasiModal({
                 <input
                   type="text"
                   value={nominal}
-                  onChange={(e) => setNominal(formatRupiah(e.target.value))}
+                  onChange={(e) => {
+                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                    setNominal(formatted);
+                    requestAnimationFrame(() => {
+                      e.target.setSelectionRange(caret, caret);
+                    });
+                  }}
                   placeholder="0"
                   className="w-full bg-white border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[13px] font-medium text-stone-800 focus:outline-none focus:border-stone-400 transition"
                 />
@@ -305,9 +311,8 @@ export default function AjukanRealisasiModal({
             onDragOver={(e) => e.preventDefault()}
             onDragLeave={() => setIsDragActive(false)}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${
-              isDragActive ? "border-stone-500 bg-stone-50" : "border-stone-200 hover:border-stone-300 hover:bg-stone-50/50"
-            }`}
+            className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${isDragActive ? "border-stone-500 bg-stone-50" : "border-stone-200 hover:border-stone-300 hover:bg-stone-50/50"
+              }`}
           >
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf" />
             <Upload size={16} className={file ? "text-stone-800" : "text-stone-400"} />
