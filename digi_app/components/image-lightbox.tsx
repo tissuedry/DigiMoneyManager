@@ -3,10 +3,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
-/**
- * Lightbox gambar bersama: klik backdrop untuk tutup, scroll untuk zoom (s.d. 4x),
- * drag untuk pan. Render tidak ada saat url kosong — state reset otomatis saat unmount.
- */
 export default function ImageLightbox({
   url,
   onClose,
@@ -23,7 +19,6 @@ export default function ImageLightbox({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Lock body scroll selama lightbox terbuka
   useEffect(() => {
     if (!url) return;
     document.body.style.overflow = 'hidden';
@@ -90,6 +85,7 @@ export default function ImageLightbox({
           <img
             src={url}
             alt={alt}
+            loading={"lazy"}
             draggable={false}
             className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
             style={{

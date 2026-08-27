@@ -16,6 +16,7 @@ import PendingPmModal from "./PendingPmModal";
 import SuccessDialog from "@/components/success-dialog";
 import ConfirmDialog from "@/components/confirm-dialog";
 import Toast from "@/components/toast";
+import CompactNominal from "@/components/compact-nominal";
 
 export default function KelolaProyekPage() {
   const [activeStatus, setActiveStatus] = useState('Semua');
@@ -481,19 +482,17 @@ export default function KelolaProyekPage() {
                       <div>
                         <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">TOTAL NILAI PROYEK</span>
                         <span
-                          title={formatRupiah(totalRAB)}
                           className=" font-black text-stone-900 text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
                         >
-                          {formatSummaryRupiah(totalRAB)}
+                          {<CompactNominal value={totalRAB} compactThreshold={10_000_000_000_000} showTooltip />}
                         </span>
                       </div>
                       <div>
                         <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">PENDAPATAN</span>
                         <span
-                          title={formatRupiah(pendapatan)}
                           className=" font-black text-[#1b4332] text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
                         >
-                          {formatSummaryRupiah(pendapatan)}
+                          {<CompactNominal value={pendapatan} compactThreshold={10_000_000_000_000} showTooltip />}
                         </span>
                       </div>
                     </div>

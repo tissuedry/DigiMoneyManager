@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function DashboardHome() {
   return (
     <div className="flex-1 p-8 bg-zinc-50 flex flex-col justify-center items-center text-center">

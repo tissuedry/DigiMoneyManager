@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Send, Loader2, Bot, User, X, Sparkles, MessageCircle, Maximize2, Minimize2, RotateCcw, Copy, Check } from "lucide-react";
 import { useApi } from "@/lib/use-api";
@@ -23,7 +23,6 @@ type Anchor = { right: number; bottom: number };
 type Size = { width: number; height: number };
 type ResizeDir = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
-// Halaman yang tidak menampilkan widget (belum ada sesi/role yang jelas)
 const HIDDEN_PATH_PREFIXES = ["/login", "/register", "/select-project"];
 
 const BTN_SIZE = 56;
@@ -31,7 +30,7 @@ const BTN_MARGIN = 20;
 const PANEL_MIN_WIDTH = 320;
 const PANEL_MIN_HEIGHT = 400;
 const DEFAULT_PANEL_SIZE: Size = { width: 380, height: 560 };
-const MAXIMIZE_MARGIN = 16; // jarak dari tepi layar saat panel di-maximize
+const MAXIMIZE_MARGIN = 16;
 
 const BTN_POS_STORAGE_KEY = "smart-chat-btn-pos";
 
@@ -69,7 +68,6 @@ const POPULAR_QUESTIONS: Record<UserRole, string[]> = {
   ],
 };
 
-// Label "Proyek" di panel Konteks Aktif — mencerminkan lingkup akses data role masing-masing
 const SCOPE_LABEL: Record<UserRole, string> = {
   Karyawan: "Proyek aktif Anda",
   "Project Manager": "Proyek yang Anda kelola",
@@ -77,7 +75,6 @@ const SCOPE_LABEL: Record<UserRole, string> = {
   "Direktur / Manajemen": "Semua proyek",
 };
 
-// "Yang Bisa Ditanyakan" per role — disesuaikan dengan data yang benar-benar bisa diakses masing-masing role
 const SCOPE_TOPICS: Record<UserRole, string[]> = {
   Karyawan: [
     "Sisa budget proyek aktif Anda",
@@ -121,8 +118,6 @@ function applyInlineMarkdown(text: string): string {
     .replace(/`(.+?)`/g, "<code>$1</code>");
 }
 
-// Render list markdown ("- item" / "1. item") jadi <ul>/<ol> beneran, bukan sekadar tanda pisah mentah,
-// karena jawaban AI sering berbentuk daftar (mis. "Sisa budget:\n- Proyek A...\n- Proyek B...").
 function formatMarkdown(text: string): string {
   const lines = text.split("\n");
   let html = "";
@@ -150,7 +145,6 @@ function formatMarkdown(text: string): string {
       };
 
       const headerCells = parseCells(tableBuffer[0]);
-      // Baris 1 adalah divider (|---|---|), ambil data mulai baris 2
       const bodyRows = tableBuffer.slice(2).map(parseCells).filter(r => r.some(c => c.length > 0));
 
       let tableHtml = `<div class="overflow-x-auto my-2.5 rounded-xl border border-stone-200 bg-white shadow-xs max-w-full">`;
@@ -257,8 +251,6 @@ function HeaderIconButton({
   );
 }
 
-// Posisi & kursor tiap gagang resize (8 arah: 4 sisi + 4 sudut), diberi affordance visual sendiri
-// (bar/dot yang muncul saat hover) alih-alih mengandalkan resize bawaan browser yang tak terlihat.
 const RESIZE_HANDLES: { dir: ResizeDir; className: string; cursor: string; corner: boolean }[] = [
   { dir: "n", className: "-top-2 left-4 right-4 h-4", cursor: "ns-resize", corner: false },
   { dir: "s", className: "-bottom-2 left-4 right-4 h-4", cursor: "ns-resize", corner: false },
@@ -330,7 +322,6 @@ export default function SmartChatWidget() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
 
-  // Posisi bulatan (bisa digeser) & ukuran panel chat (toggle normal/perbesar seperti aplikasi desktop)
   const [btnPos, setBtnPos] = useState<Point>({ x: 0, y: 0 });
   const [panelAnchor, setPanelAnchor] = useState<Anchor>({ right: BTN_MARGIN, bottom: BTN_MARGIN });
   const [panelSize, setPanelSize] = useState<Size>(DEFAULT_PANEL_SIZE);
@@ -340,7 +331,6 @@ export default function SmartChatWidget() {
   const dragMovedRef = useRef(false);
   const preMaximizeAnchorRef = useRef<Anchor>({ right: BTN_MARGIN, bottom: BTN_MARGIN });
 
-  // Muat posisi bulatan tersimpan (kalau ada) saat pertama kali mount di client
   useEffect(() => {
     const savedBtn = localStorage.getItem(BTN_POS_STORAGE_KEY);
     if (savedBtn) {
@@ -358,7 +348,6 @@ export default function SmartChatWidget() {
     }
   }, []);
 
-  // Jaga supaya widget tidak keluar layar kalau ukuran jendela browser berubah
   useEffect(() => {
     const handleWindowResize = () => {
       setBtnPos((p) => ({
@@ -374,27 +363,22 @@ export default function SmartChatWidget() {
     return () => window.removeEventListener("resize", handleWindowResize);
   }, [panelSize]);
 
-  // Auto-scroll ke bawah HANYA kalau user memang sedang di dekat bawah — supaya tidak "menyeret" user
-  // yang sengaja scroll ke atas membaca riwayat chat setiap kali ada pesan baru.
   useEffect(() => {
     if (shouldAutoScrollRef.current) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isOpen]);
 
-  // Kembalikan tinggi textarea ke satu baris setiap kali input dikosongkan (mis. setelah pesan terkirim)
   useEffect(() => {
     if (input === "" && textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
   }, [input]);
 
-  // Fokus otomatis ke kotak input begitu panel dibuka
   useEffect(() => {
     if (isOpen) textareaRef.current?.focus();
   }, [isOpen]);
 
-  // Tombol Esc menutup panel, seperti kebiasaan umum di aplikasi desktop
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
@@ -418,7 +402,6 @@ export default function SmartChatWidget() {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
 
-    // Mengirim pesan sendiri selalu berarti user ingin melihat balasannya — paksa scroll ke bawah
     shouldAutoScrollRef.current = true;
     ensureGreeting();
     setInput("");
@@ -461,7 +444,6 @@ export default function SmartChatWidget() {
     }
   };
 
-  // Lacak apakah user sedang berada dekat bagian bawah daftar pesan, untuk auto-scroll yang lebih pintar
   const handleMessagesScroll = () => {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -474,9 +456,7 @@ export default function SmartChatWidget() {
       await navigator.clipboard.writeText(text);
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex((cur) => (cur === index ? null : cur)), 1500);
-    } catch {
-      // Clipboard API tidak tersedia (mis. konteks tidak aman) — abaikan secara senyap
-    }
+    } catch { }
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -486,14 +466,12 @@ export default function SmartChatWidget() {
     }
   };
 
-  // Textarea tumbuh otomatis mengikuti banyaknya baris, dibatasi max-h-24 (96px) lewat CSS
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 96)}px`;
   };
 
-  // Geser bulatan Smart Chat (drag)
   const handleBtnPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     const startX = e.clientX;
@@ -521,7 +499,6 @@ export default function SmartChatWidget() {
     document.addEventListener("pointerup", handleUp);
   };
 
-  // Perbesar (menutupi hampir seluruh layar) / kembalikan ukuran panel chat — seperti tombol maximize/restore di aplikasi desktop
   const handleToggleMaximize = () => {
     if (!isMaximized) {
       preMaximizeAnchorRef.current = panelAnchor;
@@ -542,8 +519,6 @@ export default function SmartChatWidget() {
     }
   };
 
-  // Resize bebas dari 8 arah (4 sisi + 4 sudut). Tepi yang TIDAK sedang diseret harus tetap diam,
-  // jadi hitung dulu posisi absolut tiap tepi di layar, lalu jaga tepi yang diam tetap konstan.
   const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>, dir: ResizeDir) => {
     e.stopPropagation();
     e.preventDefault();
@@ -621,11 +596,9 @@ export default function SmartChatWidget() {
     document.addEventListener("pointercancel", handleUp);
   };
 
-  // Geser kotak panel Smart Chat lewat header (drag window)
   const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Jangan drag jika yang diklik adalah tombol kontrol (reset/maximize/close)
     if ((e.target as HTMLElement).closest("button")) return;
-    if (isMaximized) return; // Jangan drag jika sedang fullscreen/maximize
+    if (isMaximized) return; 
 
     e.preventDefault();
     setIsDraggingPanel(true);
@@ -676,7 +649,6 @@ export default function SmartChatWidget() {
     document.addEventListener("pointercancel", handleUp);
   };
 
-  // Kembalikan bulatan & panel chat ke posisi dan ukuran semula
   const handleReset = () => {
     const pos = defaultBtnPos();
     setBtnPos(pos);
@@ -692,7 +664,6 @@ export default function SmartChatWidget() {
       return;
     }
 
-    // Buka panel di dekat posisi bulatan saat ini, dipastikan tetap sepenuhnya terlihat di layar
     const btnRight = window.innerWidth - btnPos.x - BTN_SIZE;
     const btnBottom = window.innerHeight - btnPos.y - BTN_SIZE;
     setPanelAnchor({
@@ -733,7 +704,6 @@ export default function SmartChatWidget() {
         />
       ))}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header (Bisa di-drag untuk memindahkan posisi kotak) */}
         <div
           onPointerDown={handleHeaderPointerDown}
           className={`flex items-center justify-between gap-3 px-4 py-3.5 border-b border-stone-100 bg-[#f9f8f4] shrink-0 select-none ${
@@ -765,7 +735,6 @@ export default function SmartChatWidget() {
           </div>
         </div>
 
-        {/* Messages */}
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
@@ -825,7 +794,6 @@ export default function SmartChatWidget() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Popular Questions */}
         {displayMessages.length <= 1 && (
           <div className="px-4 pb-2.5 shrink-0">
             <div className="flex flex-wrap gap-1.5">
@@ -842,7 +810,6 @@ export default function SmartChatWidget() {
           </div>
         )}
 
-        {/* Input */}
         <div className="border-t border-stone-100 p-3 shrink-0">
           <div className="flex items-end gap-2">
             <textarea
@@ -865,10 +832,8 @@ export default function SmartChatWidget() {
         </div>
       </div>
 
-        {/* Panel info tambahan — sama seperti dulu saat Smart Chat masih halaman penuh, muncul saat di-maximize */}
         {isMaximized && (
           <div className="hidden lg:flex w-64 shrink-0 flex-col gap-4 border-l border-stone-100 bg-stone-50 p-5 overflow-y-auto">
-            {/* Konteks Aktif */}
             <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5">
               <h4 className="text-[12px] font-bold text-stone-500 uppercase tracking-wide mb-3">Konteks Aktif</h4>
               <div className="space-y-2.5">
@@ -885,7 +850,6 @@ export default function SmartChatWidget() {
               </div>
             </div>
 
-            {/* Yang Bisa Ditanyakan */}
             <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5">
               <h4 className="text-[12px] font-bold text-stone-500 uppercase tracking-wide mb-3">Yang Bisa Ditanyakan</h4>
               <ul className="space-y-2">
@@ -902,7 +866,6 @@ export default function SmartChatWidget() {
               </ul>
             </div>
 
-            {/* AI Badge */}
             <div className="bg-[#f0faf5] border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
               <Sparkles size={16} className="text-emerald-600 shrink-0" />
               <p className="text-[11px] text-emerald-700 font-medium leading-snug">
