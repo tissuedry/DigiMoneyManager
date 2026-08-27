@@ -188,7 +188,7 @@ export default memo(function Sidebar({ isSidebarOpen, onClose, userRole }: Sideb
           )}
         </div>
 
-        <nav className={`${collapsed ? 'px-2' : 'px-4'} py-4 space-y-1 flex-1 overflow-y-auto pb-20 custom-scrollbar`}>
+        <nav className={`${collapsed ? 'px-2' : 'px-4'} py-4 space-y-1 flex-1 overflow-y-auto pb-20 scrollbar-none`}>
           {menuItems.map((item, idx) => {
             if (item.isSection) {
               if (collapsed) return null;

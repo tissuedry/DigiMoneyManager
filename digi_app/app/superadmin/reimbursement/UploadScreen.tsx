@@ -87,7 +87,7 @@ export default function UploadScreen({
                   <div className="px-3 py-2 text-xs font-semibold text-stone-500 bg-stone-50 border-b border-stone-100">
                     Pilih Proyek
                   </div>
-                  <ul className="max-h-56 overflow-y-auto custom-scrollbar">
+                  <ul className="max-h-56 overflow-y-auto scrollbar-none">
                     {projects.map((p) => (
                       <li key={String(p.id)}>
                         <button
