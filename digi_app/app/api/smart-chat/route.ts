@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { getAIChatContext, AIChatScope } from '@/lib/temp-data-repo';
 
-const KNOWN_ROLES = ['Karyawan', 'Project Manager', 'Tim Keuangan', 'Direktur / Manajemen', 'Superadmin', 'superadmin'];
+const KNOWN_ROLES = ['Karyawan', 'Project Manager', 'Tim Keuangan', 'Direktur / Manajemen', 'Superadmin'];
 
 const USER_INPUT_TAG = 'user_input';
 
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       proyekId: proyekIdHeader ? parseInt(proyekIdHeader, 10) : null,
     };
 
-    const isSuperAdmin = ['Superadmin', 'superadmin'].includes(role);
+    const isSuperAdmin = ['Superadmin', 'superadmin', 'Super Admin'].includes(role);
 
     const body = await req.json();
     const { message, history } = body;
@@ -423,4 +423,4 @@ export async function POST(req: NextRequest) {
     console.error('Smart chat error:', error);
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
-}
+}

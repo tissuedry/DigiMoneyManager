@@ -39,9 +39,9 @@ interface CachedAIChatContext {
   } | null;
 }
 
-const FULL_ACCESS_ROLES = ['Tim Keuangan', 'Direktur / Manajemen'];
+const FULL_ACCESS_ROLES = ['Tim Keuangan', 'Direktur / Manajemen', 'Superadmin', 'superadmin', 'Super Admin'];
 
-const TEAM_AND_PROPOSAL_ROLES = ['Project Manager', 'Direktur / Manajemen'];
+const TEAM_AND_PROPOSAL_ROLES = ['Project Manager', 'Direktur / Manajemen', 'Superadmin', 'superadmin', 'Super Admin'];
 
 const cacheStore = new Map<string, { data: CachedAIChatContext; time: number }>();
 const CACHE_TTL = 30000;
