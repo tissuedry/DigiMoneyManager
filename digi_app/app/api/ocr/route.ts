@@ -1,6 +1,14 @@
 import { NextResponse, NextRequest } from 'next/server';
 import sharp from 'sharp';
 
+const isDev = process.env.NODE_ENV !== 'production';
+const debugLog = (...args: any[]) => {
+  if (isDev) console.log(...args);
+};
+const debugWarn = (...args: any[]) => {
+  if (isDev) console.warn(...args);
+};
+
 interface TokenUsage {
   promptTokens: number;
   candidatesTokens: number;
@@ -66,17 +74,20 @@ async function scanSingleDocument(
     'gemini-3.1-flash-lite',
   ];
 
-  const arrayBuffer = await file.arrayBuffer();
-  let buffer: Buffer = Buffer.from(arrayBuffer);
-  const receivedSizeKB = arrayBuffer.byteLength / 1024;
-  const origSizeKB = clientOrigSizeKB && clientOrigSizeKB > 0 ? clientOrigSizeKB : receivedSizeKB;
-  let isCompressed = (origSizeKB - receivedSizeKB) > 5;
+  const origSizeKB = clientOrigSizeKB !== undefined ? clientOrigSizeKB : file.size / 1024;
+  const fileName = file.name;
+  let mimeType = file.type || 'image/jpeg';
+  let isCompressed = false;
 
-  const fileName = file.name || `Dokumen_${index}`;
-  const isPdf = file.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
-  let mimeType = isPdf ? 'application/pdf' : (file.type || 'image/jpeg');
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(await file.arrayBuffer());
+  } catch (e: any) {
+    console.error(`[OCR #${index}] Gagal membaca buffer file:`, e?.message);
+    throw new Error(`Gagal membaca file: ${fileName}`);
+  }
 
-  if (!isPdf && buffer.length > 1536 * 1024) {
+  if (buffer.length > 1.5 * 1024 * 1024 && mimeType.startsWith('image/')) {
     try {
       const compressedBuffer = await sharp(buffer)
         .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
@@ -89,7 +100,7 @@ async function scanSingleDocument(
         isCompressed = true;
       }
     } catch (e: any) {
-      console.warn(`[OCR #${index}] Backend image compression skipped:`, e?.message);
+      debugWarn(`[OCR #${index}] Backend image compression skipped:`, e?.message);
     }
   }
 
@@ -99,104 +110,94 @@ async function scanSingleDocument(
   const today = new Date().toISOString().split('T')[0];
 
   const promptInstruksi = `Bertindaklah sebagai OCR Dokumen Keuangan profesional berakurasi sangat tinggi.
-Tugas Anda adalah membaca 1 dokumen transaksi keuangan terlampir (struk belanja thermal, nota toko, invoice PDF, kuitansi, atau bukti transfer) dan mengekstrak informasi kunci MURNI HANYA DARI TEKS YANG TERTERA DI DOKUMEN INI:
-
-1. 'merchant': Nama toko / vendor / penyedia layanan pengeluar dokumen (string).
-2. 'tanggal': Tanggal transaksi pada dokumen dengan format standard ISO 'YYYY-MM-DD'.
-3. 'nominal': Total nominal pembayaran pada dokumen (integer angka murni tanpa huruf/titik/koma/simbol).
-4. 'kategoriBukti': Tentukan kategori dokumen hanya dari pilihan berikut:
-   - "Struk Pembelian" (jika berupa struk belanja/thermal/EDC/BBM)
-   - "Invoice / Faktur" (jika berupa faktur tagihan resmi/bill/PDF invoice)
-   - "Kuitansi Resmi" (jika berupa kuitansi pembayaran)
-   - "Nota Kontan" (jika berupa nota manual/toko)
-5. 'keterangan': Catatan/ringkasan transaksi barang atau jasa yang tertera pada dokumen tersebut.
-
-WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kembalikan HANYA berupa satu objek JSON valid:
-{
-  "merchant": "Nama Toko / Vendor",
-  "tanggal": "YYYY-MM-DD",
-  "nominal": 150000,
-  "kategoriBukti": "Struk Pembelian",
-  "keterangan": "Beli ATK operasional"
-}`;
+Tugas Anda adalah membaca 1 dokumen transaksi keuangan terlampir dan mengekstrak informasi kunci:
+1. 'merchant': Nama toko/vendor.
+2. 'tanggal': Tanggal transaksi (YYYY-MM-DD).
+3. 'nominal': Total nominal pembayaran (integer).
+4. 'kategoriBukti': "Struk Pembelian", "Invoice / Faktur", "Kuitansi Resmi", atau "Nota Kontan".
+5. 'keterangan': Ringkasan transaksi.
+Kembalikan HANYA berupa satu objek JSON valid.`;
 
   let lastError = '';
 
   for (const modelName of candidateModels) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+      const payload = {
+        contents: [
+          {
+            parts: [
+              { text: promptInstruksi },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Image,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+        },
+      };
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
 
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
         signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: promptInstruksi },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Image,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            response_mime_type: 'application/json',
-            temperature: 0.0,
-          },
-        }),
       });
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errText = await response.text();
-        lastError = `Model ${modelName} HTTP ${response.status}: ${errText}`;
-        console.warn(`[OCR #${index}] Model ${modelName} gagal (${response.status}), mencoba model berikutnya...`);
+        lastError = `Status ${response.status}: ${errText}`;
+        debugWarn(`[OCR #${index}] Model ${modelName} returned HTTP ${response.status}: ${errText.slice(0, 120)}`);
         continue;
       }
 
-      const resJson = await response.json();
-      const rawText = resJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const usageMetadata = data?.usageMetadata;
+      const usage: TokenUsage = {
+        promptTokens: usageMetadata?.promptTokenCount || 0,
+        candidatesTokens: usageMetadata?.candidatesTokenCount || 0,
+        totalTokens: usageMetadata?.totalTokenCount || 0,
+      };
 
-      if (rawText) {
-        const usage: TokenUsage = {
-          promptTokens: resJson.usageMetadata?.promptTokenCount || 0,
-          candidatesTokens: resJson.usageMetadata?.candidatesTokenCount || 0,
-          totalTokens: resJson.usageMetadata?.totalTokenCount || 0,
-        };
+      const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanJson);
 
-        const parsed = parseAiJson(rawText) || {};
+      if (parsed) {
+        const nominal = parseInt(String(parsed.nominal || 0).replace(/\D/g, ''), 10) || 0;
+        let merchant = (parsed.merchant || '').trim();
+        if (!merchant) merchant = `Struk #${index}`;
 
-        let nominal = 0;
-        if (typeof parsed.nominal === 'number') {
-          nominal = Math.round(parsed.nominal);
-        } else if (parsed.nominal) {
-          nominal = parseInt(String(parsed.nominal).replace(/\D/g, ''), 10) || 0;
+        let tanggal = (parsed.tanggal || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
+          tanggal = today;
         }
 
-        const merchant = String(parsed.merchant || `Struk #${index}`).trim();
-        const rawDate = String(parsed.tanggal || today).trim();
-        const tanggal = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : today;
-        const rawKategori = String(parsed.kategoriBukti || 'Struk Pembelian').trim();
-        const kategoriBukti = ['Struk Pembelian', 'Invoice / Faktur', 'Kuitansi Resmi', 'Nota Kontan'].includes(rawKategori)
-          ? rawKategori
-          : 'Struk Pembelian';
-        const keterangan = String(parsed.keterangan || '').trim();
+        const validKategori = ['Struk Pembelian', 'Invoice / Faktur', 'Kuitansi Resmi', 'Nota Kontan'];
+        let kategoriBukti = (parsed.kategoriBukti || '').trim();
+        if (!validKategori.includes(kategoriBukti)) {
+          kategoriBukti = 'Struk Pembelian';
+        }
+
+        const keterangan = (parsed.keterangan || '').trim();
 
         return {
           index,
           fileName,
           merchant,
           tanggal,
-          nominal: isNaN(nominal) ? 0 : nominal,
+          nominal,
           kategoriBukti,
           keterangan,
           modelUsed: modelName,
@@ -209,7 +210,7 @@ WAJIB: DILARANG KERAS menyertakan tag <think> atau penjelasan teks apapun. Kemba
       }
     } catch (e: any) {
       lastError = e?.message || 'Timeout / Network error';
-      console.warn(`[OCR #${index}] Error saat memanggil ${modelName}:`, e?.message);
+      debugWarn(`[OCR #${index}] Error saat memanggil ${modelName}:`, e?.message);
     }
   }
 
@@ -237,7 +238,7 @@ export async function POST(req: NextRequest) {
 
     if (!geminiKey) {
       return NextResponse.json(
-        { success: false, message: 'API Key GEMINI_API_KEY belum dikonfigurasi di file .env' },
+        { success: false, message: 'API Key GEMINI_API_KEY belum dikonfigurasi' },
         { status: 500 }
       );
     }
@@ -263,7 +264,7 @@ export async function POST(req: NextRequest) {
 
     if (files.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Tidak ada file dokumen (struk/invoice) yang diunggah' },
+        { success: false, message: 'Tidak ada file dokumen yang diunggah' },
         { status: 400 }
       );
     }
@@ -273,7 +274,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: `Batas maksimal berkas dalam 1 kali scan adalah ${MAX_DOCS_LIMIT} dokumen struk. Anda mengunggah ${files.length} dokumen.`
+          message: `Batas maksimal ${MAX_DOCS_LIMIT} dokumen.`
         },
         { status: 400 }
       );
@@ -288,8 +289,8 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    console.log(`\n================== [START PARALLEL OCR SCAN] ==================`);
-    console.log(`🚀 Memproses ${count} dokumen secara PARALEL MANDIRI (Maks 5 berkas)...`);
+    debugLog(`\n================== [START PARALLEL OCR SCAN] ==================`);
+    debugLog(`🚀 Memproses ${count} dokumen secara PARALEL MANDIRI (Maks 5 berkas)...`);
 
     const startTime = Date.now();
     const results = await Promise.all(
@@ -309,12 +310,12 @@ export async function POST(req: NextRequest) {
 
     const modelsUsedSet = Array.from(new Set(results.map(r => r.modelUsed))).join(', ');
 
-    console.log(`⏱️ Waktu Selesai Paralel   : ${(durationMs / 1000).toFixed(2)} detik`);
-    console.log(`🤖 Model yang Digunakan    : ${modelsUsedSet}`);
-    console.log(`📥 Total Input Tokens      : ${totalUsage.promptTokens.toLocaleString()} tokens`);
-    console.log(`📤 Total Output Tokens     : ${totalUsage.candidatesTokens.toLocaleString()} tokens`);
-    console.log(`📊 Total Konsumsi Tokens   : ${totalUsage.totalTokens.toLocaleString()} tokens`);
-    console.log(`📋 Rincian Hasil Ekstraksi & Ukuran Tiap Struk (100% Mandiri):`);
+    debugLog(`⏱️ Waktu Selesai Paralel   : ${(durationMs / 1000).toFixed(2)} detik`);
+    debugLog(`🤖 Model yang Digunakan    : ${modelsUsedSet}`);
+    debugLog(`📥 Total Input Tokens      : ${totalUsage.promptTokens.toLocaleString()} tokens`);
+    debugLog(`📤 Total Output Tokens     : ${totalUsage.candidatesTokens.toLocaleString()} tokens`);
+    debugLog(`📊 Total Konsumsi Tokens   : ${totalUsage.totalTokens.toLocaleString()} tokens`);
+    debugLog(`📋 Rincian Hasil Ekstraksi & Ukuran Tiap Struk (100% Mandiri):`);
     results.forEach((it) => {
       const origText = it.origSizeKB !== undefined
         ? (it.origSizeKB >= 1024 ? `${(it.origSizeKB / 1024).toFixed(2)} MB` : `${it.origSizeKB.toFixed(1)} KB`)
@@ -326,10 +327,10 @@ export async function POST(req: NextRequest) {
         ? `⚡ Terkompresi (Hemat ${it.reductionPct?.toFixed(1)}%)`
         : `✅ Optimal/Bypass (<= 1.5MB)`;
 
-      console.log(`  🔹 [Struk #${it.index}] File: "${it.fileName}" | Ukuran: ${origText} ➔ ${finalText} (${statusText})`);
-      console.log(`     ↳ Vendor: "${it.merchant}" | Tanggal: ${it.tanggal} | Nominal: Rp ${it.nominal.toLocaleString('id-ID')} | Kategori: ${it.kategoriBukti}`);
+      debugLog(`  🔹 [Struk #${it.index}] File: "${it.fileName}" | Ukuran: ${origText} ➔ ${finalText} (${statusText})`);
+      debugLog(`     ↳ Vendor: "${it.merchant}" | Tanggal: ${it.tanggal} | Nominal: Rp ${it.nominal.toLocaleString('id-ID')} | Kategori: ${it.kategoriBukti}`);
     });
-    console.log(`================== [END PARALLEL OCR SCAN] ====================\n`);
+    debugLog(`================== [END PARALLEL OCR SCAN] ====================\n`);
 
     return NextResponse.json({
       success: true,

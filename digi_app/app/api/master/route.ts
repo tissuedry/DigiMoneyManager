@@ -15,7 +15,17 @@ export async function GET(req: NextRequest) {
     const tipeFilter = searchParams.get("tipe"); // 'pengeluaran' | 'pemasukan'
 
     if (subId) {
-      return NextResponse.json([]);
+      const parsedSubId = parseInt(subId, 10);
+      if (isNaN(parsedSubId)) {
+        return NextResponse.json({ message: 'Invalid subId format' }, { status: 400 });
+      }
+      const whereCond: any = { id: parsedSubId };
+      if (tipeFilter && tipeFilter !== 'all') whereCond.tipe = tipeFilter;
+      const sub = await prisma.masterSub.findMany({
+        where: whereCond,
+        orderBy: { id: 'asc' }
+      });
+      return NextResponse.json(sub);
     }
 
     if (mainId) {

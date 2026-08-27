@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { comparePassword, signToken } from '@/lib/auth';
+import { comparePassword, signToken, resolveUserRoles } from '@/lib/auth';
 import { loginSchema } from '@/lib/validations';
 
 export async function POST(req: Request) {
@@ -37,45 +37,7 @@ export async function POST(req: Request) {
     });
     const userProyekId = userProyeks.length > 0 ? userProyeks[0].proyekId : null;
 
-    const rolesSet = new Set<string>();
-    
-    const safeRole = (user.role || '').trim();
-    const dbRoleLower = safeRole.toLowerCase();
-
-    let primaryRole = safeRole;
-
-    const isSuperAdmin = dbRoleLower === 'superadmin' || dbRoleLower === 'super admin';
-
-    if (
-      dbRoleLower === 'direktur / manajemen' || 
-      dbRoleLower === 'tim keuangan' || 
-      isSuperAdmin
-    ) 
-    
-    {
-      if (isSuperAdmin) {
-        primaryRole = 'Superadmin'; 
-        rolesSet.add('Superadmin');
-      } else {
-        rolesSet.add(safeRole); 
-      }
-    } else {
-      const hasPM = userProyeks.some((up: any) => up.role === 'Project Manager');
-      const hasKaryawan = userProyeks.some((up: any) => up.role === 'Anggota Lapangan') || !hasPM;
-
-      if (hasPM) rolesSet.add('Project Manager');
-      if (hasKaryawan) rolesSet.add('Karyawan');
-      
-      primaryRole = hasPM ? 'Project Manager' : 'Karyawan';
-    }
-    
-    const allowedRoles = Array.from(rolesSet);
-
-    console.log("=== ROLE CHECK ===", {
-      roleAsliDariDB: user.role,
-      roleSetelahDibersihkan: primaryRole,
-      isSuperAdmin: isSuperAdmin
-    });
+    const { primaryRole, allowedRoles } = resolveUserRoles(user.role, userProyeks);
 
     const token = signToken({
       id: user.id,
@@ -83,7 +45,7 @@ export async function POST(req: Request) {
       email: user.email,
       role: primaryRole,
       roles: allowedRoles,
-      proyekId: null, 
+      proyekId: userProyekId,
     });
 
     await prisma.auditTrail.create({

@@ -46,7 +46,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ 
       projects: proyekList,
-      proyek: proyekList,
       pagination: {
         totalItems,
         totalPages: Math.ceil(totalItems / limit),
