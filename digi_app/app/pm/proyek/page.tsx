@@ -55,6 +55,7 @@ type ProyekData = {
   pm: string;
   status: string;
   totalRAB: number;
+  totalAlokasiPemasukan: number;
   realisasi: number;
   posAnggaran: PosAnggaran[];
   tim: AnggotaTim[];
@@ -643,6 +644,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
           proyekNama={proyek.nama}
           posAnggaran={proyek.posAnggaran}
           totalRAB={proyek.totalRAB}
+          totalAlokasiPemasukan={proyek.totalAlokasiPemasukan}
           onClose={handleCloseDetailModal}
           onRefresh={() => invalidate("/api/pm/proyek")}
         />

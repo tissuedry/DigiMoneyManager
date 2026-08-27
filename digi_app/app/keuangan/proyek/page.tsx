@@ -150,7 +150,6 @@ export default function KeuanganKelolaProyekContent() {
     return null;
   });
   const [alokasiSuccessToast, setAlokasiSuccessToast] = useState("");
-  const [realisasiSuccessToast, setRealisasiSuccessToast] = useState("");
 
   const invalidate = useInvalidate();
 
@@ -407,7 +406,6 @@ export default function KeuanganKelolaProyekContent() {
           onRefresh={() => {
             invalidate("/api/keuangan/proyek", "/api/dashboard", "/api/proyek", "/api/pemasukan");
             refetch();
-            setRealisasiSuccessToast("Realisasi pendapatan berhasil dicatat.");
           }}
         />
       )}
@@ -418,11 +416,6 @@ export default function KeuanganKelolaProyekContent() {
         onClose={() => setAlokasiSuccessToast("")}
       />
 
-      <Toast
-        open={!!realisasiSuccessToast}
-        message={realisasiSuccessToast}
-        onClose={() => setRealisasiSuccessToast("")}
-      />
     </div>
   );
 }

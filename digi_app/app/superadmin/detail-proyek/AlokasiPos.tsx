@@ -92,6 +92,7 @@ export default function AlokasiPosModal({
   totalRAB,
   realisasi,
   posAnggaran,
+  totalAlokasiPemasukan = 0,
   onClose,
   onSuccess,
 }: {
@@ -100,6 +101,7 @@ export default function AlokasiPosModal({
   totalRAB: number;
   realisasi: number;
   posAnggaran: any[];
+  totalAlokasiPemasukan?: number;
   onClose: () => void;
   onSuccess?: (message?: string) => void;
 }) {
@@ -283,7 +285,7 @@ export default function AlokasiPosModal({
     const alokasiVal = parseRupiahInput(newMainAlokasi);
 
     const currentTotal = data.reduce((sum, m) => sum + m.alokasi, 0);
-    if (currentTotal + alokasiVal > totalRAB) {
+    if (currentTotal + totalAlokasiPemasukan + alokasiVal > totalRAB) {
       alert("Total alokasi Main Pos melebihi Nilai Proyek (total RAB)!");
       return;
     }
@@ -631,14 +633,15 @@ export default function AlokasiPosModal({
               {(() => {
                 const totalMain = data.reduce((s, m) => s + m.alokasi, 0);
                 const inputVal = parseRupiahInput(newMainAlokasi);
-                const liveTotalMain = totalMain + inputVal;
+                const liveTotalMain = totalMain + totalAlokasiPemasukan + inputVal;
+                const totalMainTeralokasi = totalMain + inputVal;
                 const sisaMain = totalRAB - liveTotalMain;
                 const isOverMain = sisaMain < 0;
                 return (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
                       <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total MAIN Teralokasi</p>
-                      <p className="text-[13.5px] font-normal text-[#000000] ">{formatShort(liveTotalMain)}</p>
+                      <p className="text-[13.5px] font-normal text-[#000000] ">{formatShort(totalMainTeralokasi)}</p>
                     </div>
                     {isOverMain ? (
                       <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">

@@ -52,10 +52,10 @@ export default function RealisasiPemasukanModal({
 
     if (posData?.posAnggaran && Array.isArray(posData.posAnggaran)) {
       posData.posAnggaran
-        .filter((m: any) => m.tipe === "pendapatan" || !m.tipe)
+        .filter((m: any) => m.tipe === "pemasukan" || !m.tipe)
         .forEach((m: any) => {
           (m.subAnggaran || [])
-            .filter((s: any) => s.tipe === "pendapatan" || !s.tipe || m.tipe === "pendapatan")
+            .filter((s: any) => s.tipe === "pemasukan" || !s.tipe || m.tipe === "pemasukan")
             .forEach((s: any) => {
               const key = `${m.namaMain}-${s.namaSub}`;
               if (!seenKeys.has(key)) {
@@ -66,7 +66,7 @@ export default function RealisasiPemasukanModal({
                   nama: s.namaSub,
                   mainNama: m.namaMain,
                   subNama: s.namaSub,
-                  tipe: "pendapatan",
+                  tipe: "pemasukan",
                 });
               }
             });

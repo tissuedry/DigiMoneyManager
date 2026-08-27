@@ -29,19 +29,25 @@ function formatRpInput(val: number): string {
 export default function EditAlokasiModal({
   target,
   proyekId,
+  totalAlokasiPemasukan = 0,
   onClose,
   onSuccess,
 }: {
   target: EditTarget;
   proyekId: number;
+  totalAlokasiPemasukan?: number;
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const pemasukanBasis = target.type === "main" ? totalAlokasiPemasukan : 0;
   const otherAlokasi = Math.max(0, target.totalTeralokasi - target.currentAlokasi);
-  
+
   const totalRAB = Math.max(target.totalRAB || 0, target.totalTeralokasi || 0, target.currentAlokasi || 0);
 
-  const maxAlokasi = Math.max(target.currentAlokasi, totalRAB - otherAlokasi);
+  const maxAlokasi = Math.max(
+    target.currentAlokasi,
+    totalRAB - pemasukanBasis - otherAlokasi
+  );
 
   const [alokasiBaru, setAlokasiBaru] = useState<number>(target.currentAlokasi);
   const [inputStr, setInputStr] = useState<string>(formatRpInput(target.currentAlokasi));
@@ -51,7 +57,10 @@ export default function EditAlokasiModal({
   const [showSuccess, setShowSuccess] = useState(false);
 
   const liveTotalTeralokasi = otherAlokasi + alokasiBaru;
-  const liveSisaBelumDialokasikan = Math.max(0, totalRAB - liveTotalTeralokasi);
+  const liveSisaBelumDialokasikan = Math.max(
+    0,
+    totalRAB - pemasukanBasis - liveTotalTeralokasi
+  );
 
   const updateValue = useCallback(
     (val: number) => {

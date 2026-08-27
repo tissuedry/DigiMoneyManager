@@ -124,7 +124,9 @@ export async function GET(req: NextRequest) {
 
         const mappedBudget = project?.budget ? {
           ...project.budget,
-          posAnggaran: project.budget.mainAnggaran.map((main) => ({
+          posAnggaran: project.budget.mainAnggaran
+            .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === 'pengeluaran')
+            .map((main) => ({
             ...main,
             deskripsi: main.namaMain,
             namaPos: main.namaMain,
