@@ -15,7 +15,6 @@ import Header from "@/components/header";
 import Link from "next/link";
 import CompactNominal from "@/components/compact-nominal";
 import { useApi } from "@/lib/use-api";
-import { formatFullRupiah as formatRupiah } from "@/lib/format-nominal";
 import PMSkeleton from "./PMSkeleton";
 
 type PosAnggaran = {
@@ -221,13 +220,13 @@ export default function PMDashboardPage() {
                           </div>
 
                           <div className="flex justify-between items-center text-xs font-medium text-stone-500">
-                            <span title={formatRupiah(used)} className="flex items-center gap-1.5 cursor-pointer">
+                            <span className="flex items-center gap-1.5 cursor-pointer">
                               <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-                              Terpakai: {formatRupiah(used)}
+                              Terpakai: {<CompactNominal value={used} compactThreshold={1_000_000_000_000} showTooltip />}
                             </span>
-                            <span title={formatRupiah(rem)} className="flex items-center gap-1.5 cursor-pointer">
+                            <span className="flex items-center gap-1.5 cursor-pointer">
                               <span className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-                              Sisa Budget: {formatRupiah(rem)}
+                              Sisa Budget: {<CompactNominal value={rem} compactThreshold={10_000_000_000_000} showTooltip />}
                             </span>
                           </div>
                         </div>

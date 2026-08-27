@@ -5,7 +5,6 @@ import { X } from "lucide-react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import SuccessDialog from "@/components/success-dialog";
 import CompactNominal from "@/components/compact-nominal";
-import { formatFullRupiah as formatFullCurrency } from "@/lib/format-nominal";
 import { formatRibuan } from "@/lib/proyek-utils";
 
 function formatRpInput(val: number): string {
@@ -284,7 +283,7 @@ export default function PerubahanAlokasiModal({
             <span className="text-[11px] font-normal text-[#902F33] bg-[#FDF3F2] border border-[#902F33] px-2.5 py-1 rounded-lg">
               <span className="mr-1.5">⚠</span>
               {alokasiBaru < sumSub
-                ? `Alokasi baru kurang dari total sub (${formatFullCurrency(sumSub)})`
+                ? `Alokasi baru kurang dari total sub (${<CompactNominal value={sumSub} compactThreshold={1_000_000_000_000} showTooltip />})`
                 : "Melebihi sisa Nilai Proyek"}
             </span>
           ) : (

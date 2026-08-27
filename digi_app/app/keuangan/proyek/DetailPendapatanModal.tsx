@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
-import { formatFullRupiah } from "@/lib/format-nominal";
 import { useApi } from "@/lib/use-api";
 import { formatTanggal } from "@/lib/formatters";
+import CompactNominal from "@/components/compact-nominal";
 
 type TransaksiItem = {
   id: number;
@@ -219,7 +219,7 @@ export default function DetailPendapatanModal({
                       </div>
 
                       <div className="w-[160px] shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullRupiah(main.realisasi)}
+                        {<CompactNominal value={main.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}
                       </div>
                     </div>
 
@@ -261,7 +261,7 @@ export default function DetailPendapatanModal({
                                   </div>
 
                                   <div className="w-[160px] shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullRupiah(sub.realisasi)}
+                                    {<CompactNominal value={sub.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}
                                   </div>
                                 </div>
 
@@ -296,7 +296,7 @@ export default function DetailPendapatanModal({
 
                                             <div className="w-[160px] shrink-0 flex items-center justify-center gap-1.5">
                                               <span className="text-[11px]  font-normal text-[#6A6660]">
-                                                {formatFullRupiah(tr.nominal)}
+                                                {<CompactNominal value={tr.nominal} compactThreshold={1_000_000_000_000} showTooltip />}
                                               </span>
                                               <Check
                                                 size={13}
@@ -329,7 +329,7 @@ export default function DetailPendapatanModal({
 
                                           <div className="w-[160px] shrink-0 flex items-center justify-center gap-1.5">
                                             <span className="text-[11px]  font-normal text-[#6A6660]">
-                                              {formatFullRupiah(isProyekDone ? sub.realisasi : 0)}
+                                              {<CompactNominal value={isProyekDone ? sub.realisasi : 0} compactThreshold={10_000_000_000_000} showTooltip />}
                                             </span>
                                             {isProyekDone ? (
                                               <Check

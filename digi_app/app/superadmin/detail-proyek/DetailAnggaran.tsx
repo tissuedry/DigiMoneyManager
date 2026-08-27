@@ -4,13 +4,8 @@ import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 
-import { formatFullRupiah } from "@/lib/format-nominal";
 import { formatReimbursementDate } from "@/lib/proyek-utils";
-
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return formatFullRupiah(n);
-}
+import CompactNominal from "@/components/compact-nominal";
 
 type KeteranganPos = {
   id: number;
@@ -201,7 +196,7 @@ function ReimbRealisasiCell({
   return (
     <Cell style={{ color: textColor }}>
       <span className="inline-flex items-center justify-center gap-1.5">
-        <span>{formatFullCurrency(nominal)}</span>
+        <span>{<CompactNominal value={nominal} compactThreshold={1_000_000_000_000} showTooltip />}</span>
         {icon}
       </span>
     </Cell>
@@ -442,8 +437,8 @@ export default function DetailAnggaranModal({
                       </span>
                     </div>
                     <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
-                    <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
-                    <Cell bold>{formatFullCurrency(main.realisasi)}</Cell>
+                    <Cell bold>{<CompactNominal value={main.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
+                    <Cell bold>{<CompactNominal value={main.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
                     <AksiButton
                       variant="main"
                       onClick={() => {
@@ -506,8 +501,8 @@ export default function DetailAnggaranModal({
                                   </span>
                                 </div>
                                 <ProgressCell pct={subPct} exactPctText={subPctExact} />
-                                <Cell>{formatFullCurrency(sub.alokasi)}</Cell>
-                                <Cell>{formatFullCurrency(sub.realisasi)}</Cell>
+                                <Cell>{<CompactNominal value={sub.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
+                                <Cell>{<CompactNominal value={sub.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
                                 <AksiButton
                                   variant="sub"
                                   onClick={() => {
@@ -571,10 +566,10 @@ export default function DetailAnggaranModal({
                                             </div>
                                             <div style={{ width: 200, flexShrink: 0 }} />
                                             <Cell style={{ color: "#78716C" }}>
-                                              {formatFullCurrency(ket.alokasi)}
+                                              {<CompactNominal value={ket.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}
                                             </Cell>
                                             <Cell style={{ color: "#78716C" }}>
-                                              {formatFullCurrency(ket.realisasi)}
+                                              {<CompactNominal value={ket.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}
                                             </Cell>
                                             <AksiButton
                                               variant="ket"

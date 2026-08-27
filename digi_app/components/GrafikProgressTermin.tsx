@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
+import CompactNominal from "./compact-nominal";
 
 export type TerminItem = {
     id?: number;
@@ -14,13 +15,6 @@ type Props = {
     projectName?: string;
     showEnlargeHint?: boolean;
 };
-
-function formatFullRupiah(val: number | string | undefined): string {
-    if (val === undefined || val === null || val === "") return "Rp 0";
-    const num = Number(val);
-    if (isNaN(num)) return "Rp 0";
-    return `Rp ${num.toLocaleString("id-ID")}`;
-}
 
 function formatCompactRupiah(val: number | string | undefined): string {
     if (val === undefined || val === null || val === "") return "";
@@ -260,7 +254,7 @@ export default function GrafikProgressTermin({
                                     x={xStart - 8}
                                     y={step.yTopCurCum + 3.5}
                                     textAnchor="end"
-                                    className={`text-[9.5px] font-mono tracking-tight transition-all ${isHovered
+                                    className={`text-[9.5px]  tracking-tight transition-all ${isHovered
                                             ? "fill-stone-900 font-extrabold text-[10.5px]"
                                             : "fill-stone-400 font-medium"
                                         }`}
@@ -378,7 +372,7 @@ export default function GrafikProgressTermin({
                                         x={step.midX}
                                         y={step.yTopCurCum + step.nominalHeight / 2 + 3}
                                         textAnchor="middle"
-                                        className="text-[9px] font-bold fill-white font-mono tracking-tight pointer-events-none"
+                                        className="text-[9px] font-bold fill-white  tracking-tight pointer-events-none"
                                     >
                                         {formatCompactRupiah(step.nominalNum)}
                                     </text>
@@ -410,15 +404,15 @@ export default function GrafikProgressTermin({
 
                                     <div className="flex items-center justify-between gap-3 text-[9px] whitespace-nowrap">
                                         <span className="text-stone-400 font-medium whitespace-nowrap">Nominal termin</span>
-                                        <span className="font-bold text-[#2d6a4f] font-mono whitespace-nowrap">
-                                            {formatFullRupiah(termins[activeHoveredIdx].nominalNum)}
+                                        <span className="font-bold text-[#2d6a4f]  whitespace-nowrap">
+                                            {<CompactNominal value={termins[activeHoveredIdx].nominalNum} compactThreshold={1_000_000_000} showTooltip />}
                                         </span>
                                     </div>
 
                                     <div className="flex items-center justify-between gap-3 text-[9px] whitespace-nowrap">
                                         <span className="text-stone-400 font-medium whitespace-nowrap">Total kumulatif</span>
-                                        <span className="font-bold text-stone-900 font-mono whitespace-nowrap">
-                                            {formatFullRupiah(termins[activeHoveredIdx].cumNominal)}
+                                        <span className="font-bold text-stone-900  whitespace-nowrap">
+                                            {<CompactNominal value={termins[activeHoveredIdx].cumNominal} compactThreshold={1_000_000_000} showTooltip />}
                                         </span>
                                     </div>
                                 </div>
@@ -468,7 +462,6 @@ export default function GrafikProgressTermin({
                         className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl max-w-4xl w-full border border-stone-100 animate-in zoom-in-95 duration-200 relative text-left flex flex-col max-h-[90vh] overflow-visible"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Modal Header */}
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-6 pb-2 flex-shrink-0">
                             <div>
                                 <h3 className="font-bold text-xl sm:text-2xl text-stone-900 leading-tight">

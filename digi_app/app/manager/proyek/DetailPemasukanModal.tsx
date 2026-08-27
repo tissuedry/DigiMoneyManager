@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
-import { formatFullRupiah } from "@/lib/format-nominal";
 import { useApi } from "@/lib/use-api";
 import CompactNominal from "@/components/compact-nominal";
 
@@ -17,11 +16,6 @@ interface AlokasiPemasukanProps {
   onClose: () => void;
   onRefresh?: () => void;
 }
-
-// function formatFullCurrency(num: number): string {
-//   const n = Number(num) || 0;
-//   return formatFullRupiah(n);
-// }
 
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) return "-";

@@ -5,7 +5,7 @@ import { FolderPlus, Check, Calendar, Briefcase, DollarSign, Settings } from "lu
 
 import { Project, Member } from "./types";
 import Pagination from "@/components/pagination";
-import { formatRupiah, formatSummaryRupiah, getStatusStyles, formatStatusLabel } from "@/lib/proyek-utils";
+import { getStatusStyles, formatStatusLabel } from "@/lib/proyek-utils";
 
 import AddProjectForm from "./AddProjectForm";
 import EditProjectForm from "./EditProjectForm";

@@ -1,5 +1,5 @@
 import { useEffect, useState, FC } from "react";
-import { formatFullRupiah } from "@/lib/format-nominal";
+import CompactNominal from "@/components/compact-nominal";
 
 interface RejectModalProps {
   isOpen: boolean;
@@ -40,7 +40,7 @@ const RejectModal: FC<RejectModalProps> = ({
           <h2 className="text-xl font-bold text-gray-900">Tolak Pengajuan</h2>
           {data && (
             <p className="mt-1 text-sm text-gray-500">
-              {data.merchant} &middot; {data.userName} &middot; {formatFullRupiah(data.nominal)}
+              {data.merchant} &middot; {data.userName} &middot; {<CompactNominal value={data.nominal} compactThreshold={1_000_000_000} showTooltip />}
             </p>
           )}
         </div>
