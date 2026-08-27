@@ -18,6 +18,7 @@ export default function PerubahanAlokasiModal({
   totalRAB,
   sumLain,
   sumSub,
+  totalAlokasiPemasukan = 0,
   isBlocked = false,
   onClose,
   onSuccess,
@@ -27,6 +28,7 @@ export default function PerubahanAlokasiModal({
   totalRAB: number;
   sumLain: number;
   sumSub: number;
+  totalAlokasiPemasukan?: number;
   isBlocked?: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -39,8 +41,13 @@ export default function PerubahanAlokasiModal({
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const maxAlokasi = Math.max(main.alokasi, totalRAB - sumLain);
-  const isInvalid = alokasiBaru < sumSub || sumLain + alokasiBaru > totalRAB;
+  const maxAlokasi = Math.max(
+    main.alokasi,
+    totalRAB - sumLain - totalAlokasiPemasukan
+  );
+  const isInvalid =
+    alokasiBaru < sumSub ||
+    sumLain + totalAlokasiPemasukan + alokasiBaru > totalRAB;
   const isUnchanged = alokasiBaru === main.alokasi;
   
   useEffect(() => {
@@ -183,7 +190,12 @@ export default function PerubahanAlokasiModal({
           <span className="text-[11px] text-stone-500">
             Sisa Nilai Proyek:{" "}
             <span className="font-bold text-stone-700">
-              <CompactNominal value={Math.max(0, totalRAB - sumLain - main.alokasi)} />
+              <CompactNominal
+                value={Math.max(
+                  0,
+                  totalRAB - totalAlokasiPemasukan - sumLain - main.alokasi
+                )}
+              />
             </span>
           </span>
         </div>

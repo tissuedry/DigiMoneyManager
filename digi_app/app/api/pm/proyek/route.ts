@@ -195,6 +195,10 @@ export async function GET(req: NextRequest) {
           };
         });
 
+      const totalAlokasiPemasukan = (budget?.mainAnggaran ?? [])
+        .filter((m: any) => m.tipe?.toLowerCase() === 'pemasukan')
+        .reduce((s: number, m: any) => s + Number(m.nominalAlokasi || 0), 0);
+
       const tim = p.users.map((u) => {
         const nama = u.user.nama;
         const words = nama.split(' ');
@@ -218,6 +222,7 @@ export async function GET(req: NextRequest) {
         pm: pmUser?.user.nama || '',
         status: p.status,
         totalRAB: budget ? Number(budget.nilaiKontrak) : 0,
+        totalAlokasiPemasukan,
         realisasi: totalRealisasi,
         posAnggaran,
         tim,

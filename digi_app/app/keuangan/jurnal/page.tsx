@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, Suspense, useCallback } from "react";
 import {
-  Calendar, Filter, Download, ArrowUp, ArrowDown, Check, BookOpen, ChevronDown, X,
+  Calendar, Filter, ArrowUp, ArrowDown, Check, BookOpen, ChevronDown, X,
 } from "lucide-react";
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
@@ -228,11 +228,6 @@ function JurnalAkuntansiContent() {
       setSortKey(key);
       setSortDir("asc");
     }
-  };
-
-  const handleExport = (format: 'csv' | 'pdf') => {
-    const url = `/api/laporan?type=buku-besar&export=${format}`;
-    window.open(url, '_blank');
   };
 
   return (
@@ -527,13 +522,6 @@ function JurnalAkuntansiContent() {
                 )}
               </div>
 
-              <button
-                onClick={() => handleExport('csv')}
-                className="flex items-center gap-1.5 text-[12px] font-medium text-stone-700 border border-stone-200 bg-white px-3 py-1.5 rounded-lg hover:bg-stone-50 transition shrink-0 cursor-pointer"
-              >
-                <Download size={13} />
-                <span>Export CSV</span>
-              </button>
             </div>
           </div>
 

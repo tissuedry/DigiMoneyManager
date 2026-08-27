@@ -76,6 +76,7 @@ export default function DetailAnggaranModal({
   proyekNama,
   posAnggaran,
   totalRAB,
+  totalAlokasiPemasukan = 0,
   onClose,
   onRefresh,
 }: {
@@ -83,6 +84,7 @@ export default function DetailAnggaranModal({
   proyekNama: string;
   posAnggaran: any[];
   totalRAB?: number;
+  totalAlokasiPemasukan?: number;
   onClose: () => void;
   onRefresh?: () => void;
 }) {
@@ -643,7 +645,8 @@ export default function DetailAnggaranModal({
           main={perubahanTarget}
           totalRAB={totalRAB || mapped.reduce((s, m) => s + (m.alokasi || 0), 0)}
           sumLain={
-            mapped.reduce((s, m) => s + (m.alokasi || 0), 0) -
+            mapped.reduce((s, m) => s + (m.alokasi || 0), 0) +
+            totalAlokasiPemasukan -
             (perubahanTarget.alokasi || 0)
           }
           sumSub={

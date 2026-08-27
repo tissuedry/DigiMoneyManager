@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Check, Loader2, AlertCircle, Coins } from 'lucide-react';
 import { formatRibuan, ribuanToNumber } from '@/lib/proyek-utils';
 import { TerminItem } from './types';
+import Toast from '@/components/toast';
 
 type Props = {
     isOpen: boolean;
@@ -29,6 +30,7 @@ export default function EditTerminForm({
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+    const [showSuccessToast, setShowSuccessToast] = useState(false);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -75,11 +77,12 @@ export default function EditTerminForm({
             setTerminData([{ progress: '', nominal: '', isDiterima: false }]);
             setJumlahTerminInput('1');
         }
+        setShowSuccessToast(false);
         setErrorMsg('');
         setSuccessMsg('');
     }, [isOpen, terminList]);
 
-    if (!isOpen) return null;
+    if (!isOpen && !showSuccessToast) return null;
 
     const totalNilaiProyekVal = typeof NilaiKontrak === 'number'
         ? NilaiKontrak
@@ -275,15 +278,14 @@ export default function EditTerminForm({
             }
 
             setSuccessMsg('Termin pembayaran berhasil diperbarui!');
+            setShowSuccessToast(true);
 
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('terminUpdated'));
             }
 
-            setTimeout(() => {
-                onSuccess?.();
-                onClose();
-            }, 1000);
+            onSuccess?.();
+            onClose();
 
         } catch (err: any) {
             setErrorMsg(err.message || 'Terjadi kesalahan jaringan.');
@@ -293,279 +295,270 @@ export default function EditTerminForm({
     };
 
     return (
+        <>
+        {isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
 
-                <div className="px-6 py-5 border-b border-stone-100 flex justify-between items-start shrink-0">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                <Coins size={13} className="text-emerald-700" strokeWidth={2.5} />
-                            </div>
-                            <h2 className="text-[17px] font-bold text-stone-900">Edit Termin Pembayaran</h2>
-                        </div>
-                        <p className="text-[12px] text-stone-500 mt-1 pl-8">{proyekNama}</p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="text-stone-400 hover:text-stone-700 p-1.5 rounded-xl hover:bg-stone-100 transition cursor-pointer"
-                    >
-                        <X size={18} />
-                    </button>
+          <div className="px-6 py-5 border-b border-stone-100 flex justify-between items-start shrink-0">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <Coins size={13} className="text-emerald-700" strokeWidth={2.5} />
                 </div>
-
-                <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                    {errorMsg && (
-                        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-[12.5px] font-medium flex items-center gap-2 animate-in fade-in">
-                            <AlertCircle size={16} className="shrink-0 text-rose-600" />
-                            <span>{errorMsg}</span>
-                        </div>
-                    )}
-                    {successMsg && (
-                        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-[12.5px] font-medium flex items-center gap-2 animate-in fade-in">
-                            <Check size={16} className="shrink-0 text-emerald-600" />
-                            <span>{successMsg}</span>
-                        </div>
-                    )}
-
-                    <div>
-                        <label className="block text-[12px] font-bold text-stone-800 mb-1.5">
-                            Total Nilai Proyek (Rupiah)
-                        </label>
-                        <div className="flex items-center w-full h-10 bg-[#F8F7F4] border border-[#e6e2d6] rounded-xl px-3.5 shadow-xs">
-                            <span className="text-[13.5px]  font-medium text-[#78716C] mr-1.5">Rp</span>
-                            <span className="text-[14px]  font-bold text-stone-900">
-                                {totalNilaiProyekVal > 0 ? formatRibuan(String(Math.round(totalNilaiProyekVal))) : "0"}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="p-4 bg-white rounded-2xl border border-[#e6e2d6] shadow-xs space-y-2.5">
-                        <div className="flex justify-between items-center text-[12px] font-bold text-stone-700">
-                            <span>Distribusi Alokasi Termin</span>
-                            <span className=" text-[12.5px] font-extrabold text-stone-900">
-                                Rp {totalTeralokasi.toLocaleString("id-ID")} <span className="text-stone-400 font-normal">/ {totalNilaiProyekVal.toLocaleString("id-ID")}</span>
-                            </span>
-                        </div>
-
-                        <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden flex">
-                            <div
-                                className={`h-full transition-all duration-300 ${
-                                    isOverallocated
-                                        ? "bg-rose-500"
-                                        : isMatched
-                                        ? "bg-[#00966c]"
-                                        : "bg-emerald-500"
-                                }`}
-                                style={{ width: `${Math.min(pctTeralokasi, 100)}%` }}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2 pt-1">
-                            <div className="flex flex-col">
-                                <span className="text-stone-400 text-[11px] font-medium flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
-                                    Teralokasi
-                                </span>
-                                <span className=" font-bold text-stone-800 text-[12.5px] mt-0.5">
-                                    Rp {totalTeralokasi.toLocaleString("id-ID")}
-                                </span>
-                                <span className="text-[10px] text-emerald-600 font-semibold mt-0.5">
-                                    {Math.round(pctTeralokasi)}% dari nilai proyek
-                                </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                                <span className="text-stone-400 text-[11px] font-medium flex items-center gap-1">
-                                    <span className={`w-2 h-2 rounded-full inline-block shrink-0 ${isOverallocated ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                                    {isOverallocated ? "Kelebihan" : "Sisa Alokasi"}
-                                </span>
-                                <span className={` font-bold text-[12.5px] mt-0.5 ${isOverallocated ? 'text-rose-600' : 'text-stone-800'}`}>
-                                    Rp {Math.abs(sisaAlokasi).toLocaleString("id-ID")}
-                                </span>
-                                <span className={`text-[10px] font-medium mt-0.5 ${isOverallocated ? 'text-rose-500 font-semibold' : 'text-stone-400'}`}>
-                                    {isOverallocated ? "Melebihi nilai" : isMatched ? "Selesai dialokasi" : "Belum dialokasi"}
-                                </span>
-                            </div>
-
-                            <div className="flex flex-col text-right items-end justify-start">
-                                <span className="text-stone-400 text-[11px] font-medium">Status</span>
-                                <div className="mt-1">
-                                    {isOverallocated ? (
-                                        <span className="inline-block px-2 py-0.5 bg-rose-100 text-rose-800 font-bold text-[10.5px] rounded-lg">
-                                            Overbudget
-                                        </span>
-                                    ) : isMatched ? (
-                                        <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10.5px] rounded-lg">
-                                            Sesuai (100%)
-                                        </span>
-                                    ) : (
-                                        <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-800 font-bold text-[10.5px] rounded-lg">
-                                            Sisa {Math.max(0, 100 - Math.round(pctTeralokasi))}%
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-[12px] font-bold text-stone-800 mb-1.5">
-                            Jumlah Termin
-                        </label>
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            value={jumlahTerminInput}
-                            onChange={(e) => handleJumlahTerminChange(e.target.value)}
-                            onBlur={() => {
-                                if (jumlahTerminInput === "" || parseInt(jumlahTerminInput, 10) === 0) {
-                                    setJumlahTerminInput(String(terminData.length));
-                                }
-                            }}
-                            placeholder="0"
-                            className="w-20 border border-[#e6e2d6] rounded-[12px] px-4 py-2 text-[14px] font-bold text-stone-900 outline-none focus:border-[#00966c] text-center bg-white shadow-xs"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-12 gap-3 px-3 pt-1">
-                        <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider">
-                            Termin
-                        </div>
-                        <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider text-center">
-                            Persen (%)
-                        </div>
-                        <div className="col-span-6 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider pl-1">
-                            Nominal Diturunkan (IDR)
-                        </div>
-                    </div>
-
-                    <div className="space-y-2.5 max-h-[38vh] overflow-y-auto pr-1">
-
-                        <div className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
-                            <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
-                                Termin 0 <span className="text-[11px] font-normal text-stone-500">(DP)</span>
-                                {termin0.isDiterima && (
-                                    <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dicairkan</span>
-                                )}
-                            </div>
-
-                            <div className="col-span-3 relative">
-                                <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    disabled={termin0.isDiterima}
-                                    value={termin0.progress ?? ''}
-                                    onChange={(e) => handleTermin0ProgressChange(e.target.value)}
-                                    placeholder="0"
-                                    className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${
-                                        termin0.isDiterima
-                                            ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
-                                            : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'
-                                    }`}
-                                />
-                                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
-                                    %
-                                </span>
-                            </div>
-
-                            <div className="col-span-6 relative">
-                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
-                                    Rp
-                                </span>
-                                <input
-                                    type="text"
-                                    disabled={termin0.isDiterima}
-                                    value={termin0.nominal}
-                                    onChange={handleTermin0Change}
-                                    placeholder="0"
-                                    className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${
-                                        termin0.isDiterima
-                                            ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
-                                            : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'
-                                    }`}
-                                />
-                            </div>
-                        </div>
-
-                        {terminData.map((t, idx) => (
-                            <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
-
-                                <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
-                                    Termin {idx + 1}
-                                    {t.isDiterima && (
-                                        <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dicairkan</span>
-                                    )}
-                                </div>
-
-                                <div className="col-span-3 relative">
-                                    <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        disabled={t.isDiterima}
-                                        value={t.progress ?? ''}
-                                        onChange={(e) => handleInputChange(idx, 'progress', e.target.value)}
-                                        placeholder="0"
-                                        className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${
-                                            t.isDiterima
-                                                ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
-                                                : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'
-                                        }`}
-                                    />
-                                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
-                                        %
-                                    </span>
-                                </div>
-
-                                <div className="col-span-6 relative">
-                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
-                                        Rp
-                                    </span>
-                                    <input
-                                        type="text"
-                                        disabled={t.isDiterima}
-                                        value={t.nominal ?? ''}
-                                        onChange={(e) => handleInputChange(idx, 'nominal', e.target.value, e)}
-                                        placeholder="0"
-                                        className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${
-                                            t.isDiterima
-                                                ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
-                                                : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'
-                                        }`}
-                                    />
-                                </div>
-
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3 bg-stone-50/50 shrink-0">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="px-6 py-2.5 bg-white border border-[#e2e2e0] text-stone-700 text-[12px] font-bold rounded-xl transition hover:bg-stone-100 shadow-xs cursor-pointer disabled:opacity-50"
-                    >
-                        Batal
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleSimpanTermin}
-                        disabled={loading || isOverallocated}
-                        className={`px-6 py-2.5 text-white text-[12px] font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer ${
-                            isOverallocated
-                                ? 'bg-stone-300 cursor-not-allowed text-stone-500'
-                                : 'bg-[#1a1a1a] hover:bg-black'
-                        } disabled:opacity-50`}
-                    >
-                        {loading && <Loader2 size={14} className="animate-spin" />}
-                        {loading ? 'Menyimpan...' : 'Simpan'}
-                    </button>
-                </div>
-
+                <h2 className="text-[17px] font-bold text-stone-900">Edit Termin Pembayaran</h2>
+              </div>
+              <p className="text-[12px] text-stone-500 mt-1 pl-8">{proyekNama}</p>
             </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-stone-400 hover:text-stone-700 p-1.5 rounded-xl hover:bg-stone-100 transition cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="p-6 overflow-y-auto flex-1 space-y-4">
+            {errorMsg && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-[12.5px] font-medium flex items-center gap-2 animate-in fade-in">
+                <AlertCircle size={16} className="shrink-0 text-rose-600" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+            {successMsg && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-[12.5px] font-medium flex items-center gap-2 animate-in fade-in">
+                <Check size={16} className="shrink-0 text-emerald-600" />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[12px] font-bold text-stone-800 mb-1.5">
+                Total Nilai Proyek (Rupiah)
+              </label>
+              <div className="flex items-center w-full h-10 bg-[#F8F7F4] border border-[#e6e2d6] rounded-xl px-3.5 shadow-xs">
+                <span className="text-[13.5px]  font-medium text-[#78716C] mr-1.5">Rp</span>
+                <span className="text-[14px]  font-bold text-stone-900">
+                  {totalNilaiProyekVal > 0 ? formatRibuan(String(Math.round(totalNilaiProyekVal))) : "0"}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-white rounded-2xl border border-[#e6e2d6] shadow-xs space-y-2.5">
+              <div className="flex justify-between items-center text-[12px] font-bold text-stone-700">
+                <span>Distribusi Alokasi Termin</span>
+                <span className=" text-[12.5px] font-extrabold text-stone-900">
+                  Rp {totalTeralokasi.toLocaleString("id-ID")} <span className="text-stone-400 font-normal">/ {totalNilaiProyekVal.toLocaleString("id-ID")}</span>
+                </span>
+              </div>
+
+              <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden flex">
+                <div
+                  className={`h-full transition-all duration-300 ${isOverallocated
+                      ? "bg-rose-500"
+                      : isMatched
+                        ? "bg-[#00966c]"
+                        : "bg-emerald-500"}`}
+                  style={{ width: `${Math.min(pctTeralokasi, 100)}%` }} />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="flex flex-col">
+                  <span className="text-stone-400 text-[11px] font-medium flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
+                    Teralokasi
+                  </span>
+                  <span className=" font-bold text-stone-800 text-[12.5px] mt-0.5">
+                    Rp {totalTeralokasi.toLocaleString("id-ID")}
+                  </span>
+                  <span className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                    {Math.round(pctTeralokasi)}% dari nilai proyek
+                  </span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-stone-400 text-[11px] font-medium flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full inline-block shrink-0 ${isOverallocated ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                    {isOverallocated ? "Kelebihan" : "Sisa Alokasi"}
+                  </span>
+                  <span className={` font-bold text-[12.5px] mt-0.5 ${isOverallocated ? 'text-rose-600' : 'text-stone-800'}`}>
+                    Rp {Math.abs(sisaAlokasi).toLocaleString("id-ID")}
+                  </span>
+                  <span className={`text-[10px] font-medium mt-0.5 ${isOverallocated ? 'text-rose-500 font-semibold' : 'text-stone-400'}`}>
+                    {isOverallocated ? "Melebihi nilai" : isMatched ? "Selesai dialokasi" : "Belum dialokasi"}
+                  </span>
+                </div>
+
+                <div className="flex flex-col text-right items-end justify-start">
+                  <span className="text-stone-400 text-[11px] font-medium">Status</span>
+                  <div className="mt-1">
+                    {isOverallocated ? (
+                      <span className="inline-block px-2 py-0.5 bg-rose-100 text-rose-800 font-bold text-[10.5px] rounded-lg">
+                        Overbudget
+                      </span>
+                    ) : isMatched ? (
+                      <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10.5px] rounded-lg">
+                        Sesuai (100%)
+                      </span>
+                    ) : (
+                      <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-800 font-bold text-[10.5px] rounded-lg">
+                        Sisa {Math.max(0, 100 - Math.round(pctTeralokasi))}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-bold text-stone-800 mb-1.5">
+                Jumlah Termin
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={jumlahTerminInput}
+                onChange={(e) => handleJumlahTerminChange(e.target.value)}
+                onBlur={() => {
+                  if (jumlahTerminInput === "" || parseInt(jumlahTerminInput, 10) === 0) {
+                    setJumlahTerminInput(String(terminData.length));
+                  }
+                } }
+                placeholder="0"
+                className="w-20 border border-[#e6e2d6] rounded-[12px] px-4 py-2 text-[14px] font-bold text-stone-900 outline-none focus:border-[#00966c] text-center bg-white shadow-xs" />
+            </div>
+
+            <div className="grid grid-cols-12 gap-3 px-3 pt-1">
+              <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider">
+                Termin
+              </div>
+              <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider text-center">
+                Persen (%)
+              </div>
+              <div className="col-span-6 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider pl-1">
+                Nominal Diturunkan (IDR)
+              </div>
+            </div>
+
+            <div className="space-y-2.5 max-h-[38vh] overflow-y-auto pr-1">
+
+              <div className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
+                <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
+                  Termin 0 <span className="text-[11px] font-normal text-stone-500">(DP)</span>
+                  {termin0.isDiterima && (
+                    <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dicairkan</span>
+                  )}
+                </div>
+
+                <div className="col-span-3 relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    disabled={termin0.isDiterima}
+                    value={termin0.progress ?? ''}
+                    onChange={(e) => handleTermin0ProgressChange(e.target.value)}
+                    placeholder="0"
+                    className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${termin0.isDiterima
+                        ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                        : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                    %
+                  </span>
+                </div>
+
+                <div className="col-span-6 relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                    Rp
+                  </span>
+                  <input
+                    type="text"
+                    disabled={termin0.isDiterima}
+                    value={termin0.nominal}
+                    onChange={handleTermin0Change}
+                    placeholder="0"
+                    className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${termin0.isDiterima
+                        ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                        : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
+                </div>
+              </div>
+
+              {terminData.map((t, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
+
+                  <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
+                    Termin {idx + 1}
+                    {t.isDiterima && (
+                      <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dicairkan</span>
+                    )}
+                  </div>
+
+                  <div className="col-span-3 relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      disabled={t.isDiterima}
+                      value={t.progress ?? ''}
+                      onChange={(e) => handleInputChange(idx, 'progress', e.target.value)}
+                      placeholder="0"
+                      className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${t.isDiterima
+                          ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                          : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                      %
+                    </span>
+                  </div>
+
+                  <div className="col-span-6 relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                      Rp
+                    </span>
+                    <input
+                      type="text"
+                      disabled={t.isDiterima}
+                      value={t.nominal ?? ''}
+                      onChange={(e) => handleInputChange(idx, 'nominal', e.target.value, e)}
+                      placeholder="0"
+                      className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${t.isDiterima
+                          ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                          : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3 bg-stone-50/50 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-6 py-2.5 bg-white border border-[#e2e2e0] text-stone-700 text-[12px] font-bold rounded-xl transition hover:bg-stone-100 shadow-xs cursor-pointer disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSimpanTermin}
+              disabled={loading || isOverallocated}
+              className={`px-6 py-2.5 text-white text-[12px] font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer ${isOverallocated
+                  ? 'bg-stone-300 cursor-not-allowed text-stone-500'
+                  : 'bg-[#1a1a1a] hover:bg-black'} disabled:opacity-50`}
+            >
+              {loading && <Loader2 size={14} className="animate-spin" />}
+              {loading ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </div>
+
         </div>
+      </div>
+      )}
+      <Toast
+          open={showSuccessToast}
+          message="Termin pembayaran berhasil diperbarui!"
+          onClose={() => setShowSuccessToast(false)} 
+      />
+      </>
     );
 }

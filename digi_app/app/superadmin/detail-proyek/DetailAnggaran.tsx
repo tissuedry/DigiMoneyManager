@@ -260,6 +260,7 @@ export default function DetailAnggaranModal({
   proyekNama,
   posAnggaran,
   totalRAB,
+  totalAlokasiPemasukan = 0,
   onClose,
   onRefresh,
 }: {
@@ -267,6 +268,7 @@ export default function DetailAnggaranModal({
   proyekNama: string;
   posAnggaran: any[];
   totalRAB?: number;
+  totalAlokasiPemasukan?: number;
   onClose: () => void;
   onRefresh?: () => void;
 }) {
@@ -681,7 +683,8 @@ export default function DetailAnggaranModal({
       <EditAlokasiModal
         target={editTarget}
         proyekId={proyekId}
-        onClose={() => setEditTarget(null)}
+        totalAlokasiPemasukan={totalAlokasiPemasukan}
+onClose={() => setEditTarget(null)}
         onSuccess={() => {
           setEditTarget(null);
           if (onRefresh) onRefresh();

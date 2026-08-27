@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, SubmitEvent } from "react";
 import { X, Loader2, AlertCircle, TrendingUp } from "lucide-react";
+import ConfirmDialog from "@/components/confirm-dialog";
+import SuccessDialog from "@/components/success-dialog";
 import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 
 type MasterOption = {
@@ -31,13 +33,15 @@ export default function AlokasiPemasukanForm({
   const [loadingOptions, setLoadingOptions] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [savedName, setSavedName] = useState<string | null>(null);
 
   const [posPemasukanList, setPosPemasukanList] = useState<{ deskripsi: string; nominalAlokasi: string }[]>([
     { deskripsi: "", nominalAlokasi: "" }
   ]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || savedName) return;
     let isMounted = true;
 
     async function fetchMasterPemasukan() {
@@ -63,7 +67,7 @@ export default function AlokasiPemasukanForm({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || savedName) return;
 
     const existingPemasukan =
       detailedProjectInfo?.alokasiPemasukan ||
@@ -81,9 +85,9 @@ export default function AlokasiPemasukanForm({
       setPosPemasukanList([{ deskripsi: "", nominalAlokasi: "" }]);
     }
     setError("");
-  }, [isOpen, detailedProjectInfo]);
+  }, [isOpen, detailedProjectInfo, savedName]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !savedName) return null;
 
   const totalNilaiProyekVal = Number(
     nilaiKontrak > 0
@@ -108,7 +112,7 @@ export default function AlokasiPemasukanForm({
   const pctPengeluaran = totalNilaiProyekVal > 0 ? (totalPengeluaranExisting / totalNilaiProyekVal) * 100 : 0;
   const pctPemasukan = totalNilaiProyekVal > 0 ? (totalPemasukanAllocated / totalNilaiProyekVal) * 100 : 0;
 
-  const handleSubmit = async (e: SubmitEvent) => {
+  const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault();
     setError("");
 
@@ -124,6 +128,17 @@ export default function AlokasiPemasukanForm({
       return;
     }
 
+    setShowConfirm(true);
+  };
+
+  const handleConfirm = async () => {
+    const validPemasukan = posPemasukanList
+      .filter((p) => p.deskripsi.trim() !== "" && ribuanToNumber(p.nominalAlokasi) > 0)
+      .map((p) => ({
+        deskripsi: p.deskripsi.trim(),
+        nominalAlokasi: ribuanToNumber(p.nominalAlokasi),
+      }));
+
     setSubmitting(true);
     try {
       const res = await fetch(`/api/proyek/${proyekId}/budget`, {
@@ -138,20 +153,25 @@ export default function AlokasiPemasukanForm({
       const data = await res.json();
       if (!res.ok) {
         setError(data.message || "Gagal menyimpan alokasi pemasukan");
+        setShowConfirm(false);
         return;
       }
 
+      setShowConfirm(false);
+      setSavedName(proyekNama);
       onSuccess();
-      onClose();
     } catch {
       setError("Terjadi kesalahan koneksi ke server");
+      setShowConfirm(false);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-100 flex items-center justify-center p-4">
+    <>
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-100 flex items-center justify-center p-4">
       <div
         className="w-135 bg-white shadow-[0_24px_64px_rgba(20,18,14,0.28)] overflow-hidden rounded-3xl flex flex-col max-h-[92vh] animate-[fadeIn_0.2s_ease]"
       >
@@ -336,5 +356,31 @@ export default function AlokasiPemasukanForm({
         </form>
       </div>
     </div>
+    )}
+
+    <ConfirmDialog
+      open={showConfirm}
+      title="Simpan Alokasi Pemasukan"
+      description={
+        <>
+          Apakah Anda yakin ingin menyimpan Alokasi Pemasukan proyek <span className="font-semibold text-stone-900">{proyekNama}</span> senilai <span className="font-semibold text-stone-900">Rp {totalPemasukanAllocated.toLocaleString("id-ID")}</span>? Data alokasi pemasukan yang sudah ada sebelumnya akan diganti sesuai isian ini.
+        </>
+      }
+      confirmLabel="Simpan"
+      isLoading={submitting}
+      onCancel={() => setShowConfirm(false)}
+      onConfirm={handleConfirm}
+    />
+
+    <SuccessDialog
+      open={!!savedName}
+      title="Alokasi Pemasukan Berhasil Disimpan"
+      description={<>Alokasi Pemasukan untuk proyek <span className="font-semibold text-[#14130F]">{savedName}</span> berhasil disimpan.</>}
+      onClose={() => {
+        setSavedName(null);
+        onClose();
+      }}
+    />
+  </>
   );
 }
