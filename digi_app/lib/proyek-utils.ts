@@ -78,9 +78,6 @@ export const getStatusStyles = (status: string) => {
   }
 };
 
-export const PROJECT_STATUSES = ['Active', 'Planning', 'Done', 'Canceled'] as const;
-
-// Helper untuk format teks status tampilan
 export function formatStatusLabel(status?: string): string {
   if (!status) return 'Active';
   const upper = status.toUpperCase();

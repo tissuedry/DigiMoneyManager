@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Briefcase, ChevronRight, ChevronLeft, LogOut, Loader2, FolderOpen, AlertCircle, Search, X } from 'lucide-react';
 import Image from 'next/image';
@@ -88,7 +88,6 @@ export default function SelectProjectPage() {
         throw new Error(data.message || 'Gagal memilih proyek');
       }
       queryClient.clear();
-      // Redirect to dashboard
       router.push(data.redirectUrl);
       router.refresh();
     } catch (err: any) {
@@ -121,7 +120,6 @@ export default function SelectProjectPage() {
 
   const assignments = profile?.assignments || [];
   
-  // Filter assignments based on search query
   const filteredAssignments = assignments.filter((item) =>
     item.nama.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -135,11 +133,9 @@ export default function SelectProjectPage() {
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-[#f8f6f1] text-stone-800 font-sans relative overflow-x-hidden">
-      {/* Background decorations */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#e2f1eb]/30 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#008f5d]/5 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* Red: Headbar Navigation */}
       <header className="sticky top-0 z-50 w-full border-b border-stone-200/80 bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center shrink-0">
@@ -160,10 +156,8 @@ export default function SelectProjectPage() {
         </button>
       </header>
 
-      {/* Main Section */}
       <div className="flex-1 w-full max-w-6xl mx-auto px-6 py-12 flex flex-col items-center gap-10">
         
-        {/* Yellow: Title & Search bar Area */}
         <div className="w-full max-w-2xl text-center space-y-6">
           <div className="space-y-2.5">
             <h2 className="text-3xl font-extrabold tracking-tight text-stone-900">
@@ -174,7 +168,6 @@ export default function SelectProjectPage() {
             </p>
           </div>
 
-          {/* Search bar */}
           {assignments.length > 0 && (
             <div className="relative max-w-md w-full mx-auto shadow-sm rounded-2xl">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400">
@@ -209,7 +202,6 @@ export default function SelectProjectPage() {
           )}
         </div>
 
-        {/* Blue: Projects Grid Area */}
         <div className="w-full">
           {paginatedAssignments.length > 0 ? (
             <>
@@ -228,7 +220,6 @@ export default function SelectProjectPage() {
                     }`}
                   >
                     <div className="space-y-4">
-                      {/* Top section */}
                       <div className="flex items-center justify-between">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm ${
                           isPM 
@@ -244,7 +235,6 @@ export default function SelectProjectPage() {
                         </span>
                       </div>
 
-                      {/* Info section */}
                       <div className="space-y-1.5">
                         <h3 className="font-bold text-base text-stone-900 group-hover:text-[#008f5d] transition-colors line-clamp-2 leading-snug">
                           {assignment.nama}
@@ -255,7 +245,6 @@ export default function SelectProjectPage() {
                       </div>
                     </div>
 
-                    {/* Bottom section with Role and CTA Button */}
                     <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between">
                       <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${
                         isPM 
@@ -285,7 +274,6 @@ export default function SelectProjectPage() {
               })}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-3 mt-8">
                 <button
@@ -336,7 +324,6 @@ export default function SelectProjectPage() {
         </div>
       </div>
 
-      {/* Footer Branding */}
       <footer className="w-full border-t border-stone-200/60 bg-white/50 py-4 text-center text-[10px] text-stone-400 font-medium">
         © {new Date().getFullYear()} Digi Money Manager. Hak Cipta Dilindungi.
       </footer>

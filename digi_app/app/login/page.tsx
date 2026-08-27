@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Mail,
@@ -21,11 +21,10 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Form states - Login
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -49,11 +48,9 @@ export default function LoginPage() {
 
       setSuccessMsg('Login berhasil! Mengalihkan ke dashboard...');
 
-      // Clear values
       setLoginEmail('');
       setLoginPassword('');
 
-      // Redirect based on role
         const role = data.user.role || '';
         const roleLower = String(role).trim().toLowerCase();
         const roles: string[] = Array.isArray(data.user.roles)
@@ -86,13 +83,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex text-stone-800 font-sans bg-[#f8f6f1]">
 
-      {/* SISI KIRI (DARK GREEN SECTION) - Hidden on Mobile */}
       <div className="hidden lg:flex lg:w-5/12 bg-[#003d29] text-white flex-col justify-between p-12 relative overflow-hidden shrink-0 shadow-2xl">
-        {/* Glow decoration */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-20 -left-20 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl" />
 
-        {/* Brand Header */}
         <div className="z-10 flex items-center gap-3">
           <div className="flex items-center justify-center shrink-0">
             <Image src="/logo.png" alt="Digi Money Manager" width={40} height={40} className="object-contain" />
@@ -103,7 +97,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Brand Features & Headline */}
         <div className="z-10 space-y-12 my-auto">
           <div className="space-y-4">
             <span className="text-xs font-bold tracking-widest text-emerald-300 uppercase">
@@ -117,7 +110,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* List of Features */}
           <div className="space-y-6">
             <div className="flex gap-4 items-start">
               <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-300 shrink-0 shadow-inner">
@@ -157,17 +149,14 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Footer Brand */}
         <div className="z-10 text-[10px] text-emerald-100/30 font-medium">
           © {new Date().getFullYear()} Digi Money Manager. Hak Cipta Dilindungi.
         </div>
       </div>
 
-      {/* SISI KANAN (CREAM FORM SECTION) */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 md:p-12">
         <div className="w-full max-w-[440px] space-y-8">
 
-          {/* Brand Header for Mobile View */}
           <div className="flex items-center gap-3 lg:hidden mb-4">
             <div className="flex items-center justify-center shrink-0">
               <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
@@ -178,7 +167,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Form Header */}
           <div className="space-y-2">
             <h3 className="text-[28px] font-extrabold tracking-tight leading-none text-stone-900">
               Selamat datang kembali
@@ -188,7 +176,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Alerts */}
           {errorMsg && (
             <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-bold px-4 py-3 rounded-xl shadow-sm text-left">
               {errorMsg}
@@ -200,7 +187,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* FORM MASUK (LOGIN) */}
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-1.5 text-left">
               <label className="text-xs font-bold text-stone-500">Email kantor</label>
