@@ -111,7 +111,7 @@ export default function AnggotaPage() {
     try {
       const res = await fetch("/api/manager/proyek?limit=100");
       const data = await res.json();
-      setProyekList(data.projects || data.proyek || []);
+      setProyekList(data.projects || []);
     } catch {
     }
   };

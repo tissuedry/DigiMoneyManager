@@ -76,9 +76,7 @@ export async function GET(req: NextRequest) {
       dashboardData.recentSubmissions = mappedRecent;
 
     } else if (role === 'Project Manager') {
-      const { searchParams } = new URL(req.url);
-      const projectIdParam = searchParams.get('projectId');
-      const targetProjectId = projectIdParam || userProyekId;
+      const targetProjectId = projectIdParam;
 
       if (!targetProjectId) {
         dashboardData.project = null;
@@ -455,40 +453,55 @@ export async function GET(req: NextRequest) {
       });
       const realisasiYTD = ytdApprovals.reduce((sum, a) => sum + Number(a.reimbursement.nominal), 0);
 
-      const monthlyApprovals = await prisma.approval.findMany({
-        where: { level: 'KEUANGAN', status: 'APPROVED' },
-        include: { reimbursement: { select: { nominal: true } } },
-        orderBy: { timestamp: 'asc' },
-      });
+      const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-      const monthlyPemasukan = await prisma.transaksiPemasukan.findMany({
-        where: { kategori: { not: 'DISKON_PENJUALAN' } },
-        select: { nominal: true, tanggalTransaksi: true },
-        orderBy: { tanggalTransaksi: 'asc' },
-      }).catch(() => []);
+      const [monthlyApprovals, monthlyPemasukan] = await Promise.all([
+        prisma.approval.findMany({
+          where: {
+            level: 'KEUANGAN',
+            status: 'APPROVED',
+            timestamp: { gte: twelveMonthsAgo },
+          },
+          include: { reimbursement: { select: { nominal: true } } },
+          orderBy: { timestamp: 'asc' },
+        }),
+        prisma.transaksiPemasukan.findMany({
+          where: {
+            kategori: { not: 'DISKON_PENJUALAN' },
+            tanggalTransaksi: { gte: twelveMonthsAgo },
+          },
+          select: { nominal: true, tanggalTransaksi: true },
+          orderBy: { tanggalTransaksi: 'asc' },
+        }).catch(() => []),
+      ]);
+
+      const outflowByMonth = new Map<string, number>();
+      for (const a of monthlyApprovals) {
+        const t = new Date(a.timestamp);
+        const key = `${t.getFullYear()}-${t.getMonth()}`;
+        const prev = outflowByMonth.get(key) || 0;
+        outflowByMonth.set(key, prev + Number(a.reimbursement?.nominal || 0));
+      }
+
+      const inflowByMonth = new Map<string, number>();
+      for (const tx of monthlyPemasukan as Array<{ nominal: any; tanggalTransaksi: Date | null }>) {
+        if (!tx.tanggalTransaksi) continue;
+        const t = new Date(tx.tanggalTransaksi);
+        const key = `${t.getFullYear()}-${t.getMonth()}`;
+        const prev = inflowByMonth.get(key) || 0;
+        inflowByMonth.set(key, prev + Number(tx.nominal || 0));
+      }
 
       const cashFlowMonths: { bulan: string; inflow: number; outflow: number }[] = [];
       for (let i = 11; i >= 0; i--) {
         const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+        const monthKey = `${monthDate.getFullYear()}-${monthDate.getMonth()}`;
         const monthLabel = monthDate.toLocaleDateString('id-ID', { month: 'short' });
 
-        const monthOutflow = monthlyApprovals
-          .filter(a => {
-            const t = new Date(a.timestamp);
-            return t >= monthDate && t <= monthEnd;
-          })
-          .reduce((sum, a) => sum + Number(a.reimbursement.nominal), 0);
-
-        const monthInflowActual = (monthlyPemasukan as Array<{nominal: any; tanggalTransaksi: Date | null}>)
-          .filter(tx => {
-            if (!tx.tanggalTransaksi) return false;
-            const t = new Date(tx.tanggalTransaksi);
-            return t >= monthDate && t <= monthEnd;
-          })
-          .reduce((sum, tx) => sum + Number(tx.nominal), 0);
-
+        const monthOutflow = outflowByMonth.get(monthKey) || 0;
+        const monthInflowActual = inflowByMonth.get(monthKey) || 0;
         const monthInflow = monthInflowActual > 0 ? monthInflowActual : Math.round(monthOutflow * 1.2);
+
         cashFlowMonths.push({ bulan: monthLabel, inflow: Math.round(monthInflow), outflow: Math.round(monthOutflow) });
       }
       const monthApprovals = ytdApprovals.filter(a => new Date(a.timestamp) >= startOfMonth);

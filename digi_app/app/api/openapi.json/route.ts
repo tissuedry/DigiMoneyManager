@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
                       enum: ['Karyawan', 'Project Manager', 'Tim Keuangan', 'Direktur / Manajemen'],
                       example: 'Karyawan'
                     },
-                    proyekId: { type: 'string', format: 'uuid', example: 'uuid-string' },
+                    proyekId: { type: 'integer', example: 1 },
                     divisi: { type: 'string', example: 'Site Operations' }
                   }
                 }

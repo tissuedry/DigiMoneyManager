@@ -1,10 +1,20 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clearCache } from '@/lib/route-cache';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
     const userId = req.headers.get('x-user-id');
+
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized: Session missing' }, { status: 401 });
+    }
+
+    const numericUserId = parseInt(userId, 10);
+    if (isNaN(numericUserId)) {
+      return NextResponse.json({ message: 'Invalid user ID format' }, { status: 400 });
+    }
 
     if (role !== 'Tim Keuangan' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden: Only Tim Keuangan and Super Admin can manage Chart of Accounts' }, { status: 403 });
@@ -31,15 +41,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
-    if (userId) {
-      await prisma.auditTrail.create({
-        data: {
-          userId: parseInt(userId, 10),
-          aksi: 'update_coa',
-          detail: `Mengubah Akun Pemasukan: ${existing.nama} -> ${updated.nama}`,
-        },
-      });
-    }
+    clearCache('coa');
+
+    await prisma.auditTrail.create({
+      data: {
+        userId: numericUserId,
+        aksi: 'update_coa',
+        detail: `Mengubah Akun (${existing.tipe || 'Akun'}): ${existing.nama} -> ${updated.nama}`,
+      },
+    });
 
     return NextResponse.json({ message: 'Chart of Accounts updated successfully', coa: updated });
 
@@ -53,6 +63,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const role = req.headers.get('x-user-role');
     const userId = req.headers.get('x-user-id');
+
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized: Session missing' }, { status: 401 });
+    }
+
+    const numericUserId = parseInt(userId, 10);
+    if (isNaN(numericUserId)) {
+      return NextResponse.json({ message: 'Invalid user ID format' }, { status: 400 });
+    }
 
     if (role !== 'Tim Keuangan' && role !== 'Superadmin' && role !== 'superadmin') {
       return NextResponse.json({ message: 'Forbidden: Only Tim Keuangan and Super Admin can manage Chart of Accounts' }, { status: 403 });
@@ -73,15 +92,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       where: { id: subId },
     });
 
-    if (userId) {
-      await prisma.auditTrail.create({
-        data: {
-          userId: parseInt(userId, 10),
-          aksi: 'delete_coa',
-          detail: `Menghapus Akun Pemasukan: ${existing.nama}`,
-        },
-      });
-    }
+    clearCache('coa');
+
+    await prisma.auditTrail.create({
+      data: {
+        userId: numericUserId,
+        aksi: 'delete_coa',
+        detail: `Menghapus Akun (${existing.tipe || 'Akun'}): ${existing.nama}`,
+      },
+    });
 
     return NextResponse.json({ message: 'Chart of Accounts deleted successfully' });
     

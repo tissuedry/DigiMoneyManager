@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { signToken } from '@/lib/auth';
+import { signToken, resolveUserRoles } from '@/lib/auth';
 import { getCached, setCache } from '@/lib/route-cache';
 
 export async function GET(req: NextRequest) {
@@ -60,50 +60,20 @@ export async function GET(req: NextRequest) {
     }));
 
     const activeProyekIdHeader = req.headers.get('x-user-proyek-id');
-    let activeProyekId = activeProyekIdHeader ? parseInt(activeProyekIdHeader, 10) : null;
+    const requestedProyekId = activeProyekIdHeader ? parseInt(activeProyekIdHeader, 10) : null;
 
-    let primaryRole = user.role;
-    const rolesSet = new Set<string>();
-
-    const roleLower = (user.role || '').toLowerCase().trim();
-    const isSuperAdmin = roleLower === 'superadmin' || roleLower === 'super admin';
-
-    if (
-      roleLower === 'direktur / manajemen' || 
-      roleLower === 'tim keuangan' || 
-      isSuperAdmin
-    ) {
-      if (isSuperAdmin) {
-        primaryRole = 'Superadmin';
-      }
-      rolesSet.add(primaryRole);
-    } else {
-      const hasPM = user.proyek.some((up: any) => up.role === 'Project Manager');
-      const hasKaryawan = user.proyek.some((up: any) => up.role === 'Anggota Lapangan') || !hasPM;
-
-      if (hasPM) rolesSet.add('Project Manager');
-      if (hasKaryawan) rolesSet.add('Karyawan');
-
-      if (activeProyekId !== null) {
-        const activeAssignment = user.proyek.find((up: any) => up.proyekId === activeProyekId);
-        if (activeAssignment) {
-          primaryRole = activeAssignment.role === 'Anggota Lapangan' ? 'Karyawan' : 'Project Manager';
-        } else {
-          activeProyekId = null;
-          primaryRole = hasPM ? 'Project Manager' : 'Karyawan';
-        }
-      } else {
-        primaryRole = hasPM ? 'Project Manager' : 'Karyawan';
-      }
-    }
-    const allowedRoles = Array.from(rolesSet);
+    const { primaryRole, allowedRoles, activeProyekId } = resolveUserRoles(
+      user.role,
+      user.proyek,
+      requestedProyekId
+    );
 
     const activeProjectAssignment = activeProyekId !== null
       ? user.proyek.find((up: any) => up.proyekId === activeProyekId)
       : null;
     const userProyekDetails = activeProjectAssignment ? activeProjectAssignment.proyek : null;
 
-    const { passwordHash: _, proyek: __, ...userWithoutPassword } = user;
+    const { passwordHash: _, proyek: _proyekRelations, ...userWithoutPassword } = user;
     const responseUser = {
       ...userWithoutPassword,
       role: primaryRole,

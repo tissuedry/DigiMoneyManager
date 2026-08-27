@@ -4,15 +4,16 @@ import { prisma } from '@/lib/prisma';
 export async function POST(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');
-    if (userId) {
+    const numericUserId = userId ? parseInt(userId, 10) : null;
+    if (numericUserId && !isNaN(numericUserId)) {
       const user = await prisma.user.findUnique({
-        where: { id: parseInt(userId, 10) },
+        where: { id: numericUserId },
         select: { nama: true },
       });
       if (user) {
         await prisma.auditTrail.create({
           data: {
-            userId: parseInt(userId, 10),
+            userId: numericUserId,
             aksi: 'logout',
             detail: `User ${user.nama} logout dari sistem.`,
           },

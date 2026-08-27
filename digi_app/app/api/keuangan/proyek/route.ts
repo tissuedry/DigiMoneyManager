@@ -9,6 +9,26 @@ function formatDateInput(d: Date | null): string | null {
   return `${y}-${m}-${day}`;
 }
 
+function calculateSubTerpakai(sub: any, projectTransaksis: any[], mainNama: string): number {
+  const sName = (sub.namaSub || '').trim().toLowerCase();
+  const isPenjSub =
+    (sName.startsWith('penjualan') || sName.startsWith('pendapatan') || sName === (mainNama || '').trim().toLowerCase()) &&
+    !sName.includes('diskon') &&
+    !sName.includes('retur') &&
+    !sName.includes('biaya') &&
+    !sName.includes('potongan');
+
+  const related = projectTransaksis.filter(
+    (t: any) =>
+      t.subCoaId === sub.id ||
+      (t.kategori || '').toLowerCase() === (sub.namaSub || '').toLowerCase() ||
+      (isPenjSub && ['penerimaan_penjualan', 'penjualan', 'keuntungan_proyek'].includes((t.kategori || '').toLowerCase())) ||
+      (isPenjSub && (t.keterangan || '').toLowerCase().includes('selesai'))
+  );
+  const tSum = related.reduce((a: number, t: any) => a + Number(t.nominal || 0), 0);
+  return isPenjSub ? (tSum > 0 ? tSum : Number(sub.nominalTerpakai || 0)) : tSum;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');
@@ -51,9 +71,11 @@ export async function GET(req: NextRequest) {
           },
         },
         terminPembayaran: {
-          orderBy: { urutan: 'asc' },
+          orderBy: { id: 'asc' },
         },
-        transaksiPemasukan: true,
+        transaksiPemasukan: {
+          orderBy: { tanggalTransaksi: 'asc' },
+        },
         users: {
           include: {
             user: { select: { id: true, nama: true, email: true, role: true } },
@@ -66,7 +88,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ projects: [] });
     }
 
-    const warnaPalette = ['#004D34', '#008f5d', '#0284c7', '#2563eb', '#7c3aed', '#d97706', '#dc2626'];
+    const warnaPalette = ['#008f5d', '#00b4d8', '#7209b7', '#f72585', '#4361ee', '#4cc9f0', '#f8961e', '#f9c74f'];
 
     const projects = projectsRaw.map((p) => {
       const budget = p.budget;
@@ -104,23 +126,7 @@ export async function GET(req: NextRequest) {
       if (rawPosPemasukan.length > 0) {
         posAnggaran = rawPosPemasukan.map((m, idx) => {
           const calculatedTerpakai = m.subAnggaran.reduce((sum: number, sub: any) => {
-            const sName = (sub.namaSub || '').trim().toLowerCase();
-            const isPenjSub =
-              (sName.startsWith('penjualan') || sName.startsWith('pendapatan') || sName === (m.namaMain || '').trim().toLowerCase()) &&
-              !sName.includes('diskon') &&
-              !sName.includes('retur') &&
-              !sName.includes('biaya') &&
-              !sName.includes('potongan');
-
-            const related = projectTransaksis.filter(
-              (t: any) =>
-                t.subCoaId === sub.id ||
-                (t.kategori || '').toLowerCase() === (sub.namaSub || '').toLowerCase() ||
-                (isPenjSub && ['penerimaan_penjualan', 'penjualan', 'keuntungan_proyek'].includes((t.kategori || '').toLowerCase())) ||
-                (isPenjSub && (t.keterangan || '').toLowerCase().includes('selesai'))
-            );
-            const tSum = related.reduce((a: number, t: any) => a + Number(t.nominal || 0), 0);
-            return sum + (isPenjSub ? (tSum > 0 ? tSum : Number(sub.nominalTerpakai || 0)) : tSum);
+            return sum + calculateSubTerpakai(sub, projectTransaksis, m.namaMain);
           }, 0);
 
           const terpakai = Math.max(Number(m.nominalTerpakai || 0), calculatedTerpakai);
@@ -132,28 +138,11 @@ export async function GET(req: NextRequest) {
             terpakai,
             warna: warnaPalette[idx % warnaPalette.length],
             subAnggaran: m.subAnggaran.map((s) => {
-              const sName = (s.namaSub || '').trim().toLowerCase();
-              const isPenjSub =
-                (sName.startsWith('penjualan') || sName.startsWith('pendapatan') || sName === (m.namaMain || '').trim().toLowerCase()) &&
-                !sName.includes('diskon') &&
-                !sName.includes('retur') &&
-                !sName.includes('biaya') &&
-                !sName.includes('potongan');
-
-              const related = projectTransaksis.filter(
-                (t: any) =>
-                  t.subCoaId === s.id ||
-                  (t.kategori || '').toLowerCase() === (s.namaSub || '').toLowerCase() ||
-                  (isPenjSub && ['penerimaan_penjualan', 'penjualan', 'keuntungan_proyek'].includes((t.kategori || '').toLowerCase())) ||
-                  (isPenjSub && (t.keterangan || '').toLowerCase().includes('selesai'))
-              );
-              const tSum = related.reduce((a: number, t: any) => a + Number(t.nominal || 0), 0);
-
               return {
                 id: s.id,
                 nama: s.namaSub,
                 alokasi: Number(s.nominalAlokasi),
-                terpakai: isPenjSub ? (tSum > 0 ? tSum : Number(s.nominalTerpakai || 0)) : tSum,
+                terpakai: calculateSubTerpakai(s, projectTransaksis, m.namaMain),
                 keterangan: s.keterangan.map((k: any) => ({
                   id: k.id,
                   nama: k.keterangan,

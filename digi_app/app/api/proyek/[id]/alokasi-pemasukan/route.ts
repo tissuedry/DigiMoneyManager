@@ -175,6 +175,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw<Array<{ id: number }>>`
+        SELECT id FROM budget WHERE proyek_id = ${proyekId} FOR UPDATE
+      `;
+
       const mainAnggaran = await tx.mainAnggaran.findUnique({
         where: { id: mainAnggaranId },
         include: { subAnggaran: true },
