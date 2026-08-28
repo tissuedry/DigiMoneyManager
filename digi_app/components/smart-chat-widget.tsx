@@ -327,14 +327,6 @@ function ResizeHandle({
   );
 }
 
-function defaultBtnPos(): Point {
-  if (typeof window === "undefined") return { x: 0, y: 0 };
-  return {
-    x: window.innerWidth - BTN_SIZE - BTN_MARGIN,
-    y: window.innerHeight - BTN_SIZE - BTN_MARGIN,
-  };
-}
-
 export default function SmartChatWidget() {
   const pathname = usePathname();
   const isHiddenPath = HIDDEN_PATH_PREFIXES.some((p) => pathname?.startsWith(p));
@@ -348,12 +340,13 @@ export default function SmartChatWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
 
-  const [btnPos, setBtnPos] = useState<Point>({ x: 0, y: 0 });
+  const [customAnchor, setCustomAnchor] = useState<Anchor | null>(null);
   const [panelAnchor, setPanelAnchor] = useState<Anchor>({ right: BTN_MARGIN, bottom: BTN_MARGIN });
   const [panelSize, setPanelSize] = useState<Size>(DEFAULT_PANEL_SIZE);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -366,25 +359,29 @@ export default function SmartChatWidget() {
     const savedBtn = localStorage.getItem(BTN_POS_STORAGE_KEY);
     if (savedBtn) {
       try {
-        const parsed = JSON.parse(savedBtn) as Point;
-        setBtnPos({
-          x: clamp(parsed.x, 0, window.innerWidth - BTN_SIZE),
-          y: clamp(parsed.y, 0, window.innerHeight - BTN_SIZE),
-        });
+        const parsed = JSON.parse(savedBtn);
+        if (typeof parsed.right === "number" && typeof parsed.bottom === "number") {
+          setCustomAnchor({
+            right: clamp(parsed.right, 0, Math.max(0, window.innerWidth - BTN_SIZE)),
+            bottom: clamp(parsed.bottom, 0, Math.max(0, window.innerHeight - BTN_SIZE)),
+          });
+        }
       } catch {
-        setBtnPos(defaultBtnPos());
+        localStorage.removeItem(BTN_POS_STORAGE_KEY);
+        setCustomAnchor(null);
       }
-    } else {
-      setBtnPos(defaultBtnPos());
     }
   }, []);
 
   useEffect(() => {
     const handleWindowResize = () => {
-      setBtnPos((p) => ({
-        x: clamp(p.x, 0, window.innerWidth - BTN_SIZE),
-        y: clamp(p.y, 0, window.innerHeight - BTN_SIZE),
-      }));
+      setCustomAnchor((prev) => {
+        if (!prev) return null;
+        return {
+          right: clamp(prev.right, 0, Math.max(0, window.innerWidth - BTN_SIZE)),
+          bottom: clamp(prev.bottom, 0, Math.max(0, window.innerHeight - BTN_SIZE)),
+        };
+      });
       setPanelAnchor((p) => ({
         right: clamp(p.right, 0, Math.max(0, window.innerWidth - panelSize.width)),
         bottom: clamp(p.bottom, 0, Math.max(0, window.innerHeight - panelSize.height)),
@@ -511,24 +508,27 @@ export default function SmartChatWidget() {
     e.currentTarget.setPointerCapture(e.pointerId);
     const startX = e.clientX;
     const startY = e.clientY;
-    const startPos = btnPos;
+    const startRight = customAnchor ? customAnchor.right : BTN_MARGIN;
+    const startBottom = customAnchor ? customAnchor.bottom : BTN_MARGIN;
     dragMovedRef.current = false;
-    let latest = startPos;
+    let latestAnchor: Anchor = { right: startRight, bottom: startBottom };
 
     const handleMove = (ev: PointerEvent) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMovedRef.current = true;
-      latest = {
-        x: clamp(startPos.x + dx, 0, window.innerWidth - BTN_SIZE),
-        y: clamp(startPos.y + dy, 0, window.innerHeight - BTN_SIZE),
+      latestAnchor = {
+        right: clamp(startRight - dx, 0, Math.max(0, window.innerWidth - BTN_SIZE)),
+        bottom: clamp(startBottom - dy, 0, Math.max(0, window.innerHeight - BTN_SIZE)),
       };
-      setBtnPos(latest);
+      setCustomAnchor(latestAnchor);
     };
     const handleUp = () => {
       document.removeEventListener("pointermove", handleMove);
       document.removeEventListener("pointerup", handleUp);
-      localStorage.setItem(BTN_POS_STORAGE_KEY, JSON.stringify(latest));
+      if (dragMovedRef.current) {
+        localStorage.setItem(BTN_POS_STORAGE_KEY, JSON.stringify(latestAnchor));
+      }
     };
     document.addEventListener("pointermove", handleMove);
     document.addEventListener("pointerup", handleUp);
@@ -685,12 +685,11 @@ export default function SmartChatWidget() {
   };
 
   const handleReset = () => {
-    const pos = defaultBtnPos();
-    setBtnPos(pos);
+    setCustomAnchor(null);
     setPanelAnchor({ right: BTN_MARGIN, bottom: BTN_MARGIN });
     setPanelSize(DEFAULT_PANEL_SIZE);
     setIsMaximized(false);
-    localStorage.setItem(BTN_POS_STORAGE_KEY, JSON.stringify(pos));
+    localStorage.removeItem(BTN_POS_STORAGE_KEY);
   };
 
   const handleOpen = () => {
@@ -699,8 +698,8 @@ export default function SmartChatWidget() {
       return;
     }
 
-    const btnRight = window.innerWidth - btnPos.x - BTN_SIZE;
-    const btnBottom = window.innerHeight - btnPos.y - BTN_SIZE;
+    const btnRight = customAnchor ? customAnchor.right : BTN_MARGIN;
+    const btnBottom = customAnchor ? customAnchor.bottom : BTN_MARGIN;
     setPanelAnchor({
       right: clamp(btnRight, 0, Math.max(0, window.innerWidth - panelSize.width)),
       bottom: clamp(btnBottom, 0, Math.max(0, window.innerHeight - panelSize.height)),
@@ -918,7 +917,11 @@ export default function SmartChatWidget() {
       onPointerDown={handleBtnPointerDown}
       onClick={handleOpen}
       className="group fixed z-50 w-14 h-14 rounded-full bg-[#2d6a4f] hover:bg-[#1e5038] text-white shadow-xl flex items-center justify-center transition cursor-grab active:cursor-grabbing"
-      style={{ left: btnPos.x, top: btnPos.y, touchAction: "none" }}
+      style={{
+        right: customAnchor ? customAnchor.right : BTN_MARGIN,
+        bottom: customAnchor ? customAnchor.bottom : BTN_MARGIN,
+        touchAction: "none",
+      }}
       aria-label="Buka Smart Chat (bisa digeser)"
     >
       <MessageCircle size={24} />
