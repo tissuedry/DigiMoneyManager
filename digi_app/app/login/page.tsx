@@ -229,23 +229,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs font-bold pt-1">
-              <label className="flex items-center gap-2 text-stone-600 select-none cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4.5 h-4.5 rounded-md border-stone-300 text-[#008f5d] focus:ring-[#008f5d] cursor-pointer accent-[#008f5d]"
-                />
-                <span>Ingat saya</span>
-              </label>
-              <a href="#" className="text-[#008f5d] hover:text-[#007a4f] transition">
-                Lupa kata sandi?
-              </a>
-            </div>
-
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-[#008f5d] hover:bg-[#007a4f] text-white text-xs font-extrabold rounded-xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-75"
+              className="w-full py-3.5 mt-8 bg-[#008f5d] hover:bg-[#007a4f] text-white text-xs font-extrabold rounded-xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-75"
             >
               {isLoading ? (
                 <>
