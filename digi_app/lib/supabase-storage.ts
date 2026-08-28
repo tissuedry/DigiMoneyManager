@@ -1,7 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
-import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
+
+async function getSharp() {
+  try {
+    const mod = await import('sharp');
+    return mod.default || mod;
+  } catch (e) {
+    return null;
+  }
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dndluxlfsdjotjcqotfp.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -42,8 +50,10 @@ export async function uploadStrukToSupabase(
   let contentType = 'image/webp';
   let fileExt = 'webp';
 
+  const sharp = await getSharp();
+
   if (isPdf) {
-    if (buffer.length > 3 * 1024 * 1024) {
+    if (buffer.length > 3 * 1024 * 1024 && sharp) {
       try {
         const soi = Buffer.from([0xff, 0xd8, 0xff]);
         const eoi = Buffer.from([0xff, 0xd9]);
@@ -93,35 +103,41 @@ export async function uploadStrukToSupabase(
       fileExt = 'pdf';
     }
   } else {
-    try {
-      let compressed = await sharp(buffer)
-        .resize({
-          width: 1920,
-          height: 1920,
-          fit: 'inside',
-          withoutEnlargement: true,
-        })
-        .webp({ quality: 75 })
-        .toBuffer();
-
-      if (compressed.length > 3 * 1024 * 1024) {
-        compressed = await sharp(compressed)
-          .resize({ width: 1280, height: 1280, fit: 'inside' })
-          .webp({ quality: 60 })
+    if (sharp) {
+      try {
+        let compressed = await sharp(buffer)
+          .resize({
+            width: 1920,
+            height: 1920,
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 75 })
           .toBuffer();
-      }
 
-      if (compressed.length > 3 * 1024 * 1024) {
-        compressed = await sharp(compressed)
-          .resize({ width: 1024, height: 1024, fit: 'inside' })
-          .webp({ quality: 50 })
-          .toBuffer();
-      }
+        if (compressed.length > 3 * 1024 * 1024) {
+          compressed = await sharp(compressed)
+            .resize({ width: 1280, height: 1280, fit: 'inside' })
+            .webp({ quality: 60 })
+            .toBuffer();
+        }
 
-      fileBuffer = compressed;
-    } catch (error) {
-      console.error('Failed to compress image with Sharp, fallback to raw buffer:', error);
+        if (compressed.length > 3 * 1024 * 1024) {
+          compressed = await sharp(compressed)
+            .resize({ width: 1024, height: 1024, fit: 'inside' })
+            .webp({ quality: 50 })
+            .toBuffer();
+        }
+
+        fileBuffer = compressed;
+      } catch (error) {
+        console.error('Failed to compress image with Sharp, fallback to raw buffer:', error);
+        fileBuffer = buffer;
+      }
+    } else {
       fileBuffer = buffer;
+      contentType = 'image/jpeg';
+      fileExt = 'jpg';
     }
   }
 

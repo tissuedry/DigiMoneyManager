@@ -1,5 +1,13 @@
 import { NextResponse, NextRequest } from 'next/server';
-import sharp from 'sharp';
+
+async function getSharp() {
+  try {
+    const mod = await import('sharp');
+    return mod.default || mod;
+  } catch (e: any) {
+    return null;
+  }
+}
 
 const isDev = process.env.NODE_ENV !== 'production';
 const debugLog = (...args: any[]) => {
@@ -89,15 +97,18 @@ async function scanSingleDocument(
 
   if (buffer.length > 1.5 * 1024 * 1024 && mimeType.startsWith('image/')) {
     try {
-      const compressedBuffer = await sharp(buffer)
-        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85, progressive: true })
-        .toBuffer();
+      const sharp = await getSharp();
+      if (sharp) {
+        const compressedBuffer = await sharp(buffer)
+          .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 85, progressive: true })
+          .toBuffer();
 
-      if (compressedBuffer.length < buffer.length) {
-        buffer = compressedBuffer;
-        mimeType = 'image/jpeg';
-        isCompressed = true;
+        if (compressedBuffer.length < buffer.length) {
+          buffer = compressedBuffer;
+          mimeType = 'image/jpeg';
+          isCompressed = true;
+        }
       }
     } catch (e: any) {
       debugWarn(`[OCR #${index}] Backend image compression skipped:`, e?.message);
