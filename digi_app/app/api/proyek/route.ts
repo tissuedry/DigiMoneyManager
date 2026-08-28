@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
-// GET: Fetch all projects with budget information (filtered by user assignment for Karyawan and Project Manager)
 export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -17,12 +16,10 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '4', 10);
 
-    // Perbaikan Cache Key agar tidak bug saat search/filter berubah
     const cacheKey = `proyek:${urlRole}:${userId || 'anon'}:search=${search}:status=${status}:budgetStatus=${budgetStatus}:page=${page}:limit=${limit}`;
     const cached = getCached(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    // Filter berdasarkan Role & User ID
     let roleFilter: any = {};
     if (userId) {
       if (urlRole === 'Karyawan') {
@@ -46,7 +43,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Logika Search
     let searchFilter: any = {};
     if (search) {
       searchFilter = {
@@ -57,7 +53,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Logika Filter Status Tab
     let statusFilter: any = {};
     if (status && status !== 'Semua') {
       let mappedStatus = status.toUpperCase();
@@ -240,8 +235,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-
-// POST: Create a new project (PM or Tim Keuangan only)
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -249,19 +242,20 @@ export async function POST(req: NextRequest) {
     const roles = rolesHeader.split(',');
     const userId = req.headers.get('x-user-id');
 
-    if (!roles.includes('Project Manager') && !roles.includes('Tim Keuangan') && !roles.includes('Direktur / Manajemen')) {
+    if (!roles.includes('Project Manager') && !roles.includes('Tim Keuangan') 
+      && !roles.includes('Direktur / Manajemen') && !roles.includes('Superadmin')) {
       return NextResponse.json({ message: 'Forbidden: Unauthorized to create projects' }, { status: 403 });
     }
 
     const body = await req.json();
-    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal } = body;
+    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, nilaiKontrak } = body;
 
     if (!nama || !tanggalMulai || !tanggalSelesai || !status) {
       return NextResponse.json({ message: 'Nama, Tanggal Mulai, Tanggal Selesai, dan Status Proyek wajib diisi' }, { status: 400 });
     }
 
-    const parsedRab = rabTotal !== undefined && rabTotal !== null && rabTotal !== '' 
-      ? (typeof rabTotal === 'number' ? rabTotal : parseFloat(String(rabTotal).replace(/[^0-9.-]+/g, ''))) 
+    const parsedNilaiKontrak = nilaiKontrak !== undefined && nilaiKontrak !== null && nilaiKontrak !== '' 
+      ? (typeof nilaiKontrak === 'number' ? nilaiKontrak : parseFloat(String(nilaiKontrak).replace(/[^0-9.-]+/g, ''))) 
       : 0;
 
     const newProject = await prisma.proyek.create({
@@ -271,12 +265,11 @@ export async function POST(req: NextRequest) {
         status: status,
         tanggalMulai: new Date(tanggalMulai),
         tanggalSelesai: new Date(tanggalSelesai),
-        ...(parsedRab && parsedRab > 0 ? {
+        ...(parsedNilaiKontrak && parsedNilaiKontrak > 0 ? {
           budget: {
             create: {
-              nilaiKontrak: parsedRab,
-              rabTotal: parsedRab,
-              sisaBudget: parsedRab,
+              nilaiKontrak: parsedNilaiKontrak,
+              sisaBudget: parsedNilaiKontrak,
               targetPemasukan: 0,
               totalPengeluaran: 0,
               totalReimbursement: 0,
@@ -295,8 +288,8 @@ export async function POST(req: NextRequest) {
         data: {
           userId: parseInt(userId, 10),
           aksi: 'create_proyek',
-          detail: parsedRab && parsedRab > 0
-            ? `Membuat proyek baru: ${nama} dengan nilai Rp ${parsedRab.toLocaleString('id-ID')}`
+          detail: parsedNilaiKontrak && parsedNilaiKontrak > 0
+            ? `Membuat proyek baru: ${nama} dengan nilai Rp ${parsedNilaiKontrak.toLocaleString('id-ID')}`
             : `Membuat proyek baru: ${nama}`,
         },
       });

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ArrowRight, FileText, Loader2 } from "lucide-react";
+import { Plus, ArrowRight, FileText } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import Link from "next/link";
 import { useApi } from "@/lib/use-api";
 import CompactNominal from "@/components/compact-nominal";
+import { statusMeta } from "@/lib/status";
+import { KaryawanDashboardSkeleton } from "./SkeletonLoader";
 
 type DashboardData = {
   summary: {
@@ -27,24 +29,6 @@ type DashboardData = {
   }>;
 };
 
-type StatusBadge = { text: string; className: string };
-
-// Helper warna badge berdasarkan status backend
-const getStatusBadge = (status: string): StatusBadge => {
-  switch (status) {
-    case "SUBMITTED":
-      return { text: "Menunggu PM", className: "bg-[#fdf3e6] text-[#b46b2b]" };
-    case "APPROVED_BY_PM":
-      return { text: "Menunggu Keuangan", className: "bg-[#e1f5fe] text-[#0277bd]" };
-    case "APPROVED":
-      return { text: "Dicairkan", className: "bg-[#e2f1eb] text-[#117a5b]" };
-    case "REJECTED":
-      return { text: "Ditolak", className: "bg-[#fee2e2] text-[#be123c]" };
-    default:
-      return { text: status, className: "bg-stone-100 text-stone-600" };
-  }
-};
-
 type DashboardResponse = {
   dashboard: DashboardData;
 };
@@ -52,7 +36,6 @@ type DashboardResponse = {
 export default function BerandaKaryawanPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // ponytail: single useApi replaces useState + useEffect + fetch
   const { data, isLoading, error } = useApi<DashboardResponse>("/api/dashboard?role=Karyawan");
   const d = data?.dashboard ?? null;
 
@@ -64,16 +47,14 @@ export default function BerandaKaryawanPage() {
         userRole="Karyawan"
       />
 
-      {/* Area Konten Kanan */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
 
-        <main className="flex-1 p-8 overflow-y-auto">
-          {/* Judul Halaman + Tombol CTA */}
+        <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
           <div className="flex items-start justify-between mb-8">
             <div>
               <h1 className="text-[24px] font-bold text-stone-900">Beranda Karyawan</h1>
-              <p className="text-[14px] text-stone-500 mt-1.5">
+              <p className="text-sm text-stone-500 mt-1.5">
                 Pantau status pengajuan reimbursement-mu dan ajukan klaim baru dalam hitungan detik.
               </p>
             </div>
@@ -85,19 +66,14 @@ export default function BerandaKaryawanPage() {
           </div>
 
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="animate-spin text-[#2d6a4f]" size={32} />
-              <p className="text-stone-500 text-[14px]">Memuat data dashboard...</p>
-            </div>
+            <KaryawanDashboardSkeleton />
           ) : error ? (
             <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-[14px]">
               Gagal memuat dashboard: {error.message}
             </div>
           ) : d ? (
             <>
-              {/* Kartu Statistik Dinamis */}
               <div className="grid grid-cols-3 gap-5 mb-8">
-                {/* Pengajuan Aktif (Menunggu Approval) */}
                 <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
                   <div className="flex items-start justify-between mb-4">
                     <p className="text-[13px] text-stone-500 font-medium">Pengajuan Aktif</p>
@@ -111,7 +87,6 @@ export default function BerandaKaryawanPage() {
                   <p className="text-[12px] text-stone-400">menunggu approval</p>
                 </div>
 
-                {/* Total Nominal Diajukan */}
                 <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
                   <div className="flex items-start justify-between mb-4">
                     <p className="text-[13px] text-stone-500 font-medium">Total Diajukan</p>
@@ -120,12 +95,11 @@ export default function BerandaKaryawanPage() {
                     </div>
                   </div>
                   <div className="text-[32px] font-bold text-stone-900 leading-none mb-2">
-                    <CompactNominal value={d.summary.totalNominalSubmitted} compactThreshold={100_000_000} />
+                    <CompactNominal value={d.summary.totalNominalSubmitted} compactThreshold={100_000_000_000} />
                   </div>
                   <p className="text-[12px] text-stone-400">{d.summary.totalSubmissions} pengajuan</p>
                 </div>
 
-                {/* Total Pengajuan Berhasil Dicairkan */}
                 <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
                   <div className="flex items-start justify-between mb-4">
                     <p className="text-[13px] text-stone-500 font-medium">Total Dicairkan</p>
@@ -138,9 +112,7 @@ export default function BerandaKaryawanPage() {
                 </div>
               </div>
 
-              {/* Pengajuan Terakhir Dinamis */}
               <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
-                {/* Header tabel */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
                   <h2 className="text-[15px] font-bold text-stone-900">Pengajuan Terakhir</h2>
                   <Link href="/karyawan/riwayat-pengajuan" className="flex items-center gap-1.5 text-[13px] font-medium text-[#2d6a4f] hover:text-[#245c43] transition-colors">
@@ -148,7 +120,6 @@ export default function BerandaKaryawanPage() {
                   </Link>
                 </div>
 
-                {/* List item pengajuan */}
                 <div className="divide-y divide-stone-100">
                   {d.recentSubmissions.length === 0 ? (
                     <div className="p-6 text-center text-stone-400 text-[13px]">
@@ -156,7 +127,7 @@ export default function BerandaKaryawanPage() {
                     </div>
                   ) : (
                     d.recentSubmissions.map((item) => {
-                      const badge = getStatusBadge(item.status);
+                      const badge = statusMeta(item.status);
                       const merchantName =
                         item.nama ||
                         item.merchant ||
@@ -184,9 +155,9 @@ export default function BerandaKaryawanPage() {
                               <CompactNominal value={item.nominal} compactThreshold={1_000_000_000_000} />
                             </p>
                             <span
-                              className={`px-3 py-1 rounded-full text-[11px] font-bold ${badge.className}`}
+                              className={`px-3 py-1 rounded-full text-[11px] font-bold ${badge.badge}`}
                             >
-                              {badge.text}
+                              {badge.label || item.status}
                             </span>
                           </div>
                         </div>

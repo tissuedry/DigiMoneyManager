@@ -1,24 +1,24 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
-import DetailAnggaranModal from "./DetailAnggaran";
-import AlokasiPosModal from "./AlokasiPos";
-import RealisasiPemasukanModal from "../pemasukan/RealisasiPemasukanModal";
 import ProyekSkeleton from "./ProyekSkeleton";
 import Toast from "@/components/toast";
 import {
   ChevronDown,
   Eye,
   Plus,
-  Settings,
   ReceiptText,
 } from "lucide-react";
 import { useApi, useInvalidate } from "@/lib/use-api";
-import { useRouter } from "next/navigation";
+import { getStatusStyles } from "@/lib/proyek-utils";
+import { formatSisaRupiah } from "@/lib/format-nominal";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const DetailPendapatanModal = dynamic(() => import("./DetailPendapatanModal"), { ssr: false });
+const AddPosModal = dynamic(() => import("./AddPosModal"), { ssr: false });
+const RealisasiPemasukanModal = dynamic(() => import("./RealisasiPemasukanModal"), { ssr: false });
 
 type PosAnggaran = {
   id: number;
@@ -66,33 +66,6 @@ type ProyekData = {
 
 type ProyekListResponse = { projects: ProyekData[] };
 
-const getStatusBadgeStyle = (statusStr?: string) => {
-  const status = statusStr?.toUpperCase();
-  if (status === "AKTIF" || status === "ACTIVE") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-100";
-  }
-  if (status === "DONE" || status === "SELESAI") {
-    return "bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]";
-  }
-  if (status === "PLANNING") {
-    return "bg-[#fbf0e4] text-[#854d0e] border-[#f5e1ce]";
-  }
-  if (status === "CANCELLED" || status === "CANCELED" || status === "DIBATALKAN") {
-    return "bg-rose-50 text-rose-800 border-rose-100";
-  }
-  return "bg-stone-100 text-stone-600 border-stone-200";
-};
-
-export const formatShort = (v: number): string => {
-  if (v === undefined || v === null || isNaN(v)) return "Rp 0";
-  const abs = Math.abs(v);
-  const sign = v < 0 ? "-" : "";
-  return `${sign}Rp ${Math.round(abs).toLocaleString("id-ID")}`;
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-/** Dropdown Ganti Proyek */
 function ProjectSelector({
   projects,
   selectedProjectId,
@@ -157,19 +130,12 @@ function ProjectSelector({
   );
 }
 
-// ─── Main Page Component ──────────────────────────────────────────────────────
-
-export default function KeuanganKelolaProyekPage({ searchParams }: {
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  return <KeuanganKelolaProyekContent />;
-}
-
 const STORAGE_KEY = "digi_keuangan_last_selected_proyek_id";
 
-function KeuanganKelolaProyekContent() {
-  const router = useRouter();
+export default function KeuanganKelolaProyekContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
+  const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAlokasiOpen, setIsAlokasiOpen] = useState(false);
   const [isRealisasiOpen, setIsRealisasiOpen] = useState(false);
@@ -184,13 +150,12 @@ function KeuanganKelolaProyekContent() {
     return null;
   });
   const [alokasiSuccessToast, setAlokasiSuccessToast] = useState("");
-  const [realisasiSuccessToast, setRealisasiSuccessToast] = useState("");
 
   const invalidate = useInvalidate();
 
   const { data: responseData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>(
     "/api/keuangan/proyek",
-    { refetchInterval: 10000 }
+    { refetchInterval: 60_000 }
   );
 
   const projects = responseData?.projects ?? [];
@@ -228,15 +193,15 @@ function KeuanganKelolaProyekContent() {
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <Sidebar
         isSidebarOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
+        onClose={closeSidebar}
         userRole="Tim Keuangan"
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Tim Keuangan" />
+        <Header onOpenSidebar={openSidebar} userRole="Tim Keuangan" />
 
         {isLoading ? (
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+          <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
             <ProyekSkeleton />
           </main>
         ) : error ? (
@@ -254,12 +219,11 @@ function KeuanganKelolaProyekContent() {
             <p className="text-stone-400 text-sm">Belum ada proyek yang tersedia.</p>
           </main>
         ) : (
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-            {/* ── Page Header + Project Selector ── */}
+          <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
-                <p className="text-sm text-stone-500 mt-1">
+                <p className="text-sm text-stone-500 mt-1.5">
                   Pantau realisasi pendapatan, alokasikan pos pendapatan baru, dan kelola termin proyek.
                 </p>
               </div>
@@ -273,21 +237,18 @@ function KeuanganKelolaProyekContent() {
               </div>
             </div>
 
-            {/* ── Main Proyek Card (Single Outer Box matching provided design) ── */}
             <div className="bg-white border border-stone-200/80 rounded-2xl p-6 shadow-2xs space-y-6">
-              {/* Card Header Row */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-stone-100">
                 <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
-                  <span className={`text-[11px] font-semibold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full border`}>
+                  <span className={`text-[11px] font-semibold ${getStatusStyles(proyek.status)} px-2.5 py-0.5 rounded-full border`}>
                     {proyek.status?.toUpperCase() === "AKTIF" ? "Active" : proyek.status}
                   </span>
-                  <span className="text-[12px] text-stone-400 font-mono">
-                    {proyek.kode} · {proyek.klien}
+                  <span className="text-[12px] text-stone-400 ">
+                    {proyek.kode}
                   </span>
                 </div>
 
-                {/* Right Action Buttons */}
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <button
                     onClick={() => setIsDetailOpen(true)}
@@ -301,8 +262,8 @@ function KeuanganKelolaProyekContent() {
                     onClick={() => setIsAlokasiOpen(true)}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[#008f5d] hover:bg-[#00794d] px-3.5 py-2 rounded-xl transition cursor-pointer shadow-2xs"
                   >
-                    <Settings size={14} />
-                    Setting Pos
+                    <Plus size={14} />
+                    Tambah Pos
                   </button>
 
                   <button
@@ -315,9 +276,7 @@ function KeuanganKelolaProyekContent() {
                 </div>
               </div>
 
-              {/* Two Column Layout inside Card */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                {/* ── LEFT COLUMN: Termin Pembayaran Proyek ── */}
                 <div className="bg-white border border-stone-200/90 rounded-2xl p-5 shadow-2xs">
                   <div className="flex items-center justify-between mb-4 border-b border-stone-100 pb-3">
                     <h3 className="font-bold text-[14px] text-stone-900 flex items-center gap-2">
@@ -357,7 +316,7 @@ function KeuanganKelolaProyekContent() {
 
                               <div className="text-right shrink-0">
                                 <p className="text-xs font-bold text-stone-900">
-                                  {formatShort(t.nominal)}
+                                  {formatSisaRupiah(t.nominal)}
                                 </p>
                                 <div className="mt-1">
                                   <span
@@ -378,30 +337,27 @@ function KeuanganKelolaProyekContent() {
                   )}
                 </div>
 
-                {/* ── RIGHT COLUMN: Status Kas Masuk ── */}
                 <div className="bg-white border border-stone-200/90 rounded-2xl p-5 shadow-2xs">
                   <h3 className="font-bold text-[14px] text-stone-900 mb-4 border-b border-stone-100 pb-3">
                     Status Kas Masuk
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Sudah Masuk */}
                     <div className="bg-[#e6f7ef] border border-emerald-200/80 rounded-xl p-4 flex flex-col justify-center">
                       <p className="text-[10px] font-bold text-emerald-700 tracking-wider uppercase">
                         SUDAH MASUK ({proyek.terminStats?.diterimaCount ?? 0})
                       </p>
                       <p className="text-xl font-extrabold text-stone-900 mt-1.5 whitespace-nowrap">
-                        {formatShort(proyek.terminStats?.diterimaNominal ?? proyek.realisasi)}
+                        {formatSisaRupiah(proyek.terminStats?.diterimaNominal ?? proyek.realisasi)}
                       </p>
                     </div>
 
-                    {/* Belum Masuk */}
                     <div className="bg-[#fffbeb] border border-amber-200/80 rounded-xl p-4 flex flex-col justify-center">
                       <p className="text-[10px] font-bold text-amber-700 tracking-wider uppercase">
                         BELUM MASUK ({proyek.terminStats?.belumDiterimaCount ?? 0})
                       </p>
                       <p className="text-xl font-extrabold text-stone-900 mt-1.5 whitespace-nowrap">
-                        {formatShort(proyek.terminStats?.belumDiterimaNominal ?? Math.max(0, proyek.totalRAB - proyek.realisasi))}
+                        {formatSisaRupiah(proyek.terminStats?.belumDiterimaNominal ?? Math.max(0, proyek.totalRAB - proyek.realisasi))}
                       </p>
                     </div>
                   </div>
@@ -412,49 +368,44 @@ function KeuanganKelolaProyekContent() {
         )}
       </div>
 
-      {/* Detail Pemasukan Modal */}
       {isDetailOpen && proyek && (
-        <DetailAnggaranModal
+        <DetailPendapatanModal
           proyekId={proyek.id}
           proyekNama={proyek.nama}
           proyekStatus={proyek.status}
           posAnggaran={proyek.posAnggaran}
-          totalRAB={proyek.totalRAB}
           onClose={() => setIsDetailOpen(false)}
           onRefresh={() => {
-            invalidate("/api/keuangan/proyek");
+            invalidate("/api/keuangan/proyek", "/api/dashboard", "/api/proyek");
             refetch();
           }}
         />
       )}
 
-      {/* Alokasi Pos Pemasukan Modal */}
       {isAlokasiOpen && proyek && (
-        <AlokasiPosModal
+        <AddPosModal
           proyekId={proyek.id}
           proyekNama={proyek.nama}
           totalRAB={proyek.totalRAB}
           realisasi={proyek.realisasi}
           posAnggaran={proyek.posAnggaran}
           onClose={() => setIsAlokasiOpen(false)}
-          onSuccess={(msg) => {
-            invalidate("/api/keuangan/proyek");
+          onSuccess={(msg: any) => {
+            invalidate("/api/keuangan/proyek", "/api/dashboard", "/api/proyek");
             refetch();
             if (msg) setAlokasiSuccessToast(msg);
           }}
         />
       )}
 
-      {/* Realisasi Pendapatan Modal */}
       {isRealisasiOpen && proyek && (
         <RealisasiPemasukanModal
           proyekId={proyek.id}
           proyekNama={proyek.nama}
           onClose={() => setIsRealisasiOpen(false)}
           onRefresh={() => {
-            invalidate("/api/keuangan/proyek");
+            invalidate("/api/keuangan/proyek", "/api/dashboard", "/api/proyek", "/api/pemasukan");
             refetch();
-            setRealisasiSuccessToast("Realisasi pendapatan berhasil dicatat.");
           }}
         />
       )}
@@ -465,11 +416,6 @@ function KeuanganKelolaProyekContent() {
         onClose={() => setAlokasiSuccessToast("")}
       />
 
-      <Toast
-        open={!!realisasiSuccessToast}
-        message={realisasiSuccessToast}
-        onClose={() => setRealisasiSuccessToast("")}
-      />
     </div>
   );
 }

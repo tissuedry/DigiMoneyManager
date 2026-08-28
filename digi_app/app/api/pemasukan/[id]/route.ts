@@ -14,7 +14,6 @@ function isFinanceOrAdmin(role: string | null, rolesHeader: string | null) {
   );
 }
 
-// GET: Mengambil detail satu transaksi pemasukan
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -42,7 +41,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// PUT: Memperbarui transaksi pemasukan
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -81,11 +79,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       ? (typeof nominal === 'number' ? nominal : parseFloat(String(nominal).replace(/[^0-9.-]+/g, '')) || 0)
       : Number(existing.nominal);
 
+    let validMasterSubId: number | null = existing.subCoaId;
+    if (subCoaId !== undefined) {
+      if (subCoaId) {
+        const parsed = parseInt(String(subCoaId), 10);
+        if (!isNaN(parsed)) {
+          const direct = await prisma.masterSub.findUnique({ where: { id: parsed } });
+          validMasterSubId = direct ? direct.id : null;
+        } else {
+          validMasterSubId = null;
+        }
+      } else {
+        validMasterSubId = null;
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.transaksiPemasukan.update({
         where: { id: transaksiId },
         data: {
-          subCoaId: subCoaId !== undefined ? (subCoaId ? parseInt(String(subCoaId), 10) : null) : existing.subCoaId,
+          subCoaId: validMasterSubId,
           kategori: kategori || existing.kategori,
           nominal: parsedNominal,
           tanggalTransaksi: tanggalTransaksi ? new Date(tanggalTransaksi) : existing.tanggalTransaksi,
@@ -157,7 +170,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE: Menghapus transaksi pemasukan
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');

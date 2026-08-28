@@ -6,7 +6,6 @@ function isSuperAdmin(role: string | null) {
   return role === 'Superadmin' || role === 'superadmin';
 }
 
-// GET: Mengambil daftar data master
 export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -16,7 +15,17 @@ export async function GET(req: NextRequest) {
     const tipeFilter = searchParams.get("tipe"); // 'pengeluaran' | 'pemasukan'
 
     if (subId) {
-      return NextResponse.json([]);
+      const parsedSubId = parseInt(subId, 10);
+      if (isNaN(parsedSubId)) {
+        return NextResponse.json({ message: 'Invalid subId format' }, { status: 400 });
+      }
+      const whereCond: any = { id: parsedSubId };
+      if (tipeFilter && tipeFilter !== 'all') whereCond.tipe = tipeFilter;
+      const sub = await prisma.masterSub.findMany({
+        where: whereCond,
+        orderBy: { id: 'asc' }
+      });
+      return NextResponse.json(sub);
     }
 
     if (mainId) {
@@ -64,7 +73,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }
 }
-// POST: Menambahkan data master baru
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -108,7 +116,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });
     }
 
-    // Catat ke Audit Trail
     if (adminId) {
       await prisma.auditTrail.create({
         data: {

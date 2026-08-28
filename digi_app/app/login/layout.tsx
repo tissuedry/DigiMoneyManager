@@ -1,5 +1,3 @@
-// app/login/layout.tsx
-// Override font untuk halaman login — tetap pakai system font
 export default function LoginLayout({
   children,
 }: {

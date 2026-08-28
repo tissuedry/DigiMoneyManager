@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-// POST: Add a new Pos Anggaran category to a project's budget
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -35,7 +34,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'namaPos and a positive nominalAlokasi are required' }, { status: 400 });
     }
 
-    // Verify project exists
     const project = await prisma.proyek.findUnique({
       where: { id: proyekId },
     });
@@ -44,7 +42,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Find existing budget for the project
     const budget = await prisma.budget.findUnique({
       where: { proyekId },
     });
@@ -53,7 +50,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'Budget not found for this project. Please initialize the project budget first.' }, { status: 404 });
     }
 
-    // Update in transaction: create PosAnggaran and increment budget fields
     const newPos = await prisma.$transaction(async (tx) => {
       const createdPos = await tx.mainAnggaran.create({
         data: {
@@ -64,11 +60,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       });
 
-      // Update parent budget total and remaining
       await tx.budget.update({
         where: { id: budget.id },
         data: {
-          rabTotal: { increment: Number(nominalAlokasi) },
           sisaBudget: { increment: Number(nominalAlokasi) },
         },
       });

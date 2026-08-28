@@ -14,7 +14,6 @@ function isFinanceOrAdmin(role: string | null, rolesHeader: string | null) {
   );
 }
 
-// GET: Mengambil daftar transaksi pemasukan / penyesuaian penjualan
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -88,7 +87,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Menambah transaksi pemasukan langsung (Realisasi Pemasukan, Diskon, Retur, Biaya Lainnya, dll.)
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -177,7 +175,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Proyek tidak ditemukan' }, { status: 404 });
     }
 
-    // Safely resolve MasterSub ID if it matches an actual MasterSub row
     let validMasterSubId: number | null = null;
     if (subCoaId) {
       const parsedSubId = parseInt(subCoaId, 10);
@@ -199,7 +196,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Default Akun Jurnal PSAK jika tidak disediakan
     if (!noAkunDebit) {
       noAkunDebit = kategori.toLowerCase().includes('diskon')
         ? '4.1 - Diskon Penjualan'
@@ -218,7 +214,6 @@ export async function POST(req: NextRequest) {
       : keterangan || `Realisasi ${kategori} - ${proyek.nama}`;
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Buat record transaksi pemasukan
       const newTransaksi = await tx.transaksiPemasukan.create({
         data: {
           proyekId: parsedProyekId,
@@ -237,7 +232,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // 2. Buat Jurnal Akuntansi otomatis
       const journal = await tx.jurnalAkuntansi.create({
         data: {
           transaksiPemasukanId: newTransaksi.id,
@@ -248,7 +242,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // 3. Update nominalTerpakai pada Budget Pemasukan jika ada
       if (proyek.budget) {
         const currentTotalPemasukan = Number(proyek.budget.totalPemasukan || 0);
         await tx.budget.update({
@@ -258,7 +251,6 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Cari subAnggaran yang cocok untuk diupdate nominalTerpakai-nya
         for (const main of proyek.budget.mainAnggaran) {
           let updatedMain = false;
           for (const sub of main.subAnggaran) {
@@ -286,7 +278,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 4. Catat ke Audit Trail
       if (userId) {
         let actor = 'Tim Keuangan';
         if (role === 'Superadmin' || role === 'superadmin') actor = 'Superadmin';

@@ -1,21 +1,20 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCompactRupiah, formatFullRupiah, parseNominalNumber } from '@/lib/format-nominal';
 
 interface CompactNominalProps {
   value: number | string;
   className?: string;
-  /** Ambang batas nominal (Rp) kapan penyingkatan (jt, M, T) diaktifkan untuk mencegah teks bocor/overflow dari container. Default: 100.000.000 (100 Juta) */
   compactThreshold?: number;
   showTooltip?: boolean;
 }
 
-export default function CompactNominal({
+function CompactNominalInner({
   value,
   className = '',
-  compactThreshold = 100_000_000,
+  compactThreshold = 1_000_000_000_000,
   showTooltip = true,
 }: CompactNominalProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -34,12 +33,10 @@ export default function CompactNominal({
 
   const numValue = parseNominalNumber(value);
 
-  // Penyingkatan HANYA aktif jika nominal melebihi ambang batas container (agar tidak meluap/bocor dari box)
   const isCompactNeeded = Math.abs(numValue) >= compactThreshold;
   const displayText = isCompactNeeded ? formatCompactRupiah(numValue) : formatFullRupiah(numValue);
   const fullText = formatFullRupiah(numValue);
 
-  // Hitung posisi floating card presisi agar TIDAK PERNAH keluar dari layar kanan (mencegah horizontal scrollbar Chrome)
   const updatePosition = () => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
@@ -50,13 +47,10 @@ export default function CompactNominal({
       let targetLeft = rect.left + rect.width / 2;
       let targetTransform = 'translateX(-50%)';
 
-      // Geser ke kiri jika melampaui batas kanan layar (margin 16px dari tepi layar)
       if (rect.left + rect.width / 2 + halfWidth > viewportWidth - 16) {
         targetLeft = Math.min(rect.right, viewportWidth - 16);
         targetTransform = 'translateX(-100%)';
-      } 
-      // Geser ke kanan jika melampaui batas kiri layar
-      else if (rect.left + rect.width / 2 - halfWidth < 16) {
+      } else if (rect.left + rect.width / 2 - halfWidth < 16) {
         targetLeft = Math.max(rect.left, 16);
         targetTransform = 'translateX(0%)';
       }
@@ -84,7 +78,6 @@ export default function CompactNominal({
     setIsHovered(false);
   };
 
-  // Jika digit tidak terlalu banyak (muat di dalam container), tampilkan format lengkap bersih tanpa tooltip
   if (!showTooltip || !isCompactNeeded) {
     return <span className={className}>{displayText}</span>;
   }
@@ -100,7 +93,6 @@ export default function CompactNominal({
         {displayText}
       </span>
 
-      {/* Floating Tooltip Card (Render via React Portal ke document.body + fixed positioning agar 100% terisolasi tanpa memicu horizontal scrollbar) */}
       {mounted && isHovered && createPortal(
         <div
           ref={tooltipRef}
@@ -111,7 +103,7 @@ export default function CompactNominal({
             transform: coords.transform,
             zIndex: 999999,
           }}
-          className="pointer-events-none w-max max-w-[360px] whitespace-nowrap rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[13px] font-bold text-stone-900 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          className="pointer-events-none w-max max-w-90 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[13px] font-bold text-stone-900 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
           {fullText}
         </div>,
@@ -120,3 +112,6 @@ export default function CompactNominal({
     </>
   );
 }
+
+const CompactNominal = memo(CompactNominalInner);
+export default CompactNominal;

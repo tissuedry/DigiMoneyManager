@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-// POST: Direct allocation of Main, Sub, and Keterangan pos (no approval needed)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const roleHeader = req.headers.get('x-user-role') || '';
@@ -42,7 +41,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'items array is required and must not be empty' }, { status: 400 });
     }
 
-    // Verify project and budget exist
     const budget = await prisma.budget.findUnique({
       where: { proyekId },
       include: {
@@ -74,7 +72,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         0
       );
 
-      // Pass 1: Create MAIN_ANGGARAN items (superadmin/authorized roles)
       for (const item of items) {
         if (item.tipe === 'MAIN_ANGGARAN') {
           const newAlokasi = Number(item.nominalAlokasi);
@@ -83,9 +80,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           const sameTipeMains = budget.mainAnggaran.filter((m) => m.tipe === itemTipe);
           const runningTipeTotal = sameTipeMains.reduce((sum, m) => sum + Number(m.nominalAlokasi), 0);
           
-          if (runningTipeTotal + newAlokasi > Number(budget.rabTotal)) {
+          if (runningTipeTotal + newAlokasi > Number(budget.nilaiKontrak)) {
             throw new Error(
-              `Total alokasi Main Pos melebihi RAB proyek (Rp ${Number(budget.rabTotal).toLocaleString('id-ID')})`
+              `Total alokasi Main Pos melebihi RAB proyek (Rp ${Number(budget.nilaiKontrak).toLocaleString('id-ID')})`
             );
           }
 
@@ -104,7 +101,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
       }
 
-      // Pass 2: Create SUB_ANGGARAN items
       for (const item of items) {
         if (item.tipe === 'SUB_ANGGARAN') {
           let parentMainId = item.parentId;
@@ -148,7 +144,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
       }
 
-      // Pass 3: Create KETERANGAN items
       for (const item of items) {
         if (item.tipe === 'KETERANGAN') {
           let parentSubId = item.parentId;

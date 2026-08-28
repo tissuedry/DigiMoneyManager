@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, use } from "react";
+import { useState, useRef, useEffect, use } from "react";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import DetailAnggaranModal from "./DetailAnggaran";
@@ -25,6 +25,9 @@ import {
 } from "lucide-react";
 import { useApi, useInvalidate } from "@/lib/use-api";
 import { useRouter } from "next/navigation";
+import { getInitials, getAvatarColor } from "@/lib/formatters";
+import { formatStatusLabel } from "@/lib/proyek-utils";
+import { formatCompactRupiah } from "@/lib/format-nominal";
 
 type PosAnggaran = {
   id: number;
@@ -52,6 +55,7 @@ type ProyekData = {
   pm: string;
   status: string;
   totalRAB: number;
+  totalAlokasiPemasukan: number;
   realisasi: number;
   posAnggaran: PosAnggaran[];
   tim: AnggotaTim[];
@@ -82,32 +86,6 @@ const getStatusBadgeStyle = (statusStr?: string) => {
   return 'bg-stone-100 text-stone-600 border-stone-200';
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-export const formatShort = (v: number): string => {
-  if (v === undefined || v === null || isNaN(v)) return "Rp 0";
-  const abs = Math.abs(v);
-  const sign = v < 0 ? "-" : "";
-  return `${sign}Rp ${Math.round(abs).toLocaleString("id-ID")}`;
-};
-
-const AVATAR_COLORS = [
-  "bg-emerald-100 text-emerald-700",
-  "bg-blue-100 text-blue-700",
-  "bg-violet-100 text-violet-700",
-  "bg-amber-100 text-amber-700",
-  "bg-rose-100 text-rose-700",
-];
-const avatarColor = (s: string) => AVATAR_COLORS[s.charCodeAt(0) % AVATAR_COLORS.length];
-function getInitials(name: string) {
-  if (!name) return "??";
-  const parts = name.split(" ").filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.substring(0, 2).toUpperCase();
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 function MemberSelect({ users, selectedUserId, onSelect }: {
   users: { id: number; nama: string }[];
   selectedUserId: number;
@@ -134,7 +112,7 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
         className="w-full flex items-center gap-1.5 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white hover:bg-stone-50 focus:outline-none focus:ring-1 focus:ring-emerald-400 transition"
       >
         {initials ? (
-          <span className={`w-4 h-4 rounded-full text-[7px] font-bold flex items-center justify-center shrink-0 ${avatarColor(initials)}`}>
+          <span className={`w-4 h-4 rounded-full text-[7px] font-bold flex items-center justify-center shrink-0 ${getAvatarColor(initials)}`}>
             {initials}
           </span>
         ) : (
@@ -158,7 +136,7 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
                 className={`w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium hover:bg-stone-50 transition ${u.id === selectedUserId ? "text-emerald-700 bg-emerald-50/50" : "text-stone-700"
                   }`}
               >
-                <span className={`w-4 h-4 rounded-full text-[1px] font-bold flex items-center justify-center shrink-0 ${avatarColor(ini)}`}>
+                <span className={`w-4 h-4 rounded-full text-[1px] font-bold flex items-center justify-center shrink-0 ${getAvatarColor(ini)}`}>
                   {ini}
                 </span>
                 {u.nama}
@@ -171,7 +149,6 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
   );
 }
 
-/** Realisasi vs sisa progress bar */
 function StackedBar({ realisasi, total }: { realisasi: number; total: number }) {
   const pct = total > 0 ? Math.min((realisasi / total) * 100, 100) : 0;
 
@@ -191,11 +168,7 @@ function StackedBar({ realisasi, total }: { realisasi: number; total: number }) 
   );
 }
 
-/** Legend chips below the stacked bar */
-function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
-  const allocated = pos.reduce((s, p) => s + p.alokasi, 0);
-  const unallocated = Math.max(0, total - allocated);
-
+function BarLegend({ pos }: { pos: PosAnggaran[] }) {
   return (
     <div className="flex flex-wrap gap-x-6 gap-y-2.5 mt-3">
       {pos.map((p) => (
@@ -205,18 +178,10 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
           <CompactNominal value={p.alokasi} className="font-bold text-stone-800" />
         </span>
       ))}
-      {unallocated > 0 && (
-        <span className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
-          <span className="w-2.5 h-2.5 rounded-sm bg-stone-300 shrink-0" />
-          Belum dialokasikan
-          <CompactNominal value={unallocated} className="font-bold text-stone-800" />
-        </span>
-      )}
     </div>
   );
 }
 
-/** Per-pos progress rows */
 function PosRows({ pos }: { pos: PosAnggaran[] }) {
   if (!pos || pos.length === 0) {
     return <p className="text-xs text-stone-400 text-center py-4 font-medium">Belum ada pos anggaran.</p>;
@@ -252,7 +217,7 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
                   </span>
                 )}
               </div>
-              <div className="text-stone-500 font-mono">
+              <div className="text-stone-500 ">
                 <span className="font-bold text-stone-800">Rp {Math.round(real).toLocaleString("id-ID")}</span>
                 <span className="text-stone-300 mx-1">/</span>
                 <span>Rp {Math.round(alloc).toLocaleString("id-ID")}</span>
@@ -294,7 +259,6 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
 
   const invalidate = useInvalidate();
 
-  // ── TanStack Query ──
   const { data: proyekData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>("/api/pm/proyek", {
     refetchInterval: isDetailOpen ? 3000 : 10000,
   });
@@ -309,7 +273,6 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
 
   const proyek = projects.find((p) => p.id === resolvedId);
 
-  // ─── Tim editing state ─────────────────────────────────────────────────────
   const [editableRows, setEditableRows] = useState<{ userId: number; nama: string; divisi: string }[]>([]);
   const [dirtyTim, setDirtyTim] = useState(false);
   const [savingTim, setSavingTim] = useState(false);
@@ -319,7 +282,6 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
   const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Sync editable rows when project changes
   useEffect(() => {
     if (proyek) {
       const nonPm = proyek.tim.filter((m) => m.role !== "Project Manager");
@@ -344,7 +306,6 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         .filter((r) => r.userId > 0)
         .map((r) => ({ userId: r.userId, role: "Anggota Lapangan", divisi: r.divisi || null }));
 
-      // Always include PM
       const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
       if (pmMember) {
         members.push({ userId: pmMember.id, role: "Project Manager", divisi: pmMember.divisi || null });
@@ -400,8 +361,11 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
     router.replace("/pm/proyek", { scroll: false });
   }
 
-  const allocated = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
-  const unallocated = proyek ? Math.max(0, proyek.totalRAB - allocated) : 0;
+  const totalAlokasiBiaya = proyek?.posAnggaran ? proyek.posAnggaran.reduce((s, p) => s + p.alokasi, 0) : 0;
+  const sisaAlokasiBiaya = Math.max(0, totalAlokasiBiaya - (proyek?.realisasi || 0));
+
+  const pmMember = proyek?.tim.find((m) => m.role === "Project Manager");
+  const selectableUsers = pmMember ? allUsers.filter((u) => u.id !== pmMember.id) : allUsers;
 
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
@@ -415,7 +379,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Project Manager" />
 
         {isLoading ? (
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+          <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
             <ProyekSkeleton />
           </main>
         ) : error ? (
@@ -428,18 +392,16 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
             <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
           </main>
         ) : (
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-            {/* ── Page Header + Project Selector ── */}
+          <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto space-y-6">
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
-                <p className="text-sm text-stone-500 mt-1">
+                <p className="text-sm text-stone-500 mt-1.5">
                   Pantau anggaran, alokasikan pos baru, dan kelola tim untuk proyekmu.
                 </p>
               </div>
 
               <div className="flex items-center gap-2 self-start">
-                {/* Edit Proyek button */}
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(true)}
@@ -451,32 +413,26 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
               </div>
             </div>
 
-            {/* ── Budget Summary Card ── */}
             <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-              {/* Title row */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
                   <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
-                    {proyek.status == "AKTIF" ? "Active"
-                      : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
+                    {formatStatusLabel(proyek.status)}
                   </span>
                   <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
+                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL ALOKASI BIAYA</p>
                   <p className="text-2xl font-extrabold text-stone-900 whitespace-nowrap">
-                    <CompactNominal value={proyek.totalRAB} className="text-2xl font-extrabold text-stone-900" />
+                    <CompactNominal value={totalAlokasiBiaya} className="text-2xl font-extrabold text-stone-900" />
                   </p>
                 </div>
               </div>
 
-              {/* Stacked bar */}
-              <StackedBar realisasi={proyek.realisasi} total={proyek.totalRAB} />
+              <StackedBar realisasi={proyek.realisasi} total={totalAlokasiBiaya} />
 
-              {/* Realisasi vs Sisa */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-                {/* Realisasi */}
                 <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
@@ -487,31 +443,22 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                   </p>
                 </div>
 
-                {/* Sisa */}
                 <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
                       <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
                     </div>
-                    {unallocated > 0 && (
-                      <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap">
-                        <CompactNominal value={unallocated} className="text-[11px] font-semibold text-amber-600" /> <span className="font-normal text-amber-700">belum dialokasikan</span>
-                      </span>
-                    )}
                   </div>
                   <p className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5">
-                    <CompactNominal value={proyek.totalRAB - proyek.realisasi} className="text-xl font-extrabold text-stone-900" />
+                    <CompactNominal value={sisaAlokasiBiaya} className="text-xl font-extrabold text-stone-900" />
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* ── Bottom two columns ── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* ── LEFT: Realisasi per Pos ── */}
               <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4 lg:col-span-7">
-                {/* Section header */}
                 <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                   <h3 className="font-bold text-[15px] text-stone-900">Realisasi per Pos Anggaran</h3>
                   <div className="flex items-center gap-2">
@@ -539,31 +486,21 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                   </div>
                 </div>
 
-                {/* Per-pos stacked bar */}
                 <div className="w-full bg-stone-100 h-4 rounded-full overflow-hidden flex shadow-inner">
                   {proyek.posAnggaran.map((p) => (
                     <div
                       key={p.id}
-                      title={`${p.nama}: ${formatShort(p.alokasi)}`}
-                      style={{ width: `${(p.alokasi / proyek.totalRAB) * 100}%`, backgroundColor: p.warna }}
+                      title={`${p.nama}: ${formatCompactRupiah(p.alokasi)}`}
+                      style={{ width: `${totalAlokasiBiaya > 0 ? (p.alokasi / totalAlokasiBiaya) * 100 : 0}%`, backgroundColor: p.warna }}
                       className="h-full transition-all duration-500"
                     />
                   ))}
-                  {unallocated > 0 && (
-                    <div
-                      style={{ width: `${(unallocated / proyek.totalRAB) * 100}%` }}
-                      className="h-full bg-stone-300"
-                      title="Belum dialokasikan"
-                    />
-                  )}
                 </div>
 
-                {/* Legend */}
                 <div>
-                  <BarLegend pos={proyek.posAnggaran} total={proyek.totalRAB} />
+                  <BarLegend pos={proyek.posAnggaran} />
                 </div>
 
-                {/* Progress rows */}
                 <PosRows pos={proyek.posAnggaran} />
               </div>
 
@@ -576,18 +513,16 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                     </h3>
                   </div>
 
-                  {/* Header row */}
                   <div className="grid grid-cols-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2 px-1">
                     <span>ROLE (Divisi)</span>
                     <span>ANGGOTA</span>
                   </div>
 
-                  {/* PM row (read-only) */}
                   {proyek.tim.filter((m) => m.role === "Project Manager").map((pm) => (
                     <div key={pm.id} className="flex items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2 min-w-0">
                       <span className="flex-1 min-w-0 text-[11px] font-semibold text-emerald-700 truncate">Project Manager</span>
                       <div className="flex-1 min-w-0 flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${avatarColor(pm.inisial)}`}>
+                        <div className={`w-5 h-5 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ${getAvatarColor(pm.inisial)}`}>
                           {pm.inisial}
                         </div>
                         <span className="text-[11px] font-bold text-stone-800 truncate">{pm.nama}</span>
@@ -606,10 +541,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                           className="flex-1 min-w-0 text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-stone-300"
                         />
                         <MemberSelect
-                          users={allUsers.filter((u) => {
-                            const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
-                            return !pmMember || u.id !== pmMember.id;
-                          })}
+                          users={selectableUsers}
                           selectedUserId={row.userId}
                           onSelect={(uid) => updateTimRow(idx, "userId", uid)}
                         />
@@ -664,7 +596,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                         Sudah Reimburse ({proyek.reimbursementDisetujuiCount ?? 0})
                       </p>
                       <p className="text-lg font-extrabold text-black mt-1">
-                        {formatShort(proyek.reimbursementDisetujui)}
+                        <CompactNominal value={proyek.reimbursementDisetujui} />
                       </p>
                     </div>
 
@@ -673,7 +605,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
                         Belum Reimburse ({proyek.reimbursementBelumDisetujuiCount ?? 0})
                       </p>
                       <p className="text-lg font-extrabold text-black mt-1">
-                        {formatShort(proyek.reimbursementBelumDisetujui)}
+                        <CompactNominal value={proyek.reimbursementBelumDisetujui} />
                       </p>
                     </div>
                   </div>
@@ -690,12 +622,12 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
           proyekNama={proyek.nama}
           posAnggaran={proyek.posAnggaran}
           totalRAB={proyek.totalRAB}
+          totalAlokasiPemasukan={proyek.totalAlokasiPemasukan}
           onClose={handleCloseDetailModal}
           onRefresh={() => invalidate("/api/pm/proyek")}
         />
       )}
 
-      {/* Alokasi Pos Modal */}
       {isAlokasiOpen && proyek && (
         <AlokasiPosModal
           proyekId={proyek.id}
@@ -712,7 +644,6 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         />
       )}
 
-      {/* Ajukan Realisasi Modal */}
       {isAjukanRealisasiOpen && proyek && (
         <AjukanRealisasiModal
           proyekId={proyek.id}
@@ -725,7 +656,6 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
         />
       )}
 
-      {/* Edit Proyek Modal */}
       {isEditOpen && proyek && (
         <EditProyekModal
           proyek={proyek}

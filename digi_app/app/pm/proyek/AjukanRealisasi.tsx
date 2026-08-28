@@ -1,22 +1,20 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, DragEvent, ChangeEvent, SubmitEvent } from "react";
 import { X, Upload, Loader2, Search, ChevronRight, Plus } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import ConfirmDialog from "@/components/confirm-dialog";
 import Toast from "@/components/toast";
-
-function formatRupiah(value: string): string {
-  const digitsOnly = value.replace(/\D/g, "");
-  if (!digitsOnly) return "";
-  return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
+import { formatRibuan } from "@/lib/proyek-utils";
+import CompactNominal from "@/components/compact-nominal";
 
 type FlatKeteranganOption = {
   id: string;
   keterangan: string;
   mainNama: string;
   subNama: string;
+  nominalAlokasi: number;
+  nominalRealisasi: number;
 };
 
 export default function AjukanRealisasiModal({
@@ -34,7 +32,7 @@ export default function AjukanRealisasiModal({
   const [nominal, setNominal] = useState("");
   const [catatan, setCatatan] = useState("");
   const [selectedPos, setSelectedPos] = useState<FlatKeteranganOption | null>(null);
-  
+
   const [file, setFile] = useState<File | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,11 +45,9 @@ export default function AjukanRealisasiModal({
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Ambil data tree Pos Anggaran proyek ini
   const { data: posData, isLoading: isLoadingPos } = useApi<any>(`/api/proyek/${proyekId}/pos-anggaran`);
-  
-  // Flatten tree Main > Sub > Keterangan untuk dropdown pencarian
-  const flatOptions: FlatKeteranganOption[] = React.useMemo(() => {
+
+  const flatOptions: FlatKeteranganOption[] = useMemo(() => {
     if (!posData?.posAnggaran) return [];
     return posData.posAnggaran.flatMap((m: any) =>
       (m.subAnggaran || []).flatMap((s: any) =>
@@ -60,6 +56,8 @@ export default function AjukanRealisasiModal({
           keterangan: k.keterangan,
           mainNama: m.namaMain,
           subNama: s.namaSub,
+          nominalAlokasi: Number(k.nominalAlokasi || 0),
+          nominalRealisasi: Number(k.nominalRealisasi || 0),
         }))
       )
     );
@@ -67,9 +65,9 @@ export default function AjukanRealisasiModal({
 
   const filteredOptions = searchQuery.trim()
     ? flatOptions.filter((opt) =>
-        opt.keterangan.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        opt.subNama.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      opt.keterangan.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      opt.subNama.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : flatOptions;
 
   useEffect(() => {
@@ -82,27 +80,32 @@ export default function AjukanRealisasiModal({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const validateAndSetFile = (f: File) => {
-    setFile(f);
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) setFile(e.target.files[0]);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) validateAndSetFile(e.target.files[0]);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: DragEvent) => {
     e.preventDefault();
     setIsDragActive(false);
-    if (e.dataTransfer.files?.[0]) validateAndSetFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault();
-    if (!selectedPos) return alert("Keterangan anggaran wajib dipilih!");
-    if (!namaRealisasi.trim()) return alert("Nama realisasi wajib diisi!");
+    if (!selectedPos) {
+      setErrorMessage("Keterangan anggaran wajib dipilih!");
+      return;
+    }
+    if (!namaRealisasi.trim()) {
+      setErrorMessage("Nama realisasi wajib diisi!");
+      return;
+    }
 
     const cleanNominal = nominal.replace(/\./g, "");
-    if (!cleanNominal || Number(cleanNominal) <= 0) return alert("Nominal tidak valid!");
+    if (!cleanNominal || Number(cleanNominal) <= 0) {
+      setErrorMessage("Nominal tidak valid!");
+      return;
+    }
 
     setShowConfirm(true);
   };
@@ -118,10 +121,10 @@ export default function AjukanRealisasiModal({
       formData.append("keteranganAnggaranId", selectedPos.id);
       formData.append("nominal", cleanNominal);
 
-      // Integrasi ke kolom database yang baru dirombak!
+
       formData.append("nama", namaRealisasi);
       formData.append("tipe", "Realisasi Anggaran");
-      formData.append("tanggalStruk", new Date().toISOString().split("T")[0]); // Default hari ini
+      formData.append("tanggalStruk", new Date().toISOString().split("T")[0]);
       formData.append("kategoriBukti", "Lainnya");
 
       if (catatan.trim()) formData.append("deskripsi", catatan);
@@ -153,8 +156,7 @@ export default function AjukanRealisasiModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-[600px] flex flex-col overflow-hidden">
-        
-        {/* Header Modal */}
+
         <div className="px-6 pt-5 pb-4 flex items-start justify-between shrink-0">
           <div>
             <h2 className="text-[18px] font-bold text-stone-900 leading-tight">Ajukan Realisasi</h2>
@@ -165,10 +167,8 @@ export default function AjukanRealisasiModal({
           </button>
         </div>
 
-        {/* Body Form */}
         <form onSubmit={handleSubmit} className="p-6 pt-2 space-y-4 overflow-y-auto">
-          
-          {/* Pencarian Keterangan */}
+
           <div className="space-y-1.5 relative" ref={dropdownRef}>
             <label className="text-[11px] font-bold text-stone-700">Keterangan <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -190,7 +190,6 @@ export default function AjukanRealisasiModal({
               <Search size={14} className="absolute right-3.5 top-3 text-stone-400 pointer-events-none" />
             </div>
 
-            {/* Breadcrumb Terpilih (Sesuai Figma) */}
             {selectedPos && !isDropdownOpen && (
               <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[10px] pt-1">
                 <span className="font-bold text-stone-400 tracking-wider">MAIN</span>
@@ -204,7 +203,6 @@ export default function AjukanRealisasiModal({
               </div>
             )}
 
-            {/* Dropdown Options */}
             {isDropdownOpen && (
               <div className="absolute z-20 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg max-h-48 overflow-y-auto py-1">
                 {filteredOptions.length === 0 ? (
@@ -231,6 +229,45 @@ export default function AjukanRealisasiModal({
             )}
           </div>
 
+          {(() => {
+            const cleanInputNominal = Number(nominal.replace(/\./g, "")) || 0;
+            const nominalAlokasi = selectedPos?.nominalAlokasi || 0;
+            const nominalRealisasi = (selectedPos?.nominalRealisasi || 0) + cleanInputNominal;
+            const sisaRealisasi = nominalAlokasi - nominalRealisasi;
+            const isOver = sisaRealisasi < 0;
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+                  <p className="text-[12px] font-semibold text-[#14130f] mb-0.5 truncate" title={selectedPos ? `Total Alokasi · ${selectedPos.keterangan}` : "Total Alokasi Keterangan"}>
+                    {selectedPos ? `Total Alokasi · ${selectedPos.keterangan}` : "Total Alokasi Keterangan"}
+                  </p>
+                  <p className="text-[13.5px] font-normal text-[#000000] ">
+                    <CompactNominal value={selectedPos ? nominalAlokasi : 0} />
+                  </p>
+                </div>
+                {isOver ? (
+                  <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
+                    <p className="text-[12px] font-semibold text-[#902f33] mb-0.5 truncate">
+                      Kelebihan Realisasi (Overbudget)
+                    </p>
+                    <p className="text-[13.5px] font-normal text-[#902f33] ">
+                      <CompactNominal value={sisaRealisasi} />
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
+                    <p className="text-[12px] font-semibold text-[#14130f] mb-0.5 truncate">
+                      Sisa yang Belum Terealisasi
+                    </p>
+                    <p className="text-[13.5px] font-normal text-[#000000] ">
+                      <CompactNominal value={selectedPos ? sisaRealisasi : 0} />
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-stone-700">Nama Realisasi <span className="text-red-500">*</span></label>
@@ -249,7 +286,13 @@ export default function AjukanRealisasiModal({
                 <input
                   type="text"
                   value={nominal}
-                  onChange={(e) => setNominal(formatRupiah(e.target.value))}
+                  onChange={(e) => {
+                    const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
+                    setNominal(formatted);
+                    requestAnimationFrame(() => {
+                      e.target.setSelectionRange(caret, caret);
+                    });
+                  }}
                   placeholder="0"
                   className="w-full bg-white border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[13px] font-medium text-stone-800 focus:outline-none focus:border-stone-400 transition"
                 />
@@ -268,16 +311,14 @@ export default function AjukanRealisasiModal({
             />
           </div>
 
-          {/* Area Drag & Drop File */}
           <div
             onClick={() => fileInputRef.current?.click()}
             onDragEnter={(e) => { e.preventDefault(); setIsDragActive(true); }}
             onDragOver={(e) => e.preventDefault()}
             onDragLeave={() => setIsDragActive(false)}
             onDrop={handleDrop}
-            className={`group relative border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${
-              isDragActive ? "border-emerald-500 bg-emerald-50/50" : "border-stone-200 bg-stone-50/50 hover:border-emerald-500 hover:bg-emerald-50/50"
-            }`}
+            className={`group relative border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition ${isDragActive ? "border-emerald-500 bg-emerald-50/50" : "border-stone-200 bg-stone-50/50 hover:border-emerald-500 hover:bg-emerald-50/50"
+              }`}
           >
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf" />
             {file && (
@@ -303,7 +344,6 @@ export default function AjukanRealisasiModal({
             </span>
           </div>
 
-          {/* Footer Actions */}
           <div className="flex items-center justify-end gap-2 pt-4">
             <button
               type="button"

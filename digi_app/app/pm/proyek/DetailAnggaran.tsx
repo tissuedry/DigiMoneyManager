@@ -1,38 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
-import { formatFullRupiah } from "@/lib/format-nominal";
-
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return formatFullRupiah(n);
-}
-
-function formatSisaCurrency(num: number): string {
-  const n = Number(num) || 0;
-  if (n < 0) {
-    return `-Rp ${Math.abs(Math.round(n)).toLocaleString("id-ID")}`;
-  }
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
-}
-
-function formatReimbursementDate(r: any): string {
-  const ocrSubmitted = r.createdAt;
-  if (ocrSubmitted) {
-    const d = new Date(ocrSubmitted);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    }
-  }
-  return "-";
-}
+import CompactNominal from "@/components/compact-nominal";
+import { formatReimbursementDate } from "@/lib/proyek-utils";
 
 type KeteranganPos = {
   id: number;
@@ -103,6 +76,7 @@ export default function DetailAnggaranModal({
   proyekNama,
   posAnggaran,
   totalRAB,
+  totalAlokasiPemasukan = 0,
   onClose,
   onRefresh,
 }: {
@@ -110,6 +84,7 @@ export default function DetailAnggaranModal({
   proyekNama: string;
   posAnggaran: any[];
   totalRAB?: number;
+  totalAlokasiPemasukan?: number;
   onClose: () => void;
   onRefresh?: () => void;
 }) {
@@ -139,9 +114,7 @@ export default function DetailAnggaranModal({
         }
       });
       setPengajuanStatus(map);
-    } catch {
-      // abaikan — tanpa status pengajuan, tombol tetap berfungsi
-    }
+    } catch { }
   };
 
   useEffect(() => {
@@ -157,73 +130,75 @@ export default function DetailAnggaranModal({
   const toggleKet = (id: number) =>
     setExpandedKet((p) => ({ ...p, [id]: !p[id] }));
 
-  const sortedPosAnggaran = [...(posAnggaran || [])]
-    .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === "pengeluaran")
-    .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+  const mapped: MainPosItem[] = useMemo(() => {
+    const sortedPosAnggaran = [...(posAnggaran || [])]
+      .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === "pengeluaran")
+      .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
 
-  const mapped: MainPosItem[] = sortedPosAnggaran.map((main) => {
-    const sortedSubAnggaran = [...(main.subAnggaran || [])]
-      .filter((s: any) => !s.tipe || s.tipe.toLowerCase() === "pengeluaran")
-      .sort((a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0));
+    return sortedPosAnggaran.map((main) => {
+      const sortedSubAnggaran = [...(main.subAnggaran || [])]
+        .filter((s: any) => !s.tipe || s.tipe.toLowerCase() === "pengeluaran")
+        .sort((a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0));
 
-    const subPos = sortedSubAnggaran.map((sub: any) => {
-      const sortedKeterangan = [...(sub.keterangan || [])].sort(
-        (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
-      );
-
-      const keterangan = sortedKeterangan.map((ket: any) => {
-        const childReimbursements = ket.reimbursements || [];
-
-        const approvedReimbs = childReimbursements
-          .filter((r: any) =>
-            ["APPROVED", "APPROVED_BY_PM", "SUBMITTED", "PAID", "DISBURSED"].includes(r.status)
-          )
-          .sort((a: any, b: any) => getStatusRank(a.status) - getStatusRank(b.status));
-        const hasReimbs = approvedReimbs.length > 0;
-
-        const disbursedReimbs = childReimbursements.filter((r: any) =>
-          ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
+      const subPos = sortedSubAnggaran.map((sub: any) => {
+        const sortedKeterangan = [...(sub.keterangan || [])].sort(
+          (a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0)
         );
-        const ketRealisasi = hasReimbs
-          ? disbursedReimbs.reduce((acc: number, r: any) => acc + (parseFloat(r.nominal) || 0), 0)
-          : parseFloat(ket.nominalRealisasi) || parseFloat(ket.realisasi) || 0;
+
+        const keterangan = sortedKeterangan.map((ket: any) => {
+          const childReimbursements = ket.reimbursements || [];
+
+          const approvedReimbs = childReimbursements
+            .filter((r: any) =>
+              ["APPROVED", "APPROVED_BY_PM", "SUBMITTED", "PAID", "DISBURSED"].includes(r.status)
+            )
+            .sort((a: any, b: any) => getStatusRank(a.status) - getStatusRank(b.status));
+          const hasReimbs = approvedReimbs.length > 0;
+
+          const disbursedReimbs = childReimbursements.filter((r: any) =>
+            ["APPROVED", "PAID", "DISBURSED"].includes(r.status)
+          );
+          const ketRealisasi = hasReimbs
+            ? disbursedReimbs.reduce((acc: number, r: any) => acc + (parseFloat(r.nominal) || 0), 0)
+            : parseFloat(ket.nominalRealisasi) || parseFloat(ket.realisasi) || 0;
+
+          return {
+            id: ket.id,
+            nama: ket.keterangan || ket.nama,
+            alokasi: parseFloat(ket.nominalAlokasi) || parseFloat(ket.alokasi) || 0,
+            realisasi: ketRealisasi,
+            reimbs: approvedReimbs,
+          };
+        });
+
+        const subRealisasi = keterangan.reduce(
+          (acc: number, k: any) => acc + (Number(k.realisasi) || 0),
+          0
+        );
 
         return {
-          id: ket.id,
-          nama: ket.keterangan || ket.nama,
-          alokasi: parseFloat(ket.nominalAlokasi) || parseFloat(ket.alokasi) || 0,
-          realisasi: ketRealisasi,
-          reimbs: approvedReimbs,
+          id: sub.id,
+          nama: sub.namaSub || sub.nama,
+          alokasi: parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0,
+          realisasi: subRealisasi,
+          keterangan,
         };
       });
 
-      const subRealisasi = keterangan.reduce(
-        (acc: number, k: any) => acc + (Number(k.realisasi) || 0),
+      const mainRealisasi = subPos.reduce(
+        (acc: number, s: any) => acc + (Number(s.realisasi) || 0),
         0
       );
 
       return {
-        id: sub.id,
-        nama: sub.namaSub || sub.nama,
-        alokasi: parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0,
-        realisasi: subRealisasi,
-        keterangan,
+        id: main.id,
+        nama: main.namaPos || main.nama || main.deskripsi,
+        alokasi: parseFloat(main.nominalAlokasi) || parseFloat(main.alokasi) || 0,
+        realisasi: mainRealisasi,
+        subPos,
       };
     });
-
-    const mainRealisasi = subPos.reduce(
-      (acc: number, s: any) => acc + (Number(s.realisasi) || 0),
-      0
-    );
-
-    return {
-      id: main.id,
-      nama: main.namaPos || main.nama || main.deskripsi,
-      alokasi: parseFloat(main.nominalAlokasi) || parseFloat(main.alokasi) || 0,
-      realisasi: mainRealisasi,
-      subPos,
-    };
-  });
+  }, [posAnggaran]);
 
   useEffect(() => {
     if (mapped.length > 0 && Object.keys(expandedMain).length === 0) {
@@ -243,7 +218,7 @@ export default function DetailAnggaranModal({
       setExpandedSub(initialSubState);
       setExpandedKet(initialKetState);
     }
-  }, [mapped.length]);
+  }, [mapped, expandedMain]);
 
   return (
     <>
@@ -261,7 +236,7 @@ export default function DetailAnggaranModal({
                 Detail Anggaran
               </h3>
               <p className="text-[13px] text-[#6A6660] leading-[19.5px] mt-0.5 font-sans">
-                {proyekNama || "Pembangunan Gudang Cikarang Fase 2"}
+                {proyekNama || "-"}
               </p>
             </div>
             <button
@@ -274,7 +249,6 @@ export default function DetailAnggaranModal({
           </div>
 
           <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
-            {/* Sticky Table Header */}
             <div className="sticky top-0 z-10 px-7 pt-3.5 pb-2.5 border-b border-[#E6E1D4] flex items-center shrink-0 bg-white">
               <div className="flex-1 min-w-[280px] text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
                 MAIN · SUB · KETERANGAN
@@ -334,19 +308,19 @@ export default function DetailAnggaranModal({
                         </span>
                       </div>
 
-                      <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(main.realisasi)}
+                      <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
+                        <CompactNominal value={main.realisasi} />
                       </div>
 
-                      <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold text-[#14130F]">
-                        {formatFullCurrency(main.alokasi)}
+                      <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
+                        <CompactNominal value={main.alokasi} />
                       </div>
 
                       <div
-                        className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${mainSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
+                        className={`w-[145px] shrink-0 text-center  text-[12.5px] font-semibold ${mainSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
                           }`}
                       >
-                        {formatSisaCurrency(mainSisa)}
+                        <CompactNominal value={mainSisa} />
                       </div>
 
                       <div className="w-[125px] shrink-0 flex justify-center">
@@ -401,19 +375,19 @@ export default function DetailAnggaranModal({
                                     </span>
                                   </div>
 
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(sub.realisasi)}
+                                  <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
+                                    <CompactNominal value={sub.realisasi} />
                                   </div>
 
-                                  <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-medium text-[#6A6660]">
-                                    {formatFullCurrency(sub.alokasi)}
+                                  <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-medium text-[#6A6660]">
+                                    <CompactNominal value={sub.alokasi} />
                                   </div>
 
                                   <div
-                                    className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${subSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
+                                    className={`w-[145px] shrink-0 text-center  text-[12.5px] font-semibold ${subSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
                                       }`}
                                   >
-                                    {formatSisaCurrency(subSisa)}
+                                    <CompactNominal value={subSisa} />
                                   </div>
 
                                   <div className="w-[125px] shrink-0 flex justify-center">
@@ -481,19 +455,19 @@ export default function DetailAnggaranModal({
                                                 </span>
                                               </div>
 
-                                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-normal text-[#6A6660]">
-                                                {formatFullCurrency(ket.realisasi)}
+                                              <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-normal text-[#6A6660]">
+                                                <CompactNominal value={ket.realisasi} />
                                               </div>
 
-                                              <div className="w-[145px] shrink-0 text-center font-mono text-[12.5px] font-normal text-[#6A6660]">
-                                                {formatFullCurrency(ket.alokasi)}
+                                              <div className="w-[145px] shrink-0 text-center  text-[12.5px] font-normal text-[#6A6660]">
+                                                <CompactNominal value={ket.alokasi} />
                                               </div>
 
                                               <div
-                                                className={`w-[145px] shrink-0 text-center font-mono text-[12.5px] font-semibold ${ketSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
+                                                className={`w-[145px] shrink-0 text-center  text-[12.5px] font-semibold ${ketSisa < 0 ? "text-[#902F33]" : "text-[#005836]"
                                                   }`}
                                               >
-                                                {formatSisaCurrency(ketSisa)}
+                                                <CompactNominal value={ketSisa} />
                                               </div>
 
                                               <div className="w-[125px] shrink-0 flex justify-center">
@@ -589,14 +563,12 @@ export default function DetailAnggaranModal({
 
                                                         <div className="w-[145px] shrink-0 flex items-center justify-center gap-1.5">
                                                           <span
-                                                            className={`text-[11px] font-mono font-normal ${displayStatus === "Dicairkan"
+                                                            className={`text-[11px]  font-normal ${displayStatus === "Dicairkan"
                                                                 ? "text-[#6A6660]"
                                                                 : "text-[#ADA79F]"
                                                               }`}
                                                           >
-                                                            {formatFullCurrency(
-                                                              Number(reimb.nominal) || 0
-                                                            )}
+                                                            <CompactNominal value={Number(reimb.nominal) || 0} />
                                                           </span>
                                                           {displayStatus === "Dicairkan" ? (
                                                             <Check
@@ -673,7 +645,8 @@ export default function DetailAnggaranModal({
           main={perubahanTarget}
           totalRAB={totalRAB || mapped.reduce((s, m) => s + (m.alokasi || 0), 0)}
           sumLain={
-            mapped.reduce((s, m) => s + (m.alokasi || 0), 0) -
+            mapped.reduce((s, m) => s + (m.alokasi || 0), 0) +
+            totalAlokasiPemasukan -
             (perubahanTarget.alokasi || 0)
           }
           sumSub={

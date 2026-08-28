@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { clearCache } from '@/lib/route-cache';
 
-// POST: Process reimbursement/realisasi approval / rejection (PM, Keuangan, and Super Admin)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const role = req.headers.get('x-user-role');
@@ -67,7 +66,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const isKeuangan = role === 'Tim Keuangan' || roles.includes('Tim Keuangan');
     const isSuperAdmin = roles.includes('Superadmin') || roles.includes('superadmin');
 
-    // TAHAP 1: APPROVAL PM / DIREKTUR / SUPER ADMIN
     if (isPM || isDirektur || (isSuperAdmin && reimbursement.status === 'SUBMITTED')) {
       if (reimbursement.status !== 'SUBMITTED') {
         if (!isKeuangan && !isSuperAdmin) {
@@ -150,7 +148,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    // TAHAP 2: PENCAIRAN KEUANGAN / SUPER ADMIN
     if (isKeuangan || isSuperAdmin) {
       if (reimbursement.status !== 'APPROVED_BY_PM') {
         return NextResponse.json({ message: 'Pengajuan is not pending Keuangan disbursement' }, { status: 400 });
@@ -168,7 +165,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           });
 
           if (budget) {
-            const rabTotal = Number(budget.rabTotal);
+            const nilaiKontrak = Number(budget.nilaiKontrak);
             const prevSisa = Number(budget.sisaBudget);
             
             const newSisa = prevSisa - nominal;
@@ -184,9 +181,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               },
             });
 
-            if (rabTotal > 0) {
-              const prevPercentage = (prevSisa / rabTotal) * 100;
-              const newPercentage = (newSisa / rabTotal) * 100;
+            if (nilaiKontrak > 0) {
+              const prevPercentage = (prevSisa / nilaiKontrak) * 100;
+              const newPercentage = (newSisa / nilaiKontrak) * 100;
               const thresholds = [50, 25, 10, 5, 0];
               
               for (const T of thresholds) {
@@ -288,8 +285,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               pesan: `Pengajuan ${tipePengajuan} Anda senilai Rp ${nominal.toLocaleString()} telah DICAIRKAN oleh ${actorKeuangan}.`,
             },
           });
-
-
 
           return { rb, journal };
         });

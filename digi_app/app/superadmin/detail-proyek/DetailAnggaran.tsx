@@ -4,27 +4,8 @@ import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 
-import { formatFullRupiah } from "@/lib/format-nominal";
-
-function formatFullCurrency(num: number): string {
-  const n = Number(num) || 0;
-  return formatFullRupiah(n);
-}
-
-function formatReimbursementDate(r: any): string {
-  const ocrSubmitted = r.createdAt;
-  if (ocrSubmitted) {
-    const d = new Date(ocrSubmitted);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    }
-  }
-  return "-";
-}
+import { formatReimbursementDate } from "@/lib/proyek-utils";
+import CompactNominal from "@/components/compact-nominal";
 
 type KeteranganPos = {
   id: number;
@@ -96,12 +77,9 @@ function reimbType(s: string): string {
   return map[s] || s;
 }
 
-// ponytail: shared row layout — name grows, rest are fixed-width
 const COL_CLASS =
   "flex items-center gap-3 px-6 py-1.5 hover:bg-stone-50 transition";
 const NAME_CLASS = "flex items-center gap-2 flex-1 min-w-0 max-w-[440px]";
-
-// ─── Shared row wrapper ───────────────────────────────────────────────────
 
 function Row({
   children,
@@ -218,7 +196,7 @@ function ReimbRealisasiCell({
   return (
     <Cell style={{ color: textColor }}>
       <span className="inline-flex items-center justify-center gap-1.5">
-        <span>{formatFullCurrency(nominal)}</span>
+        <span>{<CompactNominal value={nominal} compactThreshold={1_000_000_000_000} showTooltip />}</span>
         {icon}
       </span>
     </Cell>
@@ -282,6 +260,7 @@ export default function DetailAnggaranModal({
   proyekNama,
   posAnggaran,
   totalRAB,
+  totalAlokasiPemasukan = 0,
   onClose,
   onRefresh,
 }: {
@@ -289,6 +268,7 @@ export default function DetailAnggaranModal({
   proyekNama: string;
   posAnggaran: any[];
   totalRAB?: number;
+  totalAlokasiPemasukan?: number;
   onClose: () => void;
   onRefresh?: () => void;
 }) {
@@ -304,17 +284,11 @@ export default function DetailAnggaranModal({
   const toggleKet = (id: number) =>
     setExpandedKet((p) => ({ ...p, [id]: !p[id] }));
 
-  // ─── Kalkulasi cascade bottom-up: Ket → Sub → Main ───
-  // Realisasi Ket = sum reimbursement APPROVED (dicairkan keuangan)
-  // Realisasi Sub = sum realisasi seluruh Ket di bawahnya
-  // Realisasi Main = sum realisasi seluruh Sub di bawahnya
   const mapped: MainPosItem[] = posAnggaran.map((main) => {
     const subPos = (main.subAnggaran || []).map((sub: any) => {
       const keterangan = (sub.keterangan || []).map((ket: any) => {
-        // Reimbursement dari data posAnggaran (embedded)
         const childReimbursements = ket.reimbursements || [];
 
-        // Filter display: hanya reimbursement dengan status yang relevan (sama seperti manager)
         const approvedReimbs = childReimbursements
           .filter((r: any) =>
             ['APPROVED', 'APPROVED_BY_PM', 'SUBMITTED', 'PAID', 'DISBURSED'].includes(r.status)
@@ -322,7 +296,6 @@ export default function DetailAnggaranModal({
           .sort((a: any, b: any) => getStatusRank(a.status) - getStatusRank(b.status));
         const hasReimbs = approvedReimbs.length > 0;
 
-        // Ket realisasi = sum reimbursement dengan status APPROVED (dicairkan)
         const disbursedReimbs = childReimbursements.filter((r: any) =>
           ['APPROVED'].includes(r.status)
         );
@@ -339,7 +312,6 @@ export default function DetailAnggaranModal({
         };
       });
 
-      // Sub realisasi = sum seluruh Ket di bawahnya
       const subRealisasi = keterangan.reduce((acc: any, k: any) => acc + (Number(k.realisasi) || 0), 0);
 
       return {
@@ -351,7 +323,6 @@ export default function DetailAnggaranModal({
       };
     });
 
-    // Main realisasi = sum seluruh Sub di bawahnya
     const mainRealisasi = subPos.reduce((acc: any, s: any) => acc + (Number(s.realisasi) || 0), 0);
 
     return {
@@ -381,7 +352,6 @@ export default function DetailAnggaranModal({
         className="bg-white rounded-2xl shadow-2xl w-full max-w-[1260px] max-h-[85vh] flex flex-col overflow-hidden text-left"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-stone-100 flex items-start justify-between shrink-0">
           <div>
             <h3 className="text-lg font-sans font-bold text-stone-900">
@@ -399,7 +369,6 @@ export default function DetailAnggaranModal({
           </button>
         </div>
 
-        {/* Column headers */}
         <div className="flex items-center gap-3 px-6 py-2 bg-stone-50 border-b border-stone-100 shrink-0">
           <span className="flex-1 min-w-0 max-w-[440px] text-[10px] font-bold text-stone-400 uppercase tracking-wider">
             MAIN · SUB · KETERANGAN
@@ -430,7 +399,6 @@ export default function DetailAnggaranModal({
           </span>
         </div>
 
-        {/* Scrollable rows */}
         <div className="flex-1 overflow-y-auto divide-y divide-stone-50">
           {mapped.length === 0 ? (
             <div className="p-12 text-center border border-stone-200 rounded-xl m-6">
@@ -451,7 +419,6 @@ export default function DetailAnggaranModal({
               const isMainOpen = expandedMain[main.id] ?? true;
               return (
                 <div key={main.id}>
-                  {/* MAIN row */}
                   <Row onClick={() => toggleMain(main.id)}>
                     <div className={NAME_CLASS}>
                       <div className="p-0.5 shrink-0">
@@ -472,8 +439,8 @@ export default function DetailAnggaranModal({
                       </span>
                     </div>
                     <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
-                    <Cell bold>{formatFullCurrency(main.alokasi)}</Cell>
-                    <Cell bold>{formatFullCurrency(main.realisasi)}</Cell>
+                    <Cell bold>{<CompactNominal value={main.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
+                    <Cell bold>{<CompactNominal value={main.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
                     <AksiButton
                       variant="main"
                       onClick={() => {
@@ -494,7 +461,6 @@ export default function DetailAnggaranModal({
                     </AksiButton>
                   </Row>
 
-                  {/* SUB rows */}
                   {isMainOpen && (
                     <div className="bg-stone-50/50">
                       {main.subPos.length === 0 ? (
@@ -511,7 +477,6 @@ export default function DetailAnggaranModal({
                           const isSubOpen = expandedSub[sub.id] ?? false;
                           return (
                             <div key={sub.id}>
-                              {/* SUB row */}
                               <Row indent={1} onClick={() => toggleSub(sub.id)} className="hover:bg-stone-100/60">
                                 <div className={NAME_CLASS}>
                                   <div className="p-0.5 shrink-0">
@@ -538,8 +503,8 @@ export default function DetailAnggaranModal({
                                   </span>
                                 </div>
                                 <ProgressCell pct={subPct} exactPctText={subPctExact} />
-                                <Cell>{formatFullCurrency(sub.alokasi)}</Cell>
-                                <Cell>{formatFullCurrency(sub.realisasi)}</Cell>
+                                <Cell>{<CompactNominal value={sub.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
+                                <Cell>{<CompactNominal value={sub.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
                                 <AksiButton
                                   variant="sub"
                                   onClick={() => {
@@ -561,7 +526,6 @@ export default function DetailAnggaranModal({
                                 </AksiButton>
                               </Row>
 
-                              {/* KET rows */}
                               {isSubOpen && (
                                 <div className="bg-stone-50/30">
                                   {sub.keterangan.length === 0 ? (
@@ -573,7 +537,6 @@ export default function DetailAnggaranModal({
                                       const isKetOpen = expandedKet[ket.id] ?? false;
                                       return (
                                         <div key={ket.id}>
-                                          {/* KET row */}
                                           <Row
                                             indent={2}
                                             onClick={() => toggleKet(ket.id)}
@@ -605,10 +568,10 @@ export default function DetailAnggaranModal({
                                             </div>
                                             <div style={{ width: 200, flexShrink: 0 }} />
                                             <Cell style={{ color: "#78716C" }}>
-                                              {formatFullCurrency(ket.alokasi)}
+                                              {<CompactNominal value={ket.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}
                                             </Cell>
                                             <Cell style={{ color: "#78716C" }}>
-                                              {formatFullCurrency(ket.realisasi)}
+                                              {<CompactNominal value={ket.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}
                                             </Cell>
                                             <AksiButton
                                               variant="ket"
@@ -630,7 +593,6 @@ export default function DetailAnggaranModal({
                                             </AksiButton>
                                           </Row>
 
-                                          {/* REIMB rows */}
                                           {isKetOpen && (
                                             <div className="bg-white">
                                               {ket.reimbs.length === 0 ? (
@@ -706,7 +668,6 @@ export default function DetailAnggaranModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-stone-100 flex justify-end shrink-0">
           <button
             onClick={onClose}
@@ -718,12 +679,12 @@ export default function DetailAnggaranModal({
       </div>
     </div>
 
-    {/* Edit Alokasi Popup */}
     {editTarget && (
       <EditAlokasiModal
         target={editTarget}
         proyekId={proyekId}
-        onClose={() => setEditTarget(null)}
+        totalAlokasiPemasukan={totalAlokasiPemasukan}
+onClose={() => setEditTarget(null)}
         onSuccess={() => {
           setEditTarget(null);
           if (onRefresh) onRefresh();

@@ -1,0 +1,941 @@
+"use client";
+
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { Filter, Eye, X, Download, RefreshCw, AlertTriangle, ArrowUpDown, Search, ChevronDown, ZoomIn } from "lucide-react";
+import SuccessDialog from '@/components/success-dialog';
+import ConfirmDialog from '@/components/confirm-dialog';
+import CompactNominal from "@/components/compact-nominal";
+import ImageLightbox from "@/components/image-lightbox";
+import { formatTanggal, formatTanggalLong, formatApprovalDate, getFileExt } from "@/lib/formatters";
+import { statusMeta } from "@/lib/status";
+import { useApi, useMutate } from "@/lib/use-api";
+
+type Submission = {
+  id: string;
+  dbId: number;
+  date: string;
+  lastActivityTime: number;
+  merchant: string;
+  project: string;
+  pos: string;
+  amountRaw: number;
+  status: "Menunggu PM" | "Menunggu Keuangan" | "Dicairkan" | "Ditolak";
+  statusKey: string;
+  isResubmit: boolean;
+  isResubmitted: boolean;
+};
+
+const TABS = ["Semua", "Menunggu PM", "Menunggu Keuangan", "Dicairkan", "Ditolak"];
+
+function makeDisplayId(id: number | string) {
+  return `RB-${id}`;
+}
+
+function SkeletonRow() {
+  return (
+    <tr className="border-b border-stone-100 last:border-none">
+      <td className="px-6 py-4"><div className="h-3 w-16 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-20 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-32 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-24 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-5 w-16 rounded-md bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-3 w-20 rounded bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4"><div className="h-5 w-24 rounded-full bg-stone-200 animate-pulse" /></td>
+      <td className="px-6 py-4 text-center"><div className="h-5 w-5 mx-auto rounded bg-stone-200 animate-pulse" /></td>
+    </tr>
+  );
+}
+
+type StepStatus = "done" | "active" | "waiting" | "rejected";
+
+interface ApprovalStep {
+  label: string;
+  sublabel: string;
+  status: StepStatus;
+}
+
+function getApprovalSteps(raw: any, allRaw: any[] = []): ApprovalStep[] {
+  const status = raw.status;
+  const approvals = raw.approvals || [];
+  const pmApproval = approvals.find((a: any) => a.level === "PM");
+  const financeApproval = approvals.find((a: any) => a.level === "FINANCE" || a.level === "KEUANGAN");
+
+  const pmApprover = pmApproval?.approver?.nama || "Project Manager";
+  const financeApprover = financeApproval?.approver?.nama || "Tim Keuangan";
+
+  const submittedDate = raw.createdAt;
+  const submitterName = raw.user?.nama || "Karyawan";
+  const submittedLabel = submittedDate
+    ? `${submitterName} • ${formatApprovalDate(submittedDate)}`
+    : submitterName;
+
+  let steps: ApprovalStep[];
+
+  if (status === "SUBMITTED") {
+    steps = [
+      { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+      { label: "Validasi Project Manager", sublabel: `${pmApprover} • Menunggu`, status: "active" },
+      { label: "Verifikasi Tim Keuangan", sublabel: "Menunggu • —", status: "waiting" },
+      { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
+    ];
+  } else if (status === "APPROVED_BY_PM") {
+    const pmDate = pmApproval ? formatApprovalDate(pmApproval.timestamp) : "";
+    steps = [
+      { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+      { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "done" },
+      { label: "Verifikasi Tim Keuangan", sublabel: "Menunggu • —", status: "active" },
+      { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
+    ];
+  } else if (status === "APPROVED") {
+    const pmDate = pmApproval ? formatApprovalDate(pmApproval.timestamp) : "";
+    const finDate = financeApproval ? formatApprovalDate(financeApproval.timestamp) : "";
+    const disbursedDate = raw.disbursedAt ? formatApprovalDate(raw.disbursedAt) : finDate;
+    steps = [
+      { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+      { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "done" },
+      { label: "Verifikasi Tim Keuangan", sublabel: `${financeApprover}${finDate ? " • " + finDate : ""}`, status: "done" },
+      { label: "Dicairkan", sublabel: `Jurnal otomatis${disbursedDate ? " • " + disbursedDate : ""}`, status: "done" },
+    ];
+  } else if (status === "REJECTED") {
+    const pmDate = pmApproval ? formatApprovalDate(pmApproval.timestamp) : "";
+    const finDate = financeApproval ? formatApprovalDate(financeApproval.timestamp) : "";
+
+    if (pmApproval?.status === "APPROVED_BY_PM" && financeApproval) {
+      steps = [
+        { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+        { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "done" },
+        { label: "Verifikasi Tim Keuangan", sublabel: `${financeApprover}${finDate ? " • " + finDate : ""}`, status: "rejected" },
+        { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
+      ];
+    } else {
+      steps = [
+        { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+        { label: "Validasi Project Manager", sublabel: `${pmApprover}${pmDate ? " • " + pmDate : ""}`, status: "rejected" },
+        { label: "Verifikasi Tim Keuangan", sublabel: "Menunggu • —", status: "waiting" },
+        { label: "Dicairkan", sublabel: "Jurnal otomatis • —", status: "waiting" },
+      ];
+    }
+  } else {
+    steps = [
+      { label: "Pengajuan dikirim", sublabel: submittedLabel, status: "done" },
+      { label: "Validasi Project Manager", sublabel: "Menunggu", status: "active" },
+      { label: "Verifikasi Tim Keuangan", sublabel: "Menunggu", status: "waiting" },
+      { label: "Dicairkan", sublabel: "Jurnal otomatis", status: "waiting" },
+    ];
+  }
+
+  const resubmitFromId = raw.ocrData?.resubmitFrom;
+  const original = resubmitFromId ? allRaw.find((r: any) => r.id === resubmitFromId) : null;
+  if (original) {
+    const originalSubmittedDate = original.createdAt;
+    const originalSubmitterName = original.user?.nama || "Karyawan";
+    const originalSubmittedLabel = originalSubmittedDate
+      ? `${originalSubmitterName} • ${formatApprovalDate(originalSubmittedDate)}`
+      : originalSubmitterName;
+
+    const originalApprovals = original.approvals || [];
+    const rejectedApproval = originalApprovals.find((a: any) => a.status === "REJECTED");
+    const rejectedByFinance = rejectedApproval?.level === "FINANCE" || rejectedApproval?.level === "KEUANGAN";
+    const rejecterLabel = rejectedByFinance ? "Ditolak oleh Tim Keuangan" : "Ditolak oleh Project Manager";
+    const rejecterName = rejectedApproval?.approver?.nama || (rejectedByFinance ? "Tim Keuangan" : "Project Manager");
+    const rejectedDate = rejectedApproval ? formatApprovalDate(rejectedApproval.timestamp) : "";
+
+    steps[0] = { ...steps[0], label: "Pengajuan ulang dikirim" };
+    steps.unshift(
+      { label: "Pengajuan dikirim", sublabel: originalSubmittedLabel, status: "done" },
+      { label: rejecterLabel, sublabel: `${rejecterName}${rejectedDate ? " • " + rejectedDate : ""}`, status: "rejected" },
+    );
+  }
+
+  return steps;
+}
+
+function StepIcon({ status, number }: { status: StepStatus; number: number }) {
+  if (status === "done") {
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#1a7a5e] flex items-center justify-center flex-shrink-0">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#be123c] flex items-center justify-center flex-shrink-0">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 2L10 10M10 2L2 10" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </div>
+    );
+  }
+  if (status === "active") {
+    return (
+      <div className="w-7 h-7 rounded-full bg-[#d97706] flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
+        {number}
+      </div>
+    );
+  }
+  return (
+    <div className="w-7 h-7 rounded-full bg-white border-2 border-stone-200 flex items-center justify-center flex-shrink-0 text-stone-400 text-xs font-semibold">
+      {number}
+    </div>
+  );
+}
+
+function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResubmit, onViewRelated, onOpenImage, actionLoading, actionError }: {
+  raw: any;
+  displayId: string;
+  allRaw: any[];
+  onClose: () => void;
+  onRequestCancel: () => void;
+  onResubmit: () => void;
+  onViewRelated: (dbId: number, displayId: string) => void;
+  onOpenImage: (url: string) => void;
+  actionLoading: boolean;
+  actionError: string | null;
+}) {
+  const status = raw.status;
+  const meta = statusMeta(status);
+  const uiStatus =
+    status === "SUBMITTED" || status === "APPROVED_BY_PM" || status === "APPROVED"
+      ? meta.label
+      : raw.ocrData?.resubmitFrom ? "Pengajuan Ulang Ditolak" : "Ditolak";
+
+  const steps = getApprovalSteps(raw, allRaw);
+
+  const rejectedApproval = raw.approvals?.find((a: any) => a.status === "REJECTED");
+  const rejectionNote = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
+  const rejectedByFinance = rejectedApproval?.level === "FINANCE" || rejectedApproval?.level === "KEUANGAN";
+  const rejecterRoleLabel = rejectedApproval ? (rejectedByFinance ? "Tim Keuangan" : "Project Manager") : "";
+
+  const resubmittedRecord = allRaw.find((r: any) => r.ocrData?.resubmitFrom === raw.id);
+  const resubmittedAs = resubmittedRecord
+    ? { dbId: resubmittedRecord.id, displayId: makeDisplayId(resubmittedRecord.id) }
+    : null;
+
+  const nominalFormatted = `Rp ${Number(raw.nominal).toLocaleString("id-ID")}`;
+  const tanggal = raw.tanggalStruk ? formatTanggalLong(raw.tanggalStruk.split('T')[0]) : "N/A";
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-6 pt-5 pb-4 border-b border-stone-150">
+        <p className="text-[11px]  text-stone-400 mb-1">{displayId}</p>
+        <h2 className="text-[20px] font-bold text-stone-900 leading-tight">{raw.merchant || raw.nama || "N/A"}</h2>
+        <p className="text-[13px] text-stone-500 mt-0.5">{raw.proyek?.nama || "N/A"}</p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <div className={`rounded-xl border p-4 ${meta.card}`}>
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wide mb-1.5">STATUS</p>
+              <div className="flex items-center gap-2">
+                <span className={`inline-block px-3 py-1 rounded-full text-[11px] font-bold ${meta.chip}`}>
+                  {uiStatus}
+                </span>
+                {raw.ocrData?.resubmitFrom && status !== "REJECTED" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold bg-[#ede9fe] text-[#6d28d9]">
+                    <RefreshCw size={10} />
+                    Pengajuan Ulang
+                  </span>
+                )}
+                {status === "REJECTED" && resubmittedAs && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold bg-[#ede9fe] text-[#6d28d9]">
+                    <RefreshCw size={10} />
+                    Sudah Diajukan Ulang
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wide mb-1.5">NOMINAL</p>
+              <p className={`text-[22px] font-bold tracking-tight ${meta.nominal}`}>{nominalFormatted}</p>
+            </div>
+          </div>
+        </div>
+
+        {status === "REJECTED" && (
+          <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
+            <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[12px] font-bold text-[#be123c] mb-1">
+                Alasan Penolakan
+                {rejecterRoleLabel && (
+                  <span className="font-normal text-[11px] text-[#be123c]/70"> • Ditolak oleh {rejecterRoleLabel}</span>
+                )}
+              </p>
+              <p className="text-[12px] text-stone-700 leading-relaxed">
+                {rejectionNote || "Tidak ada alasan spesifik yang diberikan."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {status === "REJECTED" && resubmittedAs && (
+          <div className="rounded-xl border border-[#bce0f7] bg-[#f0f8ff] p-4 flex items-center justify-between gap-3">
+            <div className="flex gap-3">
+              <RefreshCw size={16} className="text-[#0277bd] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[12px] font-bold text-[#0277bd] mb-1">Sudah diajukan ulang</p>
+                <p className="text-[12px] text-stone-700 leading-relaxed">
+                  Pengajuan ini sudah diajukan ulang sebagai <span className="font-semibold">{resubmittedAs.displayId}</span>.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => onViewRelated(resubmittedAs.dbId, resubmittedAs.displayId)}
+              className="flex-shrink-0 px-3 py-1.5 bg-white border border-[#bce0f7] hover:bg-[#e1f5fe] text-[#0277bd] rounded-lg text-[11px] font-semibold transition cursor-pointer"
+            >
+              Lihat
+            </button>
+          </div>
+        )}
+
+        <div>
+          <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Detail Pengajuan</p>
+          <div className="rounded-xl border border-stone-200 bg-white overflow-hidden">
+            {[
+              { label: "Main", value: raw.posAnggaran?.namaPos || "N/A" },
+              { label: "Sub", value: raw.posAnggaran?.subAnggaran?.namaSub || "N/A" },
+              { label: "Keterangan", value: raw.posAnggaran?.keterangan || raw.posAnggaran?.deskripsi || "N/A" },
+              { label: "Tanggal Transaksi", value: tanggal },
+              { label: "Nama Reimbursement", value: raw.merchant || raw.nama || "N/A" },
+              { label: "Status Indikasi", value: raw.fraudFlag ? "Terindikasi Fraud" : "Aman" },
+            ].map((row, i, arr) => (
+              <div key={row.label} className={`flex justify-between items-center px-4 py-3 ${i < arr.length - 1 ? "border-b border-stone-100" : ""}`}>
+                <span className="text-[12px] text-stone-500">{row.label}</span>
+                <span className="text-[12px] font-semibold text-stone-800 text-right max-w-[55%]">{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Catatan Pengaju</p>
+          <div className="rounded-xl border border-stone-200 bg-[#fcfbf8] px-4 py-3">
+            <p className="text-[12px] text-stone-600 italic leading-relaxed">&quot;{raw.nama || "-"}&quot;</p>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-3">Riwayat Approval</p>
+          <div className="space-y-0">
+            {steps.map((step, i) => (
+              <div key={i} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <StepIcon status={step.status} number={i + 1} />
+                  {i < steps.length - 1 && (
+                    <div className={`w-0.5 flex-1 my-1 min-h-[20px] ${step.status === "done" ? "bg-[#1a7a5e]" : "bg-stone-200"}`} />
+                  )}
+                </div>
+                <div className="pb-4 pt-0.5">
+                  <p className={`text-[13px] font-semibold leading-tight ${step.status === "waiting" ? "text-stone-400" : "text-stone-800"}`}>
+                    {step.label}
+                  </p>
+                  <p className={`text-[11px] mt-0.5 ${step.status === "waiting" ? "text-stone-300" : "text-stone-400"}`}>
+                    {step.sublabel}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Bukti Struk</p>
+          {raw.strukUrl ? (
+            raw.strukUrl.toLowerCase().split('?')[0].endsWith('.pdf') ? (
+              <div className="border border-stone-200 rounded-xl p-3 bg-[#fdfaf5] flex items-center justify-between gap-3 w-full max-w-xs sm:max-w-sm">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center shrink-0 border border-red-200">
+                    PDF
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-stone-800 whitespace-nowrap">Dokumen Bukti (PDF)</p>
+                    <p className="text-[10px] text-stone-400 whitespace-nowrap">Klik untuk membuka file</p>
+                  </div>
+                </div>
+                <a
+                  href={raw.strukUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-1.5 bg-stone-900 text-white rounded-lg text-xs font-semibold shrink-0 hover:bg-stone-800 transition whitespace-nowrap"
+                >
+                  Buka PDF
+                </a>
+              </div>
+            ) : (
+              <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] max-w-xs flex items-center justify-center">
+                <img
+                  src={raw.strukUrl}
+                  alt="Bukti Struk"
+                  loading="lazy"
+                  className="w-full h-full object-cover cursor-pointer group-hover:opacity-90 transition"
+                  onClick={() => onOpenImage(raw.strukUrl)}
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/bukti_struk.png"; }}
+                />
+                <div className="pointer-events-none absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
+                  <span className="bg-white text-stone-800 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                    <ZoomIn size={14} /> Klik untuk Memperbesar
+                  </span>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] max-w-xs flex items-center justify-center">
+              <img
+                src="/bukti_struk.png"
+                alt="Bukti Struk"
+                loading="lazy"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-6 py-4 border-t border-stone-150 bg-white flex flex-col gap-2.5">
+        {actionError && (
+          <p className="text-[11px] text-[#be123c] bg-[#fff5f5] border border-[#fbc9c9] rounded-lg px-3 py-2">
+            {actionError}
+          </p>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          {raw.strukUrl ? (
+            <a
+              href={raw.strukUrl}
+              download={`bukti-${displayId}${getFileExt(raw.strukUrl)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-xl text-[12px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+            >
+              <Download size={14} />
+              Download bukti
+            </a>
+          ) : (
+            <button className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-xl text-[12px] font-medium text-stone-700 hover:bg-stone-50 transition opacity-50 cursor-not-allowed" disabled>
+              <Download size={14} />
+              Download bukti
+            </button>
+          )}
+          <div className="flex items-center gap-2">
+            {status === "REJECTED" && !resubmittedAs && (
+              <button
+                onClick={onResubmit}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1a7a5e] hover:bg-[#15644c] text-white rounded-xl text-[12px] font-semibold transition cursor-pointer"
+              >
+                <RefreshCw size={14} />
+                Ajukan ulang
+              </button>
+            )}
+            {status === "SUBMITTED" && (
+              <button
+                onClick={onRequestCancel}
+                disabled={actionLoading}
+                className="flex items-center gap-2 px-3 py-2 border border-stone-200 rounded-xl text-[12px] font-medium text-stone-500 hover:bg-stone-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X size={14} />
+                Batalkan
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[12px] font-semibold transition cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function RiwayatPengajuanPage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("Semua");
+  const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  const [selectedDisplayId, setSelectedDisplayId] = useState<string>("");
+  const [showCancelSuccess, setShowCancelSuccess] = useState(false);
+  const [canceledLabel, setCanceledLabel] = useState("");
+  const [panelVisible, setPanelVisible] = useState(false);
+
+  const [filterPos, setFilterPos] = useState("Semua");
+  const [filterProyek, setFilterProyek] = useState("Semua");
+  const [searchMerchant, setSearchMerchant] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showFilterMenu) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setShowFilterMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [showFilterMenu]);
+
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
+
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  const REIMBURSEMENTS_KEY = "/api/reimbursements?role=Superadmin";
+  const { data, isLoading } = useApi<{ reimbursements?: any[] }>(REIMBURSEMENTS_KEY);
+  const rawReimbursements = useMemo(() => data?.reimbursements ?? [], [data]);
+
+  const { data: proyekData } = useApi<any>("/api/proyek?role=Superadmin&limit=1000");
+  const proyekOptions = useMemo<string[]>(() => {
+    const names = ((proyekData?.projects ?? []) as any[]).map((p) => p.nama as string).filter(Boolean);
+    return ["Semua", ...Array.from(new Set(names))];
+  }, [proyekData]);
+
+  const cancelMutation = useMutate(
+    `/api/reimbursements/${selectedItem?.id ?? 0}/cancel`,
+    "POST",
+    [REIMBURSEMENTS_KEY]
+  );
+  const actionLoading = cancelMutation.isPending;
+
+  const submissions = useMemo<Submission[]>(() => {
+    const resubmitTargets = new Set(
+      rawReimbursements.map((r: any) => r.ocrData?.resubmitFrom).filter(Boolean)
+    );
+    return rawReimbursements.map((r: any) => ({
+      id: makeDisplayId(r.id),
+      dbId: r.id,
+      date: r.tanggalStruk ? formatTanggal(r.tanggalStruk.split('T')[0]) : '',
+      lastActivityTime: [
+        r.createdAt,
+        ...(r.approvals || []).map((a: any) => a.timestamp),
+      ]
+        .map((t: string | null | undefined) => (t ? new Date(t).getTime() : NaN))
+        .filter((t: number) => !isNaN(t))
+        .reduce((max: number, t: number) => Math.max(max, t), 0),
+      merchant: r.merchant || r.nama || 'N/A',
+      project: r.proyek?.nama || 'N/A',
+      pos: r.posAnggaran?.deskripsi || r.posAnggaran?.namaPos || 'N/A',
+      amountRaw: Number(r.nominal),
+      status: (statusMeta(r.status).label || 'Ditolak') as Submission["status"],
+      statusKey: r.status,
+      isResubmit: !!r.ocrData?.resubmitFrom,
+      isResubmitted: resubmitTargets.has(r.id),
+    }));
+  }, [rawReimbursements]);
+
+  const uniquePos = Array.from(new Set(submissions.map((s) => s.pos))).filter(Boolean);
+
+  const filteredData = submissions
+    .filter((item) => {
+      if (activeTab !== "Semua") {
+        if (activeTab === "Menunggu Keuangan" && item.status !== "Menunggu Keuangan") return false;
+        if (activeTab !== "Menunggu Keuangan" && item.status !== activeTab) return false;
+      }
+      if (filterPos !== "Semua" && item.pos !== filterPos) return false;
+      if (filterProyek !== "Semua" && item.project !== filterProyek) return false;
+      if (searchMerchant.trim() !== "") {
+        const query = searchMerchant.toLowerCase();
+        if (!item.merchant.toLowerCase().includes(query)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      return sortOrder === "asc" ? a.lastActivityTime - b.lastActivityTime : b.lastActivityTime - a.lastActivityTime;
+    });
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeTab, filterPos, filterProyek, searchMerchant, sortOrder]);
+
+  const visibleData = filteredData.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredData.length;
+  const pendingCount = Math.min(PAGE_SIZE, filteredData.length - visibleCount);
+
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+
+    const loadMore = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+      setTimeout(() => {
+        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredData.length));
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }, 500);
+    };
+
+    const handleScroll = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - 150) return;
+      loadMore();
+    };
+
+    const checkFillViewport = () => {
+      if (isLoadingMoreRef.current) return;
+      if (visibleCount >= filteredData.length) return;
+      if (el.scrollHeight > el.clientHeight + 1) return;
+      loadMore();
+    };
+
+    el.addEventListener("scroll", handleScroll);
+    window.addEventListener("resize", checkFillViewport);
+    checkFillViewport();
+
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", checkFillViewport);
+    };
+  }, [filteredData.length, visibleCount]);
+
+  const handleOpenDetail = (dbId: number, displayId: string) => {
+    const raw = rawReimbursements.find(r => r.id === dbId);
+    if (raw) {
+      setSelectedItem(raw);
+      setSelectedDisplayId(displayId);
+      setActionError(null);
+      setShowCancelModal(false);
+      setTimeout(() => setPanelVisible(true), 10);
+    }
+  };
+
+  const handleClosePanel = () => {
+    setPanelVisible(false);
+    setShowCancelModal(false);
+    setTimeout(() => setSelectedItem(null), 300);
+  };
+
+  const handleViewRelated = (dbId: number, displayId: string) => {
+    const raw = rawReimbursements.find(r => r.id === dbId);
+    if (raw) {
+      setSelectedItem(raw);
+      setSelectedDisplayId(displayId);
+      setActionError(null);
+      setShowCancelModal(false);
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!selectedItem) return;
+    setActionError(null);
+    try {
+      await cancelMutation.mutateAsync({});
+      setCanceledLabel(selectedDisplayId);
+      setShowCancelModal(false);
+      handleClosePanel();
+      setShowCancelSuccess(true);
+    } catch (err: any) {
+      setActionError(err?.name === "TypeError" ? "Terjadi kesalahan jaringan" : err?.message || "Terjadi kesalahan jaringan");
+    }
+  };
+
+  const handleResubmit = () => {
+    if (!selectedItem) return;
+    router.push(`/superadmin/reimbursement?resubmitId=${selectedItem.id}`);
+  };
+
+  return (
+    <div className="flex h-full w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        <main ref={mainRef} className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
+          <div className="mb-8">
+            <h1 className="text-[24px] font-bold text-stone-900">Riwayat Pengajuan</h1>
+            <p className="text-sm text-stone-500 mt-1.5">
+              Semua reimbursement yang pernah kamu ajukan, lengkap dengan status dan jejak audit.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-1.5 p-1 bg-stone-200/40 rounded-full border border-stone-200/60">
+              {TABS.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-1.5 text-[13px] rounded-full transition-all duration-200 cursor-pointer ${
+                    activeTab === tab
+                      ? "bg-white text-stone-900 font-semibold shadow-sm"
+                      : "text-stone-500 font-medium hover:text-stone-700 hover:bg-stone-200/50"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full shadow-sm text-[13px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+              >
+                <ArrowUpDown size={14} className="text-stone-500" />
+                Urutan: {sortOrder === "desc" ? "Terbaru" : "Terlama"}
+              </button>
+
+              <div className="relative" ref={filterMenuRef}>
+                <button
+                  onClick={() => setShowFilterMenu(prev => !prev)}
+                  className={`flex items-center gap-2 px-4 py-2 border rounded-full shadow-sm text-[13px] font-medium transition cursor-pointer ${
+                    showFilterMenu || filterPos !== "Semua" || filterProyek !== "Semua" || searchMerchant !== ""
+                      ? "bg-stone-900 border-stone-900 text-white hover:bg-stone-800"
+                      : "bg-white border-stone-200 text-stone-700 hover:bg-stone-50"
+                  }`}
+                >
+                  <Filter size={14} className={showFilterMenu || filterPos !== "Semua" || filterProyek !== "Semua" || searchMerchant !== "" ? "text-white" : "text-stone-500"} />
+                  Filter
+                  {(filterPos !== "Semua" || filterProyek !== "Semua" || searchMerchant !== "") && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  )}
+                </button>
+
+                {showFilterMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-72 z-20 bg-white border border-stone-200 rounded-2xl shadow-lg p-4 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="space-y-1.5 mb-4">
+                      <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Filter Proyek</label>
+                      <div className="relative">
+                        <select
+                          value={filterProyek}
+                          onChange={(e) => setFilterProyek(e.target.value)}
+                          className="peer w-full appearance-none bg-[#fcfbf9] border border-stone-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all cursor-pointer"
+                        >
+                          {proyekOptions.map((proyek) => (
+                            <option key={proyek} value={proyek}>{proyek === "Semua" ? "Semua Proyek" : proyek}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 transition-transform duration-200 peer-focus:rotate-180" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 mb-4">
+                      <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Filter Pos Anggaran</label>
+                      <div className="relative">
+                        <select
+                          value={filterPos}
+                          onChange={(e) => setFilterPos(e.target.value)}
+                          className="peer w-full appearance-none bg-[#fcfbf9] border border-stone-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all cursor-pointer"
+                        >
+                          <option value="Semua">Semua Pos</option>
+                          {uniquePos.map((pos) => (
+                            <option key={pos} value={pos}>{pos}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 transition-transform duration-200 peer-focus:rotate-180" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 mb-4">
+                      <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wide">Cari Reimbursement</label>
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Nama reimbursement..."
+                          value={searchMerchant}
+                          onChange={(e) => setSearchMerchant(e.target.value)}
+                          className="w-full bg-[#fcfbf9] border border-stone-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-stone-700 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-3 border-t border-stone-100">
+                      <button
+                        onClick={() => {
+                          setFilterPos("Semua");
+                          setFilterProyek("Semua");
+                          setSearchMerchant("");
+                        }}
+                        className="flex-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-bold rounded-xl transition cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-stone-200 rounded-2xl overflow-x-auto shadow-sm">
+            <table className="w-full text-left border-collapse min-w-[900px]">
+              <thead>
+                <tr className="bg-[#f5f4ef] border-b border-stone-200 text-[11px] text-stone-400 uppercase tracking-wider font-semibold">
+                  <th className="px-6 py-4 rounded-tl-2xl">ID Pengajuan</th>
+                  <th className="px-6 py-4">Tanggal Transaksi</th>
+                  <th className="px-6 py-4">Nama Reimbursement</th>
+                  <th className="px-6 py-4">Proyek</th>
+                  <th className="px-6 py-4">Keterangan</th>
+                  <th className="px-6 py-4">Nominal</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-center rounded-tr-2xl">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="text-[13px] text-stone-600">
+                {isLoading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <SkeletonRow key={`loading-${i}`} />
+                  ))
+                ) : filteredData.length > 0 ? (
+                  <>
+                  {visibleData.map((item, index) => (
+                    <tr
+                      key={item.dbId}
+                      onClick={() => handleOpenDetail(item.dbId, item.id)}
+                      className={`hover:bg-stone-50 transition border-b border-stone-100 cursor-pointer ${
+                        index === visibleData.length - 1 ? "border-none" : ""
+                      } ${selectedItem?.id === item.dbId ? "bg-stone-50" : ""}`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-stone-500 ">{item.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{item.date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-bold text-stone-800">{item.merchant}</td>
+                      <td className="px-6 py-4">{item.project}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="bg-stone-100 border border-stone-200/60 px-2 py-1 rounded-md text-[11px] font-medium text-stone-600">
+                          {item.pos}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-stone-800">
+                        <CompactNominal value={item.amountRaw} compactThreshold={100_000_000} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${statusMeta(item.statusKey).badge}`}>
+                            {item.status === "Ditolak" && item.isResubmit ? "Pengajuan Ulang Ditolak" : item.status}
+                          </span>
+                          {item.isResubmit && item.status !== "Ditolak" && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#ede9fe] text-[#6d28d9]">
+                              <RefreshCw size={10} />
+                              Pengajuan Ulang
+                            </span>
+                          )}
+                          {item.status === "Ditolak" && item.isResubmitted && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#ede9fe] text-[#6d28d9]">
+                              <RefreshCw size={10} />
+                              Sudah Diajukan Ulang
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleOpenDetail(item.dbId, item.id); }}
+                          className="text-stone-400 hover:text-stone-800 transition p-1.5 hover:bg-stone-100 rounded-lg cursor-pointer"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {isLoadingMore &&
+                    Array.from({ length: pendingCount }).map((_, i) => (
+                      <SkeletonRow key={`skeleton-${i}`} />
+                    ))}
+                  </>
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-stone-400">
+                      Tidak ada data yang ditemukan.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {!isLoading && filteredData.length > 0 && (
+            <div className="flex items-center justify-center py-5 text-[12px] text-stone-400">
+              Menampilkan {visibleData.length} dari {filteredData.length} item
+              {hasMore && !isLoadingMore && " · scroll untuk memuat lebih banyak"}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {selectedItem && (
+        <div
+          className={`fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300 ${panelVisible ? "opacity-100" : "opacity-0"}`}
+          onClick={handleClosePanel}
+        />
+      )}
+
+      <div
+        className={`fixed top-0 right-0 h-full z-50 w-[460px] bg-white shadow-2xl border-l border-stone-200 flex flex-col transition-transform duration-300 ease-in-out ${
+          selectedItem && panelVisible ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {selectedItem && (
+          <>
+            <button
+              onClick={handleClosePanel}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-700 transition z-10 cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+            <DetailPanel
+              raw={selectedItem}
+              displayId={selectedDisplayId}
+              allRaw={rawReimbursements}
+              onClose={handleClosePanel}
+              onRequestCancel={() => setShowCancelModal(true)}
+              onResubmit={handleResubmit}
+              onViewRelated={handleViewRelated}
+              actionLoading={actionLoading}
+              actionError={actionError}
+              onOpenImage={(url) => setLightboxUrl(url)}
+            />
+          </>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={showCancelModal && !!selectedItem}
+        title="Batalkan Pengajuan"
+        description={
+          selectedItem && (
+            <>
+              <p>
+                Apakah Anda yakin ingin membatalkan pengajuan reimbursement{" "}
+                <span className="font-semibold text-stone-900">{selectedDisplayId}</span> senilai{" "}
+                <span className="font-semibold text-stone-900">Rp {Number(selectedItem.nominal).toLocaleString("id-ID")}</span>?
+                Tindakan ini bersifat permanen dan tidak dapat diurungkan.
+              </p>
+              {actionError && (
+                <p className="text-[11px] text-[#be123c] bg-[#fff5f5] border border-[#fbc9c9] rounded-lg px-3 py-2 mt-4">
+                  {actionError}
+                </p>
+              )}
+            </>
+          )
+        }
+        cancelLabel="Tidak, kembali"
+        confirmLabel={actionLoading ? "Membatalkan..." : "Ya, batalkan"}
+        variant="danger"
+        isLoading={actionLoading}
+        onCancel={() => setShowCancelModal(false)}
+        onConfirm={handleConfirmCancel}
+      />
+
+      <SuccessDialog
+        open={showCancelSuccess}
+        title="Pengajuan Dibatalkan"
+        description={<>Pengajuan reimbursement <span className="font-semibold text-stone-900">{canceledLabel}</span> berhasil dibatalkan.</>}
+        onClose={() => setShowCancelSuccess(false)}
+      />
+
+      <ImageLightbox  url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+    </div>
+  );
+}

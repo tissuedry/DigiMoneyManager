@@ -17,7 +17,6 @@ import CompactNominal from "@/components/compact-nominal";
 import { useApi } from "@/lib/use-api";
 import PMSkeleton from "./PMSkeleton";
 
-// Type Definitions matching API responses
 type PosAnggaran = {
   id: number;
   namaPos: string;
@@ -28,7 +27,7 @@ type PosAnggaran = {
 
 type ProjectBudget = {
   id: number;
-  rabTotal: string;
+  nilaiKontrak: string;
   totalPengeluaran: string;
   totalReimbursement: string;
   sisaBudget: string;
@@ -65,23 +64,6 @@ type MeResponse = {
   user?: { proyekId?: number };
 };
 
-// Formatting helpsers
-const formatRupiah = (v: number): string => {
-  if (!v || v === 0) return "Rp 0";
-  const abs = Math.abs(v);
-  const sign = v < 0 ? "-" : "";
-
-  let formatted = "";
-  if (abs >= 100_000_000_000_000) {
-    const num = Math.round(abs / 100_000_000_000_000);
-    formatted = `${num} t`;
-  } else {
-    formatted = Math.round(abs).toLocaleString("id-ID");
-  }
-
-  return `${sign}Rp ${formatted}`;
-};
-
 export default function PMDashboardPage() {
   const { data: meData, isLoading: isMeLoading } = useApi<MeResponse>("/api/auth/me");
 
@@ -97,19 +79,59 @@ export default function PMDashboardPage() {
   const data = dashData?.dashboard ?? null;
   const error = dashError?.message ?? null;
 
+  const project = data?.project ?? null;
+  const budget = project?.budget ?? null;
+  const rab = budget ? Number(budget.nilaiKontrak) : 0;
+  const used = budget ? Number(budget.totalPengeluaran) : 0;
+  const rem = budget ? Number(budget.sisaBudget) : 0;
+
+  const usedPercentage = rab > 0 ? (used / rab) * 100 : 0;
+  const remPercentage = rab > 0 ? (rem / rab) * 100 : 0;
+
+  const statCards = [
+    {
+      label: "Total Nilai Proyek",
+      num: rab,
+      sub: "Alokasi anggaran awal",
+      icon: <Wallet size={18} className="text-stone-600" />,
+      iconBg: "bg-stone-100",
+    },
+    {
+      label: "Total Terpakai",
+      num: used,
+      sub: `${usedPercentage.toFixed(1)}% dari total nilai proyek`,
+      icon: <TrendingUp size={18} className="text-rose-600" />,
+      iconBg: "bg-rose-50",
+    },
+    {
+      label: "Sisa Budget",
+      num: rem,
+      sub: `${remPercentage.toFixed(1)}% anggaran tersisa`,
+      icon: <Check size={18} className="text-emerald-600" />,
+      iconBg: "bg-emerald-50",
+    },
+    {
+      label: "Menunggu Persetujuan",
+      num: null,
+      customVal: `${data?.pendingApprovalsCount ?? 0} Pengajuan`,
+      sub: "Butuh review Anda segera",
+      icon: <FileCheck size={18} className="text-blue-600" />,
+      iconBg: "bg-blue-50",
+    },
+  ];
+
   return (
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <Sidebar
         userRole="Project Manager"
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
         <Header
           userRole="Project Manager"
         />
 
-        <main className="flex-1 p-8 overflow-y-auto space-y-6">
+        <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto space-y-6">
           {isLoading ? (
             <PMSkeleton />
           ) : error ? (
@@ -117,7 +139,7 @@ export default function PMDashboardPage() {
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
-                  <p className="text-sm text-stone-500 mt-1">
+                  <p className="text-sm text-stone-500 mt-1.5">
                     Kelola budget proyek, pantau biaya lapangan, dan setujui reimbursement karyawan.
                   </p>
                 </div>
@@ -128,11 +150,10 @@ export default function PMDashboardPage() {
             </>
           ) : (
             <>
-              {/* Header Section */}
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
-                  <p className="text-sm text-stone-500 mt-1">
+                  <p className="text-sm text-stone-500 mt-1.5">
                     Kelola budget proyek, pantau biaya lapangan, dan setujui reimbursement karyawan.
                   </p>
                 </div>
@@ -147,52 +168,7 @@ export default function PMDashboardPage() {
                 </div>
               ) : (
                 <>
-                  {/* Dashboard Stat Cards */}
-                  {(() => {
-                    const project = data.project;
-                    const budget = project.budget;
-                    const rab = budget ? Number(budget.rabTotal) : 0;
-                    const used = budget ? Number(budget.totalPengeluaran) : 0;
-                    const rem = budget ? Number(budget.sisaBudget) : 0;
-
-                    const usedPercentage = rab > 0 ? (used / rab) * 100 : 0;
-                    const remPercentage = rab > 0 ? (rem / rab) * 100 : 0;
-
-                    const statCards = [
-                      {
-                        label: "Total Nilai Proyek",
-                        num: rab,
-                        sub: "Alokasi anggaran awal",
-                        icon: <Wallet size={18} className="text-stone-600" />,
-                        iconBg: "bg-stone-100",
-                      },
-                      {
-                        label: "Total Terpakai",
-                        num: used,
-                        sub: `${usedPercentage.toFixed(1)}% dari total nilai proyek`,
-                        icon: <TrendingUp size={18} className="text-rose-600" />,
-                        iconBg: "bg-rose-50",
-                      },
-                      {
-                        label: "Sisa Budget",
-                        num: rem,
-                        sub: `${remPercentage.toFixed(1)}% anggaran tersisa`,
-                        icon: <Check size={18} className="text-emerald-600" />,
-                        iconBg: "bg-emerald-50",
-                      },
-                      {
-                        label: "Menunggu Persetujuan",
-                        num: null,
-                        customVal: `${data.pendingApprovalsCount} Pengajuan`,
-                        sub: "Butuh review Anda segera",
-                        icon: <FileCheck size={18} className="text-blue-600" />,
-                        iconBg: "bg-blue-50",
-                      },
-                    ];
-
-                    return (
-                      <div className="space-y-6">
-                        {/* Metrics Grid */}
+                  <div className="space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                           {statCards.map((card, i) => (
                             <div
@@ -223,15 +199,14 @@ export default function PMDashboardPage() {
                           ))}
                         </div>
 
-                        {/* Overall Budget Progress Bar */}
                         <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4">
                           <div className="flex items-center justify-between">
                             <div>
                               <h3 className="text-sm font-bold text-stone-900">Progres Penyerapan Anggaran</h3>
                               <p className="text-xs text-stone-400 mt-0.5">Visualisasi alokasi terpakai vs sisa dana proyek</p>
                             </div>
-                            <span className="text-xs font-mono font-bold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-lg">
-                              ID: {project.id}
+                            <span className="text-xs  font-bold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-lg">
+                              ID: {project?.id}
                             </span>
                           </div>
 
@@ -245,20 +220,18 @@ export default function PMDashboardPage() {
                           </div>
 
                           <div className="flex justify-between items-center text-xs font-medium text-stone-500">
-                            <span title={formatRupiah(used)} className="flex items-center gap-1.5 cursor-pointer">
+                            <span className="flex items-center gap-1.5 cursor-pointer">
                               <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-                              Terpakai: {formatRupiah(used)}
+                              Terpakai: {<CompactNominal value={used} compactThreshold={1_000_000_000_000} showTooltip />}
                             </span>
-                            <span title={formatRupiah(rem)} className="flex items-center gap-1.5 cursor-pointer">
+                            <span className="flex items-center gap-1.5 cursor-pointer">
                               <span className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-                              Sisa Budget: {formatRupiah(rem)}
+                              Sisa Budget: {<CompactNominal value={rem} compactThreshold={10_000_000_000_000} showTooltip />}
                             </span>
                           </div>
                         </div>
 
-                        {/* Two-Column Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                          {/* Left: Pos Anggaran breakdown */}
                           <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-5 lg:col-span-7">
                             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                               <div>
@@ -307,7 +280,7 @@ export default function PMDashboardPage() {
                                             </span>
                                           )}
                                         </div>
-                                        <div className="text-stone-500 font-mono">
+                                        <div className="text-stone-500 ">
                                           <span className="font-bold text-stone-800">Rp {real.toLocaleString('id-ID')}</span>
                                           <span className="text-stone-300 mx-1">/</span>
                                           <span>Rp {alloc.toLocaleString('id-ID')}</span>
@@ -334,9 +307,7 @@ export default function PMDashboardPage() {
                             </div>
                           </div>
 
-                          {/* Right: Quick actions & Alerts */}
                           <div className="space-y-6 lg:col-span-5">
-                            {/* Pending Approvals quick action card */}
                             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
                               <h3 className="font-bold text-[15px] text-stone-900 border-b border-stone-100 pb-3">Validasi Reimbursement</h3>
                               <div className="flex items-center gap-4">
@@ -361,7 +332,6 @@ export default function PMDashboardPage() {
                               </Link>
                             </div>
 
-                            {/* Notifications / Alerts list */}
                             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
                               <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                                 <h3 className="font-bold text-[15px] text-stone-900 flex items-center gap-1.5">
@@ -380,7 +350,7 @@ export default function PMDashboardPage() {
                                       <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 shrink-0" />
                                       <div className="flex-1 min-w-0">
                                         <p className="text-xs text-stone-700 leading-normal font-medium">{alert.pesan}</p>
-                                        <span className="text-[9px] text-stone-400 font-mono mt-1 block">
+                                        <span className="text-[9px] text-stone-400  mt-1 block">
                                           {new Date(alert.timestamp).toLocaleTimeString("id-ID", {
                                             hour: "2-digit",
                                             minute: "2-digit"
@@ -399,8 +369,6 @@ export default function PMDashboardPage() {
                           </div>
                         </div>
                       </div>
-                    );
-                  })()}
                 </>
               )}
             </>
@@ -410,3 +378,4 @@ export default function PMDashboardPage() {
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import DetailAnggaranModal from "./DetailAnggaran";
 import AlokasiPosModal from "./AlokasiPos";
 import AjukanRealisasiModal from "./AjukanRealisasi";
@@ -21,6 +21,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useApi, useInvalidate } from "@/lib/use-api";
+import CompactNominal from "@/components/compact-nominal";
 
 type PosAnggaran = {
   id: number;
@@ -48,6 +49,7 @@ type ProyekData = {
   pm: string;
   status: string;
   totalRAB: number;
+  totalAlokasiPemasukan: number;
   realisasi: number;
   posAnggaran: PosAnggaran[];
   tim: AnggotaTim[];
@@ -59,7 +61,6 @@ type ProyekData = {
 
 type ProyekListResponse = { projects: ProyekData[] };
 type UsersResponse = { users: { id: number; nama: string }[] };
-type MeResponse = { user?: { proyekId?: number } };
 
 const getStatusBadgeStyle = (statusStr?: string) => {
   const status = statusStr?.toUpperCase();
@@ -78,15 +79,6 @@ const getStatusBadgeStyle = (statusStr?: string) => {
   return 'bg-stone-100 text-stone-600 border-stone-200';
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-export const formatShort = (v: number): string => {
-  if (v === undefined || v === null || isNaN(v)) return "Rp 0";
-  const abs = Math.abs(v);
-  const sign = v < 0 ? "-" : "";
-  return `${sign}Rp ${Math.round(abs).toLocaleString("id-ID")}`;
-};
-
 const AVATAR_COLORS = [
   "bg-emerald-100 text-emerald-700",
   "bg-blue-100 text-blue-700",
@@ -101,8 +93,6 @@ function getInitials(name: string) {
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.substring(0, 2).toUpperCase();
 }
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function MemberSelect({ users, selectedUserId, onSelect }: {
   users: { id: number; nama: string }[];
@@ -167,7 +157,6 @@ function MemberSelect({ users, selectedUserId, onSelect }: {
   );
 }
 
-/** Realisasi vs sisa progress bar */
 function StackedBar({ realisasi, total }: { realisasi: number; total: number }) {
   const pct = total > 0 ? Math.min((realisasi / total) * 100, 100) : 0;
 
@@ -187,7 +176,6 @@ function StackedBar({ realisasi, total }: { realisasi: number; total: number }) 
   );
 }
 
-/** Legend chips below the stacked bar */
 function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
   const allocated = pos.reduce((s, p) => s + p.alokasi, 0);
   const unallocated = Math.max(0, total - allocated);
@@ -198,21 +186,24 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
         <span key={p.id} className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: p.warna }} />
           {p.nama}
-          <span title={`Rp ${Math.round(p.alokasi || 0).toLocaleString("id-ID")}`} className="font-bold text-stone-800 cursor-pointer">{formatShort(p.alokasi)}</span>
+          <span className="font-bold text-stone-800 cursor-pointer">
+            {<CompactNominal value={p.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}
+          </span>
         </span>
       ))}
       {unallocated > 0 && (
         <span className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm bg-stone-300 shrink-0" />
           Belum dialokasikan
-          <span title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`} className="font-bold text-stone-800 cursor-pointer">{formatShort(unallocated)}</span>
+          <span className="font-bold text-stone-800 cursor-pointer">
+            {<CompactNominal value={unallocated} compactThreshold={1_000_000_000_000} showTooltip />}
+          </span>
         </span>
       )}
     </div>
   );
 }
 
-/** Per-pos progress rows */
 function PosRows({ pos }: { pos: PosAnggaran[] }) {
   if (!pos || pos.length === 0) {
     return <p className="text-xs text-stone-400 text-center py-4 font-medium">Belum ada pos anggaran.</p>;
@@ -238,7 +229,7 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
                   </span>
                 )}
               </div>
-              <div className="text-stone-500 font-mono">
+              <div className="text-stone-500">
                 <span className="font-bold text-stone-800">Rp {Math.round(real).toLocaleString("id-ID")}</span>
                 <span className="text-stone-300 mx-1">/</span>
                 <span>Rp {Math.round(alloc).toLocaleString("id-ID")}</span>
@@ -269,32 +260,22 @@ export default function KelolaProyekPage() {
   const [isAjukanRealisasiOpen, setIsAjukanRealisasiOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  // STATE BARU: Untuk menyimpan ID Proyek yang dipilih di dropdown filter
   const [selectedProjectId, setSelectedProjectId] = useState<string>("default");
 
   const invalidate = useInvalidate();
 
-  // ── TanStack Query ──
   const { data: proyekData, isLoading, error: proyekError, refetch } = useApi<ProyekListResponse>("/api/pm/proyek");
-  const { data: meData } = useApi<MeResponse>("/api/auth/me");
   const { data: usersData } = useApi<UsersResponse>("/api/pm/users");
 
   const projects = proyekData?.projects ?? [];
   const allUsers = usersData?.users ?? [];
   const error = proyekError?.message ?? null;
 
-  // Logika Pemilihan Proyek yang Aktif (Resolved ID)
-  // 1. Jika user telah memilih proyek di Dropdown, gunakan ID itu
-  // 2. Jika tidak, gunakan proyekId default dari meData (jika ada)
-  // 3. Jika tidak ada, gunakan ID dari proyek pertama dalam list
-  const defaultResolvedId = meData?.user?.proyekId ?? projects[0]?.id ?? null;
-  const resolvedId = selectedProjectId !== "default" 
-    ? parseInt(selectedProjectId, 10) 
-    : defaultResolvedId;
+  const resolvedId =
+    selectedProjectId !== "default" ? parseInt(selectedProjectId, 10) : null;
 
   const proyek = projects.find((p) => p.id === resolvedId);
 
-  // ─── Tim editing state ─────────────────────────────────────────────────────
   const [editableRows, setEditableRows] = useState<{ userId: number; nama: string; divisi: string }[]>([]);
   const [dirtyTim, setDirtyTim] = useState(false);
   const [savingTim, setSavingTim] = useState(false);
@@ -304,7 +285,6 @@ export default function KelolaProyekPage() {
   const [showEditProyekSuccess, setShowEditProyekSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Sync editable rows when project changes
   useEffect(() => {
     if (proyek) {
       const nonPm = proyek.tim.filter((m) => m.role !== "Project Manager");
@@ -326,7 +306,6 @@ export default function KelolaProyekPage() {
         .filter((r) => r.userId > 0)
         .map((r) => ({ userId: r.userId, role: "Anggota Lapangan", divisi: r.divisi || null }));
 
-      // Always include PM
       const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
       if (pmMember) {
         members.push({ userId: pmMember.id, role: "Project Manager", divisi: pmMember.divisi || null });
@@ -384,7 +363,7 @@ export default function KelolaProyekPage() {
     <div className="flex h-screen w-full bg-[#f9f8f4] font-sans text-stone-800 overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {isLoading ? (
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+          <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
             <ProyekSkeleton />
           </main>
         ) : error ? (
@@ -392,23 +371,17 @@ export default function KelolaProyekPage() {
             <p className="text-stone-400 text-sm">{error}</p>
             <button onClick={() => refetch()} className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer">Coba Lagi</button>
           </main>
-        ) : projects.length === 0 || !proyek ? (
-          <main className="flex-1 flex items-center justify-center">
-            <p className="text-stone-400 text-sm">Belum ada proyek yang dikelola.</p>
-          </main>
         ) : (
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-            {/* ── Page Header + Project Selector ── */}
+          <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto space-y-6">
             <div className="flex flex-col md:flex-row items-start justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-stone-900">Kelola Proyek</h1>
-                <p className="text-sm text-stone-500 mt-1">
+                <p className="text-sm text-stone-500 mt-1.5">
                   Pantau anggaran, alokasikan pos baru, dan kelola tim untuk proyekmu.
                 </p>
               </div>
 
               <div className="flex items-center gap-3 w-full md:w-auto">
-                 {/* --- FILTER DROPDOWN PROYEK --- */}
                  <select
                   value={selectedProjectId}
                   onChange={(e) => setSelectedProjectId(e.target.value)}
@@ -422,11 +395,11 @@ export default function KelolaProyekPage() {
                   ))}
                 </select>
                 
-                {/* Edit Proyek button */}
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(true)}
-                  className="flex items-center justify-center gap-1.5 bg-white hover:bg-stone-50 px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition cursor-pointer"
+                  disabled={!proyek}
+                  className="flex items-center justify-center gap-1.5 bg-white px-4 py-2.5 rounded-xl border border-stone-200 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:bg-stone-50 enabled:cursor-pointer"
                 >
                   <Settings size={14} className="text-stone-500" />
                   <span className="text-xs font-bold text-stone-800">Edit Proyek</span>
@@ -434,99 +407,93 @@ export default function KelolaProyekPage() {
               </div>
             </div>
 
-            {/* ── Budget Summary Card ── */}
             <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-              {/* Title row */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="text-lg font-bold text-stone-900">{proyek.nama}</h2>
-                  <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
-                    {proyek.status == "AKTIF" ? "Active"
-                      : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
-                  </span>
-                  <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
+                  <span className="text-lg font-bold text-stone-400">{proyek ? proyek.nama : "Belum memilih Proyek"}</span>
+                  {proyek && (
+                    <>
+                      <span className={`text-[11px] font-bold ${getStatusBadgeStyle(proyek.status)} px-2.5 py-0.5 rounded-full`}>
+                        {proyek.status == "AKTIF" ? "Active"
+                          : proyek.status.charAt(0).toUpperCase() + proyek.status.slice(1).toLowerCase()}
+                      </span>
+                      <span className="text-[11px] text-stone-400">{proyek.kode} · {proyek.klien}</span>
+                    </>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">TOTAL NILAI PROYEK</p>
                   <p
-                    title={`Rp ${Math.round(proyek.totalRAB || 0).toLocaleString("id-ID")}`}
-                    className="text-2xl font-extrabold text-stone-900 whitespace-nowrap cursor-pointer hover:opacity-80 transition"
+                    className={`text-2xl font-extrabold whitespace-nowrap transition ${proyek ? "text-stone-900 cursor-pointer hover:opacity-80" : "text-stone-300"}`}
                   >
-                    {formatShort(proyek.totalRAB)}
+                    {<CompactNominal value={proyek?.totalRAB ?? 0} compactThreshold={1_000_000_000_000} showTooltip />}
                   </p>
                 </div>
               </div>
 
-              {/* Stacked bar */}
-              <StackedBar realisasi={proyek.realisasi} total={proyek.totalRAB} />
+              <StackedBar realisasi={proyek?.realisasi ?? 0} total={proyek?.totalRAB ?? 0} />
 
-              {/* Realisasi vs Sisa */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-                {/* Realisasi */}
                 <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-[#008f5d] shrink-0" />
                     <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">REALISASI</p>
                   </div>
                   <p
-                    title={`Rp ${Math.round(proyek.realisasi || 0).toLocaleString("id-ID")}`}
-                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                    className={`text-xl font-extrabold mt-2.5 whitespace-nowrap pl-5 transition ${proyek ? "text-stone-900 cursor-pointer hover:opacity-80" : "text-stone-300"}`}
                   >
-                    {formatShort(proyek.realisasi)}
+                    {<CompactNominal value={proyek?.realisasi ?? 0} compactThreshold={1_000_000_000_000} showTooltip />}
                   </p>
                 </div>
 
-                {/* Sisa */}
                 <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col justify-between">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
                       <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">SISA</p>
                     </div>
-                    {unallocated > 0 && (
+                    {proyek && unallocated > 0 && (
                       <span
-                        title={`Rp ${Math.round(unallocated || 0).toLocaleString("id-ID")}`}
                         className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 whitespace-nowrap cursor-pointer"
                       >
-                        {formatShort(unallocated)} <span className="font-normal text-amber-700">belum dialokasikan</span>
+                        {<CompactNominal value={unallocated} compactThreshold={1_000_000_000_000} showTooltip />} <span className="font-normal text-amber-700">belum dialokasikan</span>
                       </span>
                     )}
                   </div>
                   <p
-                    title={`Rp ${Math.round((proyek.totalRAB - proyek.realisasi) || 0).toLocaleString("id-ID")}`}
-                    className="text-xl font-extrabold text-stone-900 mt-2.5 whitespace-nowrap pl-5 cursor-pointer hover:opacity-80 transition"
+                    className={`text-xl font-extrabold mt-2.5 whitespace-nowrap pl-5 transition ${proyek ? "text-stone-900 cursor-pointer hover:opacity-80" : "text-stone-300"}`}
                   >
-                    {formatShort(proyek.totalRAB - proyek.realisasi)}
+                    {<CompactNominal value={(proyek?.totalRAB ?? 0) - (proyek?.realisasi ?? 0)} compactThreshold={1_000_000_000_000} showTooltip />}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* ── Bottom two columns ── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* ── LEFT: Realisasi per Pos ── */}
               <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4 lg:col-span-7">
-                {/* Section header */}
                 <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                   <h3 className="font-bold text-[15px] text-stone-900">Realisasi per Pos Anggaran</h3>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setIsDetailOpen(true)}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-600 hover:text-stone-800 border border-stone-200 hover:border-stone-300 bg-white hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer"
+                      disabled={!proyek}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-600 border border-stone-200 bg-white px-3 py-1.5 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:text-stone-800 enabled:hover:border-stone-300 enabled:hover:bg-stone-50 enabled:cursor-pointer"
                     >
                       <Eye size={13} />
                       Lihat Detail Anggaran
                     </button>
                     <button
                       onClick={() => setIsAlokasiOpen(true)}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                      disabled={!proyek}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] px-3 py-1.5 rounded-lg transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:bg-[#00754c] enabled:cursor-pointer"
                     >
                       <Plus size={13} />
                       Alokasi Pos
                     </button>
                     <button
                       onClick={() => setIsAjukanRealisasiOpen(true)}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] hover:bg-[#00754c] px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                      disabled={!proyek}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#008f5d] px-3 py-1.5 rounded-lg transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:bg-[#00754c] enabled:cursor-pointer"
                     >
                       <Plus size={13} />
                       Ajukan Realisasi
@@ -534,17 +501,15 @@ export default function KelolaProyekPage() {
                   </div>
                 </div>
 
-                {/* Per-pos stacked bar */}
                 <div className="w-full bg-stone-100 h-4 rounded-full overflow-hidden flex shadow-inner">
-                  {proyek.posAnggaran.map((p) => (
+                  {proyek?.posAnggaran.map((p) => (
                     <div
                       key={p.id}
-                      title={`${p.nama}: ${formatShort(p.alokasi)}`}
                       style={{ width: `${(p.alokasi / proyek.totalRAB) * 100}%`, backgroundColor: p.warna }}
                       className="h-full transition-all duration-500"
                     />
                   ))}
-                  {unallocated > 0 && (
+                  {proyek && unallocated > 0 && (
                     <div
                       style={{ width: `${(unallocated / proyek.totalRAB) * 100}%` }}
                       className="h-full bg-stone-300"
@@ -553,13 +518,16 @@ export default function KelolaProyekPage() {
                   )}
                 </div>
 
-                {/* Legend */}
                 <div>
-                  <BarLegend pos={proyek.posAnggaran} total={proyek.totalRAB} />
+                  {proyek ? (
+                    <>
+                      <BarLegend pos={proyek.posAnggaran} total={proyek.totalRAB} />
+                      <PosRows pos={proyek.posAnggaran} />
+                    </>
+                  ) : (
+                    <p className="text-xs text-stone-400 text-center py-8 font-medium">Belum memilih Proyek.</p>
+                  )}
                 </div>
-
-                {/* Progress rows */}
-                <PosRows pos={proyek.posAnggaran} />
               </div>
 
               <div className="lg:col-span-5 flex flex-col gap-4">
@@ -571,14 +539,12 @@ export default function KelolaProyekPage() {
                     </h3>
                   </div>
 
-                  {/* Header row */}
                   <div className="grid grid-cols-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2 px-1">
                     <span>ROLE (Divisi)</span>
                     <span>ANGGOTA</span>
                   </div>
 
-                  {/* PM row (read-only) */}
-                  {proyek.tim.filter((m) => m.role === "Project Manager").map((pm) => (
+                  {proyek?.tim.filter((m) => m.role === "Project Manager").map((pm) => (
                     <div key={pm.id} className="flex items-center bg-emerald-50/50 border border-emerald-100 rounded-xl px-3 py-2.5 gap-2 mb-2 min-w-0">
                       <span className="flex-1 min-w-0 text-[11px] font-semibold text-emerald-700 truncate">Project Manager</span>
                       <div className="flex-1 min-w-0 flex items-center gap-2">
@@ -602,7 +568,7 @@ export default function KelolaProyekPage() {
                         />
                         <MemberSelect
                           users={allUsers.filter((u) => {
-                            const pmMember = proyek.tim.find((m) => m.role === "Project Manager");
+                            const pmMember = proyek?.tim.find((m) => m.role === "Project Manager");
                             return !pmMember || u.id !== pmMember.id;
                           })}
                           selectedUserId={row.userId}
@@ -624,7 +590,8 @@ export default function KelolaProyekPage() {
                     <button
                       type="button"
                       onClick={addTimRow}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-white border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                      disabled={!proyek}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-white border border-stone-200 px-3 py-1.5 rounded-lg transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:bg-stone-50 enabled:cursor-pointer"
                     >
                       <Plus size={13} />
                       Tambah Anggota
@@ -632,10 +599,10 @@ export default function KelolaProyekPage() {
                     <button
                       type="button"
                       onClick={handleSaveTim}
-                      disabled={savingTim || !dirtyTim}
-                      className={`inline-flex items-center gap-1.5 text-[11px] font-bold text-white px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm ${savingTim || !dirtyTim
+                      disabled={!proyek || savingTim || !dirtyTim}
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-bold text-white px-3 py-1.5 rounded-lg transition shadow-sm ${!proyek || savingTim || !dirtyTim
                           ? "bg-stone-300 cursor-not-allowed text-stone-500"
-                          : "bg-[#008f5d] hover:bg-[#00754c]"
+                          : "bg-[#008f5d] hover:bg-[#00754c] cursor-pointer"
                         }`}
                     >
                       {savingTim ? (
@@ -656,19 +623,19 @@ export default function KelolaProyekPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                       <p className="text-[10px] font-bold text-emerald-600 tracking-wider">
-                        Sudah Reimburse ({proyek.reimbursementDisetujuiCount ?? 0})
+                        Sudah Reimburse ({proyek?.reimbursementDisetujuiCount ?? 0})
                       </p>
-                      <p className="text-lg font-extrabold text-black mt-1">
-                        {formatShort(proyek.reimbursementDisetujui)}
+                      <p className={`text-lg font-extrabold mt-1 ${proyek ? "text-black" : "text-stone-300"}`}>
+                        {<CompactNominal value={proyek?.reimbursementDisetujui ?? 0} compactThreshold={1_000_000_000_000} showTooltip />}
                       </p>
                     </div>
 
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                       <p className="text-[10px] font-bold text-amber-600 tracking-wider">
-                        Belum Reimburse ({proyek.reimbursementBelumDisetujuiCount ?? 0})
+                        Belum Reimburse ({proyek?.reimbursementBelumDisetujuiCount ?? 0})
                       </p>
-                      <p className="text-lg font-extrabold text-black mt-1">
-                        {formatShort(proyek.reimbursementBelumDisetujui)}
+                      <p className={`text-lg font-extrabold mt-1 ${proyek ? "text-black" : "text-stone-300"}`}>
+                        {<CompactNominal value={proyek?.reimbursementBelumDisetujui ?? 0} compactThreshold={1_000_000_000_000} showTooltip />}
                       </p>
                     </div>
                   </div>
@@ -685,12 +652,12 @@ export default function KelolaProyekPage() {
           proyekNama={proyek.nama}
           posAnggaran={proyek.posAnggaran}
           totalRAB={proyek.totalRAB}
+          totalAlokasiPemasukan={proyek.totalAlokasiPemasukan}
           onClose={() => setIsDetailOpen(false)}
           onRefresh={() => invalidate("/api/pm/proyek")}
         />
       )}
 
-      {/* Alokasi Pos Modal */}
       {isAlokasiOpen && proyek && (
         <AlokasiPosModal
           proyekId={proyek.id}
@@ -698,6 +665,7 @@ export default function KelolaProyekPage() {
           totalRAB={proyek.totalRAB}
           realisasi={proyek.realisasi}
           posAnggaran={proyek.posAnggaran}
+          totalAlokasiPemasukan={proyek.totalAlokasiPemasukan}
           onClose={() => setIsAlokasiOpen(false)}
           onSuccess={(msg) => {
             invalidate("/api/pm/proyek");
@@ -707,7 +675,6 @@ export default function KelolaProyekPage() {
         />
       )}
 
-      {/* Ajukan Realisasi Modal */}
       {isAjukanRealisasiOpen && proyek && (
         <AjukanRealisasiModal
           proyekId={proyek.id}
@@ -720,7 +687,6 @@ export default function KelolaProyekPage() {
         />
       )}
 
-      {/* Edit Proyek Modal */}
       {isEditOpen && proyek && (
         <EditProyekModal
           proyek={proyek}

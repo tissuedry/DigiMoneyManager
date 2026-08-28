@@ -1,9 +1,5 @@
-// In-memory route-level cache for API GET responses.
-// TTL-based expiry, keyed by a string (e.g. "dashboard:PM:1:2").
-// ponytail: in-memory Map, single-process. Switch to Redis if multi-instance.
-
 const cache = new Map<string, { data: unknown; timestamp: number }>();
-const DEFAULT_TTL = 30_000; // 30 seconds
+const DEFAULT_TTL = 30_000;
 
 export function getCached(key: string): unknown | null {
   const entry = cache.get(key);

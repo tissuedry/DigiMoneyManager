@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, SubmitEvent } from "react";
 import { X, Check, Loader2, TrendingUp } from "lucide-react";
 
 type Termin = {
@@ -43,7 +43,6 @@ export default function PencairanTerminModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Reset error saat modal dibuka
   useEffect(() => {
     if (isOpen) {
       setError("");
@@ -52,9 +51,14 @@ export default function PencairanTerminModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!termin || termin.length === 0) {
+      setError("Proyek masih belum memiliki termin");
+      return;
+    }
 
     if (!nextTermin) {
       setError("Semua termin sudah dicairkan");
@@ -97,7 +101,6 @@ export default function PencairanTerminModal({
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-[24px] shadow-xl max-w-md w-full flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-7 relative">
-        {/* Close Button */}
         <button
           type="button"
           onClick={handleClose}
@@ -106,7 +109,6 @@ export default function PencairanTerminModal({
           <X size={20} strokeWidth={2} />
         </button>
 
-        {/* Header */}
         <div className="mb-6 pr-8">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
@@ -118,7 +120,6 @@ export default function PencairanTerminModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 text-left flex-1">
-          {/* Termin (Read Only) */}
           <div>
             <label className="block text-[13px] font-bold text-stone-900 mb-2">
               Termin
@@ -126,12 +127,17 @@ export default function PencairanTerminModal({
             <input
               type="text"
               readOnly
-              value={nextTermin ? nextTermin.namaTermin : "Semua termin sudah dicairkan"}
+              value={
+                !termin || termin.length === 0
+                  ? "Proyek masih belum memiliki termin"
+                  : nextTermin
+                  ? (nextTermin.namaTermin === "Termin 0" ? "DP" : nextTermin.namaTermin)
+                  : "Semua termin sudah dicairkan"
+              }
               className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[14px] text-stone-800 bg-[#F8F7F4] font-medium outline-none cursor-default"
             />
           </div>
 
-          {/* Grid: Nominal & Persentase (readonly dari data real) */}
           {nextTermin && (
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -144,7 +150,7 @@ export default function PencairanTerminModal({
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-bold text-stone-900 mb-2">Progress</label>
+                <label className="block text-[13px] font-bold text-stone-900 mb-2">Persen</label>
                 <input
                   type="text"
                   readOnly
@@ -155,7 +161,6 @@ export default function PencairanTerminModal({
             </div>
           )}
 
-          {/* Error */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-3.5 py-2.5 rounded-xl text-[12px] font-medium flex items-center gap-2">
               <X size={13} />
@@ -163,7 +168,6 @@ export default function PencairanTerminModal({
             </div>
           )}
 
-          {/* Footer */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"

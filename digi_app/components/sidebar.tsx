@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { 
   X, LayoutDashboard, Plus, History, FileCheck, Wallet, 
   BookOpen, BarChart3, Users, FileText, 
-  FolderKanban, Layers, Monitor, ChevronLeft
+  FolderKanban, Layers, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 
@@ -20,7 +20,6 @@ interface MenuItem {
   badgeCount?: number;
   isSection?: boolean;      
 }
-
 interface SidebarProps {
   isSidebarOpen?: boolean;
   onClose?: () => void;
@@ -34,7 +33,7 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Riwayat Pengajuan", href: "/karyawan/riwayat-pengajuan", icon: History, hasBadge: false },
   ],
   "Project Manager": [
-    { name: "Beranda PM", href: "/pm", icon: LayoutDashboard, hasBadge: false },
+    { name: "Beranda", href: "/pm", icon: LayoutDashboard, hasBadge: false },
     { name: "Kelola Proyek", href: "/pm/proyek", icon: FolderKanban, hasBadge: false },
     { name: "Antrian Approval", href: "/pm/approval", icon: FileCheck, hasBadge: true, badgeCount: 0 },
   ],
@@ -46,7 +45,7 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Riwayat Pencairan", href: "/keuangan/jurnal", icon: BookOpen, hasBadge: false },
   ],
   "Direktur / Manajemen": [
-    { name: "Executive Dashboard", href: "/manager", icon: LayoutDashboard, hasBadge: false },
+    { name: "Beranda", href: "/manager", icon: LayoutDashboard, hasBadge: false },
     { name: "Kelola Proyek", href: "/manager/proyek", icon: Wallet, hasBadge: false },
     { name: "Laporan", href: "/manager/laporan", icon: FileText, hasBadge: false },
   ],
@@ -57,21 +56,22 @@ const ROLE_MENUS: Record<UserRole, MenuItem[]> = {
     { name: "Kelola Akun", href: "/superadmin/kelola-akun", icon: Users, hasBadge: false },
     
     { name: "DIREKTUR", href: "", isSection: true },
-    { name: "Kelola Proyek", href: "/superadmin/proyek", icon: FolderKanban, hasBadge: false },
+    { name: "Kelola Proyek", href: "/superadmin/manajemen-proyek", icon: FolderKanban, hasBadge: false },
     { name: "Laporan", href: "/superadmin/laporan", icon: FileText, hasBadge: false },
     
     { name: "PROJECT MANAGER", href: "", isSection: true },
     { name: "Kelola Proyek", href: "/superadmin/detail-proyek", icon: FolderKanban, hasBadge: false },
-    { name: "Antrian Approval", href: "/superadmin/approval", icon: Monitor, hasBadge: true, badgeCount: 0 },
+    { name: "Antrian Approval", href: "/superadmin/approval", icon: FileCheck, hasBadge: true, badgeCount: 0 },
     
     { name: "TIM KEUANGAN", href: "", isSection: true },
+    { name: "Kelola Proyek", href: "/superadmin/pendapatan-proyek", icon: FolderKanban, hasBadge: false },
     { name: "Pencairan", href: "/superadmin/pencairan", icon: Wallet, hasBadge: true, badgeCount: 0 },
     { name: "Laporan Anggaran", href: "/superadmin/budget", icon: BarChart3, hasBadge: false },
     { name: "Riwayat Pencairan", href: "/superadmin/jurnal", icon: BookOpen, hasBadge: false },
     
     { name: "KARYAWAN", href: "", isSection: true },
     { name: "Ajukan Reimbursement", href: "/superadmin/reimbursement", icon: Plus, hasBadge: false },
-    { name: "Riwayat Pengajuan", href: "/superadmin/riwayat", icon: History, hasBadge: false },
+    { name: "Riwayat Pengajuan", href: "/superadmin/riwayat-pengajuan", icon: History, hasBadge: false },
   ],
 };
 
@@ -83,7 +83,7 @@ const ROLE_STYLES: Record<UserRole, { bg: string; logoBg: string; logoText: stri
   "Superadmin": { bg: "bg-[#f5f4ef]", logoBg: "bg-white", logoText: "text-stone-800" },
 };
 
-export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarProps) {
+export default memo(function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarProps) {
   const pathname = usePathname();
 
   const [collapsed, setCollapsed] = useState<boolean>(false);
@@ -91,23 +91,17 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
     try {
       const saved = window.localStorage.getItem("dmm-sidebar-collapsed");
       if (saved === "1") setCollapsed(true);
-    } catch {
-      /* localStorage unavailable */
-    }
+    } catch { }
   }, []);
   useEffect(() => {
     try {
       window.localStorage.setItem("dmm-sidebar-collapsed", collapsed ? "1" : "0");
-    } catch {
-      /* localStorage unavailable */
-    }
+    } catch { }
   }, [collapsed]);
   
-  // 1. Normalisasi userRole (mencegah error jika token mengirimkan 'superadmin' huruf kecil atau undefined)
   const rawRole = typeof userRole === "string" ? userRole : "Karyawan";
   const safeRole = (rawRole.toLowerCase() === "superadmin" ? "Superadmin" : rawRole) as UserRole;
 
-  // 2. Terapkan safeRole dan berikan fallback default (jaga-jaga jika string role tetap tidak dikenali)
   const menuItems = ROLE_MENUS[safeRole] || [];
   const styles = ROLE_STYLES[safeRole] || { bg: "bg-[#f5f4ef]", logoBg: "bg-white", logoText: "text-stone-800" };
 
@@ -140,20 +134,30 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:static lg:flex lg:flex-col
       `}>
-        <div className={`h-20 flex items-center justify-between ${collapsed ? 'px-3' : 'px-6'} border-b border-stone-200/50 shrink-0`}>
+        <div className={`h-20 flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-5'} border-b border-stone-200/60 shrink-0`}>
           {collapsed ? (
             <button
               onClick={() => setCollapsed(false)}
-              className="w-full flex items-center justify-center p-1.5 hover:bg-stone-200/50 rounded-lg transition cursor-pointer"
-              aria-label="Expand sidebar"
+              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-stone-200/60 text-stone-600 hover:text-stone-900 transition-all cursor-pointer group relative"
+              aria-label="Buka sidebar"
               title="Buka sidebar"
             >
-              <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
+              <Image 
+                src="/logo.png" 
+                alt="Digi Money Manager" 
+                width={32} 
+                height={32} 
+                className="object-contain transition-transform duration-200 group-hover:scale-90 group-hover:opacity-30" 
+              />
+              <ChevronRight 
+                size={18} 
+                className="absolute text-stone-700 opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-0.5" 
+              />
             </button>
           ) : (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center">
-                <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center justify-center shrink-0">
+                <Image src="/logo.png" alt="Digi Money Manager" width={34} height={34} className="object-contain" />
               </div>
               <div className="shrink-0">
                 <p className="font-bold text-stone-800 text-[14px] leading-tight whitespace-nowrap">Digi Money Manager</p>
@@ -165,7 +169,7 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
           {!collapsed && onClose && (
             <button
               onClick={onClose}
-              className="lg:hidden p-1.5 hover:bg-stone-200/50 rounded-lg text-stone-500 hover:text-stone-800 transition cursor-pointer"
+              className="lg:hidden p-1.5 hover:bg-stone-200/60 rounded-lg text-stone-500 hover:text-stone-800 transition cursor-pointer"
               aria-label="Close sidebar"
             >
               <X size={18} />
@@ -175,16 +179,16 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
-              className="hidden lg:flex p-1 hover:bg-stone-200/50 rounded-lg text-stone-500 hover:text-stone-800 transition cursor-pointer"
-              aria-label="Collapse sidebar"
-              title="Tutup sidebar"
+              className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-200/70 border border-transparent hover:border-stone-300/40 transition-all cursor-pointer group shrink-0"
+              aria-label="Ciutkan sidebar"
+              title="Ciutkan sidebar"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={16} className="transition-transform duration-200 group-hover:-translate-x-0.5" />
             </button>
           )}
         </div>
 
-        <nav className={`${collapsed ? 'px-2' : 'px-4'} py-4 space-y-1 flex-1 overflow-y-auto pb-20 custom-scrollbar`}>
+        <nav className={`${collapsed ? 'px-2' : 'px-4'} py-4 space-y-1 flex-1 overflow-y-auto pb-20 scrollbar-none`}>
           {menuItems.map((item, idx) => {
             if (item.isSection) {
               if (collapsed) return null;
@@ -219,7 +223,7 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
                 <Icon size={18} className="shrink-0" />
                 {!collapsed && <span className="whitespace-nowrap">{item.name}</span>}
                 {displayBadge && displayCount !== undefined && displayCount > 0 && (
-                  <span className={`${collapsed ? 'absolute translate-x-3 -translate-y-3 text-[9px]' : 'ml-auto'} bg-[#117a5b] text-white font-bold text-[10px] px-2 py-0.5 rounded-full`}>
+                  <span className={`${collapsed ? 'absolute top-1.5 right-1.5 min-w-[18px] h-[18px] flex items-center justify-center text-[9px] px-1' : 'ml-auto text-[10px] px-2 py-0.5'} bg-[#117a5b] text-white font-bold rounded-full`}>
                     {displayCount}
                   </span>
                 )}
@@ -230,4 +234,4 @@ export default function Sidebar({ isSidebarOpen, onClose, userRole }: SidebarPro
       </aside>
     </>
   );
-}
+});

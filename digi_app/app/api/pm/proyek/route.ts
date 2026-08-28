@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: List proyek (Semua untuk Super Admin/Direktur, Filtered untuk Project Manager)
 function formatDateInput(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -196,6 +195,10 @@ export async function GET(req: NextRequest) {
           };
         });
 
+      const totalAlokasiPemasukan = (budget?.mainAnggaran ?? [])
+        .filter((m: any) => m.tipe?.toLowerCase() === 'pemasukan')
+        .reduce((s: number, m: any) => s + Number(m.nominalAlokasi || 0), 0);
+
       const tim = p.users.map((u) => {
         const nama = u.user.nama;
         const words = nama.split(' ');
@@ -218,7 +221,8 @@ export async function GET(req: NextRequest) {
         tanggalSelesai: p.tanggalSelesai ? formatDateInput(p.tanggalSelesai) : null,
         pm: pmUser?.user.nama || '',
         status: p.status,
-        totalRAB: budget ? Number(budget.rabTotal) : 0,
+        totalRAB: budget ? Number(budget.nilaiKontrak) : 0,
+        totalAlokasiPemasukan,
         realisasi: totalRealisasi,
         posAnggaran,
         tim,

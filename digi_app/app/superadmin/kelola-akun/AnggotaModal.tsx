@@ -37,7 +37,7 @@ type AnggotaModalProps = {
   selectedProyekAssignments: { proyekId: number; role: string }[];
   setSelectedProyekAssignments: React.Dispatch<React.SetStateAction<{ proyekId: number; role: string }[]>>;
   onSubmit: (e: React.FormEvent) => void;
-  onDelete?: () => void; // <-- Tambahan prop untuk hapus
+  onDelete?: () => void;
   submitting: boolean;
   formError: string;
 };
@@ -77,9 +77,8 @@ export default function AnggotaModal({
 
       <form onSubmit={onSubmit} className="p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {/* Nama */}
           <div>
-            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
+          <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
               Nama Lengkap <span className="text-red-500">*</span>
             </label>
             <input
@@ -92,7 +91,6 @@ export default function AnggotaModal({
             />
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
               Email <span className="text-red-500">*</span>
@@ -107,7 +105,6 @@ export default function AnggotaModal({
             />
           </div>
 
-          {/* Password - Only show when registering new member */}
           {!editingMember && (
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
@@ -125,7 +122,6 @@ export default function AnggotaModal({
             </div>
           )}
 
-          {/* Role */}
           <div>
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
               Role <span className="text-red-500">*</span>
@@ -145,7 +141,6 @@ export default function AnggotaModal({
             </div>
           </div>
 
-          {/* Divisi */}
           <div>
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Divisi / Jabatan</label>
             <input
@@ -157,7 +152,6 @@ export default function AnggotaModal({
             />
           </div>
 
-          {/* Proyek Checkboxes Multi-select */}
           <div className="sm:col-span-2">
             <label className="block text-[12px] font-bold text-stone-600 mb-2">
               Assign ke Proyek (Dapat memilih banyak proyek)
@@ -244,7 +238,6 @@ export default function AnggotaModal({
           </div>
         )}
 
-        {/* Footer Buttons */}
         <div className="flex items-center justify-between mt-6 border-t border-stone-150 pt-4">
           <div>
             {editingMember && onDelete && (

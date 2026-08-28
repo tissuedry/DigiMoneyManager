@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import Sidebar from "@/components/sidebar"; // Sesuaikan path dengan lokasi Sidebar Anda
-import Header from "@/components/header";   // Sesuaikan path dengan lokasi Header Anda
+import Sidebar from "@/components/sidebar";
+import Header from "@/components/header";
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

@@ -34,7 +34,6 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
     try {
       let url = "";
 
-      // Tentukan Endpoint & URL Params berdasarkan tipe yang dihapus
       if (type === 'akun') {
         url = `/api/coa/${data?.id}`;
       } else {
@@ -45,13 +44,10 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
         method: "DELETE",
       });
 
-      // Mencegah error "Unexpected end of JSON input" jika response kosong
       const text = await res.text();
       const responseData = text ? JSON.parse(text) : {};
 
       if (!res.ok) {
-        // Jika statusnya 404 (Not Found), artinya data sudah tidak ada di DB.
-        // Anggap proses sukses, refresh tabel, lalu tutup modal.
         if (res.status === 404) {
           setSuccessMsg(getSuccessMessage());
           if (onRefresh) onRefresh();
@@ -62,7 +58,6 @@ export default function DeleteModal({ isOpen, onClose, data, type, onRefresh }: 
         throw new Error(responseData.message || "Gagal menghapus data");
       }
 
-      // Refresh data di tabel utama dan tutup modal jika berhasil
       setSuccessMsg(getSuccessMessage());
       if (onRefresh) onRefresh();
       onClose();

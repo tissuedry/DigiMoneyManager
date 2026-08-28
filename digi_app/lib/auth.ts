@@ -1,6 +1,5 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { NextRequest } from 'next/server';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-digi-money-manager-12345';
 
@@ -22,36 +21,64 @@ export interface JWTPayload {
 }
 
 export function signToken(payload: JWTPayload): string {
-  // Sign token with a 24-hour expiration
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
 }
 
-export function verifyToken(token: string): JWTPayload | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
-  } catch (error) {
-    return null;
-  }
+export interface ResolvedRoles {
+  primaryRole: string;
+  allowedRoles: string[];
+  activeProyekId: number | null;
 }
 
-export function getTokenFromRequest(req: NextRequest): string | null {
-  // 1. Try to get token from Authorization header
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
+export function resolveUserRoles(
+  userRole: string | null | undefined,
+  userProyeks: Array<{ role?: string; proyekId?: number }> = [],
+  requestedProyekId?: number | null
+): ResolvedRoles {
+  const rolesSet = new Set<string>();
+  const safeRole = (userRole || '').trim();
+  const dbRoleLower = safeRole.toLowerCase();
+
+  let primaryRole = safeRole;
+  let activeProyekId: number | null = requestedProyekId !== undefined ? requestedProyekId : (userProyeks.length > 0 ? (userProyeks[0].proyekId ?? null) : null);
+
+  const isSuperAdmin = dbRoleLower === 'superadmin' || dbRoleLower === 'super admin';
+
+  if (
+    dbRoleLower === 'direktur / manajemen' ||
+    dbRoleLower === 'tim keuangan' ||
+    isSuperAdmin
+  ) {
+    if (isSuperAdmin) {
+      primaryRole = 'Superadmin';
+      rolesSet.add('Superadmin');
+    } else {
+      rolesSet.add(safeRole);
+    }
+  } else {
+    const hasPM = userProyeks.some((up: any) => up.role === 'Project Manager');
+    const hasKaryawan = userProyeks.some((up: any) => up.role === 'Anggota Lapangan') || !hasPM;
+
+    if (hasPM) rolesSet.add('Project Manager');
+    if (hasKaryawan) rolesSet.add('Karyawan');
+
+    if (requestedProyekId !== undefined && requestedProyekId !== null) {
+      const activeAssignment = userProyeks.find((up: any) => up.proyekId === requestedProyekId);
+      if (activeAssignment) {
+        primaryRole = activeAssignment.role === 'Anggota Lapangan' ? 'Karyawan' : 'Project Manager';
+        activeProyekId = requestedProyekId;
+      } else {
+        activeProyekId = null;
+        primaryRole = hasPM ? 'Project Manager' : 'Karyawan';
+      }
+    } else {
+      primaryRole = hasPM ? 'Project Manager' : 'Karyawan';
+    }
   }
 
-  // 2. Try to get token from Cookies
-  const cookieToken = req.cookies.get('auth_token');
-  if (cookieToken) {
-    return cookieToken.value;
-  }
-
-  return null;
-}
-
-export function getUserFromRequest(req: NextRequest): JWTPayload | null {
-  const token = getTokenFromRequest(req);
-  if (!token) return null;
-  return verifyToken(token);
+  return {
+    primaryRole,
+    allowedRoles: Array.from(rolesSet),
+    activeProyekId,
+  };
 }

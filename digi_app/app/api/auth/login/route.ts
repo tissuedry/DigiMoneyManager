@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { comparePassword, signToken } from '@/lib/auth';
+import { comparePassword, signToken, resolveUserRoles } from '@/lib/auth';
 import { loginSchema } from '@/lib/validations';
 
 export async function POST(req: Request) {
@@ -32,67 +32,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Get user's project associations and roles
     const userProyeks = await prisma.userProyek.findMany({
       where: { userId: user.id },
     });
     const userProyekId = userProyeks.length > 0 ? userProyeks[0].proyekId : null;
 
-    const rolesSet = new Set<string>();
-    
-    // PERBAIKAN: Bersihkan spasi dan ubah ke huruf kecil semua untuk pengecekan
-    const safeRole = (user.role || '').trim();
-    const dbRoleLower = safeRole.toLowerCase();
+    const { primaryRole, allowedRoles } = resolveUserRoles(user.role, userProyeks);
 
-    let primaryRole = safeRole;
-
-    // Mengecek segala kemungkinan penulisan di database yang sudah dinormalisasi
-    const isSuperAdmin = dbRoleLower === 'superadmin' || dbRoleLower === 'super admin';
-
-    if (
-      dbRoleLower === 'direktur / manajemen' || 
-      dbRoleLower === 'tim keuangan' || 
-      isSuperAdmin
-    ) 
-    
-    {
-      if (isSuperAdmin) {
-        primaryRole = 'Superadmin'; 
-        rolesSet.add('Superadmin');
-      } else {
-        // Menggunakan role yang sudah di-trim untuk estetika
-        rolesSet.add(safeRole); 
-      }
-    } else {
-      const hasPM = userProyeks.some((up: any) => up.role === 'Project Manager');
-      const hasKaryawan = userProyeks.some((up: any) => up.role === 'Anggota Lapangan') || !hasPM;
-
-      if (hasPM) rolesSet.add('Project Manager');
-      if (hasKaryawan) rolesSet.add('Karyawan');
-      
-      primaryRole = hasPM ? 'Project Manager' : 'Karyawan';
-    }
-    
-    const allowedRoles = Array.from(rolesSet);
-
-    // DEBUGGING TAHAP 1: Cek di terminal saat Anda login
-    console.log("=== ROLE CHECK ===", {
-      roleAsliDariDB: user.role,
-      roleSetelahDibersihkan: primaryRole,
-      isSuperAdmin: isSuperAdmin
-    });
-
-    // Sign JWT Token
     const token = signToken({
       id: user.id,
       nama: user.nama,
       email: user.email,
       role: primaryRole,
       roles: allowedRoles,
-      proyekId: null, 
+      proyekId: userProyekId,
     });
 
-    // Create audit trail log
     await prisma.auditTrail.create({
       data: {
         userId: user.id,
@@ -101,7 +56,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // Don't return password
     const { passwordHash: _, ...userWithoutPassword } = user;
     const responseUser = {
       ...userWithoutPassword,
@@ -120,7 +74,7 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24,
     });
 
     return response;

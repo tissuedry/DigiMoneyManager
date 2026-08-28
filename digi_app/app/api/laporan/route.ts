@@ -1,19 +1,18 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Helper to convert objects to CSV string
 function convertToCSV(data: any[]): string {
   if (data.length === 0) return '';
   const headers = Object.keys(data[0]);
   const csvRows = [
-    headers.join(','), // header row
+    headers.join(','),
     ...data.map(row => 
       headers.map(fieldName => {
         let value = row[fieldName];
         if (value === null || value === undefined) value = '';
-        value = String(value).replace(/"/g, '""'); // escape quotes
+        value = String(value).replace(/"/g, '""');
         if (value.includes(',') || value.includes('\n')) {
-          value = `"${value}"`; // wrap in quotes if contains commas or newlines
+          value = `"${value}"`;
         }
         return value;
       }).join(',')
@@ -152,122 +151,9 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      if (format === 'csv') {
-        const csv = convertToCSV(reportData);
-        return new NextResponse(csv, {
-          headers: {
-            'Content-Type': 'text/csv',
-            'Content-Disposition': 'attachment; filename="Buku_Besar.csv"',
-          },
-        });
-      }
-
       return NextResponse.json({ report: reportData });
 
-    } else if (type === 'neraca') {
-      const reportData = await Promise.all(projects.map(async (p) => {
-        const rabTotal = p.budget ? Number(p.budget.nilaiKontrak || p.budget.rabTotal || 0) : 0;
-        const totalPengeluaran = p.budget ? Number(p.budget.totalPengeluaran || 0) : 0;
-        const sisaBudget = p.budget ? Number(p.budget.sisaBudget || 0) : 0;
-
-        const txPemasukan = await prisma.transaksiPemasukan.findMany({
-          where: { proyekId: p.id },
-        });
-
-        const totalPemasukanCair = txPemasukan
-          .filter((t) => t.status === 'CAIR' || t.kategori === 'PENERIMAAN_PENJUALAN')
-          .reduce((sum, t) => sum + Number(t.nominal || 0), 0);
-
-        const cashAsset = sisaBudget + totalPemasukanCair;
-        const projectAssets = totalPengeluaran;
-        const totalAssets = cashAsset + projectAssets;
-
-        const equity = rabTotal;
-        const totalLiabilitiesAndEquity = equity;
-
-        return {
-          Proyek: p.nama,
-          'Kas / Sisa Budget (Asset)': cashAsset,
-          'Biaya Terpakai (Asset/Cost)': projectAssets,
-          'Total Aset': totalAssets,
-          'Utang Reimbursement (Liabilitas)': 0,
-          'Modal RAB (Ekuitas)': equity,
-          'Total Liabilitas & Ekuitas': totalLiabilitiesAndEquity,
-        };
-      }));
-
-      if (format === 'csv') {
-        const csv = convertToCSV(reportData);
-        return new NextResponse(csv, {
-          headers: {
-            'Content-Type': 'text/csv',
-            'Content-Disposition': 'attachment; filename="Neraca_Proyek.csv"',
-          },
-        });
-      }
-
-      return NextResponse.json({ report: reportData });
-
-    } else if (type === 'laba-rugi') {
-      const reportData: any[] = [];
-
-      for (const p of projects) {
-        const grossRevenue = p.budget ? Number(p.budget.nilaiKontrak || p.budget.rabTotal || 0) : 0;
-        const totalPengeluaran = p.budget ? Number(p.budget.totalPengeluaran || 0) : 0;
-
-        const txPemasukan = await prisma.transaksiPemasukan.findMany({
-          where: { proyekId: p.id },
-        });
-
-        let totalDiskon = 0;
-        let totalRetur = 0;
-        let totalBiayaLainnya = 0;
-
-        txPemasukan.forEach((tx) => {
-          const nom = Number(tx.nominal || 0);
-          if (tx.kategori === 'DISKON_PENJUALAN') totalDiskon += nom;
-          else if (tx.kategori === 'RETUR_PENJUALAN') totalRetur += nom;
-          else if (tx.kategori === 'BIAYA_PENJUALAN_LAINNYA') totalBiayaLainnya += nom;
-        });
-
-        const netRevenue = grossRevenue - totalDiskon - totalRetur - totalBiayaLainnya;
-        const labaBersih = netRevenue - totalPengeluaran;
-
-        // Break down expenses by PosAnggaran
-        const expensesBreakdown: any = {};
-        if (p.budget) {
-          p.budget.mainAnggaran
-            .filter((m: any) => m.tipe !== 'pemasukan')
-            .forEach((main: any) => {
-              expensesBreakdown[`Beban ${main.namaMain}`] = Number(main.nominalTerpakai);
-            });
-        }
-
-        reportData.push({
-          Proyek: p.nama,
-          'Penjualan Kotor (Kontrak)': grossRevenue,
-          'Diskon Penjualan': totalDiskon,
-          'Retur Penjualan': totalRetur,
-          'Biaya Penjualan Lainnya': totalBiayaLainnya,
-          'Penjualan Bersih (Net Revenue)': netRevenue,
-          ...expensesBreakdown,
-          'Total Beban / Pengeluaran': totalPengeluaran,
-          'Laba (Rugi) Bersih': labaBersih,
-        });
-      }
-
-      if (format === 'csv') {
-        const csv = convertToCSV(reportData);
-        return new NextResponse(csv, {
-          headers: {
-            'Content-Type': 'text/csv',
-            'Content-Disposition': 'attachment; filename="Laba_Rugi_Proyek.csv"',
-          },
-        });
-      }
-
-      return NextResponse.json({ report: reportData });
-    }
+    } 
 
     return NextResponse.json({ message: 'Invalid report type' }, { status: 400 });
     

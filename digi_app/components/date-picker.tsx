@@ -36,7 +36,6 @@ function clampSegment(digits: string, min: number, max: number): string {
   return pad(n);
 }
 
-// Batas hari maksimum untuk segmen bulan/tahun yang sedang diketik (mis. Februari 28/29, April 30)
 function maxDayForSegments(monthStr: string, yearStr: string): number {
   const mm = monthStr.length === 2 ? parseInt(monthStr, 10) : NaN;
   if (Number.isNaN(mm) || mm < 1 || mm > 12) return 31;
@@ -135,10 +134,8 @@ export default function DatePicker({
     setIsVisible(false);
     const timer = setTimeout(() => setShouldRender(false), EXIT_DURATION);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Sinkronkan segmen ketikan saat tanggal berubah dari grid/tombol lain selagi popup terbuka
   useEffect(() => {
     if (!open) return;
     const s = parseDateString(value);
@@ -149,7 +146,6 @@ export default function DatePicker({
       setViewYear(s.y);
       setViewMonth(s.m);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   useEffect(() => {
@@ -189,7 +185,6 @@ export default function DatePicker({
   const handleMonthInput = (e: ChangeEvent<HTMLInputElement>) => {
     const digits = clampSegment(e.target.value.replace(/\D/g, "").slice(0, 2), 1, 12);
     setMonthStr(digits);
-    // Bulan berubah bisa mempersempit hari maksimum (mis. dari 31 ke 30/28/29) — sesuaikan hari yang sudah diketik
     const clampedDay = clampSegment(dayStr, 1, maxDayForSegments(digits, yearStr));
     if (clampedDay !== dayStr) setDayStr(clampedDay);
     if (digits.length === 2) {
@@ -202,14 +197,13 @@ export default function DatePicker({
   const handleYearInput = (e: ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
     setYearStr(digits);
-    // Tahun berubah bisa mempengaruhi tahun kabisat (Februari 28 vs 29)
+  
     const clampedDay = clampSegment(dayStr, 1, maxDayForSegments(monthStr, digits));
     if (clampedDay !== dayStr) setDayStr(clampedDay);
     if (digits.length === 4) setViewYear(parseInt(digits, 10));
     commitIfComplete(clampedDay, monthStr, digits);
   };
 
-  // Ketik 1 digit lalu pindah/keluar dari field -> otomatis diberi angka nol di depan (mis. "3" -> "03")
   const handleDayBlur = () => {
     if (dayStr.length !== 1) return;
     const padded = clampSegment(dayStr.padStart(2, "0"), 1, maxDayForSegments(monthStr, yearStr));
@@ -370,7 +364,6 @@ export default function DatePicker({
               isVisible ? "opacity-100" : "opacity-0"
             }`}
           >
-            {/* Ketik manual tanggal per segmen */}
             <div className="flex items-center justify-center gap-1 mb-3 border border-stone-200 rounded-lg px-2.5 py-1.5 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/15 transition">
               <input
                 ref={dayRef}
@@ -421,7 +414,6 @@ export default function DatePicker({
               />
             </div>
 
-            {/* Header: navigasi & label bulan/tahun (klik untuk ganti mode pilih bulan/tahun) */}
             <div className="flex items-center justify-between mb-3">
               <button
                 type="button"

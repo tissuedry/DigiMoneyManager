@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { FolderPlus, Loader2, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
+import { useEffect, useState } from "react";
+import { FolderPlus, Check, Calendar, Briefcase, DollarSign, Settings } from "lucide-react";
 
-import { Project, LogAktivitas, Member } from "./types";
-import { formatRupiah, formatSummaryRupiah, formatRibuan, ribuanToNumber, getStatusStyles, formatStatusLabel } from "./utils";
+import { Project, Member } from "./types";
+import Pagination from "@/components/pagination";
+import { formatRupiah, formatSummaryRupiah, getStatusStyles, formatStatusLabel } from "@/lib/proyek-utils";
 
-import AddProjectModal from "./AddProjectModal";
-import AssignMembersModal from "./AssignMembersModal";
-import EditProjectModal from "./EditProjectModal";
-import InitBudgetModal from "./InitBudgetModal";
+import AddProjectForm from "./AddProjectForm";
+import EditProjectForm from "./EditProjectForm";
+import AlokasiPengeluaranForm from "./AlokasiPengeluaranForm";
 import ProjectDetailSidebar from "./ProjectDetailSidebar";
-import DetailBudgetModal from "./DetailBudgetModal";
+import DetailPengeluaranModal from "./DetailPengeluaranModal";
 import PendingPmModal from "./PendingPmModal";
 import SuccessDialog from "@/components/success-dialog";
 import ConfirmDialog from "@/components/confirm-dialog";
@@ -26,123 +26,43 @@ export default function KelolaProyekPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modals state
-  const [showAddProject, setShowAddProject] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [limit, setLimit] = useState(6); // Default 6 proyek per halaman
-  const [showAssignMembers, setShowAssignMembers] = useState<Project | null>(null);
-  const [showInitBudget, setShowInitBudget] = useState<Project | null>(null);
+  const [limit] = useState(6);
+
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [showAlokasiPengeluaran, setShowAlokasiPengeluaran] = useState<Project | null>(null);
   const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [isDirectEdit, setIsDirectEdit] = useState(false);
   const [detailedProjectInfo, setDetailedProjectInfo] = useState<any | null>(null);
-  const [showDetailBudgetModal, setShowDetailBudgetModal] = useState(false);
-  const [showPendingPmModal, setShowPendingPmModal] = useState(false);
-  const [rejectingPengajuan, setRejectingPengajuan] = useState<any | null>(null);
-  const [selectedPendingIds, setSelectedPendingIds] = useState<Record<number, boolean>>({});
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [showBulkRejectToast, setShowBulkRejectToast] = useState(false);
-  const [bulkRejectedCount, setBulkRejectedCount] = useState(0);
-  const [showBulkApproveSuccess, setShowBulkApproveSuccess] = useState(false);
-  const [bulkApprovedCount, setBulkApprovedCount] = useState(0);
-  const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
-  const [expandedSub, setExpandedSub] = useState<Record<string, boolean>>({});
-  const [expandedKet, setExpandedKet] = useState<Record<string, boolean>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [timeFilter, setTimeFilter] = useState<"4M" | "12M" | "YTD">("12M");
+  const [showDetailPengeluaran, setShowDetailPengeluaran] = useState(false);
+  const [showPendingPmModal, setShowPendingPmModal] = useState(false);
 
-  // Pengajuan anggaran pending (Direktur review)
-  const [pendingPengajuan, setPendingPengajuan] = useState<any[]>([]);
-  const [loadingPengajuan, setLoadingPengajuan] = useState(false);
-
-  const detailTotalRAB = parseFloat(detailedProjectInfo?.budget?.rabTotal) || 0;
-  const detailTotalTerpakai = parseFloat(detailedProjectInfo?.budget?.totalPengeluaran) || 0;
-  const detailPercentUsed = detailTotalRAB > 0 ? Math.round((detailTotalTerpakai / detailTotalRAB) * 100) : 0;
-  const detailBarWidth = Math.min(detailPercentUsed, 100);
-  const sudahReimburseNominal = detailedProjectInfo?.sudahReimburseNominal !== undefined
-    ? Number(detailedProjectInfo.sudahReimburseNominal)
-    : (parseFloat(detailedProjectInfo?.budget?.totalReimbursement) || 0);
-
-  const belumReimburseNominal = detailedProjectInfo?.belumReimburseNominal !== undefined
-    ? Number(detailedProjectInfo.belumReimburseNominal)
-    : (detailedProjectInfo?.pendingReimbursements
-      ? detailedProjectInfo.pendingReimbursements.reduce((sum: number, r: any) => sum + Number(r.nominal || 0), 0)
-      : 0);
-
-  const sudahReimburseCount = detailedProjectInfo?.sudahReimburseCount ?? detailedProjectInfo?.reimbursementDisetujuiCount ?? 0;
-  const belumReimburseCount = detailedProjectInfo?.belumReimburseCount ?? detailedProjectInfo?.reimbursementBelumDisetujuiCount ?? (detailedProjectInfo?.pendingReimbursements?.length ?? 0);
-
-  const getSelectedCashFlow = () => {
-    if (!detailedProjectInfo) return [];
-    if (timeFilter === "4M") return detailedProjectInfo.cashFlow4m || [];
-    if (timeFilter === "YTD") return detailedProjectInfo.cashFlowYtd || [];
-    return detailedProjectInfo.cashFlow12m || [];
-  };
-  const activeCashFlow = getSelectedCashFlow();
-
-  const inflowNominal = activeCashFlow.reduce((sum: number, c: any) => sum + (c.inflow || 0), 0);
-  const outflowNominal = activeCashFlow.reduce((sum: number, c: any) => sum + (c.outflow || 0), 0);
-  const netCashNominal = inflowNominal - outflowNominal;
-
-  // Forms state
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState("");
   const [formError, setFormError] = useState("");
-  const [showAddProjectConfirm, setShowAddProjectConfirm] = useState(false);
-  const [showAddProjectSuccess, setShowAddProjectSuccess] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [showEditProjectConfirm, setShowEditProjectConfirm] = useState(false);
-  const [showEditProjectSuccess, setShowEditProjectSuccess] = useState(false);
-  const [editedProjectName, setEditedProjectName] = useState("");
-  const [showInitBudgetConfirm, setShowInitBudgetConfirm] = useState(false);
-  const [showInitBudgetSuccess, setShowInitBudgetSuccess] = useState(false);
-  const [initBudgetProjectName, setInitBudgetProjectName] = useState("");
+  const [success, setSuccess] = useState("");
   const [showSaveTeamConfirm, setShowSaveTeamConfirm] = useState(false);
   const [showSaveTeamToast, setShowSaveTeamToast] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
   const [showReactivateSuccess, setShowReactivateSuccess] = useState(false);
   const [reactivatedProjectName, setReactivatedProjectName] = useState("");
-
-  const [projectForm, setProjectForm] = useState({
-    nama: "",
-    deskripsi: "",
-    rabTotal: "",
-    tanggalMulai: "",
-    tanggalSelesai: "",
-    status: "PLANNING",
-  });
-
-  const [editForm, setEditForm] = useState({
-    nama: "",
-    deskripsi: "",
-    rabTotal: "",
-    tanggalMulai: "",
-    tanggalSelesai: "",
-    status: "PLANNING",
-  });
-
-  // Assign members state
-  const [selectedProjectMembers, setSelectedProjectMembers] = useState<{ userId: number; role: string }[]>([]);
-  const [initialProjectMembers, setInitialProjectMembers] = useState<{ userId: number; role: string }[]>([]);
-
-  // Budget initialization state
-  const [rabTotal, setRabTotal] = useState("");
-  const [posAnggaranList, setPosAnggaranList] = useState<{ deskripsi: string; nominalAlokasi: string }[]>([
-    { deskripsi: "", nominalAlokasi: "" },
-  ]);
 
   const [activeTab, setActiveTab] = useState<"ringkasan" | "biaya" | "tim" | "pendapatan">("ringkasan");
   const [teamRows, setTeamRows] = useState<{ id: string; role: string; userId: string; isLocked: boolean }[]>([
     { id: "row-pm", role: "Project Manager", userId: "", isLocked: true }
   ]);
 
+  const detailSource: any =
+    detailedProjectInfo && showProjectDetail && detailedProjectInfo.id === showProjectDetail.id
+      ? detailedProjectInfo
+      : showProjectDetail;
+
   const fetchData = async () => {
     setLoading(true);
     try {
       const [proyekRes, membersRes] = await Promise.all([
-        // Gunakan variabel limit di URL
         fetch(`/api/proyek?search=${searchQuery}&status=${activeStatus}&page=${currentPage}&limit=${limit}`),
         fetch("/api/manager/members"),
       ]);
@@ -159,100 +79,9 @@ export default function KelolaProyekPage() {
     }
   };
 
-  // Reset ke halaman 1 jika user mencari, ganti status, atau MENGGANTI LIMIT
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, activeStatus, limit]); // <-- tambahkan limit di sini
-
-  // Panggil API saat ada perubahan
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchData();
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, activeStatus, currentPage, limit]); // <-- tambahkan limit di sini
-
-  const fetchPendingPengajuan = async (proyekId: number) => {
-    setLoadingPengajuan(true);
-    try {
-      const res = await fetch(`/api/proyek/${proyekId}/pengajuan-anggaran?status=PENDING`);
-      const data = await res.json();
-      const list = data.pengajuan || [];
-      setPendingPengajuan(list);
-
-      const initial: Record<number, boolean> = {};
-      list.forEach((prop: any) => {
-        initial[prop.id] = true;
-      });
-      setSelectedPendingIds(initial);
-    } catch {
-      setPendingPengajuan([]);
-    } finally {
-      setLoadingPengajuan(false);
-    }
-  };
-
-  const handleBulkReview = async (action: 'APPROVE' | 'REJECT', catatan?: string) => {
-    if (!detailedProjectInfo) return;
-    if (loadingDetail) return;
-
-    const selectedIds = (pendingPengajuan || [])
-      .filter((p: any) => selectedPendingIds[p.id])
-      .map((p: any) => p.id);
-    if (selectedIds.length === 0) return;
-
-    setLoadingDetail(true);
-    setFormError("");
-    setSuccess("");
-
-    try {
-      const results = await Promise.all(
-        selectedIds.map((id: number) =>
-          fetch(`/api/pengajuan-anggaran/${id}/review`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: action, catatan }),
-          })
-        )
-      );
-
-      const allOk = results.every(res => res.ok);
-      if (allOk) {
-        if (action === 'REJECT') {
-          setBulkRejectedCount(selectedIds.length);
-          setShowBulkRejectToast(true);
-        } else {
-          setBulkApprovedCount(selectedIds.length);
-          setShowBulkApproveSuccess(true);
-        }
-
-        setRejectingPengajuan(null);
-        setRejectionReason("");
-        setShowPendingPmModal(false);
-
-        const detailRes = await fetch(`/api/proyek/${detailedProjectInfo.id}`);
-        const detailData = await detailRes.json();
-        if (detailRes.ok && detailData.project) {
-          setDetailedProjectInfo(detailData.project);
-        }
-        fetchData();
-      } else {
-        const failedBodies = await Promise.all(
-          results.filter(res => !res.ok).map(res => res.json().catch(() => ({})))
-        );
-        const messages = failedBodies.map((b: any) => b.message).filter(Boolean);
-        const errorText = messages.length > 0 ? messages.join(' ') : "Beberapa pengajuan gagal diproses.";
-        setErrorMessage(errorText);
-        setFormError(errorText);
-      }
-    } catch {
-      setErrorMessage("Terjadi kesalahan koneksi saat memproses pengajuan");
-      setFormError("Terjadi kesalahan koneksi");
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
+  }, [searchQuery, activeStatus, limit]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -260,77 +89,11 @@ export default function KelolaProyekPage() {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, activeStatus]);
+  }, [searchQuery, activeStatus, currentPage, limit]);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     element?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const handleAddProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError("");
-
-    if (!projectForm.nama || !projectForm.nama.trim()) {
-      setFormError("Nama proyek wajib diisi.");
-      return;
-    }
-    if (!projectForm.tanggalMulai) {
-      setFormError("Tanggal mulai wajib diisi.");
-      return;
-    }
-    if (!projectForm.tanggalSelesai) {
-      setFormError("Tanggal selesai wajib diisi.");
-      return;
-    }
-    if (projectForm.tanggalSelesai < projectForm.tanggalMulai) {
-      setFormError("Tanggal selesai tidak boleh sebelum tanggal mulai.");
-      return;
-    }
-    if (!projectForm.status) {
-      setFormError("Status proyek wajib diisi.");
-      return;
-    }
-
-    setShowAddProjectConfirm(true);
-  };
-
-  const handleConfirmAddProject = async () => {
-    setSubmitting(true);
-
-    try {
-      const res = await fetch("/api/proyek", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nama: projectForm.nama,
-          deskripsi: projectForm.deskripsi,
-          rabTotal: ribuanToNumber(projectForm.rabTotal) || 0,
-          tanggalMulai: projectForm.tanggalMulai,
-          tanggalSelesai: projectForm.tanggalSelesai,
-          status: projectForm.status,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setFormError(data.message || "Gagal membuat proyek");
-        setShowAddProjectConfirm(false);
-        return;
-      }
-
-      setNewProjectName(projectForm.nama);
-      setProjectForm({ nama: "", deskripsi: "", rabTotal: "", tanggalMulai: "", tanggalSelesai: "", status: "PLANNING" });
-      setShowAddProject(false);
-      setShowAddProjectConfirm(false);
-      setShowAddProjectSuccess(true);
-      fetchData();
-    } catch {
-      setFormError("Terjadi kesalahan koneksi");
-      setShowAddProjectConfirm(false);
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const handleOpenDetailModal = async (project: Project) => {
@@ -365,14 +128,6 @@ export default function KelolaProyekPage() {
       }
       if (res.ok && data.project) {
         setDetailedProjectInfo(data.project);
-        setEditForm({
-          nama: data.project.nama,
-          deskripsi: data.project.deskripsi || "",
-          rabTotal: data.project.budget ? formatRibuan(String(Math.round(Number(data.project.budget.nilaiKontrak || data.project.budget.rabTotal)))) : "",
-          tanggalMulai: data.project.tanggalMulai ? data.project.tanggalMulai.split('T')[0] : "",
-          tanggalSelesai: data.project.tanggalSelesai ? data.project.tanggalSelesai.split('T')[0] : "",
-          status: data.project.status,
-        });
       } else {
         setFormError(data.message || "Gagal mengambil detail proyek");
       }
@@ -384,7 +139,6 @@ export default function KelolaProyekPage() {
     }
   };
 
-  // Refresh hanya data detail proyek (untuk update setelah aksi termin/alokasi)
   const refreshDetailedProject = async (proyekId: number) => {
     try {
       const res = await fetch(`/api/proyek/${proyekId}`);
@@ -392,11 +146,8 @@ export default function KelolaProyekPage() {
       if (res.ok && data.project) {
         setDetailedProjectInfo(data.project);
       }
-    } catch {
-      // silent refresh failure
-    }
+    } catch { }
   };
-
 
   const handleDirectEdit = (project: Project) => {
     setIsDirectEdit(true);
@@ -406,15 +157,6 @@ export default function KelolaProyekPage() {
 
     setShowProjectDetail(project);
     setEditMode(true);
-
-    setEditForm({
-      nama: project.nama,
-      deskripsi: project.deskripsi || "",
-      rabTotal: project.budget ? formatRibuan(String(Math.round(Number(project.budget.nilaiKontrak || project.budget.rabTotal)))) : "",
-      tanggalMulai: project.tanggalMulai ? project.tanggalMulai.split('T')[0] : "",
-      tanggalSelesai: project.tanggalSelesai ? project.tanggalSelesai.split('T')[0] : "",
-      status: project.status,
-    });
   };
 
   const handleCloseEdit = () => {
@@ -425,52 +167,11 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const handleUpdateProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showProjectDetail) return;
-    setFormError("");
-    setShowEditProjectConfirm(true);
-  };
-
-  const handleConfirmUpdateProject = async () => {
-    if (!showProjectDetail) return;
-    setSubmitting(true);
-
-    try {
-      const res = await fetch(`/api/proyek/${showProjectDetail.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nama: editForm.nama,
-          deskripsi: editForm.deskripsi,
-          nilaiKontrak: ribuanToNumber(editForm.rabTotal) || 0,
-          rabTotal: ribuanToNumber(editForm.rabTotal) || 0,
-          tanggalMulai: editForm.tanggalMulai,
-          tanggalSelesai: editForm.tanggalSelesai || null,
-          status: editForm.status,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setFormError(data.message || "Gagal memperbarui proyek");
-        setShowEditProjectConfirm(false);
-        return;
-      }
-
-      setEditedProjectName(editForm.nama);
-      setEditMode(false);
-      setShowProjectDetail(null);
-      setIsDirectEdit(false);
-      setShowEditProjectConfirm(false);
-      setShowEditProjectSuccess(true);
-      fetchData();
-    } catch {
-      setFormError("Terjadi kesalahan koneksi");
-      setShowEditProjectConfirm(false);
-    } finally {
-      setSubmitting(false);
-    }
+  const handleProjectSaved = () => {
+    setEditMode(false);
+    setIsDirectEdit(false);
+    setShowProjectDetail(null);
+    fetchData();
   };
 
   const handleReactivateProject = () => {
@@ -481,16 +182,20 @@ export default function KelolaProyekPage() {
 
   const handleConfirmReactivateProject = async () => {
     if (!showProjectDetail) return;
+    const src: any =
+      detailedProjectInfo && detailedProjectInfo.id === showProjectDetail.id
+        ? detailedProjectInfo
+        : showProjectDetail;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/proyek/${showProjectDetail.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nama: editForm.nama,
-          deskripsi: editForm.deskripsi,
-          tanggalMulai: editForm.tanggalMulai,
-          tanggalSelesai: editForm.tanggalSelesai || null,
+          nama: src.nama,
+          deskripsi: src.deskripsi || "",
+          tanggalMulai: src.tanggalMulai ? String(src.tanggalMulai).split("T")[0] : "",
+          tanggalSelesai: src.tanggalSelesai ? String(src.tanggalSelesai).split("T")[0] : null,
           status: "Active",
         }),
       });
@@ -500,7 +205,7 @@ export default function KelolaProyekPage() {
         setShowReactivateConfirm(false);
         return;
       }
-      setReactivatedProjectName(editForm.nama);
+      setReactivatedProjectName(src.nama);
       fetchData();
       handleOpenDetailModal(data.project || showProjectDetail);
       setShowReactivateConfirm(false);
@@ -508,55 +213,6 @@ export default function KelolaProyekPage() {
     } catch {
       setFormError("Terjadi kesalahan koneksi");
       setShowReactivateConfirm(false);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleSaveMembers = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showAssignMembers) return;
-    setFormError("");
-    setSuccess("");
-
-    const isUnchanged = initialProjectMembers.length === selectedProjectMembers.length &&
-      selectedProjectMembers.every(curr => {
-        const prev = initialProjectMembers.find(p => p.userId === curr.userId);
-        return prev && prev.role === curr.role;
-      });
-
-    if (isUnchanged && initialProjectMembers.length > 0) {
-      setFormError("Tidak ada perubahan penugasan anggota pada proyek ini. Seluruh anggota yang dipilih sudah memiliki role tersebut.");
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const token = localStorage.getItem("token");
-
-      const res = await fetch(`/api/manager/proyek/${showAssignMembers.id}/members`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          members: selectedProjectMembers,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setFormError(data.message || "Gagal mengatur anggota proyek");
-        return;
-      }
-
-      setSuccess(`Anggota proyek untuk "${showAssignMembers.nama}" berhasil disimpan!`);
-      setShowAssignMembers(null);
-      fetchData();
-    } catch {
-      setFormError("Terjadi kesalahan koneksi");
     } finally {
       setSubmitting(false);
     }
@@ -669,78 +325,14 @@ export default function KelolaProyekPage() {
     }
   };
 
-  const [pendingBudgetPayload, setPendingBudgetPayload] = useState<any>(null);
-
-  const handleInitBudget = (payload: any) => {
-    if (!showInitBudget) return;
-    setFormError("");
-
-    const total = payload?.nilaiKontrak || ribuanToNumber(rabTotal);
-    if (total <= 0) {
-      setFormError("Total Nilai Proyek harus berupa angka positif");
-      return;
-    }
-
-    setPendingBudgetPayload(payload);
-    setShowInitBudgetConfirm(true);
-  };
-
-  const handleConfirmInitBudget = async () => {
-    if (!showInitBudget) return;
-
-    setSubmitting(true);
-    try {
-      const payloadToSend = pendingBudgetPayload || {
-        nilaiKontrak: ribuanToNumber(rabTotal),
-        rabTotal: posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0),
-        targetPemasukan: 0,
-        posPengeluaran: posAnggaranList.map((pos) => ({
-          deskripsi: pos.deskripsi,
-          nominalAlokasi: ribuanToNumber(pos.nominalAlokasi),
-        })),
-        posPemasukan: [],
-      };
-
-      const res = await fetch(`/api/proyek/${showInitBudget.id}/budget`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payloadToSend),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setFormError(data.message || "Gagal menginisialisasi budget");
-        setShowInitBudgetConfirm(false);
-        return;
-      }
-
-      setInitBudgetProjectName(showInitBudget.nama);
-      setShowInitBudget(null);
-      setRabTotal("");
-      setPendingBudgetPayload(null);
-      setShowInitBudgetConfirm(false);
-      setShowInitBudgetSuccess(true);
-      fetchData();
-      if (showProjectDetail?.id === showInitBudget.id) {
-        refreshDetailedProject(showInitBudget.id);
-      }
-    } catch {
-      setFormError("Terjadi kesalahan koneksi");
-      setShowInitBudgetConfirm(false);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const currentStatus = detailedProjectInfo?.status || showProjectDetail?.status;
 
   return (
-    <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-6">
-      {/* Header */}
+    <main className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900 leading-tight">Kelola Proyek</h1>
-          <p className="text-sm text-stone-500 mt-1">
+          <p className="text-sm text-stone-500 mt-1.5">
             Pantau daftar proyek, tambahkan proyek baru, assign anggota tim, dan konfigurasi alokasi dana proyek.
           </p>
         </div>
@@ -753,7 +345,6 @@ export default function KelolaProyekPage() {
         </button>
       </div>
 
-      {/* Baris Pencarian dan Filter Status */}
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="w-full lg:max-w-2xl">
           <input
@@ -785,7 +376,6 @@ export default function KelolaProyekPage() {
         </div>
       </div>
 
-      {/* Success Banner */}
       {success && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
           <Check size={16} />
@@ -793,11 +383,27 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
-      {/* List of Projects Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-24 gap-3 text-stone-400">
-          <Loader2 size={24} className="animate-spin" />
-          <span className="text-sm">Memuat data proyek...</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white border border-stone-200 rounded-2xl p-5 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-stone-200 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-stone-200 rounded-md" />
+                  <div className="h-3 bg-stone-100 rounded-md w-2/3" />
+                </div>
+              </div>
+              <div className="space-y-2.5">
+                <div className="h-3 bg-stone-100 rounded w-4/5" />
+                <div className="h-3 bg-stone-100 rounded w-3/5" />
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <div className="h-5 w-16 bg-stone-200 rounded-full" />
+                <div className="h-4 w-20 bg-stone-100 rounded-md" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : projects.length === 0 ? (
         <div className="bg-white border border-stone-200 rounded-2xl p-12 text-center text-stone-400 space-y-3">
@@ -814,7 +420,7 @@ export default function KelolaProyekPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {projects.map((project) => {
             const hasBudget = !!project.budget;
-            const totalRAB = hasBudget ? (Number(project.budget!.nilaiKontrak || project.budget!.rabTotal) || 0) : 0;
+            const totalRAB = hasBudget ? (Number(project.budget!.nilaiKontrak) || 0) : 0;
             const mainPemasukanList = (project.budget?.posAnggaran || (project.budget as any)?.mainAnggaran || []).filter(
               (m: any) =>
                 m.tipe === "pemasukan" ||
@@ -843,7 +449,7 @@ export default function KelolaProyekPage() {
               >
                 <div className="space-y-3 text-left">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold font-mono text-stone-400 bg-stone-100/80 px-2.5 py-1.5 rounded-xl tracking-wide">
+                    <span className="text-[11px] font-bold  text-stone-400 bg-stone-100/80 px-2.5 py-1.5 rounded-xl tracking-wide">
                       PRJ-{String(project.id).padStart(3, "0")}
                     </span>
                     <span className={`text-[12px] font-bold px-3 py-1.5 rounded-2xl ${getStatusStyles(project.status)}`}>
@@ -876,7 +482,7 @@ export default function KelolaProyekPage() {
                         <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">TOTAL NILAI PROYEK</span>
                         <span
                           title={formatRupiah(totalRAB)}
-                          className="font-mono font-black text-stone-900 text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
+                          className=" font-black text-stone-900 text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
                         >
                           {formatSummaryRupiah(totalRAB)}
                         </span>
@@ -885,7 +491,7 @@ export default function KelolaProyekPage() {
                         <span className="text-[10px] font-extrabold text-stone-400 block tracking-wider uppercase">PENDAPATAN</span>
                         <span
                           title={formatRupiah(pendapatan)}
-                          className="font-mono font-black text-[#1b4332] text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
+                          className=" font-black text-[#1b4332] text-[15px] block mt-1 cursor-pointer hover:opacity-80 transition"
                         >
                           {formatSummaryRupiah(pendapatan)}
                         </span>
@@ -935,98 +541,26 @@ export default function KelolaProyekPage() {
         </div>
       )}
 
-      {/* Pop-up Dialogs & Modals */}
       {!loading && projects.length > 0 && (
-        <div className="mt-8 pt-6 flex justify-center w-full">
-
-          {totalPages > 1 && (
-            <div className="flex items-center gap-4 text-[16px] text-stone-500 font-medium">
-
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="hover:text-stone-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors p-1"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-              </button>
-
-              <div className="flex items-center gap-4">
-                {(() => {
-                  const maxVisiblePages = 5;
-
-                  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-                  let endPage = startPage + maxVisiblePages - 1;
-
-                  if (endPage > totalPages) {
-                    endPage = totalPages;
-                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
-                  }
-
-                  const visiblePages = Array.from(
-                    { length: endPage - startPage + 1 },
-                    (_, i) => startPage + i
-                  );
-
-                  return visiblePages.map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`transition-colors ${currentPage === page
-                        ? "text-[#2d6a4f] font-bold cursor-default scale-110"
-                        : "hover:text-stone-900 cursor-pointer"
-                        }`}
-                    >
-                      {page}
-                    </button>
-                  ));
-                })()}
-              </div>
-
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="hover:text-stone-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors p-1"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-              </button>
-
-            </div>
-          )}
-        </div>
+        <Pagination page={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
       )}
-      <AddProjectModal
+
+      <AddProjectForm
         show={showAddProject}
         onClose={() => setShowAddProject(false)}
-        onSubmit={handleAddProject}
-        projectForm={projectForm}
-        setProjectForm={setProjectForm}
-        formError={formError}
-        submitting={submitting}
+        onSaved={fetchData}
       />
 
-      <AssignMembersModal
-        showAssignMembers={showAssignMembers}
-        onClose={() => setShowAssignMembers(null)}
-        members={members}
-        selectedProjectMembers={selectedProjectMembers}
-        setSelectedProjectMembers={setSelectedProjectMembers}
-        initialProjectMembers={initialProjectMembers}
-        formError={formError}
-        submitting={submitting}
-        onSave={handleSaveMembers}
-      />
-
-      <InitBudgetModal
-        showInitBudget={showInitBudget}
-        onClose={() => setShowInitBudget(null)}
-        onSubmit={handleInitBudget}
+      <AlokasiPengeluaranForm
+        showInitBudget={showAlokasiPengeluaran}
         detailedProjectInfo={detailedProjectInfo}
-        rabTotal={rabTotal}
-        setRabTotal={setRabTotal}
-        posAnggaranList={posAnggaranList}
-        setPosAnggaranList={setPosAnggaranList}
-        formError={formError}
-        submitting={submitting}
+        onClose={() => setShowAlokasiPengeluaran(null)}
+        onSaved={() => {
+          fetchData();
+          if (showProjectDetail && showAlokasiPengeluaran && showProjectDetail.id === showAlokasiPengeluaran.id) {
+            refreshDetailedProject(showAlokasiPengeluaran.id);
+          }
+        }}
       />
 
       <ProjectDetailSidebar
@@ -1038,27 +572,9 @@ export default function KelolaProyekPage() {
         detailedProjectInfo={detailedProjectInfo}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        timeFilter={timeFilter}
-        setTimeFilter={setTimeFilter}
-        activeCashFlow={activeCashFlow}
-        inflowNominal={inflowNominal}
-        outflowNominal={outflowNominal}
-        netCashNominal={netCashNominal}
-        sudahReimburseNominal={sudahReimburseNominal}
-        belumReimburseNominal={belumReimburseNominal}
-        sudahReimburseCount={sudahReimburseCount}
-        belumReimburseCount={belumReimburseCount}
-        detailTotalRAB={detailTotalRAB}
-        detailTotalTerpakai={detailTotalTerpakai}
-        detailPercentUsed={detailPercentUsed}
-        detailBarWidth={detailBarWidth}
-        setSelectedPendingIds={setSelectedPendingIds}
         setShowPendingPmModal={setShowPendingPmModal}
-        fetchPendingPengajuan={fetchPendingPengajuan}
-        setRabTotal={setRabTotal}
-        setPosAnggaranList={setPosAnggaranList}
-        setShowInitBudget={setShowInitBudget}
-        setShowDetailBudgetModal={setShowDetailBudgetModal}
+        setShowAlokasiPengeluaran={setShowAlokasiPengeluaran}
+        setShowDetailPengeluaran={setShowDetailPengeluaran}
         teamRows={teamRows}
         setTeamRows={setTeamRows}
         members={members}
@@ -1075,119 +591,27 @@ export default function KelolaProyekPage() {
         onTerminChanged={() => { if (showProjectDetail) refreshDetailedProject(showProjectDetail.id); }}
       />
 
-      <EditProjectModal
+      <EditProjectForm
         editMode={editMode}
+        project={detailSource}
         onClose={handleCloseEdit}
-        onSubmit={handleUpdateProject}
-        editForm={editForm}
-        setEditForm={setEditForm}
-        formError={formError}
-        submitting={submitting}
-        projectDetail={detailedProjectInfo || showProjectDetail}
+        onSaved={handleProjectSaved}
       />
 
-      <DetailBudgetModal
-        showDetailBudgetModal={showDetailBudgetModal}
-        onClose={() => setShowDetailBudgetModal(false)}
+      <DetailPengeluaranModal
+        showDetailBudgetModal={showDetailPengeluaran}
+        onClose={() => setShowDetailPengeluaran(false)}
         detailedProjectInfo={detailedProjectInfo}
-        expandedMain={expandedMain}
-        setExpandedMain={setExpandedMain}
-        expandedSub={expandedSub}
-        setExpandedSub={setExpandedSub}
-        expandedKet={expandedKet}
-        setExpandedKet={setExpandedKet}
       />
 
       <PendingPmModal
-        showPendingPmModal={showPendingPmModal}
+        open={showPendingPmModal}
+        project={detailedProjectInfo}
         onClose={() => setShowPendingPmModal(false)}
-        detailedProjectInfo={detailedProjectInfo}
-        pendingPengajuan={pendingPengajuan}
-        selectedIds={selectedPendingIds}
-        setSelectedIds={setSelectedPendingIds}
-        rejectingPengajuan={rejectingPengajuan}
-        setRejectingPengajuan={setRejectingPengajuan}
-        rejectionReason={rejectionReason}
-        setRejectionReason={setRejectionReason}
-        handleBulkReview={handleBulkReview}
-      />
-
-      <Toast
-        open={showBulkRejectToast}
-        message={`Berhasil menolak ${bulkRejectedCount} item pengajuan.`}
-        onClose={() => setShowBulkRejectToast(false)}
-      />
-
-      <SuccessDialog
-        open={showBulkApproveSuccess}
-        title="Pengajuan Disetujui"
-        description={<>Berhasil menyetujui <span className="font-semibold text-[#14130F]">{bulkApprovedCount}</span> item pengajuan.</>}
-        onClose={() => setShowBulkApproveSuccess(false)}
-      />
-
-      <ConfirmDialog
-        open={showAddProjectConfirm}
-        title="Buat Proyek Baru"
-        description={
-          <>
-            Apakah Anda yakin ingin membuat proyek <span className="font-semibold text-stone-900">{projectForm.nama}</span> ({projectForm.tanggalMulai} s/d {projectForm.tanggalSelesai}) dengan status <span className="font-semibold text-stone-900">{projectForm.status}</span>?
-          </>
-        }
-        confirmLabel="Buat Proyek"
-        isLoading={submitting}
-        onCancel={() => setShowAddProjectConfirm(false)}
-        onConfirm={handleConfirmAddProject}
-      />
-
-      <SuccessDialog
-        open={showAddProjectSuccess}
-        title="Proyek Berhasil Dibuat"
-        description={<>Proyek <span className="font-semibold text-[#14130F]">{newProjectName}</span> berhasil dibuat.</>}
-        onClose={() => setShowAddProjectSuccess(false)}
-      />
-
-      <ConfirmDialog
-        open={showEditProjectConfirm}
-        title="Simpan Perubahan Proyek"
-        description={
-          <>
-            Apakah Anda yakin ingin menyimpan perubahan proyek <span className="font-semibold text-stone-900">{editForm.nama}</span>? Status akan diubah menjadi <span className="font-semibold text-stone-900">{editForm.status}</span>, periode {editForm.tanggalMulai} s/d {editForm.tanggalSelesai || "-"}.
-          </>
-        }
-        confirmLabel="Simpan"
-        isLoading={submitting}
-        onCancel={() => setShowEditProjectConfirm(false)}
-        onConfirm={handleConfirmUpdateProject}
-      />
-
-      <SuccessDialog
-        open={showEditProjectSuccess}
-        title="Proyek Berhasil Diperbarui"
-        description={<>Proyek <span className="font-semibold text-[#14130F]">{editedProjectName}</span> berhasil diperbarui.</>}
-        onClose={() => setShowEditProjectSuccess(false)}
-      />
-
-      <ConfirmDialog
-        open={showInitBudgetConfirm}
-        title="Simpan Nilai Proyek"
-        description={
-          showInitBudget && (
-            <>
-              Apakah Anda yakin ingin menyimpan Nilai Proyek <span className="font-semibold text-stone-900">{showInitBudget.nama}</span> senilai <span className="font-semibold text-stone-900">Rp {rabTotal}</span> dengan <span className="font-semibold text-stone-900">{posAnggaranList.length} pos anggaran</span>? Data pos anggaran yang sudah ada sebelumnya akan diganti sesuai isian ini.
-            </>
-          )
-        }
-        confirmLabel="Simpan"
-        isLoading={submitting}
-        onCancel={() => setShowInitBudgetConfirm(false)}
-        onConfirm={handleConfirmInitBudget}
-      />
-
-      <SuccessDialog
-        open={showInitBudgetSuccess}
-        title="Nilai Proyek Berhasil Disimpan"
-        description={<>Nilai Proyek <span className="font-semibold text-[#14130F]">{initBudgetProjectName}</span> berhasil disimpan.</>}
-        onClose={() => setShowInitBudgetSuccess(false)}
+        onChanged={() => {
+          fetchData();
+          if (showProjectDetail) refreshDetailedProject(showProjectDetail.id);
+        }}
       />
 
       <ConfirmDialog
@@ -1204,13 +628,6 @@ export default function KelolaProyekPage() {
         open={showSaveTeamToast}
         message="Penugasan tim berhasil disimpan."
         onClose={() => setShowSaveTeamToast(false)}
-      />
-
-      <Toast
-        open={!!errorMessage}
-        variant="error"
-        message={errorMessage || ""}
-        onClose={() => setErrorMessage(null)}
       />
 
       <ConfirmDialog

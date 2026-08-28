@@ -17,7 +17,6 @@ interface CachedAIChatContext {
   coas: any[];
   totalJurnal: number;
 
-  // Pre-calculated fields for optimized AI queries
   pendingStats: {
     count: number;
     totalNominal: number;
@@ -26,8 +25,6 @@ interface CachedAIChatContext {
     countRealisasiAnggaran: number;
     countReimbursementBiasa: number;
   };
-  // Agregat akurat (dihitung langsung dari DB, TIDAK dibatasi window "30 terbaru")
-  // supaya pertanyaan seperti "total bulan ini" selalu benar walau datanya lebih dari 30 baris.
   thisMonthStats: {
     count: number;
     totalNominal: number;
@@ -42,14 +39,12 @@ interface CachedAIChatContext {
   } | null;
 }
 
-// Role dengan akses penuh ke seluruh data perusahaan (tidak dibatasi per proyek/user)
-const FULL_ACCESS_ROLES = ['Tim Keuangan', 'Direktur / Manajemen'];
+const FULL_ACCESS_ROLES = ['Tim Keuangan', 'Direktur / Manajemen', 'Superadmin', 'superadmin', 'Super Admin'];
 
-// Role yang halamannya menampilkan susunan tim proyek (assign anggota) & workflow Pengajuan Anggaran (usulan ubah struktur pos anggaran)
-const TEAM_AND_PROPOSAL_ROLES = ['Project Manager', 'Direktur / Manajemen'];
+const TEAM_AND_PROPOSAL_ROLES = ['Project Manager', 'Direktur / Manajemen', 'Superadmin', 'superadmin', 'Super Admin'];
 
 const cacheStore = new Map<string, { data: CachedAIChatContext; time: number }>();
-const CACHE_TTL = 30000; // 30 seconds
+const CACHE_TTL = 30000;
 
 function cacheKeyFor(scope: AIChatScope): string {
   if (FULL_ACCESS_ROLES.includes(scope.role)) return 'full';
@@ -70,10 +65,6 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
   const isFullAccess = FULL_ACCESS_ROLES.includes(scope.role);
   const canSeeTeamAndProposals = TEAM_AND_PROPOSAL_ROLES.includes(scope.role);
 
-  // Batasi proyek yang boleh dilihat sesuai role:
-  // - Project Manager: hanya proyek yang dia pegang sebagai PM
-  // - Karyawan: hanya proyek yang sedang dia pilih/aktif
-  // - Tim Keuangan / Direktur: semua proyek (tidak dibatasi)
   let proyekIdScope: number[] | null = null;
   if (scope.role === 'Project Manager') {
     const managed = await prisma.userProyek.findMany({
@@ -112,7 +103,7 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
       include: {
         budget: {
           select: {
-            rabTotal: true,
+            nilaiKontrak: true,
             totalPengeluaran: true,
             totalReimbursement: true,
             sisaBudget: true,
@@ -157,7 +148,6 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
         },
       },
     }),
-    // CoA & jurnal akuntansi adalah domain Tim Keuangan/Direktur — role lain tidak diberi akses
     isFullAccess
       ? prisma.masterSub.findMany({ where: { tipe: 'pemasukan' }, select: { id: true, nama: true, tipe: true } })
       : Promise.resolve([]),
@@ -187,7 +177,6 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
         },
       },
     }),
-    // Susunan tim proyek (siapa jadi PM/Karyawan di proyek mana) — hanya relevan untuk PM (tim yang dia kelola) & Direktur (semua tim)
     canSeeTeamAndProposals
       ? prisma.userProyek.findMany({
           where: proyekWhere.id ? { proyekId: proyekWhere.id } : {},
@@ -199,7 +188,6 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
           },
         })
       : Promise.resolve([]),
-    // Pengajuan Anggaran: usulan ubah struktur pos anggaran (tambah/ubah/hapus) yang diajukan PM & direview Direktur — beda dari Reimbursement/Realisasi
     canSeeTeamAndProposals
       ? prisma.pengajuanAnggaran.findMany({
           where: proyekWhere.id ? { proyekId: proyekWhere.id } : {},
@@ -212,7 +200,6 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
           },
         })
       : Promise.resolve([]),
-    // Agregat bulan berjalan — query terpisah (bukan dari list "30 terbaru") supaya totalnya selalu akurat
     prisma.reimbursement.aggregate({
       where: { ...reimbursementScopeWhere, createdAt: { gte: startOfMonth } },
       _count: true,
@@ -221,16 +208,16 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
   ]);
 
   const projectsContext = projects.map((p: any) => {
-    const rab = p.budget ? Number(p.budget.rabTotal) : 0;
+    const nilaiKontrak = p.budget ? Number(p.budget.nilaiKontrak) : 0;
     const sisa = p.budget ? Number(p.budget.sisaBudget) : 0;
-    const margin = rab > 0 ? parseFloat(((sisa / rab) * 100).toFixed(1)) : 0;
+    const margin = nilaiKontrak > 0 ? parseFloat(((sisa / nilaiKontrak) * 100).toFixed(1)) : 0;
 
     return {
       id: p.id,
       nama: p.nama,
       status: p.status,
       budget: p.budget ? {
-        rabTotal: rab,
+        nilaiKontrak: nilaiKontrak,
         totalPengeluaran: Number(p.budget.totalPengeluaran),
         totalReimbursement: Number(p.budget.totalReimbursement),
         sisaBudget: sisa,
@@ -240,8 +227,6 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
     };
   });
 
-  // Flatten rencana anggaran (pos anggaran) per proyek: Main -> Sub -> Keterangan, dengan alokasi & realisasi masing-masing.
-  // Ini mencakup pos yang BELUM PERNAH ada transaksinya sekalipun, karena diambil dari rencana budget, bukan dari histori transaksi.
   const posAnggaranContext: any[] = [];
   for (const p of projects as any[]) {
     if (!p.budget) continue;
@@ -262,7 +247,6 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
     }
   }
 
-  // Susunan tim per proyek (siapa Project Manager, siapa Karyawan/anggota, divisi apa)
   const teamContext = (teamRows as any[]).map((t) => ({
     proyek: t.proyek.nama,
     nama: t.user.nama,
@@ -270,7 +254,6 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
     divisi: t.divisi || null,
   }));
 
-  // Pengajuan Anggaran: usulan perubahan alokasi pos anggaran (MainAnggaran) oleh PM yang direview Direktur, workflow terpisah dari Reimbursement/Realisasi
   const pengajuanAnggaranContext = (pengajuanAnggaranRows as any[]).map((pa) => ({
     id: pa.id,
     proyek: pa.proyek.nama,
@@ -355,8 +338,4 @@ export async function getAIChatContext(scope: AIChatScope): Promise<CachedAIChat
   cacheStore.set(key, { data, time: now });
 
   return data;
-}
-
-export function clearAIChatContextCache() {
-  cacheStore.clear();
 }

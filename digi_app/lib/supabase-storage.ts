@@ -6,13 +6,8 @@ import path from 'path';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dndluxlfsdjotjcqotfp.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Singleton client Supabase
 export const supabase = createClient(supabaseUrl, supabaseKey || 'dummy-key-for-build');
 
-/**
- * Mengompresi file gambar/base64 menjadi format WebP buffer dan mengunggahnya ke Supabase Storage.
- * Jika Supabase key tidak valid atau bucket belum dikonfigurasi, otomatis simpan ke local storage (/uploads).
- */
 export async function uploadStrukToSupabase(
   input: Buffer | string,
   customFileName?: string,
@@ -22,7 +17,6 @@ export async function uploadStrukToSupabase(
 
   if (typeof input === 'string') {
     if (input.startsWith('http://') || input.startsWith('https://')) {
-      // Sudah berupa URL eksternal / Supabase URL
       return input;
     }
     if (input.startsWith('/uploads/')) {
@@ -36,14 +30,12 @@ export async function uploadStrukToSupabase(
         return input;
       }
     } else {
-      // Jika string base64 murni tanpa prefix data URI
       buffer = Buffer.from(input, 'base64');
     }
   } else {
     buffer = input;
   }
 
-  // Cek apakah buffer berupa file PDF (header magic bytes %PDF)
   const isPdf = isPdfHint || (buffer.length > 4 && buffer.subarray(0, 4).toString() === '%PDF');
 
   let fileBuffer: Buffer = buffer;
@@ -51,7 +43,6 @@ export async function uploadStrukToSupabase(
   let fileExt = 'webp';
 
   if (isPdf) {
-    // Jika PDF > 3MB, kompres gambar struk/invoice di dalamnya agar file yang disimpan <= 3MB
     if (buffer.length > 3 * 1024 * 1024) {
       try {
         const soi = Buffer.from([0xff, 0xd8, 0xff]);
@@ -102,7 +93,6 @@ export async function uploadStrukToSupabase(
       fileExt = 'pdf';
     }
   } else {
-    // 1. Kompresi Gambar ke WebP (Otomatis mengecilkan file mentah hingga di bawah 3MB)
     try {
       let compressed = await sharp(buffer)
         .resize({
@@ -114,7 +104,6 @@ export async function uploadStrukToSupabase(
         .webp({ quality: 75 })
         .toBuffer();
 
-      // Multi-tier compression jika foto berukuran sangat besar (> 3MB)
       if (compressed.length > 3 * 1024 * 1024) {
         compressed = await sharp(compressed)
           .resize({ width: 1280, height: 1280, fit: 'inside' })
@@ -136,13 +125,11 @@ export async function uploadStrukToSupabase(
     }
   }
 
-  // 2. Tentukan Nama File Unik
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
   const fileName = customFileName || `struk_${timestamp}_${randomStr}.${fileExt}`;
   const bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'struk-reimbursement';
 
-  // 3. Coba upload ke Supabase Storage jika API Key valid
   if (supabaseKey && supabaseKey !== 'dummy-key-for-build') {
     try {
       const { data, error } = await supabase.storage
@@ -160,11 +147,10 @@ export async function uploadStrukToSupabase(
 
       return publicUrlData.publicUrl;
     } catch (supabaseErr: any) {
-      console.warn(`⚠️ Supabase Storage upload error (${supabaseErr?.message}). Fallback ke local storage...`);
+      console.warn(`Supabase Storage upload error (${supabaseErr?.message}). Fallback ke local storage...`);
     }
   }
 
-  // 4. Local Storage Fallback (Simpan ke public/uploads) jika Supabase Key belum dikonfigurasi / error
   try {
     const uploadDir = path.join(process.cwd(), 'public', 'uploads');
     if (!fs.existsSync(uploadDir)) {
@@ -174,7 +160,7 @@ export async function uploadStrukToSupabase(
     fs.writeFileSync(filePath, fileBuffer);
     return `/uploads/${fileName}`;
   } catch (fsErr: any) {
-    console.error('❌ Local storage fallback error:', fsErr);
+    console.error('Local storage fallback error:', fsErr);
     return `/uploads/placeholder.png`;
   }
 }

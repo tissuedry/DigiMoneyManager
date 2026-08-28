@@ -14,7 +14,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
         onClose={() => setIsSidebarOpen(false)}
         userRole="Direktur / Manajemen"
       />
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f4f0] overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f9f8f4] overflow-hidden">
         <Header
           onOpenSidebar={() => setIsSidebarOpen(true)}
           userRole="Direktur / Manajemen"

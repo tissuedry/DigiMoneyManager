@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
 
-// GET: Fetch notifications for the logged-in user
 export async function GET(req: NextRequest) {
   try {
     const userId = parseInt(req.headers.get('x-user-id') || "", 10);
@@ -56,7 +55,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT: Mark notification(s) as read
 export async function PUT(req: NextRequest) {
   try {
     const userId = req.headers.get('x-user-id');

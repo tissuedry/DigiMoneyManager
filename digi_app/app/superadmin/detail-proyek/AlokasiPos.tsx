@@ -92,6 +92,7 @@ export default function AlokasiPosModal({
   totalRAB,
   realisasi,
   posAnggaran,
+  totalAlokasiPemasukan = 0,
   onClose,
   onSuccess,
 }: {
@@ -100,6 +101,7 @@ export default function AlokasiPosModal({
   totalRAB: number;
   realisasi: number;
   posAnggaran: any[];
+  totalAlokasiPemasukan?: number;
   onClose: () => void;
   onSuccess?: (message?: string) => void;
 }) {
@@ -132,7 +134,6 @@ export default function AlokasiPosModal({
       })),
     }));
 
-    // Restore unsubmitted local drafts from localStorage
     const savedDrafts = getDraftsFromStorage(proyekId);
     const autoExpandMains: Record<number, boolean> = {};
 
@@ -197,22 +198,18 @@ export default function AlokasiPosModal({
     }
   }, [data, expandedMain]);
 
-  // Adding Main state
   const [isAddingMain, setIsAddingMain] = useState(false);
   const [newMainName, setNewMainName] = useState("");
   const [newMainAlokasi, setNewMainAlokasi] = useState("");
 
-  // Adding Sub state
   const [addingSubMainId, setAddingSubMainId] = useState<number | null>(null);
   const [newSubName, setNewSubName] = useState("");
   const [newSubAlokasi, setNewSubAlokasi] = useState("");
 
-  // Adding Keterangan state
   const [addingKetSubId, setAddingKetSubId] = useState<number | null>(null);
   const [newKetName, setNewKetName] = useState("");
   const [newKetAlokasi, setNewKetAlokasi] = useState("");
 
-  // Master data states for dropdowns
   const [masterMainList, setMasterMainList] = useState<any[]>([]);
   const [subOptions, setSubOptions] = useState<Record<number, any[]>>({});
   const [loadingSubOptions, setLoadingSubOptions] = useState<Record<number, boolean>>({});
@@ -288,7 +285,7 @@ export default function AlokasiPosModal({
     const alokasiVal = parseRupiahInput(newMainAlokasi);
 
     const currentTotal = data.reduce((sum, m) => sum + m.alokasi, 0);
-    if (currentTotal + alokasiVal > totalRAB) {
+    if (currentTotal + totalAlokasiPemasukan + alokasiVal > totalRAB) {
       alert("Total alokasi Main Pos melebihi Nilai Proyek (total RAB)!");
       return;
     }
@@ -574,7 +571,6 @@ export default function AlokasiPosModal({
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-[20px] shadow-[0px_24px_64px_0px_rgba(20,18,14,0.28)] w-full max-w-[820px] max-h-[88vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
 
-        {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-[#e6e1d4] flex items-center justify-between shrink-0">
           <div>
             <h2 className="text-[17px] font-bold text-[#14130f] leading-[25.5px]">Alokasi Pos</h2>
@@ -585,19 +581,16 @@ export default function AlokasiPosModal({
           </button>
         </div>
 
-        {/* Error banner */}
         {error && (
           <div className="mx-6 mt-4 bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-4 py-2.5 text-[12px] font-medium text-[#902f33]">{error}</div>
         )}
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-          {/* Realisasi Anggaran Card */}
           <div className="bg-white border border-[#e6e1d4] rounded-[16px] p-4 space-y-2.5 shadow-[0px_0px_0px_1px_rgba(20,18,14,0.04),0px_1px_2px_0px_rgba(20,18,14,0.05)]">
             <div className="flex items-center justify-between text-[13px]">
               <span className="font-semibold text-[#14130f]">Realisasi Anggaran</span>
-              <span className="font-bold text-[#14130f] font-mono">{progressPct.toFixed(0)}%</span>
+              <span className="font-bold text-[#14130f] ">{progressPct.toFixed(0)}%</span>
             </div>
             <div className="w-full bg-[#f3f0e9] h-2 rounded-full overflow-hidden">
               <div className="h-full bg-[#009162] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
@@ -605,18 +598,18 @@ export default function AlokasiPosModal({
             <div className="flex justify-between items-center text-[12px] pt-1">
               <div className="flex items-baseline gap-1">
                 <span className="font-medium text-[#000000]">Nilai Proyek</span>
-                <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
-                <span title={`Rp ${Math.round(totalRAB || 0).toLocaleString("id-ID")}`} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatShort(totalRAB).replace(/^Rp\s?/, '')}</span>
+                <span className="text-[10.2px] font-medium text-[#9a948b] ">Rp</span>
+                <span title={`Rp ${Math.round(totalRAB || 0).toLocaleString("id-ID")}`} className="font-medium text-[#14130f]  cursor-pointer">{formatShort(totalRAB).replace(/^Rp\s?/, '')}</span>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-medium text-[#000000]">Realisasi</span>
-                <span className="text-[10.2px] font-medium text-[#9a948b] font-mono">Rp</span>
-                <span title={`Rp ${Math.round(realisasi || 0).toLocaleString("id-ID")}`} className="font-medium text-[#14130f] font-mono cursor-pointer">{formatShort(realisasi).replace(/^Rp\s?/, '')}</span>
+                <span className="text-[10.2px] font-medium text-[#9a948b] ">Rp</span>
+                <span title={`Rp ${Math.round(realisasi || 0).toLocaleString("id-ID")}`} className="font-medium text-[#14130f]  cursor-pointer">{formatShort(realisasi).replace(/^Rp\s?/, '')}</span>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-normal text-[#9a948b]">Sisa</span>
-                <span className="text-[10.2px] font-bold text-[#9a948b] font-mono">Rp</span>
-                <span title={`Rp ${Math.round((totalRAB - realisasi) || 0).toLocaleString("id-ID")}`} className="font-bold text-[#14130f] font-mono cursor-pointer">{formatShort(totalRAB - realisasi).replace(/^Rp\s?/, '')}</span>
+                <span className="text-[10.2px] font-bold text-[#9a948b] ">Rp</span>
+                <span title={`Rp ${Math.round((totalRAB - realisasi) || 0).toLocaleString("id-ID")}`} className="font-bold text-[#14130f]  cursor-pointer">{formatShort(totalRAB - realisasi).replace(/^Rp\s?/, '')}</span>
               </div>
             </div>
           </div>
@@ -637,28 +630,28 @@ export default function AlokasiPosModal({
 
           {isAddingMain && (
             <div className="space-y-3 my-2 bg-white px-4">
-              {/* Budget summary for Main Pos */}
               {(() => {
                 const totalMain = data.reduce((s, m) => s + m.alokasi, 0);
                 const inputVal = parseRupiahInput(newMainAlokasi);
-                const liveTotalMain = totalMain + inputVal;
+                const liveTotalMain = totalMain + totalAlokasiPemasukan + inputVal;
+                const totalMainTeralokasi = totalMain + inputVal;
                 const sisaMain = totalRAB - liveTotalMain;
                 const isOverMain = sisaMain < 0;
                 return (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
                       <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total MAIN Teralokasi</p>
-                      <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalMain)}</p>
+                      <p className="text-[13.5px] font-normal text-[#000000] ">{formatShort(totalMainTeralokasi)}</p>
                     </div>
                     {isOverMain ? (
                       <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
                         <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
-                        <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaMain)}</p>
+                        <p className="text-[13.5px] font-normal text-[#902f33] ">{formatShort(sisaMain)}</p>
                       </div>
                     ) : (
                       <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
                         <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa RAB Belum Dialokasikan</p>
-                        <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaMain)}</p>
+                        <p className="text-[13.5px] font-normal text-[#000000] ">{formatShort(sisaMain)}</p>
                       </div>
                     )}
                   </div>
@@ -689,7 +682,7 @@ export default function AlokasiPosModal({
                     value={newMainAlokasi}
                     onChange={(e) => setNewMainAlokasi(formatInputRupiah(e.target.value))}
                     placeholder="Alokasi"
-                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#ea580c] font-mono text-[#14130f] h-[37px]"
+                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#ea580c]  text-[#14130f] h-[37px]"
                   />
                 </div>
               </div>
@@ -727,7 +720,6 @@ export default function AlokasiPosModal({
 
               return (
                 <div key={main.id} className="bg-white">
-                  {/* Main Pos Header */}
                   <div
                     onClick={() => toggleMain(main.id)}
                     className="bg-white px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-[#fbfaf6] transition select-none"
@@ -762,7 +754,7 @@ export default function AlokasiPosModal({
                         </button>
                       )}
 
-                      <span className="text-[11.5px] font-normal text-[#9a948b] font-mono text-right min-w-[90px]">{formatShort(main.alokasi)}</span>
+                      <span className="text-[11.5px] font-normal text-[#9a948b]  text-right min-w-[90px]">{formatShort(main.alokasi)}</span>
                     </div>
                   </div>
 
@@ -770,11 +762,9 @@ export default function AlokasiPosModal({
                     <div className="bg-white pb-1.5">
                       {main.subPos.map((sub) => {
                         const isSubOpen = expandedSub[sub.id] ?? false;
-                        const canExpandSub = true;
 
                         return (
                           <div key={sub.id} className="bg-white">
-                            {/* Sub Pos Header */}
                             <div
                               onClick={() => toggleSub(sub.id)}
                               className="pl-10 pr-4 py-1.5 flex items-center justify-between transition select-none cursor-pointer hover:bg-[#fbfaf6]"
@@ -809,11 +799,10 @@ export default function AlokasiPosModal({
                                   </button>
                                 )}
 
-                                <span className="text-[11.5px] font-normal text-[#9a948b] font-mono text-right min-w-[90px]">{formatShort(sub.alokasi)}</span>
+                                <span className="text-[11.5px] font-normal text-[#9a948b]  text-right min-w-[90px]">{formatShort(sub.alokasi)}</span>
                               </div>
                             </div>
 
-                            {/* Keterangan List */}
                             {isSubOpen && (
                               <div className="pl-[88px] pr-4 py-1 space-y-1 bg-white">
                                 {sub.keterangan.map((ket) => (
@@ -842,16 +831,14 @@ export default function AlokasiPosModal({
                                         </button>
                                       )}
 
-                                      <span className="text-[#9a948b] font-mono text-[11px] text-right min-w-[90px]">{formatShort(ket.alokasi)}</span>
+                                      <span className="text-[#9a948b]  text-[11px] text-right min-w-[90px]">{formatShort(ket.alokasi)}</span>
                                     </div>
                                   </div>
                                 ))}
 
-                                {/* Add Keterangan inline under Sub */}
                                 <div className="py-1 -ml-6">
                                   {addingKetSubId === sub.id ? (
                                     <div className="space-y-3 my-2 bg-white ml-6">
-                                      {/* Budget summary for this Sub */}
                                       {(() => {
                                         const totalKet = sub.keterangan.reduce((s, k) => s + k.alokasi, 0);
                                         const inputVal = parseRupiahInput(newKetAlokasi);
@@ -862,17 +849,17 @@ export default function AlokasiPosModal({
                                           <div className="grid grid-cols-2 gap-3">
                                             <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
                                               <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total SUB · {sub.nama} Teralokasi</p>
-                                              <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalKet)}</p>
+                                              <p className="text-[13.5px] font-normal text-[#000000] ">{formatShort(liveTotalKet)}</p>
                                             </div>
                                             {isOverKet ? (
                                               <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
                                                 <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
-                                                <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaKet)}</p>
+                                                <p className="text-[13.5px] font-normal text-[#902f33] ">{formatShort(sisaKet)}</p>
                                               </div>
                                             ) : (
                                               <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
                                                 <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa Sub Belum Dialokasikan</p>
-                                                <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaKet)}</p>
+                                                <p className="text-[13.5px] font-normal text-[#000000] ">{formatShort(sisaKet)}</p>
                                               </div>
                                             )}
                                           </div>
@@ -896,7 +883,7 @@ export default function AlokasiPosModal({
                                             value={newKetAlokasi}
                                             onChange={(e) => setNewKetAlokasi(formatInputRupiah(e.target.value))}
                                             placeholder="Alokasi"
-                                            className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d] font-mono text-[#14130f] h-[37px]"
+                                            className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005d8d]  text-[#14130f] h-[37px]"
                                           />
                                         </div>
                                       </div>
@@ -940,12 +927,10 @@ export default function AlokasiPosModal({
                         );
                       })}
 
-                      {/* Add Sub inline under Main (rendered ONLY ONCE per Main) */}
                       {hasAvailableSub && (
                         <div className="pl-10 pr-4 py-1">
                           {addingSubMainId === main.id ? (
                             <div className="space-y-3 my-2 bg-white">
-                              {/* Budget summary for this Main */}
                               {(() => {
                                 const totalSub = main.subPos.reduce((s, sub) => s + sub.alokasi, 0);
                                 const inputVal = parseRupiahInput(newSubAlokasi);
@@ -956,17 +941,17 @@ export default function AlokasiPosModal({
                                   <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
                                       <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Total MAIN · {main.nama} Teralokasi</p>
-                                      <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(liveTotalSub)}</p>
+                                      <p className="text-[13.5px] font-normal text-[#000000] ">{formatShort(liveTotalSub)}</p>
                                     </div>
                                     {isOverSub ? (
                                       <div className="bg-[#fdf3f2] border border-[#f3d1ce] rounded-xl px-3.5 py-2.5">
                                         <p className="text-[12px] font-semibold text-[#902f33] mb-0.5">Kelebihan Alokasi (Overbudget)</p>
-                                        <p className="text-[13.5px] font-normal text-[#902f33] font-mono">{formatShort(sisaSub)}</p>
+                                        <p className="text-[13.5px] font-normal text-[#902f33] ">{formatShort(sisaSub)}</p>
                                       </div>
                                     ) : (
                                       <div className="bg-white border border-[#e6e1d4] rounded-xl px-3.5 py-2.5">
                                         <p className="text-[12px] font-semibold text-[#14130f] mb-0.5">Sisa Main Belum Dialokasikan</p>
-                                        <p className="text-[13.5px] font-normal text-[#000000] font-mono">{formatShort(sisaSub)}</p>
+                                        <p className="text-[13.5px] font-normal text-[#000000] ">{formatShort(sisaSub)}</p>
                                       </div>
                                     )}
                                   </div>
@@ -1001,7 +986,7 @@ export default function AlokasiPosModal({
                                     value={newSubAlokasi}
                                     onChange={(e) => setNewSubAlokasi(formatInputRupiah(e.target.value))}
                                     placeholder="Alokasi"
-                                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005836] font-mono text-[#14130f] h-[37px]"
+                                    className="w-full text-[11.5px] border border-[#e6e1d4] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#005836]  text-[#14130f] h-[37px]"
                                   />
                                 </div>
                               </div>
@@ -1047,7 +1032,6 @@ export default function AlokasiPosModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-3.5 border-t border-[#e6e1d4] flex items-center justify-between shrink-0 bg-white">
           <div className="flex items-center gap-3">
             {localDraftCount > 0 && (

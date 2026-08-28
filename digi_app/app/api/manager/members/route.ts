@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 import { clearCache } from '@/lib/route-cache';
 
-// GET: List members (users) with pagination and project assignments
 export async function GET(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -88,7 +87,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Register a new member (with support for multiple projects)
 export async function POST(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -122,7 +120,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Associate with projects if projects are given
     if (proyekAssignments && Array.isArray(proyekAssignments) && proyekAssignments.length > 0) {
       const userProyeks = proyekAssignments.map((pa: any) => ({
         userId: newUser.id,
@@ -154,7 +151,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Audit trail
     const adminId = req.headers.get('x-user-id');
     if (adminId) {
       await prisma.auditTrail.create({
@@ -176,7 +172,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT: Update an existing member's details and project assignments
 export async function PUT(req: NextRequest) {
   try {
     const role = req.headers.get('x-user-role');
@@ -194,7 +189,6 @@ export async function PUT(req: NextRequest) {
 
     const trimmedEmail = String(email).trim().toLowerCase();
 
-    // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id: parseInt(userId, 10) },
       include: {
@@ -206,7 +200,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: 'Anggota tidak ditemukan' }, { status: 404 });
     }
 
-    // Check email uniqueness if email has changed
     if (trimmedEmail !== existingUser.email) {
       const duplicate = await prisma.user.findUnique({ where: { email: trimmedEmail } });
 
@@ -215,7 +208,6 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Check if anything has changed
     const namaUnchanged = existingUser.nama === nama.trim();
     const emailUnchanged = existingUser.email === trimmedEmail;
     const roleUnchanged = existingUser.role === userRole;
@@ -247,7 +239,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: 'Tidak ada perubahan data. Anggota sudah memiliki role tersebut pada proyek terkait.' }, { status: 400 });
     }
 
-    // Enforce PM Constraint: Max 1 PM per project (A single project cannot have multiple PMs)
     if (proyekAssignments && Array.isArray(proyekAssignments)) {
       const pmAsses = proyekAssignments.filter((pa: any) => pa.role === 'Project Manager');
       for (const pmAss of pmAsses) {
@@ -268,7 +259,6 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Update user details
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(userId, 10) },
       data: {
@@ -278,12 +268,9 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    // Delete existing project assignments
     await prisma.userProyek.deleteMany({
       where: { userId: parseInt(userId, 10) },
     });
-
-    // Create new project assignments
     if (proyekAssignments && Array.isArray(proyekAssignments) && proyekAssignments.length > 0) {
       const userProyeks = proyekAssignments.map((pa: any) => ({
         userId: parseInt(userId, 10),
@@ -306,7 +293,6 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    // Audit trail
     const adminId = req.headers.get('x-user-id');
     if (adminId) {
       await prisma.auditTrail.create({

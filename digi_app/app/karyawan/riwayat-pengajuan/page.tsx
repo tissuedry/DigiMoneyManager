@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Filter, Eye, X, Download, RefreshCw, AlertTriangle, ArrowUpDown, Search, ChevronDown, ZoomIn } from "lucide-react";
 import Sidebar from '@/components/sidebar';
@@ -8,6 +8,10 @@ import Header from '@/components/header';
 import SuccessDialog from '@/components/success-dialog';
 import ConfirmDialog from '@/components/confirm-dialog';
 import CompactNominal from "@/components/compact-nominal";
+import ImageLightbox from "@/components/image-lightbox";
+import { formatTanggal, formatTanggalLong, formatApprovalDate, getFileExt } from "@/lib/formatters";
+import { statusMeta } from "@/lib/status";
+import { useApi, useMutate } from "@/lib/use-api";
 
 type Submission = {
   id: string;
@@ -17,40 +21,22 @@ type Submission = {
   merchant: string;
   project: string;
   pos: string;
-  amount: string;
   amountRaw: number;
   status: "Menunggu PM" | "Menunggu Keuangan" | "Dicairkan" | "Ditolak";
+  statusKey: string;
   isResubmit: boolean;
   isResubmitted: boolean;
 };
 
 const TABS = ["Semua", "Menunggu PM", "Menunggu Keuangan", "Dicairkan", "Ditolak"];
 
-function formatTanggal(iso: string) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
-  return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
+function makeDisplayId(id: number | string) {
+  return `RB-${id}`;
 }
 
-function formatTanggalLong(iso: string) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-  return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-// Generate a display ID like "RB-2026-004"
-function makeDisplayId(id: string, index: number) {
-  const num = String(index + 1).padStart(3, "0");
-  return `RB-2026-${num}`;
-}
-
-function SkeletonRow({ index }: { index: number }) {
+function SkeletonRow() {
   return (
-    <tr key={`skeleton-${index}`} className="border-b border-stone-100 last:border-none">
+    <tr className="border-b border-stone-100 last:border-none">
       <td className="px-6 py-4"><div className="h-3 w-16 rounded bg-stone-200 animate-pulse" /></td>
       <td className="px-6 py-4"><div className="h-3 w-20 rounded bg-stone-200 animate-pulse" /></td>
       <td className="px-6 py-4"><div className="h-3 w-32 rounded bg-stone-200 animate-pulse" /></td>
@@ -63,22 +49,6 @@ function SkeletonRow({ index }: { index: number }) {
   );
 }
 
-const getStatusBadge = (status: Submission["status"]) => {
-  switch (status) {
-    case "Menunggu PM":
-      return "bg-[#fdf3e6] text-[#b46b2b]";
-    case "Menunggu Keuangan":
-      return "bg-[#e1f5fe] text-[#0277bd]";
-    case "Dicairkan":
-      return "bg-[#e2f1eb] text-[#117a5b]";
-    case "Ditolak":
-      return "bg-[#fee2e2] text-[#be123c]";
-    default:
-      return "bg-stone-100 text-stone-600";
-  }
-};
-
-// Step status type
 type StepStatus = "done" | "active" | "waiting" | "rejected";
 
 interface ApprovalStep {
@@ -93,17 +63,9 @@ function getApprovalSteps(raw: any, allRaw: any[] = []): ApprovalStep[] {
   const pmApproval = approvals.find((a: any) => a.level === "PM");
   const financeApproval = approvals.find((a: any) => a.level === "FINANCE" || a.level === "KEUANGAN");
 
-  const pmApprover = pmApproval?.approver?.nama || "Muhammad Alvin Ababli";
-  const financeApprover = financeApproval?.approver?.nama || "Muhammad Zaini";
+  const pmApprover = pmApproval?.approver?.nama || "Project Manager";
+  const financeApprover = financeApproval?.approver?.nama || "Tim Keuangan";
 
-  const formatApprovalDate = (ts: string) => {
-    if (!ts) return "";
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return "";
-    return `${d.getDate()} ${["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"][d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-  };
-
-  // PENGGUNAAN CREATED AT DI SINI
   const submittedDate = raw.createdAt;
   const submitterName = raw.user?.nama || "Karyawan";
   const submittedLabel = submittedDate
@@ -178,7 +140,7 @@ function getApprovalSteps(raw: any, allRaw: any[] = []): ApprovalStep[] {
     const rejectedApproval = originalApprovals.find((a: any) => a.status === "REJECTED");
     const rejectedByFinance = rejectedApproval?.level === "FINANCE" || rejectedApproval?.level === "KEUANGAN";
     const rejecterLabel = rejectedByFinance ? "Ditolak oleh Tim Keuangan" : "Ditolak oleh Project Manager";
-    const rejecterName = rejectedApproval?.approver?.nama || (rejectedByFinance ? "Muhammad Zaini" : "Muhammad Alvin Ababli");
+    const rejecterName = rejectedApproval?.approver?.nama || (rejectedByFinance ? "Tim Keuangan" : "Project Manager");
     const rejectedDate = rejectedApproval ? formatApprovalDate(rejectedApproval.timestamp) : "";
 
     steps[0] = { ...steps[0], label: "Pengajuan ulang dikirim" };
@@ -237,15 +199,14 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
   actionError: string | null;
 }) {
   const status = raw.status;
+  const meta = statusMeta(status);
   const uiStatus =
-    status === "SUBMITTED" ? "Menunggu PM" :
-    status === "APPROVED_BY_PM" ? "Menunggu Keuangan" :
-    status === "APPROVED" ? "Dicairkan" :
-    raw.ocrData?.resubmitFrom ? "Pengajuan Ulang Ditolak" : "Ditolak";
+    status === "SUBMITTED" || status === "APPROVED_BY_PM" || status === "APPROVED"
+      ? meta.label
+      : raw.ocrData?.resubmitFrom ? "Pengajuan Ulang Ditolak" : "Ditolak";
 
   const steps = getApprovalSteps(raw, allRaw);
-  
-  // MENGAMBIL ALASAN PENOLAKAN DARI DB
+
   const rejectedApproval = raw.approvals?.find((a: any) => a.status === "REJECTED");
   const rejectionNote = rejectedApproval?.alasan || rejectedApproval?.catatan || "";
   const rejectedByFinance = rejectedApproval?.level === "FINANCE" || rejectedApproval?.level === "KEUANGAN";
@@ -253,45 +214,27 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
 
   const resubmittedRecord = allRaw.find((r: any) => r.ocrData?.resubmitFrom === raw.id);
   const resubmittedAs = resubmittedRecord
-    ? { dbId: resubmittedRecord.id, displayId: makeDisplayId(String(resubmittedRecord.id), allRaw.findIndex((r: any) => r.id === resubmittedRecord.id)) }
+    ? { dbId: resubmittedRecord.id, displayId: makeDisplayId(resubmittedRecord.id) }
     : null;
 
   const nominalFormatted = `Rp ${Number(raw.nominal).toLocaleString("id-ID")}`;
   const tanggal = raw.tanggalStruk ? formatTanggalLong(raw.tanggalStruk.split('T')[0]) : "N/A";
 
-  const statusCardClass =
-    status === "SUBMITTED" ? "bg-[#fdf9f2] border-[#f5e4c0]" :
-    status === "APPROVED_BY_PM" ? "bg-[#f0f8ff] border-[#bce0f7]" :
-    status === "APPROVED" ? "bg-[#f0faf5] border-[#b3dece]" :
-    "bg-[#fff5f5] border-[#fbc9c9]";
-
-  const statusTextClass =
-    status === "SUBMITTED" ? "text-[#b46b2b] bg-[#fdf3e6]" :
-    status === "APPROVED_BY_PM" ? "text-[#0277bd] bg-[#e1f5fe]" :
-    status === "APPROVED" ? "text-[#117a5b] bg-[#e2f1eb]" :
-    "text-[#be123c] bg-[#fee2e2]";
-
-  const nominalClass =
-    status === "SUBMITTED" ? "text-[#b46b2b]" :
-    status === "APPROVED_BY_PM" ? "text-[#0277bd]" :
-    status === "APPROVED" ? "text-[#117a5b]" :
-    "text-[#be123c]";
-
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 pt-5 pb-4 border-b border-stone-150">
-        <p className="text-[11px] font-mono text-stone-400 mb-1">{displayId}</p>
+        <p className="text-[11px]  text-stone-400 mb-1">{displayId}</p>
         <h2 className="text-[20px] font-bold text-stone-900 leading-tight">{raw.merchant || raw.nama || "N/A"}</h2>
         <p className="text-[13px] text-stone-500 mt-0.5">{raw.proyek?.nama || "N/A"}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-        <div className={`rounded-xl border p-4 ${statusCardClass}`}>
+        <div className={`rounded-xl border p-4 ${meta.card}`}>
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wide mb-1.5">STATUS</p>
               <div className="flex items-center gap-2">
-                <span className={`inline-block px-3 py-1 rounded-full text-[11px] font-bold ${statusTextClass}`}>
+                <span className={`inline-block px-3 py-1 rounded-full text-[11px] font-bold ${meta.chip}`}>
                   {uiStatus}
                 </span>
                 {raw.ocrData?.resubmitFrom && status !== "REJECTED" && (
@@ -310,12 +253,11 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
             </div>
             <div className="text-right">
               <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wide mb-1.5">NOMINAL</p>
-              <p className={`text-[22px] font-bold tracking-tight ${nominalClass}`}>{nominalFormatted}</p>
+              <p className={`text-[22px] font-bold tracking-tight ${meta.nominal}`}>{nominalFormatted}</p>
             </div>
           </div>
         </div>
 
-        {/* TAMPILAN ALASAN PENOLAKAN */}
         {status === "REJECTED" && (
           <div className="rounded-xl border border-[#fbc9c9] bg-[#fff5f5] p-4 flex gap-3">
             <AlertTriangle size={16} className="text-[#be123c] flex-shrink-0 mt-0.5" />
@@ -466,7 +408,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           {raw.strukUrl ? (
             <a
               href={raw.strukUrl}
-              download={`bukti-${displayId}.png`}
+              download={`bukti-${displayId}${getFileExt(raw.strukUrl)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-xl text-[12px] font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
@@ -516,13 +458,10 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
 export default function RiwayatPengajuanPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("Semua");
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [rawReimbursements, setRawReimbursements] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [selectedDisplayId, setSelectedDisplayId] = useState<string>("");
   const [showCancelSuccess, setShowCancelSuccess] = useState(false);
   const [canceledLabel, setCanceledLabel] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
 
@@ -549,74 +488,46 @@ export default function RiwayatPengajuanPage() {
   const isLoadingMoreRef = useRef(false);
   const mainRef = useRef<HTMLElement>(null);
 
-  const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState("");
-  const [imageModalZoomScale, setImageModalZoomScale] = useState<number>(1);
-  const [imgPanPos, setImgPanPos] = useState({ x: 0, y: 0 });
-  const [isImgDragging, setIsImgDragging] = useState(false);
-  const [imgDragStart, setImgDragStart] = useState({ x: 0, y: 0 });
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
-  const resetImgZoomAndPan = () => {
-    setImageModalZoomScale(1);
-    setImgPanPos({ x: 0, y: 0 });
-    setIsImgDragging(false);
-  };
+  const REIMBURSEMENTS_KEY = "/api/reimbursements?role=Karyawan";
+  const { data, isLoading } = useApi<{ reimbursements?: any[] }>(REIMBURSEMENTS_KEY);
+  const rawReimbursements = useMemo(() => data?.reimbursements ?? [], [data]);
 
-  useEffect(() => {
-    if (showImageModal) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [showImageModal]);
+  const cancelMutation = useMutate(
+    `/api/reimbursements/${selectedItem?.id ?? 0}/cancel`,
+    "POST",
+    [REIMBURSEMENTS_KEY]
+  );
+  const actionLoading = cancelMutation.isPending;
 
-  const fetchReimbursements = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/reimbursements?role=Karyawan');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data.reimbursements) {
-        setRawReimbursements(data.reimbursements);
-        const mapped: Submission[] = data.reimbursements.map((r: any, i: number) => ({
-          id: makeDisplayId(String(r.id), i),
-          dbId: r.id,
-          date: r.tanggalStruk ? formatTanggal(r.tanggalStruk.split('T')[0]) : '',
-          // Ganti dari tanggalStruk menjadi createdAt untuk sortir berdasarkan pengajuan
-          lastActivityTime: [
-            r.createdAt,
-            ...(r.approvals || []).map((a: any) => a.timestamp),
-          ]
-            .map((t: string | null | undefined) => (t ? new Date(t).getTime() : NaN))
-            .filter((t: number) => !isNaN(t))
-            .reduce((max: number, t: number) => Math.max(max, t), 0),
-          merchant: r.merchant || r.nama || 'N/A',
-          project: r.proyek?.nama || 'N/A',
-          pos: r.posAnggaran?.deskripsi || r.posAnggaran?.namaPos || 'N/A',
-          amount: `Rp ${Number(r.nominal).toLocaleString('id-ID')}`,
-          amountRaw: Number(r.nominal),
-          status: (r.status === 'SUBMITTED' ? 'Menunggu PM' :
-                  r.status === 'APPROVED_BY_PM' ? 'Menunggu Keuangan' :
-                  r.status === 'APPROVED' ? 'Dicairkan' : 'Ditolak') as Submission["status"],
-          isResubmit: !!r.ocrData?.resubmitFrom,
-          isResubmitted: data.reimbursements.some((other: any) => other.ocrData?.resubmitFrom === r.id),
-        }));
-        setSubmissions(mapped);
-      }
-    } catch (err) {
-      console.error('Error fetching submissions:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReimbursements();
-  }, []);
+  const submissions = useMemo<Submission[]>(() => {
+    const resubmitTargets = new Set(
+      rawReimbursements.map((r: any) => r.ocrData?.resubmitFrom).filter(Boolean)
+    );
+    return rawReimbursements.map((r: any) => ({
+      id: makeDisplayId(r.id),
+      dbId: r.id,
+      date: r.tanggalStruk ? formatTanggal(r.tanggalStruk.split('T')[0]) : '',
+      lastActivityTime: [
+        r.createdAt,
+        ...(r.approvals || []).map((a: any) => a.timestamp),
+      ]
+        .map((t: string | null | undefined) => (t ? new Date(t).getTime() : NaN))
+        .filter((t: number) => !isNaN(t))
+        .reduce((max: number, t: number) => Math.max(max, t), 0),
+      merchant: r.merchant || r.nama || 'N/A',
+      project: r.proyek?.nama || 'N/A',
+      pos: r.posAnggaran?.deskripsi || r.posAnggaran?.namaPos || 'N/A',
+      amountRaw: Number(r.nominal),
+      status: (statusMeta(r.status).label || 'Ditolak') as Submission["status"],
+      statusKey: r.status,
+      isResubmit: !!r.ocrData?.resubmitFrom,
+      isResubmitted: resubmitTargets.has(r.id),
+    }));
+  }, [rawReimbursements]);
 
   const uniquePos = Array.from(new Set(submissions.map((s) => s.pos))).filter(Boolean);
 
@@ -715,28 +626,15 @@ export default function RiwayatPengajuanPage() {
 
   const handleConfirmCancel = async () => {
     if (!selectedItem) return;
-    setActionLoading(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/reimbursements/${selectedItem.id}/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setActionError(data.message || 'Gagal membatalkan pengajuan');
-        return;
-      }
+      await cancelMutation.mutateAsync({});
       setCanceledLabel(selectedDisplayId);
       setShowCancelModal(false);
       handleClosePanel();
-      await fetchReimbursements();
       setShowCancelSuccess(true);
-    } catch (err) {
-      setActionError('Terjadi kesalahan jaringan');
-    } finally {
-      setActionLoading(false);
+    } catch (err: any) {
+      setActionError(err?.name === "TypeError" ? "Terjadi kesalahan jaringan" : err?.message || "Terjadi kesalahan jaringan");
     }
   };
 
@@ -756,10 +654,10 @@ export default function RiwayatPengajuanPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} userRole="Karyawan" />
 
-        <main ref={mainRef} className="flex-1 p-8 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 px-6 lg:px-8 py-6 overflow-y-auto">
           <div className="mb-8">
             <h1 className="text-[24px] font-bold text-stone-900">Riwayat Pengajuan</h1>
-            <p className="text-[14px] text-stone-500 mt-1.5">
+            <p className="text-sm text-stone-500 mt-1.5">
               Semua reimbursement yang pernah kamu ajukan, lengkap dengan status dan jejak audit.
             </p>
           </div>
@@ -849,7 +747,6 @@ export default function RiwayatPengajuanPage() {
                       >
                         Reset
                       </button>
-                     
                     </div>
                   </div>
                 )}
@@ -873,11 +770,9 @@ export default function RiwayatPengajuanPage() {
               </thead>
               <tbody className="text-[13px] text-stone-600">
                 {isLoading ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-stone-400">
-                      Memuat data pengajuan...
-                    </td>
-                  </tr>
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <SkeletonRow key={`loading-${i}`} />
+                  ))
                 ) : filteredData.length > 0 ? (
                   <>
                   {visibleData.map((item, index) => (
@@ -888,7 +783,7 @@ export default function RiwayatPengajuanPage() {
                         index === visibleData.length - 1 ? "border-none" : ""
                       } ${selectedItem?.id === item.dbId ? "bg-stone-50" : ""}`}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-stone-500 font-mono">{item.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-stone-500 ">{item.id}</td>
                       <td className="px-6 py-4 whitespace-nowrap">{item.date}</td>
                       <td className="px-6 py-4 whitespace-nowrap font-bold text-stone-800">{item.merchant}</td>
                       <td className="px-6 py-4">{item.project}</td>
@@ -898,11 +793,11 @@ export default function RiwayatPengajuanPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-stone-800">
-                        <CompactNominal value={item.amountRaw ?? item.amount} compactThreshold={100_000_000} />
+                        <CompactNominal value={item.amountRaw} compactThreshold={100_000_000} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
-                          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${getStatusBadge(item.status)}`}>
+                          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${statusMeta(item.statusKey).badge}`}>
                             {item.status === "Ditolak" && item.isResubmit ? "Pengajuan Ulang Ditolak" : item.status}
                           </span>
                           {item.isResubmit && item.status !== "Ditolak" && (
@@ -931,7 +826,7 @@ export default function RiwayatPengajuanPage() {
                   ))}
                   {isLoadingMore &&
                     Array.from({ length: pendingCount }).map((_, i) => (
-                      <SkeletonRow key={`skeleton-${i}`} index={i} />
+                      <SkeletonRow key={`skeleton-${i}`} />
                     ))}
                   </>
                 ) : (
@@ -984,7 +879,7 @@ export default function RiwayatPengajuanPage() {
               onViewRelated={handleViewRelated}
               actionLoading={actionLoading}
               actionError={actionError}
-              onOpenImage={(url) => { setSelectedImageUrl(url); setShowImageModal(true); }}
+              onOpenImage={(url) => setLightboxUrl(url)}
             />
           </>
         )}
@@ -1025,75 +920,7 @@ export default function RiwayatPengajuanPage() {
         onClose={() => setShowCancelSuccess(false)}
       />
 
-      {showImageModal && selectedImageUrl && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
-          onClick={() => {
-            setShowImageModal(false);
-            resetImgZoomAndPan();
-          }}
-        >
-          <button 
-            type="button"
-            onClick={() => {
-              setShowImageModal(false);
-              resetImgZoomAndPan();
-            }}
-            className="absolute top-5 right-5 z-50 p-2.5 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 transition cursor-pointer shadow-xl"
-            title="Tutup"
-          >
-            <X size={20} />
-          </button>
-
-          <div 
-            className={`relative max-w-[92vw] max-h-[92vh] overflow-hidden p-2 flex items-center justify-center select-none ${
-              imageModalZoomScale > 1 ? (isImgDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
-            }`}
-            onClick={(e) => e.stopPropagation()}
-            onWheel={(e) => {
-              if (e.deltaY < 0) {
-                setImageModalZoomScale((prev) => Math.min(prev + 0.25, 4));
-              } else {
-                setImageModalZoomScale((prev) => {
-                  const next = Math.max(prev - 0.25, 1);
-                  if (next === 1) setImgPanPos({ x: 0, y: 0 });
-                  return next;
-                });
-              }
-            }}
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setIsImgDragging(true);
-                setImgDragStart({ x: e.clientX - imgPanPos.x, y: e.clientY - imgPanPos.y });
-              }
-            }}
-            onMouseMove={(e) => {
-              if (isImgDragging) {
-                setImgPanPos({
-                  x: e.clientX - imgDragStart.x,
-                  y: e.clientY - imgDragStart.y,
-                });
-              }
-            }}
-            onMouseUp={() => setIsImgDragging(false)}
-            onMouseLeave={() => setIsImgDragging(false)}
-          >
-            <img
-              src={selectedImageUrl}
-              alt="Bukti Struk"
-              loading="lazy"
-              draggable={false}
-              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-75 ease-out"
-              style={{
-                transform: `translate(${imgPanPos.x}px, ${imgPanPos.y}px) scale(${imageModalZoomScale})`,
-              }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/bukti_struk.png';
-              }}
-            />
-          </div>
-        </div>
-      )}
+      <ImageLightbox  url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
     </div>
   );
 }
