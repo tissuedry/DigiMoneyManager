@@ -52,7 +52,7 @@ export default function SelectProjectPage() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch('/digimoney/api/auth/me')
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error('Gagal mengambil data sesi');
@@ -78,7 +78,7 @@ export default function SelectProjectPage() {
     setSelectingId(proyekId);
     setErrorMsg('');
     try {
-      const res = await fetch('/api/auth/select-project', {
+      const res = await fetch('/digimoney/api/auth/select-project', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proyekId }),
@@ -99,7 +99,7 @@ export default function SelectProjectPage() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      const res = await fetch('/digimoney/api/auth/logout', { method: 'POST' });
       if (res.ok) {
         router.push('/login');
       }

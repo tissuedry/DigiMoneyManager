@@ -67,7 +67,7 @@ async function scanStruks(files: File[]): Promise<OcrResult> {
   }
   formData.append('filesMeta', JSON.stringify(filesMeta));
 
-  const res = await fetch('/api/ocr', {
+  const res = await fetch('/digimoney/api/ocr', {
     method: 'POST',
     body: formData,
   });
@@ -483,7 +483,7 @@ function AjukanReimbursementContent() {
             formData.append('resubmitFrom', resubmitId);
           }
 
-          const res = await fetch('/api/reimbursements', {
+          const res = await fetch('/digimoney/api/reimbursements', {
             method: 'POST',
             body: formData,
           });
