@@ -1,0 +1,56 @@
+services:
+  # ============================================================
+  # PostgreSQL Database
+  # ============================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: digi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: digi_secret_2024
+      POSTGRES_DB: digi_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./dump.sql:/docker-entrypoint-initdb.d/dump.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d digi_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Next.js Application
+  # ============================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digi_app
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    ports:
+      - "3005:3000"
+    environment:
+      # Override DATABASE_URL dari .env.local → pakai PostgreSQL Docker internal
+      DATABASE_URL: "postgresql://postgres:digi_secret_2024@postgres:5432/digi_db"
+      DIRECT_URL: "postgresql://postgres:digi_secret_2024@postgres:5432/digi_db"
+      NODE_ENV: production
+      # Supabase dikosongkan → otomatis fallback ke local storage
+      NEXT_PUBLIC_SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ""
+      SUPABASE_STORAGE_BUCKET: ""
+      # JWT_SECRET, GROQ_API_KEY, GEMINI_API_KEY dibaca dari env_file (.env.local)
+    volumes:
+      - uploads_data:/app/public/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  uploads_data:
