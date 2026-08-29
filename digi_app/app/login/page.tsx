@@ -64,13 +64,13 @@ export default function LoginPage() {
           roles.includes('super admin');
 
         if (isSuperAdmin) {
-          router.push('/superadmin');
+          window.location.href = '/digimoney/superadmin';
         } else if (role === 'Tim Keuangan' || roles.includes('tim keuangan')) {
-          router.push('/keuangan');
+          window.location.href = '/digimoney/keuangan';
         } else if (role === 'Direktur / Manajemen' || roles.includes('direktur / manajemen')) {
-          router.push('/manager');
+          window.location.href = '/digimoney/manager';
         } else {
-          router.push('/select-project');
+          window.location.href = '/digimoney/select-project';
         }
 
     } catch (err: any) {
