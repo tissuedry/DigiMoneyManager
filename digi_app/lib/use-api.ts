@@ -3,8 +3,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+function formatApiUrl(url: string): string {
+  if (url.startsWith('/api/') || url === '/api') {
+    return `/digimoney${url}`;
+  }
+  return url;
+}
+
 async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const targetUrl = formatApiUrl(url);
+  const res = await fetch(targetUrl);
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`GET ${url} ${res.status}: ${text}`);
@@ -42,9 +50,10 @@ export function useMutate<TData = any, TArgs = any>(
   invalidateKeys?: string[]
 ) {
   const invalidate = useInvalidate();
+  const targetUrl = formatApiUrl(url);
   return useMutation<TData, Error, TArgs>({
     mutationFn: async (body) => {
-      const res = await fetch(url, {
+      const res = await fetch(targetUrl, {
         method,
         headers: { "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,

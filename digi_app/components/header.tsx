@@ -76,7 +76,7 @@ export default memo(function Header({ onOpenSidebar, userRole = "Karyawan", hide
         method: "POST",
       });
       if (res.ok) {
-        window.location.href = "/login";
+        window.location.href = "/digimoney/login";
       }
     } catch (err) {
       console.error("Error logging out:", err);
