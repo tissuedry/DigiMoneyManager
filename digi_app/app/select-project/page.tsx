@@ -139,7 +139,7 @@ export default function SelectProjectPage() {
       <header className="sticky top-0 z-50 w-full border-b border-stone-200/80 bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center shrink-0">
-            <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
+            <Image src="/digimoney/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
           </div>
           <div>
             <h1 className="font-extrabold text-sm tracking-tight leading-tight text-stone-900">Digi Money Manager</h1>

@@ -89,7 +89,7 @@ export default function LoginPage() {
 
         <div className="z-10 flex items-center gap-3">
           <div className="flex items-center justify-center shrink-0">
-            <Image src="/logo.png" alt="Digi Money Manager" width={40} height={40} className="object-contain" />
+            <Image src="/digimoney/logo.png" alt="Digi Money Manager" width={40} height={40} className="object-contain" />
           </div>
           <div>
             <h1 className="font-extrabold text-lg tracking-tight leading-tight">Digi Money Manager</h1>
@@ -159,7 +159,7 @@ export default function LoginPage() {
 
           <div className="flex items-center gap-3 lg:hidden mb-4">
             <div className="flex items-center justify-center shrink-0">
-              <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
+              <Image src="/digimoney/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
             </div>
             <div>
               <h1 className="font-extrabold text-sm tracking-tight leading-tight text-stone-900">Digi Money Manager</h1>

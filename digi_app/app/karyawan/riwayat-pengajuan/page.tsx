@@ -388,7 +388,7 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           ) : (
             <div className="group relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden aspect-[3/2] max-w-xs flex items-center justify-center">
               <img
-                src="/bukti_struk.png"
+                src="/digimoney/bukti_struk.png"
                 alt="Bukti Struk"
                 loading="lazy"
                 className="w-full h-full object-cover"
