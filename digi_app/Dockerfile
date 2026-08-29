@@ -12,7 +12,10 @@ COPY prisma ./prisma
 COPY prisma.config.ts ./
 
 # Install dependencies (postinstall akan jalankan prisma generate)
-RUN npm ci
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm ci
 
 # Copy semua source code
 COPY . .
