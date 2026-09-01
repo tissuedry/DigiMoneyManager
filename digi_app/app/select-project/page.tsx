@@ -52,7 +52,7 @@ export default function SelectProjectPage() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    fetch('/digimoney/api/auth/me')
+    fetch('/api/auth/me')
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error('Gagal mengambil data sesi');
@@ -78,7 +78,7 @@ export default function SelectProjectPage() {
     setSelectingId(proyekId);
     setErrorMsg('');
     try {
-      const res = await fetch('/digimoney/api/auth/select-project', {
+      const res = await fetch('/api/auth/select-project', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proyekId }),
@@ -99,7 +99,7 @@ export default function SelectProjectPage() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const res = await fetch('/digimoney/api/auth/logout', { method: 'POST' });
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
       if (res.ok) {
         router.push('/login');
       }
@@ -139,7 +139,7 @@ export default function SelectProjectPage() {
       <header className="sticky top-0 z-50 w-full border-b border-stone-200/80 bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center shrink-0">
-            <Image src="/digimoney/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
+            <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
           </div>
           <div>
             <h1 className="font-extrabold text-sm tracking-tight leading-tight text-stone-900">Digi Money Manager</h1>

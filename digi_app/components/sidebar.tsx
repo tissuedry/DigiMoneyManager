@@ -143,7 +143,7 @@ export default memo(function Sidebar({ isSidebarOpen, onClose, userRole }: Sideb
               title="Buka sidebar"
             >
               <Image 
-                src="/digimoney/logo.png" 
+                src="/logo.png" 
                 alt="Digi Money Manager" 
                 width={32} 
                 height={32} 
@@ -157,7 +157,7 @@ export default memo(function Sidebar({ isSidebarOpen, onClose, userRole }: Sideb
           ) : (
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex items-center justify-center shrink-0">
-                <Image src="/digimoney/logo.png" alt="Digi Money Manager" width={34} height={34} className="object-contain" />
+                <Image src="/logo.png" alt="Digi Money Manager" width={34} height={34} className="object-contain" />
               </div>
               <div className="shrink-0">
                 <p className="font-bold text-stone-800 text-[14px] leading-tight whitespace-nowrap">Digi Money Manager</p>

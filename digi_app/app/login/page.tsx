@@ -31,7 +31,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/digimoney/api/auth/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -64,13 +64,13 @@ export default function LoginPage() {
           roles.includes('super admin');
 
         if (isSuperAdmin) {
-          window.location.href = '/digimoney/superadmin';
+          window.location.href = '/superadmin';
         } else if (role === 'Tim Keuangan' || roles.includes('tim keuangan')) {
-          window.location.href = '/digimoney/keuangan';
+          window.location.href = '/keuangan';
         } else if (role === 'Direktur / Manajemen' || roles.includes('direktur / manajemen')) {
-          window.location.href = '/digimoney/manager';
+          window.location.href = '/manager';
         } else {
-          window.location.href = '/digimoney/select-project';
+          window.location.href = '/select-project';
         }
 
     } catch (err: any) {
@@ -89,7 +89,7 @@ export default function LoginPage() {
 
         <div className="z-10 flex items-center gap-3">
           <div className="flex items-center justify-center shrink-0">
-            <Image src="/digimoney/logo.png" alt="Digi Money Manager" width={40} height={40} className="object-contain" />
+            <Image src="/logo.png" alt="Digi Money Manager" width={40} height={40} className="object-contain" />
           </div>
           <div>
             <h1 className="font-extrabold text-lg tracking-tight leading-tight">Digi Money Manager</h1>
@@ -159,7 +159,7 @@ export default function LoginPage() {
 
           <div className="flex items-center gap-3 lg:hidden mb-4">
             <div className="flex items-center justify-center shrink-0">
-              <Image src="/digimoney/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
+              <Image src="/logo.png" alt="Digi Money Manager" width={36} height={36} className="object-contain" />
             </div>
             <div>
               <h1 className="font-extrabold text-sm tracking-tight leading-tight text-stone-900">Digi Money Manager</h1>

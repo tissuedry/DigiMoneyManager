@@ -120,7 +120,7 @@ export async function proxy(req: NextRequest) {
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    return NextResponse.redirect(new URL('/digimoney/login', req.url));
+    return NextResponse.redirect(new URL('/login', req.url));
   }
 
   // 4. Verify token
@@ -132,7 +132,7 @@ export async function proxy(req: NextRequest) {
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    const res = NextResponse.redirect(new URL('/digimoney/login', req.url));
+    const res = NextResponse.redirect(new URL('/login', req.url));
     res.cookies.delete('auth_token');
     return res;
   }
@@ -160,66 +160,66 @@ export async function proxy(req: NextRequest) {
   // Jika mengunjungi root page, arahkan ke dashboard masing-masing
   if (pathname === '/') {
     if (isSuperAdmin) {
-      return NextResponse.redirect(new URL('/digimoney/superadmin', req.url));
+      return NextResponse.redirect(new URL('/superadmin', req.url));
     }
     if (roles.includes('Direktur / Manajemen')) {
-      return NextResponse.redirect(new URL('/digimoney/manager', req.url));
+      return NextResponse.redirect(new URL('/manager', req.url));
     }
     if (roles.includes('Tim Keuangan')) {
-      return NextResponse.redirect(new URL('/digimoney/keuangan', req.url));
+      return NextResponse.redirect(new URL('/keuangan', req.url));
     }
     if (role === 'Project Manager' || roles.includes('Project Manager')) {
-      return NextResponse.redirect(new URL('/digimoney/pm', req.url));
+      return NextResponse.redirect(new URL('/pm', req.url));
     }
     if (role === 'Karyawan') {
       if (payload.proyekId === undefined || payload.proyekId === null) {
-        return NextResponse.redirect(new URL('/digimoney/select-project', req.url));
+        return NextResponse.redirect(new URL('/select-project', req.url));
       }
-      return NextResponse.redirect(new URL('/digimoney/karyawan', req.url));
+      return NextResponse.redirect(new URL('/karyawan', req.url));
     }
-    return NextResponse.redirect(new URL('/digimoney/select-project', req.url));
+    return NextResponse.redirect(new URL('/select-project', req.url));
   }
 
   // Mencegah role tingkat atas masuk ke halaman pilih proyek
   if (pathname.startsWith('/select-project')) {
     if (isSuperAdmin) {
-      return NextResponse.redirect(new URL('/digimoney/superadmin', req.url));
+      return NextResponse.redirect(new URL('/superadmin', req.url));
     }
     if (roles.includes('Direktur / Manajemen')) {
-      return NextResponse.redirect(new URL('/digimoney/manager', req.url));
+      return NextResponse.redirect(new URL('/manager', req.url));
     }
     if (roles.includes('Tim Keuangan')) {
-      return NextResponse.redirect(new URL('/digimoney/keuangan', req.url));
+      return NextResponse.redirect(new URL('/keuangan', req.url));
     }
   }
 
   // Hanya role Karyawan yang diwajibkan memiliki proyek spesifik yang terpilih di session
   if (role === 'Karyawan' && (payload.proyekId === undefined || payload.proyekId === null)) {
     if (pathname.startsWith('/karyawan')) {
-      return NextResponse.redirect(new URL('/digimoney/select-project', req.url));
+      return NextResponse.redirect(new URL('/select-project', req.url));
     }
   }
 
   // Pengecekan akses rute halaman (Frontend)
   if (pathname.startsWith('/karyawan') && role !== 'Karyawan') {
-    return NextResponse.redirect(new URL('/digimoney', req.url));
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   if (pathname.startsWith('/pm') && role !== 'Project Manager') {
-    return NextResponse.redirect(new URL('/digimoney', req.url));
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   if (pathname.startsWith('/keuangan') && !roles.includes('Tim Keuangan')) {
-    return NextResponse.redirect(new URL('/digimoney', req.url));
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   if (pathname.startsWith('/manager') && !roles.includes('Direktur / Manajemen')) {
-    return NextResponse.redirect(new URL('/digimoney', req.url));
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   // Pengecekan rute Superadmin
   if (pathname.startsWith('/superadmin') && !isSuperAdmin) {
-    return NextResponse.redirect(new URL('/digimoney', req.url));
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   // Pengecekan akses rute API (Backend)
