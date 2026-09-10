@@ -306,7 +306,12 @@ export async function GET(req: NextRequest) {
               },
             },
           },
-          proyek: { select: { nama: true } },
+          proyek: {
+            select: {
+              nama: true,
+              nomorRegister: true,
+            },
+          },
         },
         orderBy: { id: 'desc' },
       });
@@ -322,7 +327,10 @@ export async function GET(req: NextRequest) {
             nama: r.user.nama,
             divisi: assignment?.divisi || null,
           },
-          proyek: { nama: r.proyek.nama },
+          proyek: {
+            nama: r.proyek.nama,
+            nomorRegister: r.proyek.nomorRegister,
+          },
         };
       });
 
@@ -352,7 +360,14 @@ export async function GET(req: NextRequest) {
 
       const pendingTerminRaw = await prisma.terminPembayaran.findMany({
         where: { status: 'BELUM_DITERIMA' },
-        include: { proyek: { select: { nama: true } } },
+        include: {
+          proyek: {
+            select: {
+              nama: true,
+              nomorRegister: true,
+            },
+          },
+        },
         orderBy: { urutan: 'asc' },
         take: 5,
       });
@@ -363,12 +378,22 @@ export async function GET(req: NextRequest) {
         persentaseProgress: Number(t.persentaseProgress),
         nominal: Number(t.nominal),
         status: t.status,
-        proyek: { nama: t.proyek.nama },
+        proyek: {
+          nama: t.proyek.nama,
+          nomorRegister: t.proyek.nomorRegister,
+        },
       }));
 
       const riwayatTerminRaw = await prisma.terminPembayaran.findMany({
         where: { status: 'DITERIMA' },
-        include: { proyek: { select: { nama: true } } },
+        include: {
+          proyek: {
+            select: {
+              nama: true,
+              nomorRegister: true,
+            },
+          },
+        },
         orderBy: { tanggalPencairan: 'desc' },
         take: 5,
       });
@@ -380,7 +405,10 @@ export async function GET(req: NextRequest) {
         nominal: Number(t.nominal),
         tanggalPencairan: t.tanggalPencairan ? t.tanggalPencairan.toISOString().split('T')[0] : null,
         status: t.status,
-        proyek: { nama: t.proyek.nama },
+        proyek: {
+          nama: t.proyek.nama,
+          nomorRegister: t.proyek.nomorRegister,
+        },
       }));
 
       dashboardData.metrics = {
@@ -586,7 +614,8 @@ export async function GET(req: NextRequest) {
 
         return {
           id: p.id,
-          kode: `PRJ-${String(p.id).padStart(3, '0')}`,
+          nomorRegister: p.nomorRegister,
+          kode: p.nomorRegister || `PRJ-${String(p.id).padStart(3, '0')}`,
           proyekNama: p.nama,
           klien,
           status: p.status,

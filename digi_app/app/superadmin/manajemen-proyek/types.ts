@@ -1,5 +1,6 @@
 export type Project = {
   id: number;
+  nomorRegister?: string | null;
   nama: string;
   deskripsi: string | null;
   status: string;
@@ -42,4 +43,5 @@ export type TerminItem = {
     nominal: string;
     status?: string;
     isDiterima?: boolean;
+    tanggalPencairan?: string;
 };

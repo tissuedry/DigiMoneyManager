@@ -163,7 +163,9 @@ export default function MasterCoAPage() {
                     <div className="flex items-center gap-2">
                       {isMainOpen ? <ChevronDown size={16} className="text-stone-500" /> : <ChevronRight size={16} className="text-stone-500" />}
                       <span className="text-[10px] font-bold text-stone-400 bg-white px-1.5 py-0.5 rounded border border-stone-200 shadow-sm">MAIN</span>
-                      <span className="font-bold text-stone-800 text-[13px]">{mainItem.nama}</span>
+                      <span className="font-bold text-stone-800 text-[13px]">
+                        {mainItem.kode ? `(${mainItem.kode}) ${mainItem.nama}` : mainItem.nama}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -195,11 +197,13 @@ export default function MasterCoAPage() {
                           <div key={subItem.id} className="flex items-center justify-between py-1 px-2 hover:bg-stone-50 rounded-lg group">
                             <div className="flex items-center gap-2">
                               <span className="text-[9px] font-bold text-stone-400">SUB</span>
-                              <span className="font-bold text-stone-700 text-[12px]">{subItem.nama}</span>
+                              <span className="font-bold text-stone-700 text-[12px]">
+                                {subItem.kode ? `(${subItem.kode}) ${subItem.nama}` : subItem.nama}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <button
-                                onClick={() => openModal('editSub', { ...subItem, main: mainItem.nama, sub: subItem.nama })}
+                                onClick={() => openModal('editSub', { ...subItem, main: mainItem.nama, mainKode: mainItem.kode, sub: subItem.nama })}
                                 className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
                               >
                                 <Settings size={14} />
@@ -219,7 +223,7 @@ export default function MasterCoAPage() {
 
                       <div className="pl-2 pt-1 border-t border-stone-100 mt-2">
                         <button
-                          onClick={() => openModal('tambahSub', { parentId: mainItem.id, main: mainItem.nama, tipe: mainItem.tipe })}
+                          onClick={() => openModal('tambahSub', { parentId: mainItem.id, main: mainItem.nama, kode: mainItem.kode, tipe: mainItem.tipe })}
                           className="text-[11px] font-bold text-[#008f5d] hover:text-[#006b45] flex items-center gap-1 transition mt-2 cursor-pointer"
                         >
                           <Plus size={12} strokeWidth={3} /> Tambah Sub

@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
 
     const assignments = user.proyek.map((up: any) => ({
       proyekId: up.proyekId,
+      nomorRegister: up.proyek.nomorRegister,
       nama: up.proyek.nama,
       status: up.proyek.status,
       role: up.role === 'Anggota Lapangan' ? 'Karyawan' : up.role,

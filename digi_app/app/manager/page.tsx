@@ -523,16 +523,16 @@ export default function ManagerDashboardPage() {
             />
             <SummaryCard
               title="Ringkasan Termin"
-              subtitle="Progres pencairan termin dari semua proyek"
+              subtitle="Progres pembayaran termin dari semua proyek"
               items={[
                 {
-                  label: "Belum Dicairkan",
+                  label: "Belum Dibayar",
                   count: `${terminSummary?.belumDicairkan.count ?? 0} termin`,
                   nominal: terminSummary?.belumDicairkan.nominal ?? 0,
                   color: "amber",
                 },
                 {
-                  label: "Dicairkan",
+                  label: "Dibayarkan",
                   count: `${terminSummary?.dicairkan.count ?? 0} termin`,
                   nominal: terminSummary?.dicairkan.nominal ?? 0,
                   color: "green",

@@ -117,7 +117,7 @@ export default function GrafikProgressTermin({
             </div>
             <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#8ea3b0] shadow-sm flex-shrink-0" />
-                <span className="text-stone-600">Belum dicairkan</span>
+                <span className="text-stone-600">Belum dibayarkan</span>
             </div>
         </div>
     );
@@ -377,7 +377,7 @@ export default function GrafikProgressTermin({
                                                 }`}
                                         />
                                         <span className="text-[9.5px] font-medium text-stone-500 whitespace-nowrap">
-                                            {stepPositions[activeHoveredIdx].isDisbursed ? "Sudah dicairkan" : "Belum dicairkan"}
+                                            {stepPositions[activeHoveredIdx].isDisbursed ? "Sudah dibayarkan" : "Belum dibayarkan"}
                                         </span>
                                     </div>
 
@@ -411,7 +411,7 @@ export default function GrafikProgressTermin({
             >
                 <div className="flex items-center justify-between">
                     <h4 className="text-[13px] font-bold text-stone-900 tracking-tight">
-                        Grafik Pencairan Termin
+                        Grafik Pembayaran Termin
                     </h4>
                     {showEnlargeHint && (
                         <span className="text-[11px] font-normal text-stone-400 group-hover:text-emerald-600 transition">
@@ -444,7 +444,7 @@ export default function GrafikProgressTermin({
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-6 pb-2 flex-shrink-0">
                             <div>
                                 <h3 className="font-bold text-xl sm:text-2xl text-stone-900 leading-tight">
-                                    Grafik Pencairan Termin
+                                    Grafik Pembayaran Termin
                                 </h3>
                                 {projectName && (
                                     <p className="text-sm text-stone-500 mt-1 font-normal">

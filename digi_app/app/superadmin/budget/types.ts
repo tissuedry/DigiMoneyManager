@@ -16,6 +16,7 @@ export type BudgetDB = {
 
 export type Proyek = {
   id: number;
+  nomorRegister?: string | null;
   nama: string;
   status: string;
   tanggalMulai: string;

@@ -671,7 +671,7 @@ export default function AlokasiPosModal({
                       .filter((m: any) => !data.some((d) => d.nama.toUpperCase().trim() === m.nama.toUpperCase().trim()))
                       .map((m: any) => (
                         <option key={m.id} value={m.nama}>
-                          {m.nama}
+                          {m.kode ? `(${m.kode}) ${m.nama}` : m.nama}
                         </option>
                       ))}
                   </select>
@@ -974,7 +974,7 @@ export default function AlokasiPosModal({
                                         .filter((ms: any) => !main.subPos.some((s) => s.nama.toUpperCase().trim() === ms.nama.toUpperCase().trim()))
                                         .map((ms: any) => (
                                           <option key={ms.id} value={ms.nama}>
-                                            {ms.nama}
+                                            {ms.kode ? `(${ms.kode}) ${ms.nama}` : ms.nama}
                                           </option>
                                         ))}
                                     </select>

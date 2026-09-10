@@ -451,7 +451,7 @@ export default function KelolaProyekPage() {
                 <div className="space-y-3 text-left">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold  text-stone-400 bg-stone-100/80 px-2.5 py-1.5 rounded-xl tracking-wide">
-                      PRJ-{String(project.id).padStart(3, "0")}
+                      {project.nomorRegister ? project.nomorRegister : `PRJ-${String(project.id).padStart(3, "0")}`}
                     </span>
                     <span className={`text-[12px] font-bold px-3 py-1.5 rounded-2xl ${getStatusStyles(project.status)}`}>
                       {formatStatusLabel(project.status)}

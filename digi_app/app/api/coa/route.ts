@@ -36,14 +36,19 @@ export async function GET(req: NextRequest) {
           ? main.tipe.charAt(0).toUpperCase() + main.tipe.slice(1).toLowerCase()
           : 'Aset';
 
+        const subDisplay = sub.kode ? `(${sub.kode}) ${sub.nama}` : sub.nama;
+        const mainDisplay = main.kode ? `(${main.kode}) ${main.nama}` : main.nama;
+
         coa.push({
           id: `COA-${sub.id}`,
-          nomorAkun: sub.id,
-          namaAkun: `${main.nama} - ${sub.nama}`,
+          nomorAkun: sub.kode || sub.id,
+          namaAkun: `${mainDisplay} - ${subDisplay}`,
           mainId: main.id,
           mainNama: main.nama,
+          mainKode: main.kode,
           subId: sub.id,
           subNama: sub.nama,
+          subKode: sub.kode,
           tipe: itemTipe,
           standar: 'PSAK',
         });

@@ -23,8 +23,8 @@ export default function EditTerminForm({
     terminList,
     onSuccess,
 }: Props) {
-    const [termin0, setTermin0] = useState<{ id?: number; progress?: string; nominal: string; isDiterima?: boolean }>({ progress: '', nominal: '', isDiterima: false });
-    const [terminData, setTerminData] = useState<TerminItem[]>([{ progress: '', nominal: '', isDiterima: false }]);
+    const [termin0, setTermin0] = useState<{ id?: number; progress?: string; nominal: string; isDiterima?: boolean; tanggalPencairan?: string }>({ progress: '', nominal: '', isDiterima: false, tanggalPencairan: '' });
+    const [terminData, setTerminData] = useState<TerminItem[]>([{ progress: '', nominal: '', isDiterima: false, tanggalPencairan: '' }]);
     const [jumlahTerminInput, setJumlahTerminInput] = useState<string>('1');
 
     const [loading, setLoading] = useState(false);
@@ -52,10 +52,13 @@ export default function EditTerminForm({
                 id: existingT0.id,
                 progress: rawProg,
                 nominal: formatRibuan(String(existingT0.nominal || '')),
-                isDiterima: isT0Diterima,
+                isDiterima: existingT0.status === 'DITERIMA',
+                tanggalPencairan: existingT0.tanggalPencairan
+                    ? new Date(existingT0.tanggalPencairan).toISOString().split('T')[0]
+                    : '',
             });
         } else {
-            setTermin0({ progress: '', nominal: '', isDiterima: false });
+            setTermin0({ progress: '', nominal: '', isDiterima: false, tanggalPencairan: '' });
         }
 
         const regularList = terminList.filter((t: any) =>
@@ -71,11 +74,14 @@ export default function EditTerminForm({
                 progress: t.persentaseProgress || '',
                 nominal: formatRibuan(String(t.nominal || '')),
                 status: t.status,
-                isDiterima: t.status === 'DITERIMA' || Boolean(t.tanggalPencairan),
+                isDiterima: t.status === 'DITERIMA',
+                tanggalPencairan: t.tanggalPencairan
+                    ? new Date(t.tanggalPencairan).toISOString().split('T')[0]
+                    : '',
             })));
             setJumlahTerminInput(String(regularList.length));
         } else {
-            setTerminData([{ progress: '', nominal: '', isDiterima: false }]);
+            setTerminData([{ progress: '', nominal: '', isDiterima: false, tanggalPencairan: '' }]);
             setJumlahTerminInput('1');
         }
         setShowSuccessToast(false);
@@ -199,7 +205,7 @@ export default function EditTerminForm({
                 const updated = [...prev];
                 if (targetCount > updated.length) {
                     for (let i = updated.length; i < targetCount; i++) {
-                        updated.push({ progress: '', nominal: '', isDiterima: false });
+                        updated.push({ progress: '', nominal: '', isDiterima: false, tanggalPencairan: '' });
                     }
                 } else if (targetCount < updated.length) {
                     while (updated.length > targetCount && !updated[updated.length - 1].isDiterima) {
@@ -255,6 +261,7 @@ export default function EditTerminForm({
                     namaTermin: 'Termin 0',
                     nominal: parseFloat(nom0Clean),
                     persentaseProgress: isNaN(prog0) ? 0 : prog0,
+                    tanggalPencairan: termin0.tanggalPencairan || null,
                 });
             }
 
@@ -264,6 +271,7 @@ export default function EditTerminForm({
                     namaTermin: `Termin ${idx + 1}`,
                     nominal: parseFloat(String(t.nominal).replace(/\./g, '')),
                     persentaseProgress: parseFloat(String(t.progress)),
+                    tanggalPencairan: t.tanggalPencairan || null,
                 });
             });
 
@@ -432,104 +440,154 @@ export default function EditTerminForm({
                 className="w-20 border border-[#e6e2d6] rounded-[12px] px-4 py-2 text-[14px] font-bold text-stone-900 outline-none focus:border-[#00966c] text-center bg-white shadow-xs" />
             </div>
 
-            <div className="grid grid-cols-12 gap-3 px-3 pt-1">
-              <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider">
-                Termin
-              </div>
-              <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider text-center">
-                Persen (%)
-              </div>
-              <div className="col-span-6 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider pl-1">
-                Nominal Diturunkan (IDR)
-              </div>
-            </div>
+            {(() => {
+              const hasAnyDate = Boolean(
+                termin0.tanggalPencairan ||
+                terminData.some((t) => t.tanggalPencairan) ||
+                (terminList && terminList.some((t: any) => t.tanggalPencairan))
+              );
 
-            <div className="space-y-2.5 max-h-[38vh] overflow-y-auto pr-1">
-
-              <div className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
-                <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
-                  Termin 0 <span className="text-[11px] font-normal text-stone-500">(DP)</span>
-                  {termin0.isDiterima && (
-                    <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dicairkan</span>
-                  )}
-                </div>
-
-                <div className="col-span-3 relative">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    disabled={termin0.isDiterima}
-                    value={termin0.progress ?? ''}
-                    onChange={(e) => handleTermin0ProgressChange(e.target.value)}
-                    placeholder="0"
-                    className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${termin0.isDiterima
-                        ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
-                        : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
-                    %
-                  </span>
-                </div>
-
-                <div className="col-span-6 relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
-                    Rp
-                  </span>
-                  <input
-                    type="text"
-                    disabled={termin0.isDiterima}
-                    value={termin0.nominal}
-                    onChange={handleTermin0Change}
-                    placeholder="0"
-                    className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${termin0.isDiterima
-                        ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
-                        : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
-                </div>
-              </div>
-
-              {terminData.map((t, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-[#f8f7f3] p-2 rounded-[14px]">
-
-                  <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2">
-                    Termin {idx + 1}
-                    {t.isDiterima && (
-                      <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dicairkan</span>
+              return (
+                <>
+                  <div className="grid grid-cols-12 gap-3 px-3 pt-1">
+                    <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider">
+                      Termin
+                    </div>
+                    <div className={`${hasAnyDate ? "col-span-2" : "col-span-3"} text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider text-center`}>
+                      Persen (%)
+                    </div>
+                    <div className={`${hasAnyDate ? "col-span-4" : "col-span-6"} text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider pl-1`}>
+                      Nominal Diturunkan (IDR)
+                    </div>
+                    {hasAnyDate && (
+                      <div className="col-span-3 text-[10.5px] font-extrabold text-[#a69c8a] uppercase tracking-wider pl-1">
+                        Tgl. Proyeksi
+                      </div>
                     )}
                   </div>
 
-                  <div className="col-span-3 relative">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      disabled={t.isDiterima}
-                      value={t.progress ?? ''}
-                      onChange={(e) => handleInputChange(idx, 'progress', e.target.value)}
-                      placeholder="0"
-                      className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${t.isDiterima
-                          ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
-                          : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
-                      %
-                    </span>
-                  </div>
+                  <div className="space-y-2.5 max-h-[38vh] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-12 gap-3 items-start bg-[#f8f7f3] p-2 rounded-[14px]">
+                      <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2 pt-2.5">
+                        Termin 0 <span className="text-[11px] font-normal text-stone-500">(DP)</span>
+                        {termin0.isDiterima && (
+                          <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dibayarkan</span>
+                        )}
+                      </div>
 
-                  <div className="col-span-6 relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
-                      Rp
-                    </span>
-                    <input
-                      type="text"
-                      disabled={t.isDiterima}
-                      value={t.nominal ?? ''}
-                      onChange={(e) => handleInputChange(idx, 'nominal', e.target.value, e)}
-                      placeholder="0"
-                      className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${t.isDiterima
-                          ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
-                          : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
-                  </div>
+                      <div className={`${hasAnyDate ? "col-span-2" : "col-span-3"} relative`}>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          disabled={termin0.isDiterima}
+                          value={termin0.progress ?? ''}
+                          onChange={(e) => handleTermin0ProgressChange(e.target.value)}
+                          placeholder="0"
+                          className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${termin0.isDiterima
+                              ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                              : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                          %
+                        </span>
+                      </div>
 
-                </div>
-              ))}
-            </div>
+                      <div className={`${hasAnyDate ? "col-span-4" : "col-span-6"} relative`}>
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                          Rp
+                        </span>
+                        <input
+                          type="text"
+                          disabled={termin0.isDiterima}
+                          value={termin0.nominal}
+                          onChange={handleTermin0Change}
+                          placeholder="0"
+                          className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${termin0.isDiterima
+                              ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                              : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
+                      </div>
+
+                      {hasAnyDate && (
+                        <div className="col-span-3">
+                          {termin0.tanggalPencairan ? (
+                            <input
+                              type="date"
+                              value={termin0.tanggalPencairan ?? ''}
+                              onChange={(e) => setTermin0((prev) => ({ ...prev, tanggalPencairan: e.target.value }))}
+                              className="w-full border border-[#e6e2d6] rounded-[10px] px-2.5 py-2.5 text-[11.5px] font-medium text-stone-800 outline-none focus:border-[#00966c] bg-white" />
+                          ) : (
+                            <div className="w-full border border-dashed border-stone-200 rounded-[10px] px-2.5 py-2.5 text-[11.5px] font-medium text-stone-400 bg-stone-50 text-center select-none">
+                              -
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {terminData.map((t, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-3 items-start bg-[#f8f7f3] p-2 rounded-[14px]">
+                        <div className="col-span-3 text-[13px] font-bold text-stone-800 pl-2 pt-2.5">
+                          Termin {idx + 1}
+                          {t.isDiterima && (
+                            <span className="block text-[9.5px] font-bold text-emerald-700 leading-tight mt-0.5">Dibayarkan</span>
+                          )}
+                        </div>
+
+                        <div className={`${hasAnyDate ? "col-span-2" : "col-span-3"} relative`}>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            disabled={t.isDiterima}
+                            value={t.progress ?? ''}
+                            onChange={(e) => handleInputChange(idx, 'progress', e.target.value)}
+                            placeholder="0"
+                            className={`w-full border rounded-[10px] pl-3 pr-8 py-2.5 text-[13px] font-semibold text-center ${t.isDiterima
+                                ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                                : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
+                          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                            %
+                          </span>
+                        </div>
+
+                        <div className={`${hasAnyDate ? "col-span-4" : "col-span-6"} relative`}>
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-extrabold text-[#a69c8a]">
+                            Rp
+                          </span>
+                          <input
+                            type="text"
+                            disabled={t.isDiterima}
+                            value={t.nominal ?? ''}
+                            onChange={(e) => handleInputChange(idx, 'nominal', e.target.value, e)}
+                            placeholder="0"
+                            className={`w-full border rounded-[10px] pl-9 pr-3 py-2.5 text-[13.5px] font-medium ${t.isDiterima
+                                ? 'bg-[#eeebe2] border-[#dedad0] text-stone-500 cursor-not-allowed select-none'
+                                : 'bg-white border-[#e6e2d6] text-stone-800 outline-none focus:border-[#00966c]'}`} />
+                        </div>
+
+                        {hasAnyDate && (
+                          <div className="col-span-3">
+                            {t.tanggalPencairan ? (
+                              <input
+                                type="date"
+                                value={t.tanggalPencairan ?? ''}
+                                onChange={(e) => {
+                                  const updated = [...terminData];
+                                  updated[idx] = { ...updated[idx], tanggalPencairan: e.target.value };
+                                  setTerminData(updated);
+                                }}
+                                className="w-full border border-[#e6e2d6] rounded-[10px] px-2.5 py-2.5 text-[11.5px] font-medium text-stone-800 outline-none focus:border-[#00966c] bg-white" />
+                            ) : (
+                              <div className="w-full border border-dashed border-stone-200 rounded-[10px] px-2.5 py-2.5 text-[11.5px] font-medium text-stone-400 bg-stone-50 text-center select-none">
+                                -
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3 bg-stone-50/50 shrink-0">

@@ -26,6 +26,7 @@ model User {
 
 model Proyek {
   id                 Int                  @id @default(autoincrement())
+  nomorRegister      String?              @map("nomor_register")
   nama               String
   deskripsi          String?
   status             String
@@ -258,6 +259,7 @@ model Notification {
 
 model MasterMain {
   id        Int         @id @default(autoincrement())
+  kode      String?     @map("kode")
   nama      String
   tipe      String      @default("pengeluaran") @map("tipe")
   MasterSub MasterSub[]
@@ -269,6 +271,7 @@ model MasterMain {
 model MasterSub {
   id                 Int                  @id @default(autoincrement())
   mainId             Int                  @map("main_id")
+  kode               String?              @map("kode")
   nama               String
   tipe               String               @default("pengeluaran") @map("tipe")
   master_main        MasterMain           @relation(fields: [mainId], references: [id], onDelete: Cascade)

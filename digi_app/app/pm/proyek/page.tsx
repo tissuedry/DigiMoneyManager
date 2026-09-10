@@ -587,13 +587,13 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
 
                 <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
                   <h3 className="font-bold text-[15px] text-stone-900 mb-4 border-b border-stone-100 pb-3">
-                    Reimbursement
+                    Pencairan
                   </h3>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                       <p className="text-[10px] font-bold text-emerald-600 tracking-wider">
-                        Sudah Reimburse ({proyek.reimbursementDisetujuiCount ?? 0})
+                        Sudah Dicairkan ({proyek.reimbursementDisetujuiCount ?? 0})
                       </p>
                       <p className="text-lg font-extrabold text-black mt-1">
                         <CompactNominal value={proyek.reimbursementDisetujui} />
@@ -602,7 +602,7 @@ function KelolaProyekContent({ openDetailModal }: { openDetailModal: boolean }) 
 
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                       <p className="text-[10px] font-bold text-amber-600 tracking-wider">
-                        Belum Reimburse ({proyek.reimbursementBelumDisetujuiCount ?? 0})
+                        Belum Dicairkan ({proyek.reimbursementBelumDisetujuiCount ?? 0})
                       </p>
                       <p className="text-lg font-extrabold text-black mt-1">
                         <CompactNominal value={proyek.reimbursementBelumDisetujui} />

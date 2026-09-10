@@ -117,7 +117,7 @@ export function calculateTotalTerpakai(detailedProjectInfo: any, fallbackValue: 
 }
 
 export function calculateBudgetProgress(totalTerpakai: number, totalRAB: number) {
-  const percentUsed = totalRAB > 0 ? Math.round((totalTerpakai / totalRAB) * 100) : 0;
+  const percentUsed = totalRAB > 0 ? parseFloat(((totalTerpakai / totalRAB) * 100).toFixed(2)) : 0;
   const barWidth = Math.min(percentUsed, 100);
 
   return { percentUsed, barWidth };

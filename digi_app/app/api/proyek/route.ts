@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
       searchFilter = {
         OR: [
           { nama: { contains: search, mode: 'insensitive' } },
+          { nomorRegister: { contains: search, mode: 'insensitive' } },
           ...(isNaN(Number(search)) ? [] : [{ id: parseInt(search, 10) }]),
         ],
       };
@@ -110,19 +111,21 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        orderBy: { tanggalMulai: 'desc' },
+        orderBy: { id: 'desc' },
       })
     ]);
+
+    const isDone = (s: string) => s === 'DONE' || s === 'SELESAI';
 
     const mappedProjects = projects.map((p) => {
       if (!p.budget) return p;
 
-      const isProyekDone = p.status?.toUpperCase() === 'DONE' || p.status?.toUpperCase() === 'SELESAI';
+      const isProyekDone = isDone(p.status?.toUpperCase() || '');
       const pTransaksis = (p as any).transaksiPemasukan || [];
 
       let totalMainPemasukanRealisasi = 0;
 
-      const mappedPosAnggaran = p.budget.mainAnggaran.map((m: any) => {
+      const mappedMainAnggaran = p.budget.mainAnggaran.map((m: any) => {
         const isMainPemasukan =
           m.tipe === 'pemasukan' ||
           (m.namaMain || '').toLowerCase().startsWith('penjualan') ||
@@ -210,7 +213,8 @@ export async function GET(req: NextRequest) {
         budget: {
           ...p.budget,
           totalMainPemasukan: totalMainPemasukanRealisasi,
-          posAnggaran: mappedPosAnggaran,
+          posAnggaran: mappedMainAnggaran,
+          mainAnggaran: mappedMainAnggaran,
         },
       };
     });
@@ -248,10 +252,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, nilaiKontrak } = body;
+    const { nama, nomorRegister, deskripsi, tanggalMulai, tanggalSelesai, status, nilaiKontrak } = body;
 
-    if (!nama || !tanggalMulai || !tanggalSelesai || !status) {
-      return NextResponse.json({ message: 'Nama, Tanggal Mulai, Tanggal Selesai, dan Status Proyek wajib diisi' }, { status: 400 });
+    const projectStatus = status || 'AKTIF';
+
+    if (!nama || !tanggalMulai || !tanggalSelesai) {
+      return NextResponse.json({ message: 'Nama, Tanggal Mulai, dan Tanggal Selesai wajib diisi' }, { status: 400 });
     }
 
     const parsedNilaiKontrak = nilaiKontrak !== undefined && nilaiKontrak !== null && nilaiKontrak !== '' 
@@ -261,8 +267,9 @@ export async function POST(req: NextRequest) {
     const newProject = await prisma.proyek.create({
       data: {
         nama,
+        nomorRegister: nomorRegister ? String(nomorRegister).trim() : null,
         deskripsi: deskripsi || null,
-        status: status,
+        status: projectStatus,
         tanggalMulai: new Date(tanggalMulai),
         tanggalSelesai: new Date(tanggalSelesai),
         ...(parsedNilaiKontrak && parsedNilaiKontrak > 0 ? {

@@ -80,7 +80,7 @@ export default function PencairanTerminModal({
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Gagal melakukan pencairan termin");
+        setError(data.message || "Gagal melakukan pembayaran termin");
         return;
       }
 
@@ -114,7 +114,7 @@ export default function PencairanTerminModal({
             <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
               <TrendingUp size={13} className="text-emerald-700" strokeWidth={2.5} />
             </div>
-            <h2 className="text-[20px] font-bold text-stone-900 tracking-tight">Pencairan Termin</h2>
+            <h2 className="text-[20px] font-bold text-stone-900 tracking-tight">Pembayaran Termin</h2>
           </div>
           <p className="text-[13px] text-stone-500 mt-0.5 truncate">{proyekNama}</p>
         </div>
@@ -132,7 +132,7 @@ export default function PencairanTerminModal({
                   ? "Proyek masih belum memiliki termin"
                   : nextTermin
                   ? (nextTermin.namaTermin === "Termin 0" ? "DP" : nextTermin.namaTermin)
-                  : "Semua termin sudah dicairkan"
+                  : "Semua termin sudah dibayarkan"
               }
               className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[14px] text-stone-800 bg-[#F8F7F4] font-medium outline-none cursor-default"
             />
@@ -186,7 +186,7 @@ export default function PencairanTerminModal({
               ) : (
                 <Check size={14} strokeWidth={3} />
               )}
-              Konfirmasi Pencairan
+              Konfirmasi Pembayaran
             </button>
           </div>
         </form>

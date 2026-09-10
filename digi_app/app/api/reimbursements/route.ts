@@ -3,18 +3,36 @@ import { prisma } from '@/lib/prisma';
 import { getCached, setCache, clearCache } from '@/lib/route-cache';
 import { uploadStrukToSupabase } from '@/lib/supabase-storage';
 
-const mapReimbursement = (r: any, masterAsetList: any[] = []) => {
+const mapReimbursement = (r: any, masterAsetList: any[] = [], allMaster: any[] = []) => {
   if (!r) return null;
 
   const creditOptions: Array<{ displayVal: string; mainNama: string; subNama: string }> = [];
   for (const main of masterAsetList) {
     const subList = main.MasterSub || [];
     for (const sub of subList) {
+      const mainLabel = main.kode ? `(${main.kode}) ${main.nama}` : main.nama;
+      const subLabel = sub.kode ? `(${sub.kode}) ${sub.nama}` : sub.nama;
       creditOptions.push({
         mainNama: main.nama,
         subNama: sub.nama,
-        displayVal: `MAIN · ${main.nama} > SUB · ${sub.nama}`,
+        displayVal: `MAIN · ${mainLabel} > SUB · ${subLabel}`,
       });
+    }
+  }
+
+  // Cari kode dari master jika ada
+  let mainKode = r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.kode || null;
+  let subKode = r.keteranganAnggaran?.subAnggaran?.kode || null;
+
+  if (allMaster.length > 0 && r.keteranganAnggaran?.subAnggaran) {
+    const rawMainNama = (r.keteranganAnggaran.subAnggaran.mainAnggaran?.namaMain || '').toUpperCase().trim();
+    const rawSubNama = (r.keteranganAnggaran.subAnggaran.namaSub || '').toUpperCase().trim();
+
+    const matchedMain = allMaster.find((m: any) => m.nama.toUpperCase().trim() === rawMainNama);
+    if (matchedMain) {
+      if (!mainKode && matchedMain.kode) mainKode = matchedMain.kode;
+      const matchedSub = (matchedMain.MasterSub || []).find((s: any) => s.nama.toUpperCase().trim() === rawSubNama);
+      if (matchedSub && !subKode && matchedSub.kode) subKode = matchedSub.kode;
     }
   }
 
@@ -26,6 +44,16 @@ const mapReimbursement = (r: any, masterAsetList: any[] = []) => {
       ...r.keteranganAnggaran,
       deskripsi: r.keteranganAnggaran.keterangan,
       namaPos: r.keteranganAnggaran.subAnggaran?.mainAnggaran?.namaMain,
+      mainKode,
+      subKode,
+      subAnggaran: r.keteranganAnggaran.subAnggaran ? {
+        ...r.keteranganAnggaran.subAnggaran,
+        kode: subKode,
+        mainAnggaran: r.keteranganAnggaran.subAnggaran.mainAnggaran ? {
+          ...r.keteranganAnggaran.subAnggaran.mainAnggaran,
+          kode: mainKode,
+        } : null,
+      } : null,
     } : null,
   };
 };
@@ -75,12 +103,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const [masterAset, reimbursements] = await Promise.all([
+    const [allMaster, reimbursements] = await Promise.all([
       prisma.masterMain.findMany({
-        where: { tipe: 'aset' },
         include: {
           MasterSub: {
-            where: { tipe: 'aset' },
             orderBy: { id: 'asc' },
           },
         },
@@ -124,7 +150,8 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const mapped = reimbursements.map((r) => mapReimbursement(r, masterAset));
+    const masterAset = allMaster.filter((m) => m.tipe === 'aset');
+    const mapped = reimbursements.map((r) => mapReimbursement(r, masterAset, allMaster));
     setCache(cacheKey, { reimbursements: mapped });
     return NextResponse.json({ reimbursements: mapped });
 

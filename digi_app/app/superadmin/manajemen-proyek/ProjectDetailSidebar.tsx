@@ -348,7 +348,11 @@ export default function ProjectDetailSidebar({
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="px-8 pt-8 pb-4 flex-shrink-0 text-left">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs  font-semibold text-stone-400">PRJ-{String(showProjectDetail.id).padStart(3, "0")}</span>
+                                <span className="text-xs  font-semibold text-stone-400">
+                                    {(detailedProjectInfo?.nomorRegister || showProjectDetail.nomorRegister)
+                                        ? (detailedProjectInfo?.nomorRegister || showProjectDetail.nomorRegister)
+                                        : `PRJ-${String(showProjectDetail.id).padStart(3, "0")}`}
+                                </span>
                                 <button
                                     type="button"
                                     onClick={onClose}
@@ -446,7 +450,7 @@ export default function ProjectDetailSidebar({
                                         <div className="border border-stone-100 rounded-3xl p-5 bg-white space-y-4 text-left shadow-[0_4px_20px_rgba(0,0,0,0.01)]">
                                             <div className="flex justify-between items-center text-[13px] font-extrabold text-stone-900 tracking-wide">
                                                 <span>Realisasi Biaya</span>
-                                                <span className=" text-sm font-black">{calculatedPercentUsed}%</span>
+                                                <span className=" text-sm font-black">{calculatedPercentUsed.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span>
                                             </div>
 
                                             {(() => {
@@ -482,12 +486,12 @@ export default function ProjectDetailSidebar({
 
                                     <div className="space-y-2.5 text-left">
                                         <h4 className="text-[13px] font-bold text-stone-800">
-                                            Reimbursement
+                                            Pencairan
                                         </h4>
                                         <div className="grid grid-cols-2 gap-3.5">
                                             <div className="bg-[#e8f5f0] border border-[#caead9] rounded-2xl p-4 flex flex-col justify-between">
                                                 <span className="text-[12px] font-bold text-[#186f52] block">
-                                                    Sudah Reimburse ({sudahReimburseCount})
+                                                    Sudah Dicairkan ({sudahReimburseCount})
                                                 </span>
                                                 <span className=" text-xl font-black text-stone-900 mt-2 block tracking-tight">
                                                     <CompactNominal value={sudahReimburseNominal} compactThreshold={1_000_000_000_000} />
@@ -495,7 +499,7 @@ export default function ProjectDetailSidebar({
                                             </div>
                                             <div className="bg-[#fef4ea] border border-[#f8dec4] rounded-2xl p-4 flex flex-col justify-between">
                                                 <span className="text-[12px] font-bold text-[#995514] block">
-                                                    Belum Reimburse ({belumReimburseCount})
+                                                    Belum Dicairkan ({belumReimburseCount})
                                                 </span>
                                                 <span className=" text-xl font-black text-stone-900 mt-2 block tracking-tight">
                                                     <CompactNominal value={belumReimburseNominal} compactThreshold={1_000_000_000_000} />
@@ -750,7 +754,7 @@ export default function ProjectDetailSidebar({
                                                     onClick={() => setIsPencairanOpen(true)}
                                                     className="flex-1 flex items-center justify-center gap-1.5 px-2 h-[34px] bg-[#00966c] border border-transparent hover:bg-[#007f5a] text-white text-[12px] font-medium rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
                                                 >
-                                                    <Plus size={14} className="shrink-0" /> Pencairan Termin
+                                                    <Plus size={14} className="shrink-0" /> Pembayaran Termin
                                                 </button>
 
                                                 <button
@@ -786,7 +790,7 @@ export default function ProjectDetailSidebar({
 
                                         <div className="space-y-3 pt-4 text-left border-t border-stone-100">
                                             <div className="flex justify-between items-center mb-2">
-                                                <h3 className="text-[14px] font-extrabold text-stone-900">Pencairan Termin</h3>
+                                                <h3 className="text-[14px] font-extrabold text-stone-900">Pembayaran Termin</h3>
                                                 <span className="text-[12px] text-stone-400 font-medium">{terminList.length} termin</span>
                                             </div>
 

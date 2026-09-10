@@ -89,28 +89,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Request body kosong atau JSON tidak valid' }, { status: 400 });
     }
 
-    const { type, nama, parentId, tipe } = body;
+    const { type, nama, kode, parentId, tipe } = body;
     const itemTipe = tipe || 'pengeluaran';
 
     if (!type || !nama) {
       return NextResponse.json({ message: 'Type dan nama wajib diisi' }, { status: 400 });
     }
 
+    const trimmedKode = kode !== undefined && kode !== null && String(kode).trim() !== '' ? String(kode).trim() : null;
+
     let newData;
     let detailAudit = '';
 
     if (type === 'main') {
       newData = await prisma.masterMain.create({
-        data: { nama, tipe: itemTipe },
+        data: { nama, kode: trimmedKode, tipe: itemTipe },
       });
-      detailAudit = `Menambahkan Master Main baru (${itemTipe}): ${nama}`;
+      detailAudit = `Menambahkan Master Main baru (${itemTipe}): ${trimmedKode ? `(${trimmedKode}) ` : ''}${nama}`;
 
     } else if (type === 'sub') {
       if (!parentId) return NextResponse.json({ message: 'parentId (mainId) wajib diisi untuk Master Sub' }, { status: 400 });
       newData = await prisma.masterSub.create({
-        data: { nama, mainId: parseInt(parentId, 10), tipe: itemTipe },
+        data: { nama, kode: trimmedKode, mainId: parseInt(parentId, 10), tipe: itemTipe },
       });
-      detailAudit = `Menambahkan Master Sub baru (${itemTipe}): ${nama}`;
+      detailAudit = `Menambahkan Master Sub baru (${itemTipe}): ${trimmedKode ? `(${trimmedKode}) ` : ''}${nama}`;
 
     } else {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });

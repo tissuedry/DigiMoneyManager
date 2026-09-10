@@ -7,12 +7,13 @@ import { useMutate } from "@/lib/use-api";
 import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 
 const emptyForm = {
+  nomorRegister: "",
   nama: "",
   deskripsi: "",
   nilaiKontrak: "",
   tanggalMulai: "",
   tanggalSelesai: "",
-  status: "PLANNING",
+  status: "AKTIF",
 };
 
 type Props = {
@@ -60,10 +61,6 @@ export default function AddProjectForm({ show, onClose, onSaved }: Props) {
       setFormError("Tanggal selesai tidak boleh sebelum tanggal mulai.");
       return;
     }
-    if (!projectForm.status) {
-      setFormError("Status proyek wajib diisi.");
-      return;
-    }
 
     setShowConfirm(true);
   };
@@ -72,11 +69,12 @@ export default function AddProjectForm({ show, onClose, onSaved }: Props) {
     createProyek.mutate(
       {
         nama: projectForm.nama,
+        nomorRegister: projectForm.nomorRegister ? projectForm.nomorRegister.trim() : null,
         deskripsi: projectForm.deskripsi,
         nilaiKontrak: ribuanToNumber(projectForm.nilaiKontrak) || 0,
         tanggalMulai: projectForm.tanggalMulai,
         tanggalSelesai: projectForm.tanggalSelesai,
-        status: projectForm.status,
+        status: "AKTIF",
       },
       {
         onSuccess: () => {
@@ -104,6 +102,16 @@ export default function AddProjectForm({ show, onClose, onSaved }: Props) {
             </button>
           </div>
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nomor Register Proyek</label>
+              <input
+                type="text"
+                value={projectForm.nomorRegister || ""}
+                onChange={(e) => setProjectForm({ ...projectForm, nomorRegister: e.target.value })}
+                placeholder="e.g. REG-2026-001 / PRJ-001"
+                className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30 bg-white"
+              />
+            </div>
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek <span className="text-red-500"> *</span></label>
               <input
@@ -166,30 +174,6 @@ export default function AddProjectForm({ show, onClose, onSaved }: Props) {
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">
-                Status Proyek <span className="text-red-500"> *</span>
-              </label>
-              <div className="flex flex-wrap gap-3 mt-1">
-                {[
-                  { value: "PLANNING", label: "Planning" },
-                  { value: "AKTIF", label: "Active" }
-                ].map((statusItem) => {
-                  const isSelected = projectForm.status === statusItem.value;
-                  return (
-                    <button
-                      key={statusItem.value}
-                      type="button"
-                      onClick={() => setProjectForm({ ...projectForm, status: statusItem.value })}
-                      className={`px-5 py-2 text-[13px] font-semibold rounded-xl border transition-all ${isSelected ? "border-[#2d6a4f] bg-[#e8f5e9] text-[#1b4332]" : "border-stone-200 bg-white text-stone-600"
-                        }`}
-                    >
-                      {statusItem.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
             {formError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-[12px] font-medium flex items-center gap-2">
                 <X size={14} />
@@ -212,7 +196,7 @@ export default function AddProjectForm({ show, onClose, onSaved }: Props) {
         title="Buat Proyek Baru"
         description={
           <>
-            Apakah Anda yakin ingin membuat proyek <span className="font-semibold text-stone-900">{projectForm.nama}</span> ({projectForm.tanggalMulai} s/d {projectForm.tanggalSelesai}) dengan status <span className="font-semibold text-stone-900">{projectForm.status}</span>?
+            Apakah Anda yakin ingin membuat proyek <span className="font-semibold text-stone-900">{projectForm.nama}</span> ({projectForm.tanggalMulai} s/d {projectForm.tanggalSelesai})?
           </>
         }
         confirmLabel="Buat Proyek"

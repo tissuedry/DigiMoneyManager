@@ -17,33 +17,36 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const body = await req.json();
-    const { type, nama, tipe } = body;
+    const { type, nama, kode, tipe } = body;
 
     if (!type || !nama) {
       return NextResponse.json({ message: 'Type dan nama wajib diisi di dalam body' }, { status: 400 });
     }
 
     const targetId = parseInt(id, 10);
+    const trimmedKode = kode !== undefined ? (kode && String(kode).trim() !== '' ? String(kode).trim() : null) : undefined;
     let updatedData;
     let detailAudit = '';
 
     if (type === 'main') {
       const updatePayload: any = { nama };
       if (tipe) updatePayload.tipe = tipe;
+      if (trimmedKode !== undefined) updatePayload.kode = trimmedKode;
       updatedData = await prisma.masterMain.update({
         where: { id: targetId },
         data: updatePayload,
       });
-      detailAudit = `Mengubah Master Main (ID: ${targetId}) menjadi: ${nama}`;
+      detailAudit = `Mengubah Master Main (ID: ${targetId}) menjadi: ${trimmedKode ? `(${trimmedKode}) ` : ''}${nama}`;
 
     } else if (type === 'sub') {
       const updatePayload: any = { nama };
       if (tipe) updatePayload.tipe = tipe;
+      if (trimmedKode !== undefined) updatePayload.kode = trimmedKode;
       updatedData = await prisma.masterSub.update({
         where: { id: targetId },
         data: updatePayload,
       });
-      detailAudit = `Mengubah Master Sub (ID: ${targetId}) menjadi: ${nama}`;
+      detailAudit = `Mengubah Master Sub (ID: ${targetId}) menjadi: ${trimmedKode ? `(${trimmedKode}) ` : ''}${nama}`;
 
     } else {
       return NextResponse.json({ message: 'Tipe data master tidak valid' }, { status: 400 });

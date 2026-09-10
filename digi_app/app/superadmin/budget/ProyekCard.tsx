@@ -13,11 +13,12 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
   const [toastError, setToastError] = useState<string | null>(null);
 
   const budget = proyek.budget;
-  const rab = budget ? Number(budget.nilaiKontrak) : 0;
-  const terpakai = budget ? Number(budget.totalPengeluaran) : 0;
-  const sisa = budget ? Number(budget.sisaBudget) : 0;
-  const pct = rab > 0 ? Math.min((terpakai / rab) * 100, 100) : 0;
   const posPengeluaran = budget?.posAnggaran.filter((p) => p.tipe !== "pendapatan") ?? [];
+  const totalAnggaran = posPengeluaran.reduce((sum, p) => sum + Number(p.nominalAlokasi || 0), 0);
+  const rab = totalAnggaran > 0 ? totalAnggaran : (budget ? Number(budget.nilaiKontrak) : 0);
+  const terpakai = budget ? Number(budget.totalPengeluaran) : 0;
+  const sisa = Math.max(0, rab - terpakai);
+  const pct = rab > 0 ? Math.min((terpakai / rab) * 100, 100) : 0;
 
   const handleExport = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -53,7 +54,14 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[14px] font-bold text-stone-900 leading-tight truncate">{proyek.nama}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(proyek.nomorRegister || (proyek as any).kode) && (
+                    <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md">
+                      {proyek.nomorRegister || (proyek as any).kode}
+                    </span>
+                  )}
+                  <p className="text-[14px] font-bold text-stone-900 leading-tight truncate">{proyek.nama}</p>
+                </div>
                 <div className="flex items-center gap-2 mt-1">
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusStyles(proyek.status)}`}
@@ -89,7 +97,7 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
             {budget ? (
               <div className="mt-3 space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wider">Total Nilai Proyek</p>
+                  <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wider">Total Nilai Anggaran</p>
                   <p className="text-[15px] font-extrabold text-stone-900 whitespace-nowrap">
                     <CompactNominal value={rab} className="text-[15px] font-extrabold text-stone-900" />
                   </p>

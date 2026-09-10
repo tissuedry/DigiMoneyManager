@@ -239,7 +239,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const body = await req.json();
-    const { nama, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal, nilaiKontrak } = body;
+    const { nama, nomorRegister, deskripsi, tanggalMulai, tanggalSelesai, status, rabTotal, nilaiKontrak } = body;
 
     if (!nama || !tanggalMulai || !status || !tanggalSelesai) {
       return NextResponse.json({ message: 'Nama, tanggal mulai, tanggal selesai, dan status wajib diisi' }, { status: 400 });
@@ -298,6 +298,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id: proyekId },
       data: {
         nama,
+        nomorRegister: nomorRegister !== undefined ? (nomorRegister ? String(nomorRegister).trim() : null) : undefined,
         deskripsi: deskripsi || null,
         tanggalMulai: new Date(tanggalMulai),
         tanggalSelesai: tanggalSelesai ? new Date(tanggalSelesai) : null,

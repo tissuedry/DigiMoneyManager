@@ -8,6 +8,7 @@ import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 import { Project } from "./types";
 
 const emptyForm = {
+  nomorRegister: "",
   nama: "",
   deskripsi: "",
   rabTotal: "",
@@ -36,6 +37,7 @@ export default function EditProjectForm({ editMode, project, onClose, onSaved }:
     if (!editMode || !project) return;
     const b: any = project.budget;
     setEditForm({
+      nomorRegister: project.nomorRegister || "",
       nama: project.nama,
       deskripsi: project.deskripsi || "",
       rabTotal: b ? formatRibuan(String(Math.round(Number(b.nilaiKontrak)))) : "",
@@ -69,6 +71,7 @@ export default function EditProjectForm({ editMode, project, onClose, onSaved }:
     updateProyek.mutate(
       {
         nama: editForm.nama,
+        nomorRegister: editForm.nomorRegister ? editForm.nomorRegister.trim() : null,
         deskripsi: editForm.deskripsi,
         nilaiKontrak: ribuanToNumber(editForm.rabTotal) || 0,
         rabTotal: ribuanToNumber(editForm.rabTotal) || 0,
@@ -102,6 +105,16 @@ export default function EditProjectForm({ editMode, project, onClose, onSaved }:
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-4 text-left overflow-y-auto flex-1">
+            <div>
+              <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nomor Register Proyek</label>
+              <input
+                type="text"
+                value={editForm.nomorRegister || ""}
+                onChange={(e) => setEditForm({ ...editForm, nomorRegister: e.target.value })}
+                placeholder="e.g. REG-2026-001 / PRJ-001"
+                className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30"
+              />
+            </div>
             <div>
               <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek <span className="text-red-500"> *</span></label>
               <input type="text" required value={editForm.nama} onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })} className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/30" />

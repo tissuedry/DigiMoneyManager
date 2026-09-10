@@ -6,6 +6,7 @@ import ModalWrapper from "./ModalWrapper";
 import Toast from "@/components/toast";
 
 export default function TambahKategoriModal({ isOpen, onClose, type, data, onRefresh }: any) {
+  const [kodeKategori, setKodeKategori] = useState("");
   const [namaKategori, setNamaKategori] = useState("");
   const [selectedTipe, setSelectedTipe] = useState<"aset" | "pemasukan" | "pengeluaran">("aset");
   const [isLoading, setIsLoading] = useState(false);
@@ -16,6 +17,7 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
 
   useEffect(() => {
     if (isOpen) {
+      setKodeKategori("");
       setNamaKategori("");
       setSelectedTipe(data?.tipe || "aset");
     }
@@ -34,6 +36,7 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
 
     const payload = {
       type: payloadType,
+      kode: kodeKategori.trim() || undefined,
       nama: namaKategori,
       tipe: selectedTipe,
       parentId: data?.parentId ? String(data.parentId) : undefined
@@ -64,17 +67,19 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
   };
 
   const getSuccessMessage = () => {
-    if (type === 'tambahMain') return `Main "${namaKategori}" berhasil ditambahkan.`;
-    return `Sub "${namaKategori}" berhasil ditambahkan.`;
+    const label = kodeKategori ? `(${kodeKategori}) ${namaKategori}` : namaKategori;
+    if (type === 'tambahMain') return `Main "${label}" berhasil ditambahkan.`;
+    return `Sub "${label}" berhasil ditambahkan.`;
   };
 
   const getBreadcrumbs = () => {
     if (type === 'tambahSub') {
+      const mainLabel = data?.kode ? `(${data.kode}) ${data.main}` : data?.main;
       return (
         <>
           <span className="font-bold text-stone-800 tracking-tight">MAIN</span>
           <span className="text-stone-400">·</span>
-          <span>{data?.main}</span>
+          <span>{mainLabel}</span>
         </>
       );
     }
@@ -134,7 +139,19 @@ export default function TambahKategoriModal({ isOpen, onClose, type, data, onRef
           </div>
         )}
         <div className="space-y-1.5">
-          <label className="text-[13px] font-bold text-stone-800">Nama Main Baru</label>
+          <label className="text-[13px] font-bold text-stone-800">Kode Rekening</label>
+          <input
+            type="text"
+            value={kodeKategori}
+            onChange={(e) => setKodeKategori(e.target.value)}
+            placeholder={type === 'tambahMain' ? "Misal: 1-1000" : "Misal: 1-1001"}
+            className="w-full bg-white border border-stone-200 text-stone-800 text-[14px] rounded-xl px-4 py-2.5 outline-none focus:border-[#008f5d] transition shadow-sm font-mono"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-bold text-stone-800">
+            {type === 'tambahMain' ? 'Nama Main Baru' : 'Nama Sub Baru'}
+          </label>
           <input
             type="text"
             value={namaKategori}

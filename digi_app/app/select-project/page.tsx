@@ -240,7 +240,7 @@ export default function SelectProjectPage() {
                           {assignment.nama}
                         </h3>
                         <p className="text-xs text-stone-400 font-medium">
-                          ID: PRJ-{String(assignment.proyekId).padStart(3, '0')}
+                          ID: {(assignment as any).nomorRegister ? (assignment as any).nomorRegister : `PRJ-${String(assignment.proyekId).padStart(3, '0')}`}
                         </p>
                       </div>
                     </div>

@@ -74,6 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 nominal: parseFloat(t.nominal),
                 persentaseProgress: parseFloat(t.persentaseProgress),
                 urutan: idx + 1,
+                tanggalPencairan: t.tanggalPencairan ? new Date(t.tanggalPencairan) : null,
               },
               create: {
                 proyekId,
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 persentaseProgress: parseFloat(t.persentaseProgress),
                 status: 'BELUM_DITERIMA',
                 urutan: idx + 1,
+                tanggalPencairan: t.tanggalPencairan ? new Date(t.tanggalPencairan) : null,
               }
             });
           } else {
@@ -93,6 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 persentaseProgress: parseFloat(t.persentaseProgress),
                 status: 'BELUM_DITERIMA',
                 urutan: idx + 1,
+                tanggalPencairan: t.tanggalPencairan ? new Date(t.tanggalPencairan) : null,
               }
             });
           }

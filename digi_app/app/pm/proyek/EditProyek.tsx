@@ -7,6 +7,7 @@ import DatePicker from "@/components/date-picker";
 
 type ProyekDataMinimal = {
   id: number;
+  nomorRegister?: string | null;
   nama: string;
   deskripsi?: string;
   tanggalMulai: string;
@@ -28,6 +29,7 @@ export default function EditProyekModal({
     return isoOrDateStr.slice(0, 10);
   };
 
+  const [nomorRegister, setNomorRegister] = useState(proyek.nomorRegister || "");
   const [nama, setNama] = useState(proyek.nama || "");
   const [deskripsi, setDeskripsi] = useState(proyek.deskripsi || "");
   const [status, setStatus] = useState(proyek.status || "AKTIF");
@@ -56,6 +58,7 @@ export default function EditProyekModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nama,
+          nomorRegister: nomorRegister ? nomorRegister.trim() : null,
           deskripsi: deskripsi || null,
           status,
           tanggalMulai,
@@ -102,6 +105,17 @@ export default function EditProyekModal({
               {error}
             </div>
           )}
+
+          <div>
+            <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nomor Register Proyek</label>
+            <input
+              type="text"
+              value={nomorRegister || ""}
+              onChange={(e) => setNomorRegister(e.target.value)}
+              placeholder="e.g. REG-2026-001 / PRJ-001"
+              className="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-stone-800 font-medium"
+            />
+          </div>
 
           <div>
             <label className="block text-[12px] font-bold text-stone-600 mb-1.5">Nama Proyek <span className="text-red-500"> *</span></label>

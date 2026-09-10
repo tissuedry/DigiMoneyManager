@@ -21,8 +21,8 @@ type UserProfile = {
   role: string;
   roles?: string[];
   divisi?: string | null;
-  proyek?: { id: number; nama: string; status: string } | null;
-  assignments?: Array<{ proyekId: number; nama: string; role: string }>;
+  proyek?: { id: number; nama: string; status: string; nomorRegister?: string | null } | null;
+  assignments?: Array<{ proyekId: number; nama: string; role: string; nomorRegister?: string | null }>;
 };
 
 
@@ -122,8 +122,10 @@ export default memo(function Header({ onOpenSidebar, userRole = "Karyawan", hide
               <span className="text-[12px] font-bold text-stone-800 leading-tight">
                 {profile?.nama || "Daisaq Hadya Albar"}
               </span>
-              <span className="text-[10px] text-stone-500 max-w-37.5 truncate">
-                {profile?.proyek ? `${activeRole} · ${profile.proyek.nama}` : activeRole}
+              <span className="text-[10px] text-stone-500 max-w-44 truncate">
+                {profile?.proyek
+                  ? `${activeRole} · ${profile.proyek.nomorRegister ? `[${profile.proyek.nomorRegister}] ` : ""}${profile.proyek.nama}`
+                  : activeRole}
               </span>
             </div>
           </div>
@@ -146,7 +148,7 @@ export default memo(function Header({ onOpenSidebar, userRole = "Karyawan", hide
                     Proyek Aktif
                   </div>
                   <div className="px-4 py-1 text-[11px] text-stone-700 font-bold truncate max-w-45">
-                    📂 {profile.proyek?.nama || 'Belum memilih'}
+                    📂 {profile.proyek ? `${profile.proyek.nomorRegister ? `[${profile.proyek.nomorRegister}] ` : ""}${profile.proyek.nama}` : 'Belum memilih'}
                   </div>
                   <Link
                     href="/select-project"

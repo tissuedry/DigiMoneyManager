@@ -214,7 +214,8 @@ export async function GET(req: NextRequest) {
       return {
         id: p.id,
         nama: p.nama,
-        kode: `PRJ-${new Date(p.tanggalMulai).getFullYear()}-${String(p.id).padStart(3, '0')}`,
+        nomorRegister: p.nomorRegister,
+        kode: p.nomorRegister || `PRJ-${new Date(p.tanggalMulai).getFullYear()}-${String(p.id).padStart(3, '0')}`,
         klien: p.deskripsi || '-',
         deskripsi: p.deskripsi,
         tanggalMulai: formatDateInput(p.tanggalMulai),

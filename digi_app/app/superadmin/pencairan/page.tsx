@@ -100,10 +100,12 @@ function PencairanContent() {
     const opts: Array<{ displayVal: string; mainNama: string; subNama: string }> = [];
     masterAsetList.forEach((main: any) => {
       (main.MasterSub || []).forEach((sub: any) => {
+        const mainLabel = main.kode ? `(${main.kode}) ${main.nama}` : main.nama;
+        const subLabel = sub.kode ? `(${sub.kode}) ${sub.nama}` : sub.nama;
         opts.push({
           mainNama: main.nama,
           subNama: sub.nama,
-          displayVal: `MAIN · ${main.nama} > SUB · ${sub.nama}`,
+          displayVal: `MAIN · ${mainLabel} > SUB · ${subLabel}`,
         });
       });
     });
@@ -779,6 +781,7 @@ function PencairanContent() {
                                   </span>
                                   <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
                                   <span className="font-bold text-stone-800 truncate">
+                                    {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode || selectedItem.posAnggaran?.mainKode ? `(${selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode || selectedItem.posAnggaran?.mainKode}) ` : ''}
                                     {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
                                   </span>
                                 </div>
@@ -791,6 +794,7 @@ function PencairanContent() {
                                   </span>
                                   <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
                                   <span className="font-bold text-stone-800 truncate">
+                                    {selectedItem.posAnggaran?.subAnggaran?.kode || selectedItem.posAnggaran?.subKode ? `(${selectedItem.posAnggaran?.subAnggaran?.kode || selectedItem.posAnggaran?.subKode}) ` : ''}
                                     {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
                                   </span>
                                 </div>
@@ -822,7 +826,7 @@ function PencairanContent() {
                                 <option value="">Pilih Akun Kredit</option>
                                 {(masterCreditOptions.length > 0 ? masterCreditOptions : (selectedItem.creditOptions || [])).map((opt: any, idx: number) => (
                                   <option key={idx} value={opt.displayVal}>
-                                    MAIN · {opt.mainNama} &gt; SUB · {opt.subNama}
+                                    {opt.displayVal || `MAIN · ${opt.mainNama} > SUB · ${opt.subNama}`}
                                   </option>
                                 ))}
                               </select>
@@ -845,6 +849,7 @@ function PencairanContent() {
                                         </span>
                                         <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
                                         <span className="font-bold text-stone-800 truncate">
+                                          {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode || selectedItem.posAnggaran?.mainKode ? `(${selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode || selectedItem.posAnggaran?.mainKode}) ` : ''}
                                           {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
                                         </span>
 
@@ -855,6 +860,7 @@ function PencairanContent() {
                                         </span>
                                         <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
                                         <span className="font-bold text-stone-800 truncate">
+                                          {selectedItem.posAnggaran?.subAnggaran?.kode || selectedItem.posAnggaran?.subKode ? `(${selectedItem.posAnggaran?.subAnggaran?.kode || selectedItem.posAnggaran?.subKode}) ` : ''}
                                           {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
                                         </span>
 
@@ -1079,7 +1085,7 @@ function PencairanContent() {
                 <div className="flex justify-between gap-4 items-start">
                   <dt className="text-stone-400 font-medium shrink-0">Akun Debit (Auto)</dt>
                   <dd className="font-bold text-stone-800 text-right break-words">
-                    {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'} &gt; {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'} &gt; {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
+                    {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode || selectedItem.posAnggaran?.mainKode ? `(${selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode || selectedItem.posAnggaran?.mainKode}) ` : ''}{selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'} &gt; {selectedItem.posAnggaran?.subAnggaran?.kode || selectedItem.posAnggaran?.subKode ? `(${selectedItem.posAnggaran?.subAnggaran?.kode || selectedItem.posAnggaran?.subKode}) ` : ''}{selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'} &gt; {selectedItem.posAnggaran?.keterangan || selectedItem.posAnggaran?.deskripsi || '-'}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4 items-start">
