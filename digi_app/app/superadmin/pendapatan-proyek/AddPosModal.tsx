@@ -361,7 +361,9 @@ export default function AddPosModal({
                         {isMainOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </div>
                       <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">MAIN</span>
-                      <span className="text-[12.5px] font-bold text-[#14130f]">{main.nama}</span>
+                      <span className="text-[12.5px] font-bold text-[#14130f]">
+                        {masterMain?.kode ? `(${masterMain.kode}) ${main.nama}` : main.nama}
+                      </span>
                     </div>
 
                     <span className="text-[11px] font-medium text-stone-400">
@@ -372,6 +374,11 @@ export default function AddPosModal({
                   {isMainOpen && (
                     <div className="bg-white pb-2">
                       {main.subPos.map((sub) => {
+                        const matchingSub = (masterSubs || []).find(
+                          (ms: any) => ms.nama.toUpperCase().trim() === sub.nama.toUpperCase().trim()
+                        );
+                        const subKode = matchingSub?.kode;
+
                         return (
                           <div key={sub.id} className="bg-white">
                             <div className="pl-10 pr-4 py-2 flex items-center justify-between transition select-none hover:bg-[#fbfaf6]">
@@ -379,10 +386,12 @@ export default function AddPosModal({
                                 <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">SUB</span>
                                 {sub.isLocalDraft ? (
                                   <span className="text-[12.5px] font-medium text-[#2c2a24]">
-                                    Sub Baru: <span className="text-[#005836] font-semibold">{sub.nama}</span>
+                                    Sub Baru: <span className="text-[#005836] font-semibold">{subKode ? `(${subKode}) ${sub.nama}` : sub.nama}</span>
                                   </span>
                                 ) : (
-                                  <span className="text-[12.5px] font-medium text-[#2c2a24]">{sub.nama}</span>
+                                  <span className="text-[12.5px] font-medium text-[#2c2a24]">
+                                    {subKode ? `(${subKode}) ${sub.nama}` : sub.nama}
+                                  </span>
                                 )}
                               </div>
 
@@ -427,7 +436,7 @@ export default function AddPosModal({
                                         .filter((ms: any) => !main.subPos.some((s) => s.nama.toUpperCase().trim() === ms.nama.toUpperCase().trim()))
                                         .map((ms: any) => (
                                           <option key={ms.id} value={ms.nama}>
-                                            {ms.nama}
+                                            {ms.kode ? `(${ms.kode}) ${ms.nama}` : ms.nama}
                                           </option>
                                         ))}
                                     </select>

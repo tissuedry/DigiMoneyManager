@@ -252,9 +252,19 @@ export default function AntrianApprovalPage() {
 
       merchant: r.merchant || r.nama || 'N/A',
       project: r.proyek?.nama || 'N/A',
-      main: r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || 'N/A',
-      sub: r.keteranganAnggaran?.subAnggaran?.namaSub || 'N/A',
-      ket: r.keteranganAnggaran?.keterangan || 'N/A',
+      main: (() => {
+        const mNama = r.keteranganAnggaran?.subAnggaran?.mainAnggaran?.namaMain || r.posAnggaran?.namaPos;
+        const mKode = r.posAnggaran?.mainKode || r.posAnggaran?.subAnggaran?.mainAnggaran?.kode;
+        if (!mNama) return 'N/A';
+        return mKode ? `(${mKode}) ${mNama}` : mNama;
+      })(),
+      sub: (() => {
+        const sNama = r.keteranganAnggaran?.subAnggaran?.namaSub || r.posAnggaran?.subAnggaran?.namaSub;
+        const sKode = r.posAnggaran?.subKode || r.posAnggaran?.subAnggaran?.kode;
+        if (!sNama) return 'N/A';
+        return sKode ? `(${sKode}) ${sNama}` : sNama;
+      })(),
+      ket: r.keteranganAnggaran?.keterangan || r.posAnggaran?.deskripsi || 'N/A',
       ketAlokasi: Number(r.keteranganAnggaran?.nominalAlokasi || 0),
       ketRealisasi: Number(r.keteranganAnggaran?.nominalRealisasi || 0),
 
@@ -674,7 +684,7 @@ export default function AntrianApprovalPage() {
                     )}
 
                     <div>
-                      <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
+                      <p className="text-[13px] text-stone-500 mb-2">Rincian</p>
                       <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
                         {selected.keterangan}
                       </div>

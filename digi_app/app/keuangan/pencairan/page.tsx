@@ -956,9 +956,9 @@ function PencairanContent() {
                     </div>
 
                     <div>
-                      <p className="text-[13px] text-stone-500 mb-2">Catatan dari Pengaju</p>
-                      <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic">
-                        {selectedItem.nama || '-'}
+                      <p className="text-[13px] text-stone-500 mb-2">Rincian</p>
+                      <div className="bg-[#fdf9f4] border border-stone-200/60 rounded-xl px-4 py-3 text-[13px] text-stone-700 italic whitespace-pre-wrap">
+                        {selectedItem.deskripsi || selectedItem.nama || '-'}
                       </div>
                     </div>
 

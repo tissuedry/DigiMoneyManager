@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    const [project, approvals, pendingReimbursements, pendingPengajuanCount] = await Promise.all([
+    const [project, approvals, pendingReimbursements, pendingPengajuanCount, masterMainList] = await Promise.all([
       prisma.proyek.findUnique({
         where: { id: proyekId },
         include: {
@@ -123,7 +123,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
       prisma.pengajuanAnggaran.count({
         where: { proyekId, status: 'PENDING' },
-      })
+      }),
+      prisma.masterMain.findMany({
+        include: { MasterSub: true },
+      }),
     ]);
 
     if (!project) {
@@ -140,21 +143,51 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ...project.budget,
       posAnggaran: (project.budget as any).mainAnggaran
         .filter((m: any) => m.tipe !== 'pemasukan')
-        .map((m: any) => ({
-          ...m,
-          deskripsi: m.namaMain,
-          namaPos: m.namaMain,
-          subAnggaran: m.subAnggaran ? m.subAnggaran.map((s: any) => ({
-            ...s,
-            keterangan: s.keterangan || [],
-          })) : [],
-        })),
+        .map((m: any) => {
+          const matchedMain = masterMainList.find(
+            (mm) => mm.nama.toUpperCase().trim() === m.namaMain.toUpperCase().trim()
+          );
+          const mainKode = matchedMain?.kode || null;
+
+          return {
+            ...m,
+            kode: mainKode,
+            deskripsi: m.namaMain,
+            namaPos: m.namaMain,
+            subAnggaran: m.subAnggaran ? m.subAnggaran.map((s: any) => {
+              const matchedSub = matchedMain?.MasterSub?.find(
+                (ms) => ms.nama.toUpperCase().trim() === s.namaSub.toUpperCase().trim()
+              );
+              return {
+                ...s,
+                kode: matchedSub?.kode || null,
+                keterangan: s.keterangan || [],
+              };
+            }) : [],
+          };
+        }),
       alokasiPemasukan: (project.budget as any).mainAnggaran
         .filter((m: any) => m.tipe === 'pemasukan')
-        .map((m: any) => ({
-          ...m,
-          subAnggaran: m.subAnggaran ? m.subAnggaran.filter((s: any) => s.tipe === 'pemasukan') : [],
-        })),
+        .map((m: any) => {
+          const matchedMain = masterMainList.find(
+            (mm) => mm.nama.toUpperCase().trim() === m.namaMain.toUpperCase().trim()
+          );
+          const mainKode = matchedMain?.kode || null;
+
+          return {
+            ...m,
+            kode: mainKode,
+            subAnggaran: m.subAnggaran ? m.subAnggaran.filter((s: any) => s.tipe === 'pemasukan').map((s: any) => {
+              const matchedSub = matchedMain?.MasterSub?.find(
+                (ms) => ms.nama.toUpperCase().trim() === s.namaSub.toUpperCase().trim()
+              );
+              return {
+                ...s,
+                kode: matchedSub?.kode || null,
+              };
+            }) : [],
+          };
+        }),
     } : null;
 
     const getCashFlowForMonths = (monthsCount: number) => {

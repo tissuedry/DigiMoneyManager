@@ -22,38 +22,66 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Forbidden: You must be a project member, Direktur, Keuangan, or Super Admin to access this data' }, { status: 403 });
     }
 
-    const mainAnggaran = await prisma.mainAnggaran.findMany({
-      where: { budget: { proyekId } },
-      select: {
-        id: true,
-        namaMain: true,
-        tipe: true,
-        nominalAlokasi: true,
-        nominalTerpakai: true,
-        subAnggaran: {
-          orderBy: { id: 'asc' },
-          select: {
-            id: true,
-            namaSub: true,
-            tipe: true,
-            nominalAlokasi: true,
-            nominalTerpakai: true,
-            keterangan: {
-              orderBy: { id: 'asc' },
-              select: {
-                id: true,
-                keterangan: true,
-                nominalAlokasi: true,
-                nominalRealisasi: true,
+    const [mainAnggaran, masterMainList] = await Promise.all([
+      prisma.mainAnggaran.findMany({
+        where: { budget: { proyekId } },
+        select: {
+          id: true,
+          namaMain: true,
+          tipe: true,
+          nominalAlokasi: true,
+          nominalTerpakai: true,
+          subAnggaran: {
+            orderBy: { id: 'asc' },
+            select: {
+              id: true,
+              namaSub: true,
+              tipe: true,
+              nominalAlokasi: true,
+              nominalTerpakai: true,
+              keterangan: {
+                orderBy: { id: 'asc' },
+                select: {
+                  id: true,
+                  keterangan: true,
+                  nominalAlokasi: true,
+                  nominalRealisasi: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: { id: 'asc' },
+        orderBy: { id: 'asc' },
+      }),
+      prisma.masterMain.findMany({
+        include: {
+          MasterSub: true,
+        },
+      }),
+    ]);
+
+    const enrichedMain = mainAnggaran.map((m) => {
+      const matchedMain = masterMainList.find(
+        (mm) => mm.nama.toUpperCase().trim() === m.namaMain.toUpperCase().trim()
+      );
+      const mainKode = matchedMain?.kode || null;
+
+      return {
+        ...m,
+        kode: mainKode,
+        subAnggaran: m.subAnggaran.map((s) => {
+          const matchedSub = matchedMain?.MasterSub?.find(
+            (ms) => ms.nama.toUpperCase().trim() === s.namaSub.toUpperCase().trim()
+          );
+          return {
+            ...s,
+            kode: matchedSub?.kode || null,
+          };
+        }),
+      };
     });
 
-    return NextResponse.json({ posAnggaran: mainAnggaran });
+    return NextResponse.json({ posAnggaran: enrichedMain });
     
   } catch (error: any) {
     console.error('Fetch pos anggaran error:', error);

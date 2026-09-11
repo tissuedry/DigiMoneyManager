@@ -177,6 +177,7 @@ export async function POST(req: NextRequest) {
     let ocrData: any = {};
     
     let nama = '';
+    let deskripsi = '';
     let merchant = '';
     let tanggalStruk: Date | null = null;
     let kategoriBukti = '';
@@ -191,6 +192,7 @@ export async function POST(req: NextRequest) {
       nominal = parseFloat(formData.get('nominal') as string);
       
       nama = (formData.get('nama') || formData.get('namaRealisasi')) as string || '';
+      deskripsi = (formData.get('deskripsi') || formData.get('catatan') || formData.get('rincian')) as string || '';
       merchant = (formData.get('merchant') as string) || '';
       const rawTgl = formData.get('tanggalStruk') || formData.get('tanggal');
       if (rawTgl) tanggalStruk = new Date(rawTgl as string);
@@ -229,6 +231,7 @@ export async function POST(req: NextRequest) {
       nominal = parseFloat(body.nominal);
       
       nama = body.nama || body.namaRealisasi || '';
+      deskripsi = body.deskripsi || body.catatan || body.rincian || '';
       merchant = body.merchant || '';
 
       if (body.tanggalStruk || body.tanggal) {
@@ -250,6 +253,7 @@ export async function POST(req: NextRequest) {
     if (!kategoriBukti && ocrData.kategoriBukti) kategoriBukti = ocrData.kategoriBukti;
     if (!tanggalStruk && ocrData.tanggal) tanggalStruk = new Date(ocrData.tanggal);
     if (!nama && ocrData.keterangan) nama = ocrData.keterangan;
+    if (!deskripsi && ocrData.deskripsi) deskripsi = ocrData.deskripsi;
     if (!createdAt && ocrData.submittedAt) createdAt = new Date(ocrData.submittedAt);
 
     if (!proyekId || !keteranganAnggaranId || isNaN(nominal) || nominal <= 0) {
@@ -285,6 +289,7 @@ export async function POST(req: NextRequest) {
         status: initialStatus,
         
         nama: nama || null,
+        deskripsi: deskripsi?.trim() || null,
         tipe: tipePengajuan,
         merchant: merchant || null,
         tanggalStruk: (tanggalStruk && !isNaN(tanggalStruk.getTime())) ? tanggalStruk : null,

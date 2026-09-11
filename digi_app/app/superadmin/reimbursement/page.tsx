@@ -106,15 +106,15 @@ function AjukanReimbursementContent() {
   const { data: posAnggaranData } = useApi<{ posAnggaran?: MainAnggaran[] }>(proyekId ? `/api/proyek/${proyekId}/pos-anggaran` : null);
   const mainAnggaranList = posAnggaranData?.posAnggaran ?? [];
 
-  const flatKeteranganOptions: FlatKeteranganOption[] = mainAnggaranList.flatMap((m) =>
-    (m.subAnggaran ?? []).flatMap((s) =>
-      (s.keterangan ?? []).map((k) => ({
+  const flatKeteranganOptions: FlatKeteranganOption[] = mainAnggaranList.flatMap((m: any) =>
+    (m.subAnggaran ?? []).flatMap((s: any) =>
+      (s.keterangan ?? []).map((k: any) => ({
         id: String(k.id),
         keterangan: k.keterangan,
         mainId: String(m.id),
-        mainNama: m.namaMain,
+        mainNama: m.kode ? `(${m.kode}) ${m.namaMain}` : m.namaMain,
         subId: String(s.id),
-        subNama: s.namaSub,
+        subNama: s.kode ? `(${s.kode}) ${s.namaSub}` : s.namaSub,
       }))
     )
   );

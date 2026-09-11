@@ -1,6 +1,7 @@
 export type PosAnggaranDB = {
   id: number;
   namaPos: string;
+  kode?: string | null;
   nominalAlokasi: string;
   nominalTerpakai: string;
   tipe: string;

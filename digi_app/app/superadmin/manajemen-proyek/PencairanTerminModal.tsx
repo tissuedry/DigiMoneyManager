@@ -9,6 +9,7 @@ type Termin = {
   persentaseProgress: string | number;
   status: string;
   urutan: number;
+  tanggalPencairan?: string | Date | null;
 };
 
 type Props = {
@@ -40,14 +41,21 @@ export default function PencairanTerminModal({
 
   const nextTermin = belumDiterima.length > 0 ? belumDiterima[0] : null;
 
+  const [tanggalPembayaran, setTanggalPembayaran] = useState(new Date().toLocaleDateString('en-CA'));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (isOpen) {
       setError("");
+      if (nextTermin?.tanggalPencairan) {
+        const d = new Date(nextTermin.tanggalPencairan);
+        setTanggalPembayaran(!isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toLocaleDateString('en-CA'));
+      } else {
+        setTanggalPembayaran(new Date().toLocaleDateString('en-CA'));
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, nextTermin]);
 
   if (!isOpen) return null;
 
@@ -65,7 +73,10 @@ export default function PencairanTerminModal({
       return;
     }
 
-    const tanggalHariIni = new Date().toLocaleDateString('en-CA');
+    if (!tanggalPembayaran) {
+      setError("Tanggal pembayaran wajib diisi");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -74,7 +85,7 @@ export default function PencairanTerminModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           terminId: nextTermin.id,
-          tanggalPencairan: tanggalHariIni,
+          tanggalPencairan: tanggalPembayaran,
         }),
       });
 
@@ -139,26 +150,41 @@ export default function PencairanTerminModal({
           </div>
 
           {nextTermin && (
-            <div className="grid grid-cols-2 gap-4">
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[13px] font-bold text-stone-900 mb-2">Nominal</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={formatRupiahDisplay(nextTermin.nominal)}
+                    className="w-full rounded-xl px-4 py-3 text-[13px] bg-[#fdf8f4] text-[#a67c52] font-semibold outline-none cursor-default"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] font-bold text-stone-900 mb-2">Persen</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${parseFloat(String(nextTermin.persentaseProgress)) || 0}%`}
+                    className="w-full rounded-xl px-4 py-3 text-[13px] bg-[#fdf8f4] text-[#a67c52] font-semibold outline-none cursor-default"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-[13px] font-bold text-stone-900 mb-2">Nominal</label>
+                <label className="block text-[13px] font-bold text-stone-900 mb-2">
+                  Tanggal Pembayaran
+                </label>
                 <input
-                  type="text"
-                  readOnly
-                  value={formatRupiahDisplay(nextTermin.nominal)}
-                  className="w-full rounded-xl px-4 py-3 text-[13px] bg-[#fdf8f4] text-[#a67c52] font-semibold outline-none cursor-default"
+                  type="date"
+                  value={tanggalPembayaran}
+                  onChange={(e) => setTanggalPembayaran(e.target.value)}
+                  className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[14px] text-stone-800 bg-white font-medium outline-none focus:border-[#00966c] transition cursor-pointer"
+                  required
                 />
               </div>
-              <div>
-                <label className="block text-[13px] font-bold text-stone-900 mb-2">Persen</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={`${parseFloat(String(nextTermin.persentaseProgress)) || 0}%`}
-                  className="w-full rounded-xl px-4 py-3 text-[13px] bg-[#fdf8f4] text-[#a67c52] font-semibold outline-none cursor-default"
-                />
-              </div>
-            </div>
+            </>
           )}
 
           {error && (

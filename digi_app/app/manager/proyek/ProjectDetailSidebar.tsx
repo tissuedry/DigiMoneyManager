@@ -581,12 +581,13 @@ export default function ProjectDetailSidebar({
                                                         : parseFloat(pos.nominalTerpakai) || 0;
 
                                                     const sisaVal = Math.max(0, nominalAlokasi - terpakaiVal);
-                                                    const percentUsed = nominalAlokasi > 0 ? Math.round((terpakaiVal / nominalAlokasi) * 100) : 0;
+                                                    const percentUsedRaw = nominalAlokasi > 0 ? (terpakaiVal / nominalAlokasi) * 100 : 0;
+                                                    const percentUsedFormatted = percentUsedRaw.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                                                     let barColor = "bg-[#00966c]";
-                                                    if (percentUsed >= 90) {
+                                                    if (percentUsedRaw >= 90) {
                                                         barColor = "bg-[#d65f5f]";
-                                                    } else if (percentUsed >= 80) {
+                                                    } else if (percentUsedRaw >= 80) {
                                                         barColor = "bg-[#d4a373]";
                                                     }
 
@@ -595,10 +596,10 @@ export default function ProjectDetailSidebar({
                                                             <div className="flex justify-between items-start">
                                                                 <div>
                                                                     <h4 className="text-[14px] font-bold text-stone-800 leading-tight">
-                                                                        {pos.namaPos || pos.deskripsi}
+                                                                        {pos.kode ? `(${pos.kode}) ${pos.namaPos || pos.deskripsi}` : (pos.namaPos || pos.deskripsi)}
                                                                     </h4>
                                                                     <span className="text-[10px]  font-bold text-stone-400">
-                                                                        POS-{201 + index}
+                                                                        {pos.kode ? `KODE: ${pos.kode} · POS-${201 + index}` : `POS-${201 + index}`}
                                                                     </span>
                                                                 </div>
                                                                 <div className="text-right">
@@ -614,13 +615,13 @@ export default function ProjectDetailSidebar({
                                                             <div className="w-full h-2 bg-stone-100/80 rounded-full overflow-hidden">
                                                                 <div
                                                                     className={`h-full rounded-full transition-all duration-500 ease-out ${barColor}`}
-                                                                    style={{ width: `${Math.min(percentUsed, 100)}%` }}
+                                                                    style={{ width: `${Math.min(percentUsedRaw, 100)}%` }}
                                                                 />
                                                             </div>
 
                                                             <div className="flex justify-between items-center text-[11px] text-stone-400 font-medium pt-0.5">
-                                                                <span className="font-semibold" style={{ color: percentUsed >= 90 ? '#d65f5f' : percentUsed >= 80 ? '#d4a373' : '#00966c' }}>
-                                                                    {percentUsed}% terpakai
+                                                                <span className="font-semibold" style={{ color: percentUsedRaw >= 90 ? '#d65f5f' : percentUsedRaw >= 80 ? '#d4a373' : '#00966c' }}>
+                                                                    {percentUsedFormatted}% terpakai
                                                                 </span>
                                                                 <span>
                                                                     Sisa <b className="text-stone-700  font-bold"><CompactNominal value={sisaVal} compactThreshold={1_000_000_000_000} /></b>
@@ -822,11 +823,15 @@ export default function ProjectDetailSidebar({
                                                                     )}
                                                                 </div>
 
-                                                                {isDiterima && (
+                                                                {termin.tanggalPencairan ? (
                                                                     <div className="text-[12px] text-stone-500 font-medium text-center shrink-0">
-                                                                        {formatTerminDate(termin.tanggalPencairan || termin.updatedAt)}
+                                                                        {formatTerminDate(termin.tanggalPencairan)}
                                                                     </div>
-                                                                )}
+                                                                ) : isDiterima ? (
+                                                                    <div className="text-[12px] text-stone-500 font-medium text-center shrink-0">
+                                                                        {formatTerminDate(termin.updatedAt)}
+                                                                    </div>
+                                                                ) : null}
 
                                                                 <div className="flex items-center gap-4 shrink-0 justify-end">
                                                                     <span className="text-[12px]  font-medium text-stone-500">

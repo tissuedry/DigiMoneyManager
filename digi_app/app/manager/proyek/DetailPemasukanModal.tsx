@@ -188,7 +188,7 @@ export default function DetailPemasukanModal({
                           MAIN
                         </span>
                         <span className="text-[13.5px] font-semibold text-[#2C2A24] truncate font-sans">
-                          · {main.namaMain || main.nama}
+                          · {main.kode ? `(${main.kode}) ${main.namaMain || main.nama}` : (main.namaMain || main.nama)}
                         </span>
                       </div>
 
@@ -231,7 +231,7 @@ export default function DetailPemasukanModal({
                                       SUB
                                     </span>
                                     <span className="text-[12.5px] font-semibold text-[#14130F] truncate font-sans">
-                                      · {sub.namaSub || sub.nama}
+                                      · {sub.kode ? `(${sub.kode}) ${sub.namaSub || sub.nama}` : (sub.namaSub || sub.nama)}
                                     </span>
                                   </div>
 

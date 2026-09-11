@@ -8,6 +8,7 @@ import { formatRibuan, ribuanToNumber } from "@/lib/proyek-utils";
 type MasterOption = {
   id: number;
   nama: string;
+  kode?: string | null;
 };
 
 type Props = {
@@ -69,6 +70,19 @@ export default function AlokasiPemasukanForm({
   useEffect(() => {
     if (!isOpen || savedName) return;
 
+    const totalNilaiProyek = Number(
+      nilaiKontrak > 0
+        ? nilaiKontrak
+        : (detailedProjectInfo?.budget?.nilaiKontrak || 0)
+    ) || 0;
+
+    const totalBiayaExisting = detailedProjectInfo?.budget?.posAnggaran?.reduce(
+      (acc: number, p: any) => acc + (Number(p.nominalAlokasi || p.alokasi || p.nominal) || 0),
+      0
+    ) || 0;
+
+    const grossProfitSisa = Math.max(0, totalNilaiProyek - totalBiayaExisting);
+
     const existingPemasukan =
       detailedProjectInfo?.alokasiPemasukan ||
       detailedProjectInfo?.budget?.alokasiPemasukan ||
@@ -79,13 +93,13 @@ export default function AlokasiPemasukanForm({
       const first = existingPemasukan[0];
       setPosPemasukanList([{
         deskripsi: first.nama || first.deskripsi || first.namaPos || first.namaMain || "",
-        nominalAlokasi: formatRibuan(String(first.alokasi || first.nominalAlokasi || first.nominal || 0)),
+        nominalAlokasi: formatRibuan(String(grossProfitSisa)),
       }]);
     } else {
-      setPosPemasukanList([{ deskripsi: "", nominalAlokasi: "" }]);
+      setPosPemasukanList([{ deskripsi: "", nominalAlokasi: formatRibuan(String(grossProfitSisa)) }]);
     }
     setError("");
-  }, [isOpen, detailedProjectInfo, savedName]);
+  }, [isOpen, detailedProjectInfo, savedName, nilaiKontrak]);
 
   if (!isOpen && !savedName) return null;
 
@@ -293,30 +307,27 @@ export default function AlokasiPemasukanForm({
                       </option>
                       {pemasukanOptions.map((opt) => (
                         <option key={opt.id} value={opt.nama}>
-                          {opt.nama}
+                          {opt.kode ? `(${opt.kode}) ${opt.nama}` : opt.nama}
                         </option>
                       ))}
                     </select>
 
-                    <div className="relative flex items-center w-48">
+                    <div className="relative flex items-center w-52">
                       <span className="absolute left-3 text-[12px] font-bold text-stone-400">Rp</span>
                       <input
                         type="text"
                         required
+                        readOnly
                         value={posPemasukanList[0]?.nominalAlokasi || ""}
-                        onChange={(e) => {
-                          const { formatted, caret } = formatRibuan(e.target.value, e.target.selectionStart ?? 0);
-                          const updated = [{ ...posPemasukanList[0], nominalAlokasi: formatted }];
-                          setPosPemasukanList(updated);
-                          requestAnimationFrame(() => {
-                            e.target.setSelectionRange(caret, caret);
-                          });
-                        }}
+                        title="Otomatis dari Sisa Anggaran (Gross Profit)"
                         placeholder="0"
-                        className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[12.5px] bg-white text-stone-900 font-bold focus:outline-none focus:border-stone-400 text-left"
+                        className="w-full border border-stone-200 rounded-xl pl-8 pr-3 py-2.5 text-[12.5px] bg-stone-50 text-stone-700 font-bold focus:outline-none cursor-not-allowed text-left"
                       />
                     </div>
                   </div>
+                  <p className="text-[11px] text-stone-400">
+                    * Nominal pendapatan terisi otomatis dari sisa anggaran (Gross Profit = Nilai Proyek − Biaya).
+                  </p>
                 </div>
 
                 {isOverbudget && (

@@ -18,6 +18,7 @@ type TransaksiItem = {
 type SubPosItem = {
   id: number;
   nama: string;
+  kode?: string | null;
   alokasi: number;
   pendingNominal?: number;
   realisasi: number;
@@ -27,6 +28,7 @@ type SubPosItem = {
 type MainPosItem = {
   id: number;
   nama: string;
+  kode?: string | null;
   alokasi: number;
   realisasi: number;
   subPos: SubPosItem[];
@@ -102,6 +104,7 @@ export default function DetailPendapatanModal({
       return {
         id: subId,
         nama: s.namaSub || s.nama,
+        kode: s.kode || null,
         alokasi: subNominal,
         pendingNominal,
         realisasi: subRealisasi,
@@ -123,6 +126,7 @@ export default function DetailPendapatanModal({
     return {
       id: mainId,
       nama: m.nama || m.namaMain || m.deskripsi || "Pendapatan",
+      kode: m.kode || null,
       alokasi: mainNominal,
       realisasi: mainRealisasi,
       subPos,
@@ -217,7 +221,7 @@ export default function DetailPendapatanModal({
                           MAIN
                         </span>
                         <span className="text-[13.5px] font-semibold text-[#2C2A24] truncate font-sans">
-                          · {main.nama}
+                          · {main.kode ? `(${main.kode}) ${main.nama}` : main.nama}
                         </span>
                       </div>
 
@@ -259,7 +263,7 @@ export default function DetailPendapatanModal({
                                       SUB
                                     </span>
                                     <span className="text-[12.5px] font-semibold text-[#14130F] truncate font-sans">
-                                      · {sub.nama}
+                                      · {sub.kode ? `(${sub.kode}) ${sub.nama}` : sub.nama}
                                     </span>
                                   </div>
 

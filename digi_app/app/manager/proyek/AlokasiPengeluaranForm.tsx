@@ -12,6 +12,7 @@ import CompactNominal from "@/components/compact-nominal";
 type MasterOption = {
   id: number;
   nama: string;
+  kode?: string | null;
 };
 
 const emptyPos = [{ deskripsi: "", nominalAlokasi: "" }];
@@ -273,7 +274,7 @@ export default function AlokasiPengeluaranForm({
                         </option>
                         {pengeluaranOptions.map((opt) => (
                           <option key={opt.id} value={opt.nama}>
-                            {opt.nama}
+                            {opt.kode ? `(${opt.kode}) ${opt.nama}` : opt.nama}
                           </option>
                         ))}
                       </select>

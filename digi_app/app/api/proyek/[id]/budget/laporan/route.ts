@@ -17,29 +17,31 @@ export async function GET(
       );
     }
 
-    const proyek = await prisma.proyek.findUnique({
-      where: { id: proyekId },
-      include: {
-        terminPembayaran: {
-          orderBy: { urutan: "asc" },
-        },
-        transaksiPemasukan: {
-          orderBy: { tanggalTransaksi: "asc" },
-        },
-        budget: {
-          include: {
-            mainAnggaran: {
-              include: {
-                subAnggaran: {
-                  include: {
-                    keterangan: {
-                      include: {
-                        reimbursements: {
-                          where: {
-                            status: "APPROVED",
-                          },
-                          include: {
-                            user: true,
+    const [proyek, masterMainList] = await Promise.all([
+      prisma.proyek.findUnique({
+        where: { id: proyekId },
+        include: {
+          terminPembayaran: {
+            orderBy: { urutan: "asc" },
+          },
+          transaksiPemasukan: {
+            orderBy: { tanggalTransaksi: "asc" },
+          },
+          budget: {
+            include: {
+              mainAnggaran: {
+                include: {
+                  subAnggaran: {
+                    include: {
+                      keterangan: {
+                        include: {
+                          reimbursements: {
+                            where: {
+                              status: "APPROVED",
+                            },
+                            include: {
+                              user: true,
+                            },
                           },
                         },
                       },
@@ -50,8 +52,13 @@ export async function GET(
             },
           },
         },
-      },
-    });
+      }),
+      prisma.masterMain.findMany({
+        include: {
+          MasterSub: true,
+        },
+      }),
+    ]);
 
     if (!proyek || !proyek.budget) {
       return NextResponse.json(
@@ -241,10 +248,16 @@ export async function GET(
       });
 
       // Row Main (Level 2)
+      const matchedMain = masterMainList.find(
+        (mm) => mm.nama.toUpperCase().trim() === (main.namaMain || "").toUpperCase().trim()
+      );
+      const mainKode = matchedMain?.kode ? `(${matchedMain.kode}) ` : "";
+      const displayMainName = `${mainKode}${main.namaMain}`;
+
       const mainRow = sheetPendapatan.getRow(currentRowPem++);
       mainRow.height = ROW_HEIGHT_PENDAPATAN;
       mainRow.getCell(2).value = mainNum;
-      mainRow.getCell(3).value = main.namaMain;
+      mainRow.getCell(3).value = displayMainName;
       mainRow.getCell(5).value = totalMain;
       mainRow.getCell(5).numFmt = numFmtRupiah;
 
@@ -259,10 +272,16 @@ export async function GET(
 
       // Rows Sub (Level 3) & Realisasi (Level 4)
       subsCalculated.forEach((sub) => {
+        const matchedSub = matchedMain?.MasterSub?.find(
+          (ms) => ms.nama.toUpperCase().trim() === (sub.namaSub || "").toUpperCase().trim()
+        );
+        const subKode = matchedSub?.kode ? `(${matchedSub.kode}) ` : "";
+        const displaySubName = `${subKode}${sub.namaSub}`;
+
         const subRow = sheetPendapatan.getRow(currentRowPem++);
         subRow.height = ROW_HEIGHT_PENDAPATAN;
         subRow.getCell(3).value = sub.subNum;
-        subRow.getCell(4).value = sub.namaSub;
+        subRow.getCell(4).value = displaySubName;
         subRow.getCell(5).value = sub.totalSub;
         subRow.getCell(5).numFmt = numFmtRupiah;
 
@@ -319,16 +338,17 @@ export async function GET(
       { width: 8.5 },        // C
       { width: 10.5 },       // D
       { width: 50.83203125 },// E
-      { width: 20.83203125 },// F
-      { width: 20.83203125 },// G
-      { width: 6.1640625 },  // H 
+      { width: 20.83203125 },// F (Realisasi)
+      { width: 20.83203125 },// G (Alokasi)
+      { width: 20.83203125 },// H (Sisa)
+      { width: 6.1640625 },  // I 
     ];
 
     // Nama Proyek
     const row1Biaya = sheetBiaya.getRow(1);
     row1Biaya.height = ROW_HEIGHT_BIAYA;
     row1Biaya.getCell(2).value = proyek.nama;
-    for (let c = 1; c <= 7; c++) {
+    for (let c = 1; c <= 8; c++) {
       const cell = row1Biaya.getCell(c);
       cell.fill = fillLevel1;
       cell.font = fontWhiteBold;
@@ -343,7 +363,8 @@ export async function GET(
     row2Biaya.getCell(2).value = "Biaya Proyek";
     row2Biaya.getCell(6).value = "Realisasi";
     row2Biaya.getCell(7).value = "Alokasi";
-    for (let c = 1; c <= 7; c++) {
+    row2Biaya.getCell(8).value = "Sisa";
+    for (let c = 1; c <= 8; c++) {
       const cell = row2Biaya.getCell(c);
       cell.fill = fillLevel1;
       cell.font = fontWhiteBold;
@@ -353,6 +374,7 @@ export async function GET(
     row2Biaya.getCell(2).alignment = { vertical: "middle", horizontal: "left" };
     row2Biaya.getCell(6).alignment = { vertical: "middle", horizontal: "left" };
     row2Biaya.getCell(7).alignment = { vertical: "middle", horizontal: "left" };
+    row2Biaya.getCell(8).alignment = { vertical: "middle", horizontal: "left" };
 
     let currentRowBiaya = 3;
     const pengeluaranMains = proyek.budget.mainAnggaran.filter(
@@ -364,12 +386,24 @@ export async function GET(
       let totalRealisasiMain = 0;
       const totalAlokasiMain = Number(main.nominalAlokasi) || 0;
 
+      const matchedMain = masterMainList.find(
+        (mm) => mm.nama.toUpperCase().trim() === (main.namaMain || "").toUpperCase().trim()
+      );
+      const mainKode = matchedMain?.kode ? `(${matchedMain.kode}) ` : "";
+      const displayMainName = `${mainKode}${main.namaMain}`;
+
       const mainRowIndex = currentRowBiaya++;
 
       main.subAnggaran.forEach((sub, sIdx) => {
         const subNum = `${mainNum}.${String(sIdx + 1).padStart(2, "0")}`;
         let totalRealisasiSub = 0;
         const totalAlokasiSub = Number(sub.nominalAlokasi) || 0;
+
+        const matchedSub = matchedMain?.MasterSub?.find(
+          (ms) => ms.nama.toUpperCase().trim() === (sub.namaSub || "").toUpperCase().trim()
+        );
+        const subKode = matchedSub?.kode ? `(${matchedSub.kode}) ` : "";
+        const displaySubName = `${subKode}${sub.namaSub}`;
 
         const subRowIndex = currentRowBiaya++;
 
@@ -406,7 +440,7 @@ export async function GET(
                 reimbRow.getCell(6).value = nominalReimb;
                 reimbRow.getCell(6).numFmt = numFmtRupiah;
 
-                for (let c = 1; c <= 7; c++) {
+                for (let c = 1; c <= 8; c++) {
                   const cell = reimbRow.getCell(c);
                   cell.fill = fillLevel4;
                   cell.font = fontNormal10;
@@ -422,17 +456,21 @@ export async function GET(
               ketReimbsTotal
             );
             totalRealisasiSub += nominalRealKet;
+            const alokasiKet = Number(ket.nominalAlokasi) || 0;
+            const sisaKet = Math.max(0, alokasiKet - nominalRealKet);
 
             // Level 4: Keterangan
             const ketRow = sheetBiaya.getRow(ketRowIndex);
             ketRow.height = ROW_HEIGHT_BIAYA;
             ketRow.getCell(4).value = ket.keterangan;
             ketRow.getCell(6).value = nominalRealKet;
-            ketRow.getCell(7).value = Number(ket.nominalAlokasi) || 0;
+            ketRow.getCell(7).value = alokasiKet;
+            ketRow.getCell(8).value = sisaKet;
             ketRow.getCell(6).numFmt = numFmtRupiah;
             ketRow.getCell(7).numFmt = numFmtRupiah;
+            ketRow.getCell(8).numFmt = numFmtRupiah;
 
-            for (let c = 1; c <= 7; c++) {
+            for (let c = 1; c <= 8; c++) {
               const cell = ketRow.getCell(c);
               cell.fill = fillLevel4;
               cell.font = fontNormal10;
@@ -441,23 +479,27 @@ export async function GET(
             ketRow.getCell(4).alignment = { vertical: "middle", horizontal: "right" };
             ketRow.getCell(6).alignment = { vertical: "middle", horizontal: "right" };
             ketRow.getCell(7).alignment = { vertical: "middle", horizontal: "right" };
+            ketRow.getCell(8).alignment = { vertical: "middle", horizontal: "right" };
           });
         } else {
           totalRealisasiSub = Number(sub.nominalTerpakai) || 0;
         }
 
         totalRealisasiMain += totalRealisasiSub;
+        const sisaSub = Math.max(0, totalAlokasiSub - totalRealisasiSub);
 
         const subRow = sheetBiaya.getRow(subRowIndex);
         subRow.height = ROW_HEIGHT_BIAYA;
         subRow.getCell(3).value = subNum;
-        subRow.getCell(4).value = sub.namaSub;
+        subRow.getCell(4).value = displaySubName;
         subRow.getCell(6).value = totalRealisasiSub;
         subRow.getCell(7).value = totalAlokasiSub;
+        subRow.getCell(8).value = sisaSub;
         subRow.getCell(6).numFmt = numFmtRupiah;
         subRow.getCell(7).numFmt = numFmtRupiah;
+        subRow.getCell(8).numFmt = numFmtRupiah;
 
-        for (let c = 1; c <= 7; c++) {
+        for (let c = 1; c <= 8; c++) {
           const cell = subRow.getCell(c);
           cell.fill = fillLevel3;
           cell.font = fontBlackBold;
@@ -467,21 +509,27 @@ export async function GET(
         subRow.getCell(4).alignment = { vertical: "middle", horizontal: "left" };
         subRow.getCell(6).alignment = { vertical: "middle", horizontal: "right" };
         subRow.getCell(7).alignment = { vertical: "middle", horizontal: "right" };
+        subRow.getCell(8).alignment = { vertical: "middle", horizontal: "right" };
       });
+
+      const finalRealisasiMain = Math.max(
+        Number(main.nominalTerpakai) || 0,
+        totalRealisasiMain
+      );
+      const sisaMain = Math.max(0, totalAlokasiMain - finalRealisasiMain);
 
       const mainRow = sheetBiaya.getRow(mainRowIndex);
       mainRow.height = ROW_HEIGHT_BIAYA;
       mainRow.getCell(2).value = mainNum;
-      mainRow.getCell(3).value = main.namaMain;
-      mainRow.getCell(6).value = Math.max(
-        Number(main.nominalTerpakai) || 0,
-        totalRealisasiMain
-      );
+      mainRow.getCell(3).value = displayMainName;
+      mainRow.getCell(6).value = finalRealisasiMain;
       mainRow.getCell(7).value = totalAlokasiMain;
+      mainRow.getCell(8).value = sisaMain;
       mainRow.getCell(6).numFmt = numFmtRupiah;
       mainRow.getCell(7).numFmt = numFmtRupiah;
+      mainRow.getCell(8).numFmt = numFmtRupiah;
 
-      for (let c = 1; c <= 7; c++) {
+      for (let c = 1; c <= 8; c++) {
         const cell = mainRow.getCell(c);
         cell.fill = fillLevel2;
         cell.font = fontWhiteBold;
@@ -490,6 +538,7 @@ export async function GET(
       mainRow.getCell(2).alignment = { vertical: "middle", horizontal: "right" };
       mainRow.getCell(6).alignment = { vertical: "middle", horizontal: "right" };
       mainRow.getCell(7).alignment = { vertical: "middle", horizontal: "right" };
+      mainRow.getCell(8).alignment = { vertical: "middle", horizontal: "right" };
     });
 
     const buffer = await workbook.xlsx.writeBuffer();

@@ -113,6 +113,7 @@ export default function AlokasiPosModal({
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
   const [pendingSubmitItems, setPendingSubmitItems] = useState<any[]>([]);
   const [showEmptyWarning, setShowEmptyWarning] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<number, boolean>>({});
@@ -431,6 +432,20 @@ export default function AlokasiPosModal({
   };
 
   const handleSubmit = () => {
+    // Validasi: Setiap Sub Pos wajib memiliki minimal 1 Keterangan
+    for (const main of data) {
+      for (const sub of main.subPos) {
+        if (sub.keterangan.length === 0) {
+          setValidationError(
+            `Sub Pos "${sub.nama}" pada "${main.nama}" wajib memiliki minimal 1 Keterangan!`
+          );
+          setExpandedMain((prev) => ({ ...prev, [main.id]: true }));
+          setExpandedSub((prev) => ({ ...prev, [sub.id]: true }));
+          return;
+        }
+      }
+    }
+
     const items: any[] = [];
     const draftIdMap = new Map<number, number>();
     let draftIdx = 0;
@@ -590,7 +605,9 @@ export default function AlokasiPosModal({
           <div className="bg-white border border-[#e6e1d4] rounded-[16px] p-4 space-y-2.5 shadow-[0px_0px_0px_1px_rgba(20,18,14,0.04),0px_1px_2px_0px_rgba(20,18,14,0.05)]">
             <div className="flex items-center justify-between text-[13px]">
               <span className="font-semibold text-[#14130f]">Realisasi Anggaran</span>
-              <span className="font-bold text-[#14130f] ">{progressPct.toFixed(0)}%</span>
+              <span className="font-bold text-[#14130f] ">
+                {progressPct.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+              </span>
             </div>
             <div className="w-full bg-[#f3f0e9] h-2 rounded-full overflow-hidden">
               <div className="h-full bg-[#009162] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
@@ -731,10 +748,12 @@ export default function AlokasiPosModal({
                       <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">MAIN</span>
                       {main.isLocalDraft ? (
                         <span className="text-[12.5px] font-medium text-[#2c2a24]">
-                          Main Baru: <span className="text-[#c2410c] font-semibold">{main.nama}</span>
+                          Main Baru: <span className="text-[#c2410c] font-semibold">{masterMain?.kode ? `(${masterMain.kode}) ${main.nama}` : main.nama}</span>
                         </span>
                       ) : (
-                        <span className="text-[12.5px] font-bold text-[#14130f]">{main.nama}</span>
+                        <span className="text-[12.5px] font-bold text-[#14130f]">
+                          {masterMain?.kode ? `(${masterMain.kode}) ${main.nama}` : main.nama}
+                        </span>
                       )}
                     </div>
 
@@ -762,6 +781,10 @@ export default function AlokasiPosModal({
                     <div className="bg-white pb-1.5">
                       {main.subPos.map((sub) => {
                         const isSubOpen = expandedSub[sub.id] ?? false;
+                        const matchingSub = (masterSubs || []).find(
+                          (ms: any) => ms.nama.toUpperCase().trim() === sub.nama.toUpperCase().trim()
+                        );
+                        const subKode = matchingSub?.kode;
 
                         return (
                           <div key={sub.id} className="bg-white">
@@ -776,10 +799,17 @@ export default function AlokasiPosModal({
                                 <span className="text-[11px] font-bold text-[#9a948b] uppercase tracking-wide shrink-0">SUB</span>
                                 {sub.isLocalDraft ? (
                                   <span className="text-[12.5px] font-medium text-[#2c2a24]">
-                                    Sub Baru: <span className="text-[#005836] font-semibold">{sub.nama}</span>
+                                    Sub Baru: <span className="text-[#005836] font-semibold">{subKode ? `(${subKode}) ${sub.nama}` : sub.nama}</span>
                                   </span>
                                 ) : (
-                                  <span className="text-[12.5px] font-medium text-[#2c2a24]">{sub.nama}</span>
+                                  <span className="text-[12.5px] font-medium text-[#2c2a24]">
+                                    {subKode ? `(${subKode}) ${sub.nama}` : sub.nama}
+                                  </span>
+                                )}
+                                {sub.keterangan.length === 0 && (
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#fdf3f2] text-[#c93b2b] border border-[#f3d1ce]">
+                                    Wajib +Keterangan
+                                  </span>
                                 )}
                               </div>
 
@@ -1083,6 +1113,13 @@ export default function AlokasiPosModal({
           setShowSubmitSuccess(false);
           onClose();
         }}
+      />
+
+      <Toast
+        open={!!validationError}
+        variant="error"
+        message={validationError || ""}
+        onClose={() => setValidationError(null)}
       />
 
       <SuccessDialog

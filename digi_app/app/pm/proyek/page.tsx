@@ -192,9 +192,10 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
       {pos.map((p) => {
         const alloc = p.alokasi || 0;
         const real = p.terpakai || 0;
-        const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
+        const pctRaw = alloc > 0 ? (real / alloc) * 100 : 0;
+        const pctFormatted = pctRaw.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const isOverBudget = real >= alloc;
-        const isWarning = pct >= 80 && !isOverBudget;
+        const isWarning = pctRaw >= 80 && !isOverBudget;
         const rem = Math.max(0, alloc - real);
         let barColor = 'bg-emerald-600';
         if (isOverBudget) barColor = 'bg-red-500';
@@ -227,12 +228,12 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
             <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
               <div
                 className={`h-full transition-all duration-500 ${barColor}`}
-                style={{ width: `${pct}%` }}
+                style={{ width: `${Math.min(pctRaw, 100)}%` }}
               />
             </div>
 
             <div className="flex justify-between text-[10px] text-stone-400 font-medium">
-              <span>Terpakai: {pct}%</span>
+              <span>Terpakai: {pctFormatted}%</span>
               <span>Sisa: Rp {Math.round(rem).toLocaleString("id-ID")}</span>
             </div>
           </div>

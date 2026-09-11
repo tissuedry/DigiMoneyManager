@@ -160,7 +160,7 @@ export default function DetailPengeluaranModal({
                           MAIN
                         </span>
                         <span className="text-[13.5px] font-semibold text-[#2C2A24] truncate font-sans">
-                          · {pos.namaPos || pos.deskripsi || pos.nama}
+                          · {pos.kode ? `(${pos.kode}) ${pos.namaPos || pos.deskripsi || pos.nama}` : (pos.namaPos || pos.deskripsi || pos.nama)}
                         </span>
                       </div>
 
@@ -221,7 +221,7 @@ export default function DetailPengeluaranModal({
                                       SUB
                                     </span>
                                     <span className="text-[12.5px] font-semibold text-[#14130F] truncate font-sans">
-                                      · {sub.namaSub || sub.nama}
+                                      · {sub.kode ? `(${sub.kode}) ${sub.namaSub || sub.nama}` : (sub.namaSub || sub.nama)}
                                     </span>
                                   </div>
 

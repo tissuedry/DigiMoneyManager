@@ -37,6 +37,7 @@ type ProjectBudget = {
 type ProjectData = {
   id: number;
   nama: string;
+  nomorRegister?: string | null;
   deskripsi: string | null;
   status: string;
   tanggalMulai: string;
@@ -152,7 +153,35 @@ export default function PMDashboardPage() {
             <>
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-bold text-stone-900 leading-tight">Beranda Project Manager</h1>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-2xl font-bold text-stone-900 leading-tight">
+                      {project?.nama || "Beranda Project Manager"}
+                    </h1>
+                    {project?.status && (
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                        project.status.toUpperCase() === 'AKTIF' || project.status.toUpperCase() === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : project.status.toUpperCase() === 'DONE' || project.status.toUpperCase() === 'SELESAI'
+                          ? 'bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]'
+                          : project.status.toUpperCase() === 'PLANNING'
+                          ? 'bg-[#fbf0e4] text-[#854d0e] border-[#f5e1ce]'
+                          : 'bg-stone-100 text-stone-600 border-stone-200'
+                      }`}>
+                        {project.status.toUpperCase() === 'AKTIF' || project.status.toUpperCase() === 'ACTIVE'
+                          ? 'Active'
+                          : project.status.toUpperCase() === 'DONE' || project.status.toUpperCase() === 'SELESAI'
+                          ? 'Done'
+                          : project.status.toUpperCase() === 'PLANNING'
+                          ? 'Planning'
+                          : project.status}
+                      </span>
+                    )}
+                    {(project?.nomorRegister || project?.id) && (
+                      <span className="text-[12px] font-medium text-stone-400">
+                        {project.nomorRegister ? project.nomorRegister : `PRJ-${String(project.id).padStart(3, '0')}`}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-stone-500 mt-1.5">
                     Kelola budget proyek, pantau biaya lapangan, dan setujui reimbursement karyawan.
                   </p>
@@ -179,19 +208,19 @@ export default function PMDashboardPage() {
                                 <span className="text-[12px] font-semibold text-stone-500">
                                   {card.label}
                                 </span>
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.iconBg}`}>
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${card.iconBg}`}>
                                   {card.icon}
                                 </div>
                               </div>
-                              <div className="mt-4">
-                                <p className="text-[20px] font-bold text-stone-900 leading-tight">
-                                  {card.num !== null && card.num !== undefined ? (
-                                    <CompactNominal value={card.num} className="text-[20px] font-bold text-stone-900" />
+                              <div>
+                                <div className="text-2xl font-bold text-stone-900 tracking-tight">
+                                  {card.num !== null ? (
+                                    <CompactNominal value={card.num} compactThreshold={1_000_000_000_000} showTooltip />
                                   ) : (
                                     card.customVal
                                   )}
-                                </p>
-                                <p className="text-[11px] text-stone-400 mt-1 font-medium">
+                                </div>
+                                <p className="text-[11px] text-stone-400 mt-1">
                                   {card.sub}
                                 </p>
                               </div>
@@ -205,8 +234,8 @@ export default function PMDashboardPage() {
                               <h3 className="text-sm font-bold text-stone-900">Progres Penyerapan Anggaran</h3>
                               <p className="text-xs text-stone-400 mt-0.5">Visualisasi alokasi terpakai vs sisa dana proyek</p>
                             </div>
-                            <span className="text-xs  font-bold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-lg">
-                              ID: {project?.id}
+                            <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-lg">
+                              {project?.nomorRegister ? project.nomorRegister : `ID: ${project?.id}`}
                             </span>
                           </div>
 
@@ -255,9 +284,10 @@ export default function PMDashboardPage() {
                                 budget.posAnggaran.map((pos) => {
                                   const alloc = Number(pos.nominalAlokasi);
                                   const real = Number(pos.nominalTerpakai);
-                                  const pct = alloc > 0 ? Math.min(Math.round((real / alloc) * 100), 100) : 0;
+                                  const pctRaw = alloc > 0 ? (real / alloc) * 100 : 0;
+                                  const pctFormatted = pctRaw.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                                   const isOverBudget = real >= alloc;
-                                  const isWarning = pct >= 80 && !isOverBudget;
+                                  const isWarning = pctRaw >= 80 && !isOverBudget;
 
                                   let barColor = 'bg-emerald-600';
                                   if (isOverBudget) barColor = 'bg-red-500';
@@ -290,12 +320,12 @@ export default function PMDashboardPage() {
                                       <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden relative">
                                         <div
                                           className={`h-full transition-all duration-500 ${barColor}`}
-                                          style={{ width: `${pct}%` }}
+                                          style={{ width: `${Math.min(pctRaw, 100)}%` }}
                                         />
                                       </div>
 
                                       <div className="flex justify-between text-[10px] text-stone-400 font-medium">
-                                        <span>Terpakai: {pct}%</span>
+                                        <span>Terpakai: {pctFormatted}%</span>
                                         <span>Sisa: Rp {(alloc - real).toLocaleString('id-ID')}</span>
                                       </div>
                                     </div>

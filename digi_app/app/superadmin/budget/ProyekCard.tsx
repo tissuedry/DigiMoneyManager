@@ -175,10 +175,10 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="text-[14px] font-bold text-stone-800 leading-tight">
-                        {pos.namaPos}
+                        {pos.kode ? `(${pos.kode}) ${pos.namaPos}` : pos.namaPos}
                       </h4>
                       <span className="text-[10px] font-bold text-stone-400">
-                        POS-{201 + index}
+                        {pos.kode ? `KODE: ${pos.kode} · POS-${201 + index}` : `POS-${201 + index}`}
                       </span>
                     </div>
                     <div className="text-right">

@@ -40,9 +40,11 @@ export interface StrukItem {
 export interface MainAnggaran {
   id: number | string;
   namaMain: string;
+  kode?: string | null;
   subAnggaran?: Array<{
     id: number | string;
     namaSub: string;
+    kode?: string | null;
     keterangan?: Array<{ id: number | string; keterangan: string }>;
   }>;
 }
@@ -89,10 +91,10 @@ export default function ReviewForm({
   if (!item) return null;
 
   const selectedMain = mainAnggaranList.find((m) => String(m.id) === item.mainAnggaranId);
-  const selectedMainNama = selectedMain?.namaMain || '';
+  const selectedMainNama = selectedMain ? (selectedMain.kode ? `(${selectedMain.kode}) ${selectedMain.namaMain}` : selectedMain.namaMain) : '';
   const subList = selectedMain?.subAnggaran ?? [];
   const selectedSub = subList.find((s) => String(s.id) === item.subAnggaranId);
-  const selectedSubNama = selectedSub?.namaSub || '';
+  const selectedSubNama = selectedSub ? (selectedSub.kode ? `(${selectedSub.kode}) ${selectedSub.namaSub}` : selectedSub.namaSub) : '';
   const selectedKeteranganNama =
     selectedSub?.keterangan?.find((k) => String(k.id) === item.posAnggaranId)?.keterangan || '';
 

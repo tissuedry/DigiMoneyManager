@@ -131,6 +131,7 @@ model Reimbursement {
   kategoriBukti        String?            @map("kategori_bukti")
   createdAt            DateTime           @default(now()) @map("created_at")
   nominal              Decimal            @db.Decimal(15, 2)
+  deskripsi            String?            @map("deskripsi")
   urlStruk             String             @map("url_struk")
   fraudFlag            Boolean            @default(false) @map("fraud_flag")
   status               String

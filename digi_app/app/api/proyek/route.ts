@@ -80,7 +80,16 @@ export async function GET(req: NextRequest) {
     const budgetOptions = await prisma.masterMain.findMany({
       select: {
         id: true,
+        kode: true,
         nama: true,
+        tipe: true,
+        MasterSub: {
+          select: {
+            id: true,
+            kode: true,
+            nama: true,
+          },
+        },
       },
       orderBy: { nama: 'asc' }
     });
@@ -131,10 +140,19 @@ export async function GET(req: NextRequest) {
           (m.namaMain || '').toLowerCase().startsWith('penjualan') ||
           (m.namaMain || '').toLowerCase().startsWith('pendapatan');
 
+        const matchedMasterMain = budgetOptions.find(
+          (bm: any) => bm.nama.toUpperCase().trim() === (m.namaMain || '').toUpperCase().trim()
+        );
+        const mainKode = matchedMasterMain?.kode || null;
+
         if (isMainPemasukan) {
           const calculatedSubPos = (m.subAnggaran || []).map((sub: any) => {
             const subNominal = Number(sub.nominalAlokasi || 0);
             const sName = (sub.namaSub || '').trim().toLowerCase();
+            const matchedMasterSub = (matchedMasterMain?.MasterSub || []).find(
+              (ms: any) => ms.nama.toUpperCase().trim() === (sub.namaSub || '').toUpperCase().trim()
+            );
+            const subKode = matchedMasterSub?.kode || null;
             const isPenjSub =
               (sName.startsWith('penjualan') || sName.startsWith('pendapatan') || sName === (m.namaMain || '').trim().toLowerCase()) &&
               !sName.includes('diskon') &&
@@ -164,6 +182,7 @@ export async function GET(req: NextRequest) {
 
             return {
               ...sub,
+              kode: subKode,
               nominalTerpakai: String(subRealisasi),
               subRealisasi,
             };
@@ -183,6 +202,7 @@ export async function GET(req: NextRequest) {
 
           return {
             ...m,
+            kode: mainKode,
             deskripsi: m.namaMain,
             namaPos: m.namaMain,
             nominalTerpakai: String(mainRealisasi),
@@ -190,10 +210,22 @@ export async function GET(req: NextRequest) {
           };
         }
 
+        const enrichedSubs = (m.subAnggaran || []).map((sub: any) => {
+          const matchedMasterSub = (matchedMasterMain?.MasterSub || []).find(
+            (ms: any) => ms.nama.toUpperCase().trim() === (sub.namaSub || '').toUpperCase().trim()
+          );
+          return {
+            ...sub,
+            kode: matchedMasterSub?.kode || null,
+          };
+        });
+
         return {
           ...m,
+          kode: mainKode,
           deskripsi: m.namaMain,
           namaPos: m.namaMain,
+          subAnggaran: enrichedSubs,
           nominalTerpakai: String(
             m.subAnggaran.reduce(
               (sum: number, sub: any) =>

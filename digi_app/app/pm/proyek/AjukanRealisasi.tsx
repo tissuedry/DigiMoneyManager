@@ -54,8 +54,8 @@ export default function AjukanRealisasiModal({
         (s.keterangan || []).map((k: any) => ({
           id: String(k.id),
           keterangan: k.keterangan,
-          mainNama: m.namaMain,
-          subNama: s.namaSub,
+          mainNama: m.kode ? `(${m.kode}) ${m.namaMain}` : m.namaMain,
+          subNama: s.kode ? `(${s.kode}) ${s.namaSub}` : s.namaSub,
           nominalAlokasi: Number(k.nominalAlokasi || 0),
           nominalRealisasi: Number(k.nominalRealisasi || 0),
         }))
@@ -301,12 +301,12 @@ export default function AjukanRealisasiModal({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-stone-700">Catatan</label>
+            <label className="text-[11px] font-bold text-stone-700">Rincian</label>
             <textarea
               rows={3}
               value={catatan}
               onChange={(e) => setCatatan(e.target.value)}
-              placeholder="Tambahkan catatan jika diperlukan..."
+              placeholder="Tambahkan rincian jika diperlukan..."
               className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-[13px] font-medium text-stone-800 resize-none focus:outline-none focus:border-stone-400 transition"
             />
           </div>
