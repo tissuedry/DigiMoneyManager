@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2, History } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
+import RiwayatPengajuanModal, { type PengajuanHistoryItem } from "@/components/RiwayatPengajuanModal";
 
 import { formatReimbursementDate } from "@/lib/proyek-utils";
 import CompactNominal from "@/components/compact-nominal";
@@ -237,7 +238,7 @@ function AksiButton({
   const styles = VARIANT_STYLES[variant] || VARIANT_STYLES.main;
 
   return (
-    <div className="flex justify-center shrink-0" style={{ width: 120 }}>
+    <div className="flex justify-center shrink-0" style={{ width: 148 }}>
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -279,6 +280,27 @@ export default function DetailAnggaranModal({
   const [expandedKet, setExpandedKet] = useState<Record<number, boolean>>({});
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [pengajuanList, setPengajuanList] = useState<PengajuanHistoryItem[]>([]);
+  const [historyTarget, setHistoryTarget] = useState<{
+    id: number;
+    nama: string;
+    kode?: string | null;
+  } | null>(null);
+
+  const fetchPengajuan = async (pId: number) => {
+    try {
+      const res = await fetch(`/api/proyek/${pId}/pengajuan-anggaran`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setPengajuanList(data.pengajuan || []);
+    } catch { }
+  };
+
+  useEffect(() => {
+    if (proyekId) {
+      fetchPengajuan(proyekId);
+    }
+  }, [proyekId]);
 
   const handleExport = async () => {
     if (!proyekId) return;
@@ -440,7 +462,7 @@ export default function DetailAnggaranModal({
           </span>
           <span
             className="text-[10px] font-bold text-stone-400 uppercase tracking-wider shrink-0 text-center"
-            style={{ width: 120 }}
+            style={{ width: 148 }}
           >
             AKSI
           </span>
@@ -488,24 +510,51 @@ export default function DetailAnggaranModal({
                     <ProgressCell pct={mainPct} exactPctText={mainPctExact} />
                     <Cell bold>{<CompactNominal value={main.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
                     <Cell bold>{<CompactNominal value={main.realisasi} compactThreshold={1_000_000_000_000} showTooltip />}</Cell>
-                    <AksiButton
-                      variant="main"
-                      onClick={() => {
-                        const totalTeralokasi = mapped.reduce((s, m) => s + (m.alokasi || 0), 0);
-                        const totalChildrenAlokasi = main.subPos.reduce((s, s2) => s + (s2.alokasi || 0), 0);
-                        setEditTarget({
-                          type: "main",
-                          id: main.id,
-                          nama: main.nama,
-                          currentAlokasi: main.alokasi || 0,
-                          totalRAB: totalRAB || totalTeralokasi,
-                          totalTeralokasi,
-                          totalChildrenAlokasi,
-                        });
-                      }}
-                    >
-                      Edit Alokasi
-                    </AksiButton>
+                    <div className="flex items-center justify-center gap-1.5 shrink-0" style={{ width: 148 }}>
+                      {pengajuanList.some((p) => p.mainAnggaranId === main.id) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHistoryTarget({
+                              id: main.id,
+                              nama: main.nama,
+                              kode: main.kode,
+                            });
+                          }}
+                          className="h-7 w-7 rounded-lg bg-stone-100 hover:bg-amber-100/70 border border-stone-200 hover:border-amber-300 text-stone-600 hover:text-amber-800 flex items-center justify-center transition cursor-pointer shrink-0 shadow-xs"
+                          title="Lihat Riwayat Perubahan Alokasi"
+                        >
+                          <History size={12} className="stroke-[2.2]" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const totalTeralokasi = mapped.reduce((s, m) => s + (m.alokasi || 0), 0);
+                          const totalChildrenAlokasi = main.subPos.reduce((s, s2) => s + (s2.alokasi || 0), 0);
+                          setEditTarget({
+                            type: "main",
+                            id: main.id,
+                            nama: main.nama,
+                            currentAlokasi: main.alokasi || 0,
+                            totalRAB: totalRAB || totalTeralokasi,
+                            totalTeralokasi,
+                            totalChildrenAlokasi,
+                          });
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap hover:opacity-85 shadow-xs"
+                        style={{
+                          backgroundColor: "#fdf7f2",
+                          borderColor: "#b38355",
+                          color: "#8d5423",
+                        }}
+                      >
+                        <Settings size={12} style={{ color: "#8d5423" }} />
+                        <span>Edit Alokasi</span>
+                      </button>
+                    </div>
                   </Row>
 
                   {isMainOpen && (
@@ -731,11 +780,21 @@ export default function DetailAnggaranModal({
         target={editTarget}
         proyekId={proyekId}
         totalAlokasiPemasukan={totalAlokasiPemasukan}
-onClose={() => setEditTarget(null)}
+        onClose={() => setEditTarget(null)}
         onSuccess={() => {
           setEditTarget(null);
           if (onRefresh) onRefresh();
         }}
+      />
+    )}
+
+    {historyTarget && (
+      <RiwayatPengajuanModal
+        open={!!historyTarget}
+        mainNama={historyTarget.nama}
+        mainKode={historyTarget.kode}
+        history={pengajuanList.filter((p) => p.mainAnggaranId === historyTarget.id)}
+        onClose={() => setHistoryTarget(null)}
       />
     )}
     </>

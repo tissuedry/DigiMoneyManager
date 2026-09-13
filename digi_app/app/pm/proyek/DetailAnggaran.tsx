@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2, History } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
+import RiwayatPengajuanModal, { type PengajuanHistoryItem } from "@/components/RiwayatPengajuanModal";
 import CompactNominal from "@/components/compact-nominal";
 import { formatReimbursementDate } from "@/lib/proyek-utils";
 
@@ -128,14 +129,23 @@ export default function DetailAnggaranModal({
   const [pengajuanStatus, setPengajuanStatus] = useState<
     Record<number, { status: string }>
   >({});
+  const [pengajuanList, setPengajuanList] = useState<PengajuanHistoryItem[]>([]);
+  const [historyTarget, setHistoryTarget] = useState<{
+    id: number;
+    nama: string;
+    kode?: string | null;
+  } | null>(null);
 
   const fetchPengajuan = async (pId: number) => {
     try {
       const res = await fetch(`/api/proyek/${pId}/pengajuan-anggaran`);
       if (!res.ok) return;
       const data = await res.json();
+      const list = data.pengajuan || [];
+      setPengajuanList(list);
+
       const map: Record<number, { status: string }> = {};
-      (data.pengajuan || []).forEach((p: any) => {
+      list.forEach((p: any) => {
         if (p.mainAnggaranId != null && map[p.mainAnggaranId] == null) {
           map[p.mainAnggaranId] = { status: p.status };
         }
@@ -256,7 +266,7 @@ export default function DetailAnggaranModal({
         onClick={onClose}
       >
         <div
-          className="bg-white rounded-[20px] shadow-[0px_24px_64px_rgba(20,18,14,0.30)] w-full max-w-[1112px] max-h-[88vh] flex flex-col overflow-hidden text-left border border-[#E6E1D4] animate-in fade-in zoom-in-95 duration-150"
+          className="bg-white rounded-[20px] shadow-[0px_24px_64px_rgba(20,18,14,0.30)] w-full max-w-[1140px] max-h-[88vh] flex flex-col overflow-hidden text-left border border-[#E6E1D4] animate-in fade-in zoom-in-95 duration-150"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-7 pt-[22px] pb-[18px] border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
@@ -308,7 +318,7 @@ export default function DetailAnggaranModal({
               <div className="w-[145px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
                 SISA
               </div>
-              <div className="w-[125px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
+              <div className="w-[148px] shrink-0 text-center text-[10.5px] font-bold text-[#9A948B] tracking-[0.63px] uppercase font-sans">
                 AKSI
               </div>
             </div>
@@ -369,7 +379,24 @@ export default function DetailAnggaranModal({
                         <CompactNominal value={mainSisa} />
                       </div>
 
-                      <div className="w-[125px] shrink-0 flex justify-center">
+                      <div className="w-[148px] shrink-0 flex items-center justify-center gap-1.5">
+                        {pengajuanList.some((p) => p.mainAnggaranId === main.id) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHistoryTarget({
+                                id: main.id,
+                                nama: main.nama,
+                                kode: main.kode,
+                              });
+                            }}
+                            className="h-7 w-7 rounded-md bg-stone-100 hover:bg-amber-100/70 border border-stone-200 hover:border-amber-300 text-stone-600 hover:text-amber-800 flex items-center justify-center transition cursor-pointer shrink-0 shadow-2xs"
+                            title="Lihat Riwayat Perubahan Alokasi"
+                          >
+                            <History size={12} className="stroke-[2.2]" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -380,10 +407,23 @@ export default function DetailAnggaranModal({
                               alokasi: main.alokasi || 0,
                             });
                           }}
-                          className="h-7 px-2 py-1 bg-[#FCF7F0] rounded-md outline outline-[0.8px] outline-[#894C06] -outline-offset-1 inline-flex items-center justify-center gap-1 text-[#894C06] text-[10.5px] font-semibold hover:bg-[#F7EEE0] transition cursor-pointer font-sans"
+                          className={`h-7 px-2.5 py-1 rounded-md outline outline-[0.8px] -outline-offset-1 inline-flex items-center justify-center gap-1 text-[10.5px] font-semibold transition cursor-pointer font-sans whitespace-nowrap shadow-2xs ${
+                            pengajuanStatus[main.id]?.status === "PENDING"
+                              ? "bg-amber-50 outline-amber-400 text-amber-800 hover:bg-amber-100"
+                              : "bg-[#FCF7F0] outline-[#894C06] text-[#894C06] hover:bg-[#F7EEE0]"
+                          }`}
+                          title={
+                            pengajuanStatus[main.id]?.status === "PENDING"
+                              ? "Sedang ada pengajuan menunggu review Direktur"
+                              : "Ajukan Perubahan Alokasi"
+                          }
                         >
                           <Settings size={11} className="stroke-[2] shrink-0" />
-                          <span>Ajukan Alokasi</span>
+                          <span>
+                            {pengajuanStatus[main.id]?.status === "PENDING"
+                              ? "Menunggu"
+                              : "Ajukan Alokasi"}
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -436,7 +476,7 @@ export default function DetailAnggaranModal({
                                     <CompactNominal value={subSisa} />
                                   </div>
 
-                                  <div className="w-[125px] shrink-0 flex justify-center">
+                                  <div className="w-[148px] shrink-0 flex justify-center">
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -516,7 +556,7 @@ export default function DetailAnggaranModal({
                                                 <CompactNominal value={ketSisa} />
                                               </div>
 
-                                              <div className="w-[125px] shrink-0 flex justify-center">
+                                              <div className="w-[148px] shrink-0 flex justify-center">
                                                 <button
                                                   type="button"
                                                   onClick={(e) => {
@@ -636,7 +676,7 @@ export default function DetailAnggaranModal({
 
                                                         <div className="w-[145px] shrink-0" />
                                                         <div className="w-[145px] shrink-0" />
-                                                        <div className="w-[125px] shrink-0" />
+                                                        <div className="w-[148px] shrink-0" />
                                                       </div>
                                                     );
                                                   })
@@ -707,6 +747,16 @@ export default function DetailAnggaranModal({
             fetchPengajuan(proyekId);
             if (onRefresh) onRefresh();
           }}
+        />
+      )}
+
+      {historyTarget && (
+        <RiwayatPengajuanModal
+          open={!!historyTarget}
+          mainNama={historyTarget.nama}
+          mainKode={historyTarget.kode}
+          history={pengajuanList.filter((p) => p.mainAnggaranId === historyTarget.id)}
+          onClose={() => setHistoryTarget(null)}
         />
       )}
     </>
