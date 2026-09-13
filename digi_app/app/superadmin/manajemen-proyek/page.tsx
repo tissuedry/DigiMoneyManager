@@ -601,6 +601,10 @@ export default function KelolaProyekPage() {
         showDetailBudgetModal={showDetailPengeluaran}
         onClose={() => setShowDetailPengeluaran(false)}
         detailedProjectInfo={detailedProjectInfo}
+        onRefresh={() => {
+          fetchData();
+          if (showProjectDetail) refreshDetailedProject(showProjectDetail.id);
+        }}
       />
 
       <PendingPmModal

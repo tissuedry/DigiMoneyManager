@@ -177,9 +177,11 @@ export default function ProyekCard({ proyek }: { proyek: Proyek }) {
                       <h4 className="text-[14px] font-bold text-stone-800 leading-tight">
                         {pos.kode ? `(${pos.kode}) ${pos.namaPos}` : pos.namaPos}
                       </h4>
-                      <span className="text-[10px] font-bold text-stone-400">
-                        {pos.kode ? `KODE: ${pos.kode} · POS-${201 + index}` : `POS-${201 + index}`}
-                      </span>
+                      {pos.kode ? (
+                        <span className="text-[10px] font-bold text-stone-400">
+                          KODE: {pos.kode}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="text-right">
                       <span className="text-[14px] font-black text-stone-900 ">

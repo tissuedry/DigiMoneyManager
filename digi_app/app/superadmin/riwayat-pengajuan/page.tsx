@@ -297,8 +297,24 @@ function DetailPanel({ raw, displayId, allRaw, onClose, onRequestCancel, onResub
           <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-2">Detail Pengajuan</p>
           <div className="rounded-xl border border-stone-200 bg-white overflow-hidden">
             {[
-              { label: "Main", value: raw.posAnggaran?.namaPos || "N/A" },
-              { label: "Sub", value: raw.posAnggaran?.subAnggaran?.namaSub || "N/A" },
+              {
+                label: "Main",
+                value: (() => {
+                  const mNama = raw.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || raw.posAnggaran?.namaPos;
+                  const mKode = raw.posAnggaran?.mainKode || raw.posAnggaran?.subAnggaran?.mainAnggaran?.kode;
+                  if (!mNama) return "N/A";
+                  return mKode ? `(${mKode}) ${mNama}` : mNama;
+                })(),
+              },
+              {
+                label: "Sub",
+                value: (() => {
+                  const sNama = raw.posAnggaran?.subAnggaran?.namaSub;
+                  const sKode = raw.posAnggaran?.subKode || raw.posAnggaran?.subAnggaran?.kode;
+                  if (!sNama) return "N/A";
+                  return sKode ? `(${sKode}) ${sNama}` : sNama;
+                })(),
+              },
               { label: "Keterangan", value: raw.posAnggaran?.keterangan || raw.posAnggaran?.deskripsi || "N/A" },
               { label: "Tanggal Transaksi", value: tanggal },
               { label: "Nama Reimbursement", value: raw.merchant || raw.nama || "N/A" },

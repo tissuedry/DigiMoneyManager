@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
 
     const proyekIds = projectsRaw.map((p) => p.id);
 
-    const [approvedList, pendingList] = await Promise.all([
+    const [approvedList, pendingList, masterMainList] = await Promise.all([
       prisma.approval.findMany({
         where: {
           reimbursement: { proyekId: { in: proyekIds } },
@@ -107,6 +107,10 @@ export async function GET(req: NextRequest) {
       prisma.reimbursement.findMany({
         where: { proyekId: { in: proyekIds }, status: { notIn: ['APPROVED', 'REJECTED'] } },
         select: { proyekId: true, nominal: true, status: true },
+      }),
+
+      prisma.masterMain.findMany({
+        include: { MasterSub: true },
       }),
     ]);
 
@@ -136,6 +140,11 @@ export async function GET(req: NextRequest) {
       const posAnggaran = (budget?.mainAnggaran ?? [])
         .filter((m: any) => !m.tipe || m.tipe.toLowerCase() === 'pengeluaran')
         .map((m, idx) => {
+          const matchedMain = masterMainList.find(
+            (mm) => mm.nama.toUpperCase().trim() === (m.namaMain || '').toUpperCase().trim()
+          );
+          const mainKode = matchedMain?.kode || null;
+
           const calculatedTerpakai = (m.subAnggaran ?? []).reduce(
             (sum: number, sub: any) =>
               sum + (sub.keterangan ?? []).reduce(
@@ -149,6 +158,7 @@ export async function GET(req: NextRequest) {
           return {
             id: m.id,
             nama: m.namaMain,
+            kode: mainKode,
             tipe: m.tipe || 'pengeluaran',
             alokasi: Number(m.nominalAlokasi),
             terpakai,
@@ -156,6 +166,11 @@ export async function GET(req: NextRequest) {
             subAnggaran: (m.subAnggaran ?? [])
               .filter((s: any) => !s.tipe || s.tipe.toLowerCase() === 'pengeluaran')
               .map((s) => {
+                const matchedSub = (matchedMain?.MasterSub || []).find(
+                  (ms) => ms.nama.toUpperCase().trim() === (s.namaSub || '').toUpperCase().trim()
+                );
+                const subKode = matchedSub?.kode || null;
+
                 const subTerpakai = (s.keterangan ?? []).reduce(
                   (s: number, ket: any) => s + Number(ket.nominalRealisasi || 0), 0
                 );
@@ -163,6 +178,7 @@ export async function GET(req: NextRequest) {
                 return {
                   id: s.id,
                   nama: s.namaSub,
+                  kode: subKode,
                   tipe: s.tipe || 'pengeluaran',
                   alokasi: Number(s.nominalAlokasi),
                   terpakai: Math.max(Number(s.nominalTerpakai || 0), subTerpakai),

@@ -662,11 +662,25 @@ function PencairanContent() {
                       </div>
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Main</span>
-                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.posAnggaran?.namaPos || '-'}</span>
+                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">
+                          {(() => {
+                            const mNama = selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos;
+                            const mKode = selectedItem.posAnggaran?.mainKode || selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode;
+                            if (!mNama) return '-';
+                            return mKode ? `(${mKode}) ${mNama}` : mNama;
+                          })()}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Sub</span>
-                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">{selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}</span>
+                        <span className="font-semibold text-stone-800 text-right max-w-[60%]">
+                          {(() => {
+                            const sNama = selectedItem.posAnggaran?.subAnggaran?.namaSub;
+                            const sKode = selectedItem.posAnggaran?.subKode || selectedItem.posAnggaran?.subAnggaran?.kode;
+                            if (!sNama) return '-';
+                            return sKode ? `(${sKode}) ${sNama}` : sNama;
+                          })()}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                         <span className="text-stone-400">Keterangan</span>
@@ -899,6 +913,7 @@ function PencairanContent() {
                                       </span>
                                       <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
                                       <span className="font-bold text-stone-800 truncate">
+                                        {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode || selectedItem.posAnggaran?.mainKode ? `(${selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.kode || selectedItem.posAnggaran?.mainKode}) ` : ''}
                                         {selectedItem.posAnggaran?.subAnggaran?.mainAnggaran?.namaMain || selectedItem.posAnggaran?.namaPos || '-'}
                                       </span>
 
@@ -909,6 +924,7 @@ function PencairanContent() {
                                       </span>
                                       <span className="text-stone-400 font-bold text-[11px] shrink-0">·</span>
                                       <span className="font-bold text-stone-800 truncate">
+                                        {selectedItem.posAnggaran?.subAnggaran?.kode || selectedItem.posAnggaran?.subKode ? `(${selectedItem.posAnggaran?.subAnggaran?.kode || selectedItem.posAnggaran?.subKode}) ` : ''}
                                         {selectedItem.posAnggaran?.subAnggaran?.namaSub || '-'}
                                       </span>
 

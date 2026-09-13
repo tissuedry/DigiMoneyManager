@@ -576,6 +576,10 @@ export default function ManagerLaporanPage() {
         showDetailBudgetModal={showDetailPengeluaran}
         onClose={() => setShowDetailPengeluaran(false)}
         detailedProjectInfo={detailedProjectInfo}
+        onRefresh={() => {
+          handleRefreshAll();
+          if (showProjectDetail) refreshDetailedProject(showProjectDetail.id);
+        }}
       />
 
       <PendingPmModal

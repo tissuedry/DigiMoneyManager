@@ -32,6 +32,7 @@ import { formatCompactRupiah } from "@/lib/format-nominal";
 type PosAnggaran = {
   id: number;
   nama: string;
+  kode?: string | null;
   alokasi: number;
   terpakai: number;
   warna: string;
@@ -174,7 +175,7 @@ function BarLegend({ pos }: { pos: PosAnggaran[] }) {
       {pos.map((p) => (
         <span key={p.id} className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: p.warna }} />
-          {p.nama}
+          {p.kode ? `(${p.kode}) ${p.nama}` : p.nama}
           <CompactNominal value={p.alokasi} className="font-bold text-stone-800" />
         </span>
       ))}
@@ -205,7 +206,7 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
           <div key={p.id} className="space-y-1.5">
             <div className="flex items-center justify-between text-xs font-medium">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-stone-800">{p.nama}</span>
+                <span className="font-bold text-stone-800">{p.kode ? `(${p.kode}) ${p.nama}` : p.nama}</span>
                 {isOverBudget && (
                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">
                     <AlertCircle size={8} /> Over Budget

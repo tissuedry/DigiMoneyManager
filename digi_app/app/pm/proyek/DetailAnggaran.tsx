@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Settings, X, Check, Clock } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2 } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
 import CompactNominal from "@/components/compact-nominal";
@@ -30,6 +30,7 @@ type KeteranganPos = {
 type SubPosItem = {
   id: number;
   nama: string;
+  kode?: string | null;
   alokasi: number;
   realisasi: number;
   keterangan: KeteranganPos[];
@@ -38,6 +39,7 @@ type SubPosItem = {
 type MainPosItem = {
   id: number;
   nama: string;
+  kode?: string | null;
   alokasi: number;
   realisasi: number;
   subPos: SubPosItem[];
@@ -97,6 +99,31 @@ export default function DetailAnggaranModal({
     nama: string;
     alokasi: number;
   } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!proyekId) return;
+    try {
+      setIsExporting(true);
+      const res = await fetch(`/api/proyek/${proyekId}/budget/laporan`);
+      if (!res.ok) {
+        throw new Error("Gagal mengunduh laporan Excel");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Detail_Anggaran_${(proyekNama || "Proyek").replace(/\s+/g, "_")}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert(err.message || "Gagal mengunduh file Excel");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const [pengajuanStatus, setPengajuanStatus] = useState<
     Record<number, { status: string }>
@@ -179,6 +206,7 @@ export default function DetailAnggaranModal({
         return {
           id: sub.id,
           nama: sub.namaSub || sub.nama,
+          kode: sub.kode || null,
           alokasi: parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0,
           realisasi: subRealisasi,
           keterangan,
@@ -193,6 +221,7 @@ export default function DetailAnggaranModal({
       return {
         id: main.id,
         nama: main.namaPos || main.nama || main.deskripsi,
+        kode: main.kode || null,
         alokasi: parseFloat(main.nominalAlokasi) || parseFloat(main.alokasi) || 0,
         realisasi: mainRealisasi,
         subPos,
@@ -239,13 +268,30 @@ export default function DetailAnggaranModal({
                 {proyekNama || "-"}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-[#2C2A24] hover:bg-[#F1EEE6] rounded-xl transition cursor-pointer"
-              aria-label="Tutup"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={isExporting}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer disabled:opacity-50"
+                title="Export seluruh rincian anggaran ke file Excel"
+              >
+                {isExporting ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <FileSpreadsheet size={13} />
+                )}
+                <span>Export Excel</span>
+              </button>
+
+              <button
+                onClick={onClose}
+                className="p-1.5 text-[#2C2A24] hover:bg-[#F1EEE6] rounded-xl transition cursor-pointer ml-1"
+                aria-label="Tutup"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
@@ -304,7 +350,7 @@ export default function DetailAnggaranModal({
                           MAIN
                         </span>
                         <span className="text-[13.5px] font-semibold text-[#2C2A24] truncate font-sans">
-                          · {main.nama}
+                          · {main.kode ? `(${main.kode}) ${main.nama}` : main.nama}
                         </span>
                       </div>
 
@@ -371,7 +417,7 @@ export default function DetailAnggaranModal({
                                       SUB
                                     </span>
                                     <span className="text-[12.5px] font-semibold text-[#14130F] truncate font-sans">
-                                      · {sub.nama}
+                                      · {sub.kode ? `(${sub.kode}) ${sub.nama}` : sub.nama}
                                     </span>
                                   </div>
 

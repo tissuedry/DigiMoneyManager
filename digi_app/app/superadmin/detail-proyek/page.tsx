@@ -26,6 +26,7 @@ import CompactNominal from "@/components/compact-nominal";
 type PosAnggaran = {
   id: number;
   nama: string;
+  kode?: string | null;
   alokasi: number;
   terpakai: number;
   warna: string;
@@ -185,7 +186,7 @@ function BarLegend({ pos, total }: { pos: PosAnggaran[]; total: number }) {
       {pos.map((p) => (
         <span key={p.id} className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium">
           <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: p.warna }} />
-          {p.nama}
+          {p.kode ? `(${p.kode}) ${p.nama}` : p.nama}
           <span className="font-bold text-stone-800 cursor-pointer">
             {<CompactNominal value={p.alokasi} compactThreshold={1_000_000_000_000} showTooltip />}
           </span>
@@ -222,7 +223,7 @@ function PosRows({ pos }: { pos: PosAnggaran[] }) {
           <div key={p.id} className="space-y-1.5">
             <div className="flex items-center justify-between text-xs font-medium">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-stone-800">{p.nama}</span>
+                <span className="font-bold text-stone-800">{p.kode ? `(${p.kode}) ${p.nama}` : p.nama}</span>
                 {isWarning && (
                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
                     <AlertCircle size={8} /> Hampir Limit

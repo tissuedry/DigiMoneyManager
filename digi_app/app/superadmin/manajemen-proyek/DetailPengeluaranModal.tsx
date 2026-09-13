@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, X, Check, Clock } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  X,
+  Check,
+  Clock,
+  FileSpreadsheet,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { formatReimbursementDate } from "@/lib/proyek-utils";
 import CompactNominal from "@/components/compact-nominal";
 
@@ -71,15 +80,44 @@ export default function DetailPengeluaranModal({
   showDetailBudgetModal,
   onClose,
   detailedProjectInfo,
+  onRefresh,
 }: Props) {
   const [expandedMain, setExpandedMain] = useState<Record<number, boolean>>({});
   const [expandedSub, setExpandedSub] = useState<Record<string, boolean>>({});
   const [expandedKet, setExpandedKet] = useState<Record<string, boolean>>({});
 
+  // State Export
+  const [isExporting, setIsExporting] = useState(false);
+
   if (!showDetailBudgetModal) return null;
 
+  const projectId = detailedProjectInfo?.id;
   const posAnggaran = detailedProjectInfo?.budget?.posAnggaran || [];
   const projectName = detailedProjectInfo?.nama || "Pembangunan Gudang Cikarang Fase 2";
+
+  const handleExport = async () => {
+    if (!projectId) return;
+    try {
+      setIsExporting(true);
+      const res = await fetch(`/api/proyek/${projectId}/budget/laporan`);
+      if (!res.ok) {
+        throw new Error("Gagal mengunduh laporan Excel");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Detail_Biaya_${projectName.replace(/\s+/g, "_")}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert(err.message || "Gagal mengunduh file Excel");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <>
@@ -91,7 +129,7 @@ export default function DetailPengeluaranModal({
           className="bg-white rounded-[20px] shadow-[0px_24px_64px_rgba(20,18,14,0.30)] w-full max-w-278 max-h-[88vh] flex flex-col overflow-hidden text-left border border-[#E6E1D4] animate-in fade-in zoom-in-95 duration-150"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-7 pt-5.5 pb-4.5 border-b border-[#E6E1D4] flex items-start justify-between shrink-0 bg-white">
+          <div className="px-7 pt-5.5 pb-4.5 border-b border-[#E6E1D4] flex items-center justify-between shrink-0 bg-white">
             <div className="flex flex-col">
               <h3 className="text-[19px] font-bold text-[#14130F] leading-[28.5px] font-sans">
                 Detail Biaya
@@ -100,13 +138,30 @@ export default function DetailPengeluaranModal({
                 {projectName}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-[#2C2A24] hover:bg-[#F1EEE6] rounded-xl transition cursor-pointer"
-              aria-label="Tutup"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={isExporting}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer disabled:opacity-50"
+                title="Export seluruh rincian biaya ke file Excel"
+              >
+                {isExporting ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <FileSpreadsheet size={13} />
+                )}
+                <span>Export Excel</span>
+              </button>
+
+              <button
+                onClick={onClose}
+                className="p-1.5 text-[#2C2A24] hover:bg-[#F1EEE6] rounded-xl transition cursor-pointer ml-1"
+                aria-label="Tutup"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
@@ -141,6 +196,7 @@ export default function DetailPengeluaranModal({
                     key={pos.id || idxPos}
                     className={`flex flex-col ${!isLast ? "pb-1 border-b border-[#E6E1D4]" : ""}`}
                   >
+                    {/* MAIN row */}
                     <div
                       onClick={() =>
                         setExpandedMain((prev) => ({ ...prev, [idxPos]: !isMainOpen }))
@@ -179,6 +235,7 @@ export default function DetailPengeluaranModal({
                       </div>
                     </div>
 
+                    {/* SUB rows */}
                     {isMainOpen && (
                       <div className="flex flex-col">
                         {!hasSub ? (
@@ -240,6 +297,7 @@ export default function DetailPengeluaranModal({
                                   </div>
                                 </div>
 
+                                {/* KET rows */}
                                 {isSubOpen && (
                                   <div className="flex flex-col">
                                     {!hasKet ? (
@@ -308,6 +366,7 @@ export default function DetailPengeluaranModal({
                                               </div>
                                             </div>
 
+                                            {/* REIMB / REAL rows */}
                                             {isKetOpen && (
                                               <div className="flex flex-col">
                                                 {approvedReimbs.length === 0 ? (
