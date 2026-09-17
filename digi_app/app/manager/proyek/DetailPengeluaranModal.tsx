@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -10,9 +10,11 @@ import {
   FileSpreadsheet,
   Loader2,
   AlertCircle,
+  History,
 } from "lucide-react";
 import { formatReimbursementDate } from "@/lib/proyek-utils";
 import CompactNominal from "@/components/compact-nominal";
+import RiwayatPengajuanModal, { type PengajuanHistoryItem } from "@/components/RiwayatPengajuanModal";
 
 const APPROVED_STATUSES = ["APPROVED", "PAID", "DISBURSED"];
 const VALID_REIMB_STATUSES = ["APPROVED", "APPROVED_BY_PM", "SUBMITTED", "PAID", "DISBURSED"];
@@ -89,11 +91,43 @@ export default function DetailPengeluaranModal({
   // State Export
   const [isExporting, setIsExporting] = useState(false);
 
-  if (!showDetailBudgetModal) return null;
+  // State Riwayat Pengajuan Perubahan Alokasi
+  const [pengajuanList, setPengajuanList] = useState<PengajuanHistoryItem[]>([]);
+  const [historyTarget, setHistoryTarget] = useState<{
+    id: number;
+    nama: string;
+    kode?: string | null;
+  } | null>(null);
 
   const projectId = detailedProjectInfo?.id;
   const posAnggaran = detailedProjectInfo?.budget?.posAnggaran || [];
   const projectName = detailedProjectInfo?.nama || "Pembangunan Gudang Cikarang Fase 2";
+
+  // Fetch riwayat pengajuan perubahan alokasi proyek saat modal terbuka
+  useEffect(() => {
+    if (!showDetailBudgetModal || !projectId) return;
+
+    let isMounted = true;
+    const fetchPengajuan = async () => {
+      try {
+        const res = await fetch(`/api/proyek/${projectId}/pengajuan-anggaran`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted) {
+          setPengajuanList(data.pengajuan || []);
+        }
+      } catch {
+        // Abaikan jika error network
+      }
+    };
+
+    fetchPengajuan();
+    return () => {
+      isMounted = false;
+    };
+  }, [showDetailBudgetModal, projectId]);
+
+  if (!showDetailBudgetModal) return null;
 
   const handleExport = async () => {
     if (!projectId) return;
@@ -217,6 +251,23 @@ export default function DetailPengeluaranModal({
                         <span className="text-[13.5px] font-semibold text-[#2C2A24] truncate font-sans">
                           · {pos.kode ? `(${pos.kode}) ${pos.namaPos || pos.deskripsi || pos.nama}` : (pos.namaPos || pos.deskripsi || pos.nama)}
                         </span>
+                        {pengajuanList.some((p) => p.mainAnggaranId === pos.id) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHistoryTarget({
+                                id: pos.id,
+                                nama: pos.namaPos || pos.deskripsi || pos.nama || "",
+                                kode: pos.kode || null,
+                              });
+                            }}
+                            className="h-6 w-6 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 flex items-center justify-center transition cursor-pointer shrink-0 ml-1 shadow-2xs"
+                            title="Lihat Riwayat Perubahan Alokasi"
+                          >
+                            <History size={12} className="stroke-[2.2]" />
+                          </button>
+                        )}
                       </div>
 
                       <div className="w-36.25 shrink-0 text-center  text-[12.5px] font-semibold text-[#14130F]">
@@ -503,6 +554,16 @@ export default function DetailPengeluaranModal({
           </div>
         </div>
       </div>
+
+      {historyTarget && (
+        <RiwayatPengajuanModal
+          open={!!historyTarget}
+          mainNama={historyTarget.nama}
+          mainKode={historyTarget.kode}
+          history={pengajuanList.filter((p) => p.mainAnggaranId === historyTarget.id)}
+          onClose={() => setHistoryTarget(null)}
+        />
+      )}
     </>
   );
 }

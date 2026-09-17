@@ -30,15 +30,19 @@ export async function GET(
           budget: {
             include: {
               mainAnggaran: {
+                orderBy: { id: "asc" },
                 include: {
                   subAnggaran: {
+                    orderBy: { id: "asc" },
                     include: {
                       keterangan: {
+                        orderBy: { id: "asc" },
                         include: {
                           reimbursements: {
                             where: {
                               status: "APPROVED",
                             },
+                            orderBy: { id: "asc" },
                             include: {
                               user: true,
                             },

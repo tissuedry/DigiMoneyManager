@@ -32,7 +32,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id: pengajuanId },
       include: {
         proyek: { select: { id: true, nama: true } },
-        mainAnggaran: { select: { id: true, namaMain: true, budgetId: true } },
+        mainAnggaran: { select: { id: true, namaMain: true, budgetId: true, tipe: true } },
         pengaju: { select: { id: true, nama: true } },
       },
     });
@@ -68,27 +68,74 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           const budget = await tx.budget.findUnique({ where: { proyekId: pengajuan.proyekId } });
           if (!budget) throw new Error('Budget not found');
 
+          const mainTipe = pengajuan.mainAnggaran.tipe || 'pengeluaran';
+
           const sumSub = await tx.subAnggaran.aggregate({
             where: { mainAnggaranId: pengajuan.mainAnggaranId },
             _sum: { nominalAlokasi: true },
           });
-          const others = await tx.mainAnggaran.aggregate({
-            where: { budgetId: budget.id, id: { not: pengajuan.mainAnggaranId } },
+
+          // Hitung alokasi pos pengeluaran lain (abaikan pos pemasukan/gross profit karena gross profit akan otomatis menyerap selisihnya)
+          const otherPengeluaran = await tx.mainAnggaran.aggregate({
+            where: {
+              budgetId: budget.id,
+              id: { not: pengajuan.mainAnggaranId },
+              tipe: { not: 'pemasukan' },
+            },
             _sum: { nominalAlokasi: true },
           });
 
-          const err = computeApproveError({
-            alokasiBaru: Number(pengajuan.alokasiBaru),
-            sumLain: Number(others._sum.nominalAlokasi || 0),
-            nilaiKontrak: Number(budget.nilaiKontrak),
-            sumSub: Number(sumSub._sum.nominalAlokasi || 0),
-          });
-          if (err) throw new Error(`VALIDATION:${err}`);
+          if (mainTipe === 'pengeluaran') {
+            const err = computeApproveError({
+              alokasiBaru: Number(pengajuan.alokasiBaru),
+              sumLain: Number(otherPengeluaran._sum.nominalAlokasi || 0),
+              nilaiKontrak: Number(budget.nilaiKontrak),
+              sumSub: Number(sumSub._sum.nominalAlokasi || 0),
+            });
+            if (err) throw new Error(`VALIDATION:${err}`);
+          } else {
+            if (Number(pengajuan.alokasiBaru) < Number(sumSub._sum.nominalAlokasi || 0)) {
+              throw new Error('VALIDATION:Alokasi baru kurang dari total alokasi sub');
+            }
+          }
 
           await tx.mainAnggaran.update({
             where: { id: pengajuan.mainAnggaranId },
             data: { nominalAlokasi: pengajuan.alokasiBaru },
           });
+
+          // Jika pos pengeluaran disetujui, update targetPemasukan & Gross Profit otomatis mengikuti sisa anggaran
+          if (mainTipe === 'pengeluaran') {
+            const totalBiayaAfter = Number(otherPengeluaran._sum.nominalAlokasi || 0) + Number(pengajuan.alokasiBaru);
+            const newGrossProfit = Math.max(0, Number(budget.nilaiKontrak) - totalBiayaAfter);
+
+            await tx.budget.update({
+              where: { id: budget.id },
+              data: { targetPemasukan: newGrossProfit },
+            });
+
+            const pemasukanMain = await tx.mainAnggaran.findFirst({
+              where: { budgetId: budget.id, tipe: 'pemasukan' },
+            });
+
+            if (pemasukanMain) {
+              await tx.mainAnggaran.update({
+                where: { id: pemasukanMain.id },
+                data: { nominalAlokasi: newGrossProfit },
+              });
+
+              const pemasukanSub = await tx.subAnggaran.findFirst({
+                where: { mainAnggaranId: pemasukanMain.id, tipe: 'pemasukan' },
+              });
+              if (pemasukanSub) {
+                await tx.subAnggaran.update({
+                  where: { id: pemasukanSub.id },
+                  data: { nominalAlokasi: newGrossProfit },
+                });
+              }
+            }
+          }
+
           await tx.pengajuanAnggaran.update({
             where: { id: pengajuanId },
             data: { status: 'DISETUJUI', catatan: catatan?.trim() || null, processedAt: new Date() },

@@ -57,7 +57,7 @@ export default function RiwayatPengajuanModal({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(20,18,14,0.6)] p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div

@@ -41,13 +41,21 @@ export default function PerubahanAlokasiModal({
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const maxAlokasi = Math.max(
-    main.alokasi,
-    totalRAB - sumLain - totalAlokasiPemasukan
+  // Hitung sisa nilai proyek yang belum dialokasikan ke pos mana pun
+  const sisaNilaiProyek = Math.max(
+    0,
+    totalRAB - (sumLain + main.alokasi + totalAlokasiPemasukan)
   );
+
+  // Alokasi maksimal untuk main ini adalah alokasi saat ini ditambah seluruh sisa nilai proyek yang tersedia
+  const maxAlokasi = main.alokasi + sisaNilaiProyek;
+
+  // Alokasi minimal tidak boleh kurang dari total sub-alokasi di bawahnya
+  const minAlokasi = sumSub;
+
   const isInvalid =
-    alokasiBaru < sumSub ||
-    sumLain + totalAlokasiPemasukan + alokasiBaru > totalRAB;
+    alokasiBaru < minAlokasi ||
+    alokasiBaru > maxAlokasi;
   const isUnchanged = alokasiBaru === main.alokasi;
   
   useEffect(() => {
@@ -190,12 +198,7 @@ export default function PerubahanAlokasiModal({
           <span className="text-[11px] text-stone-500">
             Sisa Nilai Proyek:{" "}
             <span className="font-bold text-stone-700">
-              <CompactNominal
-                value={Math.max(
-                  0,
-                  totalRAB - totalAlokasiPemasukan - sumLain - main.alokasi
-                )}
-              />
+              <CompactNominal value={sisaNilaiProyek} />
             </span>
           </span>
         </div>
@@ -238,14 +241,14 @@ export default function PerubahanAlokasiModal({
           </div>
         </div>
 
-        <div className="relative w-full h-11 rounded-2xl border-2 border-stone-950 bg-[#4F9D6E] overflow-hidden flex items-center mb-4 cursor-pointer select-none">
+        <div className="relative w-full h-11 rounded-2xl border-2 border-stone-950 bg-stone-100 overflow-hidden flex items-center mb-4 cursor-pointer select-none">
           <div
             className="h-full bg-[#4F8EF7] transition-all duration-75 relative shrink-0"
             style={{ width: `${barAlokasiPct}%` }}
           />
 
           <div
-            className="absolute z-10 w-2.5 h-7 rounded-full bg-white shadow-sm border border-stone-200 pointer-events-none transition-all duration-75"
+            className="absolute z-10 w-2.5 h-7 rounded-full bg-white shadow-sm border border-stone-400 pointer-events-none transition-all duration-75"
             style={{
               left: `calc(${barAlokasiPct}% - 5px)`,
             }}
@@ -253,9 +256,9 @@ export default function PerubahanAlokasiModal({
 
           <input
             type="range"
-            min={0}
+            min={minAlokasi}
             max={maxAlokasi}
-            step={Math.max(1, Math.round(maxAlokasi / 100))}
+            step={Math.max(1, Math.round((maxAlokasi - minAlokasi) / 100) || 1000)}
             value={alokasiBaru}
             onChange={handleSliderChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
@@ -268,8 +271,8 @@ export default function PerubahanAlokasiModal({
             Alokasi Baru
           </span>
           <span className="flex items-center gap-2 text-[12px] font-bold text-stone-900">
-            <span className="w-4 h-4 rounded-md bg-[#4F9D6E] border border-stone-800 shrink-0" />
-            Sisa Main
+            <span className="w-4 h-4 rounded-md bg-stone-200 border border-stone-400 shrink-0" />
+            Sisa Tersedia Proyek
           </span>
         </div>
 

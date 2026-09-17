@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2, History } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2, History, Upload } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import RiwayatPengajuanModal, { type PengajuanHistoryItem } from "@/components/RiwayatPengajuanModal";
+import ImportAnggaranModal from "@/components/ImportAnggaranModal";
 
 import { formatReimbursementDate } from "@/lib/proyek-utils";
 import CompactNominal from "@/components/compact-nominal";
@@ -280,6 +281,7 @@ export default function DetailAnggaranModal({
   const [expandedKet, setExpandedKet] = useState<Record<number, boolean>>({});
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [pengajuanList, setPengajuanList] = useState<PengajuanHistoryItem[]>([]);
   const [historyTarget, setHistoryTarget] = useState<{
     id: number;
@@ -335,7 +337,7 @@ export default function DetailAnggaranModal({
 
   const mapped: MainPosItem[] = posAnggaran.map((main) => {
     const subPos = (main.subAnggaran || []).map((sub: any) => {
-      const keterangan = (sub.keterangan || []).map((ket: any) => {
+      const keteranganList = (sub.keterangan || []).map((ket: any) => {
         const childReimbursements = ket.reimbursements || [];
 
         const approvedReimbs = childReimbursements
@@ -352,24 +354,35 @@ export default function DetailAnggaranModal({
           ? disbursedReimbs.reduce((acc: number, r: any) => acc + (parseFloat(r.nominal) || 0), 0)
           : (parseFloat(ket.nominalRealisasi) || parseFloat(ket.realisasi) || 0);
 
+        const ketAlokasi = ket.nominalAlokasi !== undefined
+          ? parseFloat(ket.nominalAlokasi)
+          : (parseFloat(ket.alokasi) || 0);
+
         return {
           id: ket.id,
-          nama: ket.nama,
-          alokasi: ket.alokasi,
+          nama: ket.keterangan || ket.nama,
+          alokasi: ketAlokasi,
           realisasi: ketRealisasi,
           reimbs: approvedReimbs,
         };
       });
 
-      const subRealisasi = keterangan.reduce((acc: any, k: any) => acc + (Number(k.realisasi) || 0), 0);
+      const subRealisasi = keteranganList.reduce((acc: any, k: any) => acc + (Number(k.realisasi) || 0), 0);
+
+      // Alokasi sub = sum keterangan (jika ada), agar konsisten dengan tampilan keterangan di bawahnya
+      const subAlokasiFromKet = keteranganList.length > 0
+        ? keteranganList.reduce((acc: number, k: any) => acc + (Number(k.alokasi) || 0), 0)
+        : null;
+      const subAlokasiRaw = sub.nominalAlokasi !== undefined ? parseFloat(sub.nominalAlokasi) : (parseFloat(sub.alokasi) || 0);
+      const subAlokasi = subAlokasiFromKet !== null ? subAlokasiFromKet : subAlokasiRaw;
 
       return {
         id: sub.id,
         nama: sub.namaSub || sub.nama,
         kode: sub.kode || null,
-        alokasi: sub.nominalAlokasi !== undefined ? parseFloat(sub.nominalAlokasi) : (parseFloat(sub.alokasi) || 0),
+        alokasi: subAlokasi,
         realisasi: subRealisasi,
-        keterangan,
+        keterangan: keteranganList,
       };
     });
 
@@ -413,6 +426,16 @@ export default function DetailAnggaranModal({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition cursor-pointer"
+              title="Import perubahan alokasi & keterangan dari file Excel"
+            >
+              <Upload size={13} />
+              <span>Import Excel</span>
+            </button>
+
             <button
               type="button"
               onClick={handleExport}
@@ -795,6 +818,19 @@ export default function DetailAnggaranModal({
         mainKode={historyTarget.kode}
         history={pengajuanList.filter((p) => p.mainAnggaranId === historyTarget.id)}
         onClose={() => setHistoryTarget(null)}
+      />
+    )}
+
+    {isImportOpen && (
+      <ImportAnggaranModal
+        open={isImportOpen}
+        proyekId={proyekId}
+        proyekNama={proyekNama}
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={() => {
+          fetchPengajuan(proyekId);
+          if (onRefresh) onRefresh();
+        }}
       />
     )}
     </>

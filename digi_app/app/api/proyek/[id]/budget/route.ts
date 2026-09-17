@@ -69,6 +69,48 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         where: { id: numericId },
         data: { nominalAlokasi: newAlokasi },
       });
+
+      // Jika yang diubah adalah pos pengeluaran, otomatis sesuaikan pos pemasukan (Gross Profit)
+      if (main.tipe === 'pengeluaran' || !main.tipe) {
+        const budget = await prisma.budget.findUnique({
+          where: { id: main.budgetId },
+          include: {
+            mainAnggaran: true,
+          },
+        });
+
+        if (budget) {
+          const totalPengeluaranAlokasi = budget.mainAnggaran
+            .filter((m) => (m.tipe === 'pengeluaran' || !m.tipe))
+            .reduce((sum, m) => sum + (m.id === numericId ? newAlokasi : Number(m.nominalAlokasi)), 0);
+
+          const newTargetPemasukan = Math.max(0, Number(budget.nilaiKontrak) - totalPengeluaranAlokasi);
+
+          await prisma.budget.update({
+            where: { id: budget.id },
+            data: { targetPemasukan: newTargetPemasukan },
+          });
+
+          const posPemasukan = budget.mainAnggaran.filter((m) => m.tipe === 'pemasukan');
+          if (posPemasukan.length > 0) {
+            const primaryPemasukan = posPemasukan[0];
+            await prisma.mainAnggaran.update({
+              where: { id: primaryPemasukan.id },
+              data: { nominalAlokasi: newTargetPemasukan },
+            });
+
+            const primarySub = await prisma.subAnggaran.findFirst({
+              where: { mainAnggaranId: primaryPemasukan.id, tipe: 'pemasukan' },
+            });
+            if (primarySub) {
+              await prisma.subAnggaran.update({
+                where: { id: primarySub.id },
+                data: { nominalAlokasi: newTargetPemasukan },
+              });
+            }
+          }
+        }
+      }
     } else if (type === 'sub') {
       const sub = await prisma.subAnggaran.findUnique({ where: { id: numericId } });
       if (!sub) {
@@ -100,6 +142,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       updated = await prisma.keteranganAnggaran.update({
         where: { id: numericId },
         data: { nominalAlokasi: newAlokasi },
+      });
+
+      // Sync nominalAlokasi SubAnggaran parent = SUM semua keterangan-nya
+      const siblingsKet = await prisma.keteranganAnggaran.findMany({
+        where: { subAnggaranId: ket.subAnggaranId },
+      });
+      const totalAlokasiSub = siblingsKet.reduce((sum, k) => {
+        const val = k.id === numericId ? newAlokasi : Number(k.nominalAlokasi);
+        return sum + val;
+      }, 0);
+      await prisma.subAnggaran.update({
+        where: { id: ket.subAnggaranId },
+        data: { nominalAlokasi: totalAlokasiSub },
       });
     } else {
       return NextResponse.json({ message: 'type harus main, sub, atau ket' }, { status: 400 });
@@ -204,13 +259,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, 0);
     }
 
-    const parsedTargetPemasukan = targetPemasukan !== undefined && targetPemasukan !== null
-      ? parseNumber(targetPemasukan)
-      : (rawPosPemasukan ? sumPemasukan : (existingBudget ? Number(existingBudget.targetPemasukan) : sumPemasukan));
-
     const parsedNilaiKontrak = nilaiKontrak !== undefined && nilaiKontrak !== null
       ? parseNumber(nilaiKontrak)
       : (existingBudget && Number(existingBudget.nilaiKontrak) > 0 ? Number(existingBudget.nilaiKontrak) : (sumPengeluaran + sumPemasukan));
+
+    // Pendapatan otomatis mengikuti sisa anggaran (Gross Profit = Nilai Kontrak - Total Biaya)
+    // jika rawPosPengeluaran disediakan dan tidak ada rawPosPemasukan eksplisit.
+    const autoGrossProfit = Math.max(0, parsedNilaiKontrak - sumPengeluaran);
+
+    const parsedTargetPemasukan = targetPemasukan !== undefined && targetPemasukan !== null
+      ? parseNumber(targetPemasukan)
+      : (rawPosPemasukan 
+          ? sumPemasukan 
+          : (rawPosPengeluaran 
+              ? autoGrossProfit 
+              : (existingBudget ? Number(existingBudget.targetPemasukan) : sumPemasukan)));
 
     const result = await prisma.$transaction(async (tx) => {
       if (existingBudget) {
@@ -328,6 +391,49 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               });
             }
           }
+        } else if (rawPosPengeluaran && Array.isArray(rawPosPengeluaran)) {
+          // Pendapatan otomatis mengikuti perubahan pos biaya (Gross Profit = Nilai Kontrak - Total Biaya)
+          const existingPemasukan = existingBudget.mainAnggaran.filter((m) => m.tipe === 'pemasukan');
+          if (existingPemasukan.length > 0) {
+            // Update pos pemasukan utama (pertama) dengan sisa gross profit
+            const primaryPemasukan = existingPemasukan[0];
+            await tx.mainAnggaran.update({
+              where: { id: primaryPemasukan.id },
+              data: { nominalAlokasi: parsedTargetPemasukan },
+            });
+
+            // Update juga subAnggaran terkait jika ada
+            const primarySub = await tx.subAnggaran.findFirst({
+              where: { mainAnggaranId: primaryPemasukan.id, tipe: 'pemasukan' },
+            });
+            if (primarySub) {
+              await tx.subAnggaran.update({
+                where: { id: primarySub.id },
+                data: { nominalAlokasi: parsedTargetPemasukan },
+              });
+            }
+          } else if (parsedTargetPemasukan > 0) {
+            // Buat pos pemasukan default jika belum ada
+            await tx.mainAnggaran.create({
+              data: {
+                budgetId: existingBudget.id,
+                namaMain: 'Gross Profit',
+                nominalAlokasi: parsedTargetPemasukan,
+                nominalTerpakai: 0,
+                tipe: 'pemasukan',
+                subAnggaran: {
+                  create: [
+                    {
+                      namaSub: 'Gross Profit',
+                      nominalAlokasi: parsedTargetPemasukan,
+                      nominalTerpakai: 0,
+                      tipe: 'pemasukan',
+                    },
+                  ],
+                },
+              },
+            });
+          }
         }
 
         const totalPengeluaran = Number(existingBudget.totalPengeluaran);
@@ -387,6 +493,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               });
             }
           }
+        } else if (rawPosPengeluaran && Array.isArray(rawPosPengeluaran) && parsedTargetPemasukan > 0) {
+          createMainData.push({
+            namaMain: 'Gross Profit',
+            nominalAlokasi: parsedTargetPemasukan,
+            nominalTerpakai: 0,
+            tipe: 'pemasukan',
+            subAnggaran: {
+              create: [
+                {
+                  namaSub: 'Gross Profit',
+                  nominalAlokasi: parsedTargetPemasukan,
+                  nominalTerpakai: 0,
+                  tipe: 'pemasukan',
+                },
+              ],
+            },
+          });
         }
 
         const newBudget = await tx.budget.create({

@@ -81,18 +81,17 @@ export default function AlokasiPengeluaranForm({
 
   const totalNilaiProyekVal = ribuanToNumber(rabTotal) || 0;
 
-  const totalPemasukanExisting = detailedProjectInfo?.budget?.targetPemasukan !== undefined
-    ? Number(detailedProjectInfo.budget.targetPemasukan)
-    : (detailedProjectInfo?.alokasiPemasukan?.reduce((acc: number, p: any) => acc + (Number(p.alokasi || p.nominalAlokasi || p.nominal) || 0), 0) || 0);
-
   const totalPengeluaranAllocated = posAnggaranList.reduce((acc, pos) => acc + (ribuanToNumber(pos.nominalAlokasi) || 0), 0);
 
-  const totalAllAllocated = totalPengeluaranAllocated + totalPemasukanExisting;
+  // Pendapatan otomatis mengikuti alokasi pos biaya (Gross Profit = Nilai Proyek - Total Biaya)
+  const totalPemasukanAuto = Math.max(0, totalNilaiProyekVal - totalPengeluaranAllocated);
+
+  const totalAllAllocated = totalPengeluaranAllocated + totalPemasukanAuto;
   const sisaBelumDialokasikan = totalNilaiProyekVal - totalAllAllocated;
-  const isOverbudget = totalAllAllocated > totalNilaiProyekVal && totalNilaiProyekVal > 0;
+  const isOverbudget = totalPengeluaranAllocated > totalNilaiProyekVal && totalNilaiProyekVal > 0;
 
   const pctPengeluaran = totalNilaiProyekVal > 0 ? (totalPengeluaranAllocated / totalNilaiProyekVal) * 100 : 0;
-  const pctPemasukan = totalNilaiProyekVal > 0 ? (totalPemasukanExisting / totalNilaiProyekVal) * 100 : 0;
+  const pctPemasukan = totalNilaiProyekVal > 0 ? (totalPemasukanAuto / totalNilaiProyekVal) * 100 : 0;
 
   const selectedPengeluaran = posAnggaranList.map((p) => p.deskripsi).filter(Boolean);
   const hasDuplicatePengeluaran = new Set(selectedPengeluaran).size !== selectedPengeluaran.length;
@@ -202,7 +201,7 @@ export default function AlokasiPengeluaranForm({
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
                     style={{ width: `${Math.min(pctPemasukan, 100)}%` }}
-                    title={`Pemasukan (COA): ${formatFullRupiah(totalPemasukanExisting)}`}
+                    title={`Pendapatan (Gross Profit): ${formatFullRupiah(totalPemasukanAuto)}`}
                   />
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
@@ -223,9 +222,9 @@ export default function AlokasiPengeluaranForm({
                       Pendapatan
                     </span>
                     <span className=" font-bold text-stone-800 text-[12px] mt-0.5">
-                      {<CompactNominal value={totalPemasukanExisting} compactThreshold={1_000_000_000_000} />}
+                      {<CompactNominal value={totalPemasukanAuto} compactThreshold={1_000_000_000_000} />}
                     </span>
-                    <span className="text-[10px] text-stone-400 font-medium">Sudah Terisi</span>
+                    <span className="text-[10px] text-emerald-600 font-medium">Otomatis Terhitung</span>
                   </div>
 
                   <div className="flex flex-col text-right">

@@ -49,10 +49,13 @@ export async function GET(
             include: {
               mainAnggaran: {
                 where: { tipe: "pengeluaran" },
+                orderBy: { id: "asc" },
                 include: {
                   subAnggaran: {
+                    orderBy: { id: "asc" },
                     include: {
                       keterangan: {
+                        orderBy: { id: "asc" },
                         include: {
                           reimbursements: {
                             where: { status: { in: ["APPROVED", "PAID", "DISBURSED"] } },
@@ -430,6 +433,9 @@ export async function POST(
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
+    const catatanInput = formData.get("catatan") as string | null;
+    const rawUserId = req.headers.get("x-user-id");
+    const userIdNum = parseInt(rawUserId || "0", 10);
 
     if (!file) {
       return NextResponse.json({ message: "File Excel (.xlsx) wajib diunggah" }, { status: 400 });
@@ -455,7 +461,6 @@ export async function POST(
       where: { proyekId },
       include: {
         mainAnggaran: {
-          where: { tipe: "pengeluaran" },
           include: {
             subAnggaran: {
               include: {
@@ -777,9 +782,27 @@ export async function POST(
         }
 
         if (subGroup.isAnchorOnly && !isAnchor) {
-          // Ganti anchor dengan baris rincian keterangan yang sesungguhnya
-          subGroup.kets = [{ ket: item.ket, alokasi: item.alokasi }];
-          subGroup.isAnchorOnly = false;
+          // Ada keterangan baru yang berbeda dari nama sub.
+          // Cek apakah keterangan anchor (nama = nama sub) sebenarnya ada di DB.
+          // Jika ada → keterangan anchor NYATA, keep keduanya.
+          // Jika tidak ada → anchor hanya placeholder dari sub-tanpa-ket, ganti saja.
+          const anchorName = subGroup.kets[0]?.ket?.toLowerCase() || "";
+          const existingSub = budget.mainAnggaran
+            .flatMap((m) => m.subAnggaran)
+            .find((s) => s.namaSub.trim().toLowerCase() === subKey);
+          const anchorExistsInDb = existingSub?.keterangan?.some(
+            (k) => k.keterangan.trim().toLowerCase() === anchorName
+          );
+
+          if (anchorExistsInDb) {
+            // Keterangan anchor NYATA ada di DB → tambahkan keterangan baru, jangan hapus anchor
+            subGroup.kets.push({ ket: item.ket, alokasi: item.alokasi });
+            subGroup.isAnchorOnly = false;
+          } else {
+            // Anchor hanya placeholder (sub tanpa keterangan sebelumnya) → ganti
+            subGroup.kets = [{ ket: item.ket, alokasi: item.alokasi }];
+            subGroup.isAnchorOnly = false;
+          }
         } else if (!isAnchor || subGroup.isAnchorOnly) {
           subGroup.kets.push({
             ket: item.ket,
@@ -837,6 +860,50 @@ export async function POST(
       }
     }
 
+    // Validasi Total Nilai Proyek: Alokasi total biaya pengeluaran + pemasukan tidak boleh melebihi nilai kontrak / RAB proyek
+    const nilaiKontrakTotal = Number(budget.nilaiKontrak || 0);
+    if (nilaiKontrakTotal > 0) {
+      // 1. Total alokasi pemasukan yang sudah ada
+      const totalPemasukanExisting = budget.mainAnggaran
+        .filter((m) => m.tipe === "pemasukan")
+        .reduce((sum, m) => sum + Number(m.nominalAlokasi || 0), 0);
+
+      // 2. Alokasi pengeluaran yang tidak ada di dalam file import (tetap memakai nilai saat ini)
+      const existingPengeluaran = budget.mainAnggaran.filter(
+        (m) => !m.tipe || m.tipe === "pengeluaran"
+      );
+      const unimportedPengeluaranTotal = existingPengeluaran
+        .filter((m) => !mainMap.has(m.namaMain.trim().toLowerCase()))
+        .reduce((sum, m) => sum + Number(m.nominalAlokasi || 0), 0);
+
+      // 3. Total alokasi pengeluaran baru dari file Excel yang diimport
+      let importedPengeluaranTotal = 0;
+      for (const [, mVal] of mainMap.entries()) {
+        let sumOfSubs = 0;
+        for (const [, sVal] of mVal.subs.entries()) {
+          const sumKets = sVal.kets.reduce((sum, k) => sum + k.alokasi, 0);
+          sumOfSubs += Math.max(sVal.subAlokasi || 0, sumKets);
+        }
+        importedPengeluaranTotal += Math.max(mVal.mainAlokasi || 0, sumOfSubs);
+      }
+
+      const totalSemuaAlokasiBaru =
+        importedPengeluaranTotal + unimportedPengeluaranTotal + totalPemasukanExisting;
+
+      if (totalSemuaAlokasiBaru > nilaiKontrakTotal) {
+        const batasBiayaMaksimal = Math.max(0, nilaiKontrakTotal - totalPemasukanExisting);
+        return NextResponse.json(
+          {
+            message: `Total alokasi biaya pengeluaran hasil import (Rp ${(importedPengeluaranTotal + unimportedPengeluaranTotal).toLocaleString("id-ID")}) melebihi batas distribusi nilai proyek (maksimal Rp ${batasBiayaMaksimal.toLocaleString("id-ID")}, Nilai Kontrak: Rp ${nilaiKontrakTotal.toLocaleString("id-ID")}). Alokasi mentok dan tidak dapat melebihi distribusi biaya nilai proyek.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // List pengajuan alokasi main yang terbentuk
+    const pengajuanCreatedList: { mainNama: string; alokasiLama: number; alokasiBaru: number }[] = [];
+
     // Eksekusi pembaruan dalam database transaction
     await prisma.$transaction(async (tx) => {
       // Ambil master data untuk update CoA jika diisi
@@ -862,11 +929,46 @@ export async function POST(
         });
 
         if (mainAnggaran) {
-          mainAnggaran = await tx.mainAnggaran.update({
-            where: { id: mainAnggaran.id },
-            data: { nominalAlokasi: totalMainAlokasi },
-          });
+          const alokasiLama = Number(mainAnggaran.nominalAlokasi);
+          // Jika nominal alokasi Main pos berubah di Excel:
+          // Sesuai aturan, JANGAN langsung ubah alokasi Main, melainkan ajukan ke Direktur untuk di-ACC
+          if (totalMainAlokasi !== alokasiLama) {
+            // Cek apakah sudah ada pengajuan PENDING untuk main ini
+            const existingPending = await tx.pengajuanAnggaran.findFirst({
+              where: {
+                mainAnggaranId: mainAnggaran.id,
+                status: "PENDING",
+              },
+            });
+
+            if (!existingPending) {
+              const deskripsiPengajuan =
+                catatanInput && catatanInput.trim()
+                  ? catatanInput.trim()
+                  : "Pengajuan perubahan alokasi dari Import Excel";
+
+              await tx.pengajuanAnggaran.create({
+                data: {
+                  proyekId,
+                  pengajuId: userIdNum || 1,
+                  mainAnggaranId: mainAnggaran.id,
+                  judul: `Perubahan alokasi anggaran: ${mainAnggaran.namaMain} (Import Excel)`,
+                  deskripsi: deskripsiPengajuan,
+                  alokasiLama: mainAnggaran.nominalAlokasi,
+                  alokasiBaru: totalMainAlokasi,
+                },
+              });
+
+              pengajuanCreatedList.push({
+                mainNama: mainAnggaran.namaMain,
+                alokasiLama,
+                alokasiBaru: totalMainAlokasi,
+              });
+            }
+          }
         } else {
+          // Jika Main pos belum ada sebelumnya di database (Main baru dari Excel)
+          // Buat record Main pos baru
           mainAnggaran = await tx.mainAnggaran.create({
             data: {
               budgetId: budget.id,
@@ -955,11 +1057,40 @@ export async function POST(
       }
     });
 
+    // Kirim notifikasi ke Direktur & Superadmin jika ada pengajuan alokasi yang dibuat
+    if (pengajuanCreatedList.length > 0) {
+      const reviewers = await prisma.user.findMany({
+        where: { role: { in: ["Direktur / Manajemen", "Superadmin", "superadmin"] } },
+        select: { id: true },
+      });
+
+      if (reviewers.length > 0) {
+        const notifData: { userId: number; tipe: string; pesan: string }[] = [];
+        for (const p of pengajuanCreatedList) {
+          for (const r of reviewers) {
+            notifData.push({
+              userId: r.id,
+              tipe: "PENGAJUAN_ANGGARAN",
+              pesan: `Pengajuan alokasi baru dari Import Excel: "${p.mainNama}" (Rp ${p.alokasiBaru.toLocaleString("id-ID")}) perlu direview`,
+            });
+          }
+        }
+        await prisma.notification.createMany({ data: notifData });
+      }
+    }
+
     clearCache();
 
+    let message = "Data detail biaya proyek berhasil diimpor dan diperbarui.";
+    if (pengajuanCreatedList.length > 0) {
+      const mainNames = pengajuanCreatedList.map((p) => p.mainNama).join(", ");
+      message += ` Catatan: Terdapat ${pengajuanCreatedList.length} perubahan alokasi Main Pos (${mainNames}) yang telah diajukan ke Direktur dan menunggu persetujuan (ACC).`;
+    }
+
     return NextResponse.json({
-      message: "Data detail biaya proyek berhasil diimpor dan diperbarui.",
+      message,
       totalProcessed: parsedItems.length,
+      pengajuanCreated: pengajuanCreatedList,
     });
   } catch (error: any) {
     console.error("Import Excel error:", error);

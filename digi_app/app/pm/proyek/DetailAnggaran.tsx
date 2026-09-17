@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2, History } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings, X, Check, Clock, FileSpreadsheet, Loader2, History, Upload } from "lucide-react";
 import EditAlokasiModal, { type EditTarget } from "./EditAlokasi";
 import PerubahanAlokasiModal from "./PerubahanAlokasiModal";
 import RiwayatPengajuanModal, { type PengajuanHistoryItem } from "@/components/RiwayatPengajuanModal";
+import ImportAnggaranModal from "@/components/ImportAnggaranModal";
 import CompactNominal from "@/components/compact-nominal";
 import { formatReimbursementDate } from "@/lib/proyek-utils";
 
@@ -101,6 +102,7 @@ export default function DetailAnggaranModal({
     alokasi: number;
   } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const handleExport = async () => {
     if (!proyekId) return;
@@ -213,11 +215,18 @@ export default function DetailAnggaranModal({
           0
         );
 
+        // Alokasi sub = sum keterangan (jika ada), agar konsisten dengan tampilan keterangan di bawahnya
+        const subAlokasiFromKet = keterangan.length > 0
+          ? keterangan.reduce((acc: number, k: any) => acc + (Number(k.alokasi) || 0), 0)
+          : null;
+        const subAlokasiRaw = parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0;
+        const subAlokasi = subAlokasiFromKet !== null ? subAlokasiFromKet : subAlokasiRaw;
+
         return {
           id: sub.id,
           nama: sub.namaSub || sub.nama,
           kode: sub.kode || null,
-          alokasi: parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0,
+          alokasi: subAlokasi,
           realisasi: subRealisasi,
           keterangan,
         };
@@ -279,6 +288,16 @@ export default function DetailAnggaranModal({
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsImportOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition cursor-pointer"
+                title="Import perubahan alokasi & keterangan dari file Excel"
+              >
+                <Upload size={13} />
+                <span>Import Excel</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleExport}
@@ -731,10 +750,11 @@ export default function DetailAnggaranModal({
           main={perubahanTarget}
           totalRAB={totalRAB || mapped.reduce((s, m) => s + (m.alokasi || 0), 0)}
           sumLain={
-            mapped.reduce((s, m) => s + (m.alokasi || 0), 0) +
-            totalAlokasiPemasukan -
-            (perubahanTarget.alokasi || 0)
+            mapped
+              .filter((m) => m.id !== perubahanTarget.id)
+              .reduce((s, m) => s + (m.alokasi || 0), 0)
           }
+          totalAlokasiPemasukan={totalAlokasiPemasukan}
           sumSub={
             mapped
               .find((m) => m.id === perubahanTarget.id)
@@ -757,6 +777,19 @@ export default function DetailAnggaranModal({
           mainKode={historyTarget.kode}
           history={pengajuanList.filter((p) => p.mainAnggaranId === historyTarget.id)}
           onClose={() => setHistoryTarget(null)}
+        />
+      )}
+
+      {isImportOpen && (
+        <ImportAnggaranModal
+          open={isImportOpen}
+          proyekId={proyekId}
+          proyekNama={proyekNama}
+          onClose={() => setIsImportOpen(false)}
+          onSuccess={() => {
+            fetchPengajuan(proyekId);
+            if (onRefresh) onRefresh();
+          }}
         />
       )}
     </>
