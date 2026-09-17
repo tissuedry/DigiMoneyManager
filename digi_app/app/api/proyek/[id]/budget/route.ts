@@ -112,7 +112,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }
       }
     } else if (type === 'sub') {
-      const sub = await prisma.subAnggaran.findUnique({ where: { id: numericId } });
+      const sub = await prisma.subAnggaran.findUnique({
+        where: { id: numericId },
+        include: { mainAnggaran: true },
+      });
       if (!sub) {
         return NextResponse.json({ message: 'Pos sub tidak ditemukan' }, { status: 404 });
       }
@@ -123,12 +126,57 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { status: 400 }
         );
       }
+
+      // Validasi: Total alokasi seluruh sub-pos di dalam main pos tidak boleh melebihi alokasi Main pos
+      if (sub.mainAnggaran) {
+        const otherSubs = await prisma.subAnggaran.aggregate({
+          where: {
+            mainAnggaranId: sub.mainAnggaranId,
+            id: { not: numericId },
+          },
+          _sum: { nominalAlokasi: true },
+        });
+        const totalSubAll = (Number(otherSubs._sum.nominalAlokasi) || 0) + newAlokasi;
+        const mainLimit = Number(sub.mainAnggaran.nominalAlokasi);
+        if (totalSubAll > mainLimit) {
+          return NextResponse.json(
+            {
+              message: `Total alokasi sub-pos (Rp ${totalSubAll.toLocaleString('id-ID')}) melebihi alokasi Main pos "${sub.mainAnggaran.namaMain}" (Rp ${mainLimit.toLocaleString('id-ID')})`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Jika sub memiliki 1 anak keterangan bawaan (nama sama dengan sub), ikutkan nilainya.
+      // Jika keterangan memiliki nama/rincian tersendiri, hanya sesuaikan jika alokasi keterangan melebihi alokasi sub baru.
+      const childKets = await prisma.keteranganAnggaran.findMany({
+        where: { subAnggaranId: numericId },
+      });
+      if (childKets.length === 1) {
+        const singleKet = childKets[0];
+        const isAnchor = singleKet.keterangan.trim().toLowerCase() === sub.namaSub.trim().toLowerCase();
+        if (isAnchor || Number(singleKet.nominalAlokasi) > newAlokasi) {
+          await prisma.keteranganAnggaran.update({
+            where: { id: singleKet.id },
+            data: { nominalAlokasi: newAlokasi },
+          });
+        }
+      }
+
       updated = await prisma.subAnggaran.update({
         where: { id: numericId },
         data: { nominalAlokasi: newAlokasi },
       });
     } else if (type === 'ket') {
-      const ket = await prisma.keteranganAnggaran.findUnique({ where: { id: numericId } });
+      const ket = await prisma.keteranganAnggaran.findUnique({
+        where: { id: numericId },
+        include: {
+          subAnggaran: {
+            include: { mainAnggaran: true },
+          },
+        },
+      });
       if (!ket) {
         return NextResponse.json({ message: 'Pos keterangan tidak ditemukan' }, { status: 404 });
       }
@@ -139,12 +187,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { status: 400 }
         );
       }
-      updated = await prisma.keteranganAnggaran.update({
-        where: { id: numericId },
-        data: { nominalAlokasi: newAlokasi },
-      });
 
-      // Sync nominalAlokasi SubAnggaran parent = SUM semua keterangan-nya
+      // Hitung total alokasi sub jika ket ini diupdate
       const siblingsKet = await prisma.keteranganAnggaran.findMany({
         where: { subAnggaranId: ket.subAnggaranId },
       });
@@ -152,6 +196,34 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         const val = k.id === numericId ? newAlokasi : Number(k.nominalAlokasi);
         return sum + val;
       }, 0);
+
+      // Validasi: Total alokasi seluruh sub-pos di dalam main pos tidak boleh melebihi alokasi Main pos
+      if (ket.subAnggaran?.mainAnggaran) {
+        const otherSubs = await prisma.subAnggaran.aggregate({
+          where: {
+            mainAnggaranId: ket.subAnggaran.mainAnggaranId,
+            id: { not: ket.subAnggaranId },
+          },
+          _sum: { nominalAlokasi: true },
+        });
+        const totalSubAll = (Number(otherSubs._sum.nominalAlokasi) || 0) + totalAlokasiSub;
+        const mainLimit = Number(ket.subAnggaran.mainAnggaran.nominalAlokasi);
+        if (totalSubAll > mainLimit) {
+          return NextResponse.json(
+            {
+              message: `Total alokasi sub-pos setelah penyesuaian (Rp ${totalSubAll.toLocaleString('id-ID')}) melebihi alokasi Main pos "${ket.subAnggaran.mainAnggaran.namaMain}" (Rp ${mainLimit.toLocaleString('id-ID')})`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      updated = await prisma.keteranganAnggaran.update({
+        where: { id: numericId },
+        data: { nominalAlokasi: newAlokasi },
+      });
+
+      // Sync nominalAlokasi SubAnggaran parent = SUM semua keterangan-nya
       await prisma.subAnggaran.update({
         where: { id: ket.subAnggaranId },
         data: { nominalAlokasi: totalAlokasiSub },

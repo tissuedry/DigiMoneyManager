@@ -134,7 +134,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ pengajuan: list });
+    const formattedList = list.map((item) => {
+      let displayDeskripsi = item.deskripsi;
+      if (displayDeskripsi) {
+        try {
+          const parsed = JSON.parse(displayDeskripsi);
+          if (parsed && typeof parsed.catatan === 'string') {
+            displayDeskripsi = parsed.catatan;
+          }
+        } catch {
+          // Tetap gunakan displayDeskripsi apa adanya
+        }
+      }
+      return {
+        ...item,
+        deskripsi: displayDeskripsi,
+      };
+    });
+
+    return NextResponse.json({ pengajuan: formattedList });
   } catch (error) {
     console.error('Get pengajuan list error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

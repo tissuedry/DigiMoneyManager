@@ -687,16 +687,8 @@ export async function POST(
           }
 
           if (childKets.length > 0) {
-            // Memiliki rincian keterangan
-            const sumChildKets = childKets.reduce((acc, k) => acc + k.alokasi, 0);
-            const adjustedKets = childKets.map((k) => ({ name: k.name, alokasi: k.alokasi }));
-            // Bila sub pos memiliki 1 keterangan saja dan alokasi sub diedit lebih besar dari alokasi ket,
-            // sesuaikan keterangan tunggal tersebut agar sinkron dengan alokasi sub pos
-            if (childKets.length === 1 && item.alokasi > sumChildKets) {
-              adjustedKets[0].alokasi = item.alokasi;
-            }
-
-            for (const ketRow of adjustedKets) {
+            // Gunakan alokasi keterangan sesuai persis dengan apa yang diinput user di file Excel
+            for (const ketRow of childKets) {
               parsedItems.push({
                 kode: item.kode,
                 main: parentMain.name,
@@ -928,11 +920,14 @@ export async function POST(
           },
         });
 
+        let isMainPendingApproval = false;
+
         if (mainAnggaran) {
           const alokasiLama = Number(mainAnggaran.nominalAlokasi);
           // Jika nominal alokasi Main pos berubah di Excel:
           // Sesuai aturan, JANGAN langsung ubah alokasi Main, melainkan ajukan ke Direktur untuk di-ACC
           if (totalMainAlokasi !== alokasiLama) {
+            isMainPendingApproval = true;
             // Cek apakah sudah ada pengajuan PENDING untuk main ini
             const existingPending = await tx.pengajuanAnggaran.findFirst({
               where: {
@@ -941,19 +936,35 @@ export async function POST(
               },
             });
 
-            if (!existingPending) {
-              const deskripsiPengajuan =
-                catatanInput && catatanInput.trim()
-                  ? catatanInput.trim()
-                  : "Pengajuan perubahan alokasi dari Import Excel";
+            // Siapkan payload pending children (sub dan keterangan) dari file Excel
+            const pendingChildren = Array.from(mVal.subs.values()).map((s) => ({
+              subName: s.subName,
+              subAlokasi: s.subAlokasi || 0,
+              kode: s.kode || null,
+              kets: s.kets.map((k) => ({
+                ket: k.ket,
+                alokasi: k.alokasi || 0,
+              })),
+            }));
 
+            const rawCatatan =
+              catatanInput && catatanInput.trim()
+                ? catatanInput.trim()
+                : "Pengajuan perubahan alokasi dari Import Excel";
+
+            const deskripsiJson = JSON.stringify({
+              catatan: rawCatatan,
+              pendingChildren,
+            });
+
+            if (!existingPending) {
               await tx.pengajuanAnggaran.create({
                 data: {
                   proyekId,
                   pengajuId: userIdNum || 1,
                   mainAnggaranId: mainAnggaran.id,
                   judul: `Perubahan alokasi anggaran: ${mainAnggaran.namaMain} (Import Excel)`,
-                  deskripsi: deskripsiPengajuan,
+                  deskripsi: deskripsiJson,
                   alokasiLama: mainAnggaran.nominalAlokasi,
                   alokasiBaru: totalMainAlokasi,
                 },
@@ -963,6 +974,15 @@ export async function POST(
                 mainNama: mainAnggaran.namaMain,
                 alokasiLama,
                 alokasiBaru: totalMainAlokasi,
+              });
+            } else {
+              // Jika sudah ada pending sebelumnya, perbarui deskripsi payload dan alokasi barunya
+              await tx.pengajuanAnggaran.update({
+                where: { id: existingPending.id },
+                data: {
+                  deskripsi: deskripsiJson,
+                  alokasiBaru: totalMainAlokasi,
+                },
               });
             }
           }
@@ -984,6 +1004,21 @@ export async function POST(
         const matchedMasterMain = masterMains.find(
           (mm) => mm.nama.toUpperCase().trim() === mVal.mainName.toUpperCase().trim()
         );
+
+        // Jika alokasi Main pos berubah dan sedang menunggu approval Direktur:
+        // SUB dan KETERANGAN di bawah Main pos ini JANGAN diupdate ke database dulu!
+        // Mereka akan otomatis diupdate saat pengajuan DISETUJUI oleh Direktur.
+        // Jika DITOLAK, Main dan Sub/Ket tetap pada nilai aslinya.
+        if (isMainPendingApproval) {
+          continue;
+        }
+
+        // Jika Main pos tidak berubah (atau baru dibuat), validasi bahwa total sub tidak melebihi alokasi Main pos
+        if (sumOfSubs > Number(mainAnggaran.nominalAlokasi)) {
+          throw new Error(
+            `Total alokasi sub-pos (Rp ${sumOfSubs.toLocaleString("id-ID")}) melebihi alokasi Main pos "${mainAnggaran.namaMain}" (Rp ${Number(mainAnggaran.nominalAlokasi).toLocaleString("id-ID")})`
+          );
+        }
 
         // Proses SubAnggaran
         for (const [, sVal] of mVal.subs.entries()) {

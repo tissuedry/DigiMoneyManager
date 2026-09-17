@@ -299,8 +299,13 @@ export default function DetailPengeluaranModal({
                             const subKey = `${idxPos}-${idxSub}`;
                             const isSubOpen = expandedSub[subKey] ?? true;
 
-                            const alokasiSub =
-                              parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0;
+                            const sumKetAlokasi = (sub.keterangan || []).reduce(
+                              (acc: number, k: any) =>
+                                acc + (parseFloat(k.nominalAlokasi) || parseFloat(k.alokasi) || 0),
+                              0
+                            );
+                            const rawSubAlokasi = parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0;
+                            const alokasiSub = Math.max(rawSubAlokasi, sumKetAlokasi);
                             const terpakaiSub = calculateSubRealisasi(sub);
                             const sisaSub = alokasiSub - terpakaiSub;
 

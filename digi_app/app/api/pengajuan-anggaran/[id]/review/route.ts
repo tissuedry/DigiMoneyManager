@@ -85,16 +85,43 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             _sum: { nominalAlokasi: true },
           });
 
+          // Cek apakah ada payload pendingChildren (dari Import Excel) di dalam deskripsi
+          let pendingChildren: Array<{
+            subName: string;
+            subAlokasi: number;
+            kode?: string | null;
+            kets: Array<{ ket: string; alokasi: number }>;
+          }> | null = null;
+
+          if (pengajuan.deskripsi) {
+            try {
+              const parsed = JSON.parse(pengajuan.deskripsi);
+              if (parsed && Array.isArray(parsed.pendingChildren)) {
+                pendingChildren = parsed.pendingChildren;
+              }
+            } catch {
+              // Bukan JSON, abaikan
+            }
+          }
+
+          let effectiveSumSub = Number(sumSub._sum.nominalAlokasi || 0);
+          if (pendingChildren && pendingChildren.length > 0) {
+            effectiveSumSub = pendingChildren.reduce((sum, s) => {
+              const sumK = s.kets.reduce((sk, k) => sk + Number(k.alokasi || 0), 0);
+              return sum + Math.max(Number(s.subAlokasi || 0), sumK);
+            }, 0);
+          }
+
           if (mainTipe === 'pengeluaran') {
             const err = computeApproveError({
               alokasiBaru: Number(pengajuan.alokasiBaru),
               sumLain: Number(otherPengeluaran._sum.nominalAlokasi || 0),
               nilaiKontrak: Number(budget.nilaiKontrak),
-              sumSub: Number(sumSub._sum.nominalAlokasi || 0),
+              sumSub: effectiveSumSub,
             });
             if (err) throw new Error(`VALIDATION:${err}`);
           } else {
-            if (Number(pengajuan.alokasiBaru) < Number(sumSub._sum.nominalAlokasi || 0)) {
+            if (Number(pengajuan.alokasiBaru) < effectiveSumSub) {
               throw new Error('VALIDATION:Alokasi baru kurang dari total alokasi sub');
             }
           }
@@ -103,6 +130,64 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             where: { id: pengajuan.mainAnggaranId },
             data: { nominalAlokasi: pengajuan.alokasiBaru },
           });
+
+          // Terapkan update pendingChildren jika ada
+          if (pendingChildren && pendingChildren.length > 0) {
+            for (const sVal of pendingChildren) {
+              const targetSubName = sVal.subName;
+              const sumKets = sVal.kets.reduce((sum, k) => sum + Number(k.alokasi || 0), 0);
+              const totalSubAlokasi = Math.max(Number(sVal.subAlokasi || 0), sumKets);
+
+              let subAnggaran = await tx.subAnggaran.findFirst({
+                where: {
+                  mainAnggaranId: pengajuan.mainAnggaranId,
+                  namaSub: { equals: targetSubName, mode: 'insensitive' },
+                },
+              });
+
+              if (subAnggaran) {
+                subAnggaran = await tx.subAnggaran.update({
+                  where: { id: subAnggaran.id },
+                  data: { nominalAlokasi: totalSubAlokasi },
+                });
+              } else {
+                subAnggaran = await tx.subAnggaran.create({
+                  data: {
+                    mainAnggaranId: pengajuan.mainAnggaranId,
+                    namaSub: targetSubName,
+                    nominalAlokasi: totalSubAlokasi,
+                    nominalTerpakai: 0,
+                    tipe: 'pengeluaran',
+                  },
+                });
+              }
+
+              for (const kItem of sVal.kets) {
+                let ketAnggaran = await tx.keteranganAnggaran.findFirst({
+                  where: {
+                    subAnggaranId: subAnggaran.id,
+                    keterangan: { equals: kItem.ket, mode: 'insensitive' },
+                  },
+                });
+
+                if (ketAnggaran) {
+                  await tx.keteranganAnggaran.update({
+                    where: { id: ketAnggaran.id },
+                    data: { nominalAlokasi: Number(kItem.alokasi || 0) },
+                  });
+                } else {
+                  await tx.keteranganAnggaran.create({
+                    data: {
+                      subAnggaranId: subAnggaran.id,
+                      keterangan: kItem.ket,
+                      nominalAlokasi: Number(kItem.alokasi || 0),
+                      nominalRealisasi: 0,
+                    },
+                  });
+                }
+              }
+            }
+          }
 
           // Jika pos pengeluaran disetujui, update targetPemasukan & Gross Profit otomatis mengikuti sisa anggaran
           if (mainTipe === 'pengeluaran') {

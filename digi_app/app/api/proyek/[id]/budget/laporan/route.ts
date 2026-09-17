@@ -401,7 +401,11 @@ export async function GET(
       main.subAnggaran.forEach((sub, sIdx) => {
         const subNum = `${mainNum}.${String(sIdx + 1).padStart(2, "0")}`;
         let totalRealisasiSub = 0;
-        const totalAlokasiSub = Number(sub.nominalAlokasi) || 0;
+        const sumKetAlokasi = (sub.keterangan || []).reduce(
+          (acc: number, k: any) => acc + (Number(k.nominalAlokasi) || 0),
+          0
+        );
+        const totalAlokasiSub = Math.max(Number(sub.nominalAlokasi) || 0, sumKetAlokasi);
 
         const matchedSub = matchedMain?.MasterSub?.find(
           (ms) => ms.nama.toUpperCase().trim() === (sub.namaSub || "").toUpperCase().trim()

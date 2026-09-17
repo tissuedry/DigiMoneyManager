@@ -215,12 +215,12 @@ export default function DetailAnggaranModal({
           0
         );
 
-        // Alokasi sub = sum keterangan (jika ada), agar konsisten dengan tampilan keterangan di bawahnya
+        // Alokasi sub = nominal sub yang dialokasikan, atau sum keterangan jika keterangan lebih besar
         const subAlokasiFromKet = keterangan.length > 0
           ? keterangan.reduce((acc: number, k: any) => acc + (Number(k.alokasi) || 0), 0)
           : null;
         const subAlokasiRaw = parseFloat(sub.nominalAlokasi) || parseFloat(sub.alokasi) || 0;
-        const subAlokasi = subAlokasiFromKet !== null ? subAlokasiFromKet : subAlokasiRaw;
+        const subAlokasi = Math.max(subAlokasiRaw, subAlokasiFromKet ?? 0);
 
         return {
           id: sub.id,
